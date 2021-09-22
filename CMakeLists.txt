@@ -12,9 +12,9 @@ add_library(
         zero
         STATIC
         src/log.cpp
-        src/time/date.cpp
+        src/chrono/date.cpp
         src/shell/shell.cpp
-        src/strings/str.cpp
+        src/strings/string.cpp
         src/atomic/event.cpp
         src/filesystem/path.cpp
 )

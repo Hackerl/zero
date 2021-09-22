@@ -4,7 +4,7 @@
 #include <string>
 
 namespace zero {
-    namespace time {
+    namespace chrono {
         std::string getTimeString();
     }
 }

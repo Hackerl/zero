@@ -4,8 +4,8 @@
 #include "thread.h"
 #include "interface.h"
 #include "singleton.h"
-#include "strings/str.h"
-#include "time/date.h"
+#include "strings/string.h"
+#include "chrono/date.h"
 #include "atomic/event.h"
 #include "atomic/circular_buffer.h"
 #include <fstream>
@@ -25,8 +25,6 @@ namespace zero {
     class ILogProvider: public Interface {
     public:
         virtual void write(const std::string &message) = 0;
-
-        ~ILogProvider() override = default;
     };
 
     class CConsoleProvider: public ILogProvider {
@@ -154,7 +152,7 @@ namespace zero {
 
 #define LOG_FMT                             "%s | %-5s | %20s:%-4d] "
 #define LOG_TAG(level)                      zero::LOG_TAGS[level]
-#define LOG_ARGS(level)                     zero::time::getTimeString().c_str(), LOG_TAG(level), SOURCE, __LINE__
+#define LOG_ARGS(level)                     zero::chrono::getTimeString().c_str(), LOG_TAG(level), SOURCE, __LINE__
 
 #undef LOG_DEBUG
 #undef LOG_INFO

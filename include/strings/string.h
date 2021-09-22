@@ -1,5 +1,5 @@
-#ifndef ZERO_STR_H
-#define ZERO_STR_H
+#ifndef ZERO_STRING_H
+#define ZERO_STRING_H
 
 #include <vector>
 #include <sstream>
@@ -76,4 +76,4 @@ namespace zero {
     }
 }
 
-#endif //ZERO_STR_H
+#endif //ZERO_STRING_H

@@ -1,4 +1,4 @@
-#include <strings/str.h>
+#include <strings/string.h>
 #include <algorithm>
 
 bool zero::strings::containsIC(const std::string &str, const std::string &substr) {

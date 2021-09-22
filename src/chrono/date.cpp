@@ -1,7 +1,7 @@
-#include <time/date.h>
+#include <chrono/date.h>
 #include <ctime>
 
-std::string zero::time::getTimeString() {
+std::string zero::chrono::getTimeString() {
     tm m = {};
     time_t t = {};
 
