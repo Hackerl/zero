@@ -1,7 +1,7 @@
-#include <log.h>
+#include <zero/log.h>
 #include <unistd.h>
-#include <filesystem/path.h>
-#include <shell/shell.h>
+#include <zero/filesystem/path.h>
+#include <zero/shell/shell.h>
 
 void zero::CConsoleProvider::write(const std::string &message) {
     fwrite(message.c_str(), 1, message.length(), stderr);
