@@ -1,8 +1,8 @@
-#include <zero/shell/shell.h>
+#include <zero/sh/shell.h>
 #include <glob.h>
 #include <wordexp.h>
 
-bool zero::shell::match(const std::string &pattern, std::list<std::string> &paths) {
+bool zero::sh::match(const std::string &pattern, std::list<std::string> &paths) {
     glob_t g = {};
 
     if (glob(pattern.c_str(), 0, nullptr, &g) != 0) {
@@ -19,7 +19,7 @@ bool zero::shell::match(const std::string &pattern, std::list<std::string> &path
     return true;
 }
 
-bool zero::shell::expansion(const std::string &str, std::list<std::string> &words) {
+bool zero::sh::expansion(const std::string &str, std::list<std::string> &words) {
     wordexp_t p = {};
 
     if (wordexp(str.c_str(), &p, WRDE_NOCMD) != 0) {

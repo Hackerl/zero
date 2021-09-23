@@ -1,7 +1,7 @@
 #include <zero/log.h>
 #include <unistd.h>
 #include <zero/filesystem/path.h>
-#include <zero/shell/shell.h>
+#include <zero/sh/shell.h>
 
 void zero::CConsoleProvider::write(const std::string &message) {
     fwrite(message.c_str(), 1, message.length(), stderr);
@@ -31,7 +31,7 @@ void zero::CFileProvider::clean() {
     std::list<std::string> logs;
     std::string pattern = strings::format("%s.%d.*.log", mName.c_str(), getpid());
 
-    if (!shell::match(filesystem::path::join(mDirectory, pattern), logs))
+    if (!sh::match(filesystem::path::join(mDirectory, pattern), logs))
         return;
 
     unsigned long size = logs.size();

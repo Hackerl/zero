@@ -13,8 +13,9 @@ add_library(
         STATIC
         src/log.cpp
         src/chrono/date.cpp
-        src/shell/shell.cpp
+        src/sh/shell.cpp
         src/strings/string.cpp
+        src/proc/process.cpp
         src/atomic/event.cpp
         src/filesystem/path.cpp
         src/filesystem/directory.cpp
