@@ -16,7 +16,10 @@ namespace zero {
             std::string getApplicationDirectory();
             std::string getApplicationPath();
             std::string getApplicationName();
-            std::string getAbsolutePath(const char *path);
+            std::string getAbsolutePath(const std::string &path);
+
+            bool isDirectory(const std::string &path);
+            bool isRegularFile(const std::string &path);
 
             std::string join(const std::string &path);
 
