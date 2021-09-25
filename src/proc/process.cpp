@@ -34,9 +34,7 @@ bool zero::proc::getProcessMappings(pid_t pid, std::list<CProcessMapping> &proce
     std::string line;
 
     while (std::getline(stream, line)) {
-        line = strings::trimExtraSpace(line);
-
-        std::vector<std::string> fields = strings::split(line, ' ');
+        std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), ' ');
 
         if (fields.size() < PROCESS_MAPPING_FIELDS)
             continue;

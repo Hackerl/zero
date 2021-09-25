@@ -99,7 +99,7 @@ namespace zero {
         return std::make_shared<Value<T>>(args...);
     }
 
-    struct COption {
+    struct COptional {
         std::string name;
         std::string shortName;
         std::string desc;
@@ -107,20 +107,67 @@ namespace zero {
         bool flag = false;
     };
 
+    struct CPositional {
+        std::string name;
+        std::string desc;
+        std::shared_ptr<IValue> value;
+    };
+
     class CArgParser {
     public:
-        explicit CArgParser(const std::list<COption> &options) {
-            mOptions = options;
+        CArgParser() {
+            addOptional({"help", "?", "print help message", value<bool>(), true});
+        }
+
+    public:
+        void add(const CPositional &positional) {
+            mPositionals.push_back(positional);
+        }
+
+        void addOptional(const COptional &optional) {
+            mOptionals.push_back(optional);
         }
 
     public:
         template<typename T>
         T get(const std::string &name) {
-            T v;
-            COption option = findByName(name);
+            auto it = std::find_if(
+                    mPositionals.begin(),
+                    mPositionals.end(),
+                    [=](const auto &positional) {
+                        return positional.name == name;
+                    }
+            );
 
-            if (!option.value->get(typeid(T).name(), &v)) {
-                error(strings::format("get option failed: %s", name.c_str()));
+            if (it == mPositionals.end())
+                error(strings::format("can't find positional argument: %s", name.c_str()));
+
+            T v;
+
+            if (!it->value->get(typeid(T).name(), &v)) {
+                error(strings::format("get positional argument failed: %s", name.c_str()));
+            }
+
+            return v;
+        }
+
+        template<typename T>
+        T getOptional(const std::string &name) {
+            auto it = std::find_if(
+                    mOptionals.begin(),
+                    mOptionals.end(),
+                    [=](const auto &optional) {
+                        return optional.name == name;
+                    }
+            );
+
+            if (it == mOptionals.end())
+                error(strings::format("can't find optional argument: %s", name.c_str()));
+
+            T v;
+
+            if (!it->value->get(typeid(T).name(), &v)) {
+                error(strings::format("get optional argument failed: %s", name.c_str()));
             }
 
             return v;
@@ -128,13 +175,13 @@ namespace zero {
 
     public:
         void parse(int argc, char **argv) {
-            for (const auto &option : mOptions) {
+            for (const auto &optional : mOptionals) {
                 auto it = std::find_if(
                         argv + 1,
                         argv + argc,
                         [&](const auto &argument) {
-                            return (!option.name.empty() && strings::startsWith(argument, "--" + option.name)) ||
-                                   (!option.shortName.empty() && strings::startsWith(argument, "-" + option.shortName));
+                            return (!optional.name.empty() && strings::startsWith(argument, "--" + optional.name)) ||
+                                   (!optional.shortName.empty() && strings::startsWith(argument, "-" + optional.shortName));
                         }
                 );
 
@@ -142,14 +189,14 @@ namespace zero {
                     continue;
                 }
 
-                if (option.flag) {
-                    option.value->set("1");
+                if (optional.flag) {
+                    optional.value->set("1");
                     continue;
                 }
 
                 if (!strings::startsWith(*it, "--")) {
-                    if (!option.value->set(*(++it)))
-                        error(strings::format("option invalid: %s", *it));
+                    if (!*(++it) || !optional.value->set(*it))
+                        error(strings::format("optional argument invalid: %s", optional.name.c_str()));
 
                     continue;
                 }
@@ -157,32 +204,47 @@ namespace zero {
                 char *p = strchr(*it, '=');
 
                 if (!p)
-                    error(strings::format("invalid option: %s", *it));
+                    error(strings::format("optional argument invalid: %s", *it));
 
-                if (!option.value->set(p + 1))
-                    error(strings::format("option invalid: %s", *it));
+                if (!optional.value->set(p + 1))
+                    error(strings::format("optional argument invalid: %s", *it));
+            }
+
+            if (getOptional<bool>("help"))
+                help();
+
+            if (mPositionals.empty())
+                return;
+
+            char **p = argv + 1;
+
+            for (const auto &positional : mPositionals) {
+                while (strings::startsWith(*p, "-")) {
+                    if (p + 1 == argv + argc)
+                        error(strings::format("need positional argument: %s", positional.name.c_str()));
+
+                    if (*p[1] == '-') {
+                        p++;
+                        continue;
+                    }
+
+                    bool flag = std::any_of(
+                            mOptionals.begin(),
+                            mOptionals.end(),
+                            [=](const auto &optional) {
+                                return optional.shortName == *p + 1 && optional.flag;
+                            });
+
+                    p += flag ? 1 : 2;
+                }
+
+                if (!positional.value->set(*p))
+                    error(strings::format("positional argument invalid: %s", *p));
             }
         }
 
     private:
-        COption findByName(const std::string &name) {
-            auto it = std::find_if(
-                    mOptions.begin(),
-                    mOptions.end(),
-                    [=](const auto &option) {
-                        return option.name == name;
-                    }
-            );
-
-            if (it == mOptions.end())
-                error(strings::format("can't find option: %s", name.c_str()));
-
-            return *it;
-        }
-
-    private:
         void help() {
-            std::cout << "usage: ./" << filesystem::path::getApplicationName() << " [options]" << std::endl;
             exit(0);
         }
 
@@ -192,7 +254,8 @@ namespace zero {
         }
 
     private:
-        std::list<COption> mOptions;
+        std::list<COptional> mOptionals;
+        std::list<CPositional> mPositionals;
     };
 }
 

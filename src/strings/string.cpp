@@ -62,12 +62,12 @@ std::string zero::strings::rtrim(std::string str) {
 std::string zero::strings::trimExtraSpace(std::string str) {
     str.erase(
             std::unique(
-                    std::begin(str),
-                    std::end(str),
+                    str.begin(),
+                    str.end(),
                     [](unsigned char a, unsigned char b) {
                         return std::isspace(a) && std::isspace(b);
                     }),
-            std::end(str)
+            str.end()
     );
 
     return str;
