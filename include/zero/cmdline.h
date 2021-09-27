@@ -11,6 +11,7 @@
 #include <iostream>
 #include <cstring>
 #include <cxxabi.h>
+#include <iomanip>
 
 namespace zero {
     bool parseValue(const std::string &str, std::string &value) {
@@ -113,9 +114,9 @@ namespace zero {
         std::shared_ptr<IValue> value;
     };
 
-    class CArgParser {
+    class CCmdline {
     public:
-        CArgParser() {
+        CCmdline() {
             addOptional({"help", "?", "print help message", value<bool>(), true});
         }
 
@@ -153,6 +154,76 @@ namespace zero {
 
         template<typename T>
         T getOptional(const std::string &name) {
+            T v;
+            COptional optional = findByName(name);
+
+            if (!optional.value->get(typeid(T).name(), &v)) {
+                error(strings::format("get optional argument failed: %s", name.c_str()));
+            }
+
+            return v;
+        }
+
+    public:
+        void parse(int argc, char **argv) {
+            auto it = mPositionals.begin();
+
+            for (int i = 1; i < argc; i++) {
+                if (!strings::startsWith(argv[i], "-")) {
+                    if (it == mPositionals.end())
+                        error(strings::format("positional argument unexpected: %s", argv[i]));
+
+                    if (!it++->value->set(argv[i]))
+                        error(strings::format("positional argument invalid: %s", argv[i]));
+
+                    continue;
+                }
+
+                if (argv[i][1] != '-') {
+                    COptional optional = findByShortName(argv[i] + 1);
+
+                    if (optional.flag) {
+                        optional.value->set("1");
+                        continue;
+                    }
+
+                    if (!argv[i + 1] || !optional.value->set(argv[++i]))
+                        error(strings::format("optional short argument invalid: %s", argv[i]));
+
+                    continue;
+                }
+
+                char *p = strchr(argv[i], '=');
+                unsigned long n = p ? p - argv[i] : strlen(argv[i]);
+
+                COptional optional = findByName({argv[i] + 2, n - 2});
+
+                if (optional.flag) {
+                    optional.value->set("1");
+                    continue;
+                }
+
+                if (!p)
+                    error(strings::format("optional argument need value: %s", argv[i]));
+
+                if (!optional.value->set(p + 1))
+                    error(strings::format("optional argument invalid: %s", argv[i]));
+            }
+
+            if (getOptional<bool>("help")) {
+                help();
+                exit(0);
+            }
+
+            if (it != mPositionals.end())
+                error("positional arguments not enough");
+        }
+
+    private:
+        COptional findByName(const std::string &name) {
+            if (name.empty())
+                error("require option name");
+
             auto it = std::find_if(
                     mOptionals.begin(),
                     mOptionals.end(),
@@ -164,93 +235,63 @@ namespace zero {
             if (it == mOptionals.end())
                 error(strings::format("can't find optional argument: %s", name.c_str()));
 
-            T v;
-
-            if (!it->value->get(typeid(T).name(), &v)) {
-                error(strings::format("get optional argument failed: %s", name.c_str()));
-            }
-
-            return v;
+            return *it;
         }
 
-    public:
-        void parse(int argc, char **argv) {
-            for (const auto &optional : mOptionals) {
-                auto it = std::find_if(
-                        argv + 1,
-                        argv + argc,
-                        [&](const auto &argument) {
-                            return (!optional.name.empty() && strings::startsWith(argument, "--" + optional.name)) ||
-                                   (!optional.shortName.empty() && strings::startsWith(argument, "-" + optional.shortName));
-                        }
-                );
+        COptional findByShortName(const std::string &shortName) {
+            if (shortName.empty())
+                error("require option name");
 
-                if (it == argv + argc) {
-                    continue;
-                }
-
-                if (optional.flag) {
-                    optional.value->set("1");
-                    continue;
-                }
-
-                if (!strings::startsWith(*it, "--")) {
-                    if (!*(++it) || !optional.value->set(*it))
-                        error(strings::format("optional argument invalid: %s", optional.name.c_str()));
-
-                    continue;
-                }
-
-                char *p = strchr(*it, '=');
-
-                if (!p)
-                    error(strings::format("optional argument invalid: %s", *it));
-
-                if (!optional.value->set(p + 1))
-                    error(strings::format("optional argument invalid: %s", *it));
-            }
-
-            if (getOptional<bool>("help"))
-                help();
-
-            if (mPositionals.empty())
-                return;
-
-            char **p = argv + 1;
-
-            for (const auto &positional : mPositionals) {
-                while (strings::startsWith(*p, "-")) {
-                    if (p + 1 == argv + argc)
-                        error(strings::format("need positional argument: %s", positional.name.c_str()));
-
-                    if (*p[1] == '-') {
-                        p++;
-                        continue;
+            auto it = std::find_if(
+                    mOptionals.begin(),
+                    mOptionals.end(),
+                    [=](const auto &optional) {
+                        return optional.shortName == shortName;
                     }
+            );
 
-                    bool flag = std::any_of(
-                            mOptionals.begin(),
-                            mOptionals.end(),
-                            [=](const auto &optional) {
-                                return optional.shortName == *p + 1 && optional.flag;
-                            });
+            if (it == mOptionals.end())
+                error(strings::format("can't find optional short argument: %s", shortName.c_str()));
 
-                    p += flag ? 1 : 2;
-                }
-
-                if (!positional.value->set(*p))
-                    error(strings::format("positional argument invalid: %s", *p));
-            }
+            return *it;
         }
 
     private:
         void help() {
-            exit(0);
+            std::list<std::string> positionals;
+
+            std::transform(
+                    mPositionals.begin(),
+                    mPositionals.end(),
+                    std::back_inserter(positionals),
+                    [](const auto &p) {
+                        return strings::format("%s(%s)", p.name.c_str(), p.value->getType().c_str());
+                    }
+            );
+
+            std::cout.flags(std::ios::left);
+
+            std::cout << "usage: " << filesystem::path::getApplicationName() << " [options] " << strings::join(positionals, " ") << std::endl;
+            std::cout << "positional:" << std::endl;
+
+            for (const auto &positional : mPositionals) {
+                std::cout << std::setw(20) << "  " + positional.name;
+                std::cout << positional.desc << " (" + positional.value->getType() + ")" << std::endl;
+            }
+
+            std::cout << "optional:" << std::endl;
+
+            for (const auto &optional : mOptionals) {
+                std::cout << std::setw(6) << (optional.shortName.empty() ? "" : strings::format("  -%s,", optional.shortName.c_str()));
+                std::cout << std::setw(14) << "--" + optional.name;
+                std::cout << optional.desc << (optional.flag ? "": " (" + optional.value->getType() + ")") << std::endl;
+            }
         }
 
         void error(const std::string &message) {
-            std::cout << message << std::endl;
+            std::cout << "error:" << std::endl << "  " << message << std::endl;
             help();
+            exit(1);
         }
 
     private:
