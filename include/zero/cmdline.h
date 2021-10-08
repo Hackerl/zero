@@ -102,7 +102,7 @@ namespace zero {
 
     struct COptional {
         std::string name;
-        std::string shortName;
+        char shortName;
         std::string desc;
         std::shared_ptr<IValue> value;
         bool flag = false;
@@ -117,7 +117,7 @@ namespace zero {
     class CCmdline {
     public:
         CCmdline() {
-            addOptional({"help", "?", "print help message", value<bool>(), true});
+            addOptional({"help", '?', "print help message", value<bool>(), true});
         }
 
     public:
@@ -180,7 +180,7 @@ namespace zero {
                 }
 
                 if (argv[i][1] != '-') {
-                    COptional optional = findByShortName(argv[i] + 1);
+                    COptional optional = findByShortName(argv[i][1]);
 
                     if (optional.flag) {
                         optional.value->set("1");
@@ -238,8 +238,8 @@ namespace zero {
             return *it;
         }
 
-        COptional findByShortName(const std::string &shortName) {
-            if (shortName.empty())
+        COptional findByShortName(char shortName) {
+            if (!shortName)
                 error("require option name");
 
             auto it = std::find_if(
@@ -251,7 +251,7 @@ namespace zero {
             );
 
             if (it == mOptionals.end())
-                error(strings::format("can't find optional short argument: %s", shortName.c_str()));
+                error(strings::format("can't find optional short argument: %c", shortName));
 
             return *it;
         }
@@ -269,27 +269,38 @@ namespace zero {
                     }
             );
 
-            std::cout.flags(std::ios::left);
+            std::cout << strings::format(
+                    "usage: %s [options] %s",
+                    filesystem::path::getApplicationName().c_str(),
+                    strings::join(positionals, " ").c_str()
+            ) << std::endl;
 
-            std::cout << "usage: " << filesystem::path::getApplicationName() << " [options] " << strings::join(positionals, " ") << std::endl;
             std::cout << "positional:" << std::endl;
 
             for (const auto &positional : mPositionals) {
-                std::cout << std::setw(20) << "  " + positional.name;
-                std::cout << positional.desc << " (" + positional.value->getType() + ")" << std::endl;
+                std::cout << strings::format(
+                        "\t%-20s%s(%s)",
+                        positional.name.c_str(),
+                        positional.desc.c_str(),
+                        positional.value->getType().c_str()
+                ) << std::endl;
             }
 
             std::cout << "optional:" << std::endl;
 
             for (const auto &optional : mOptionals) {
-                std::cout << std::setw(6) << (optional.shortName.empty() ? "" : strings::format("  -%s,", optional.shortName.c_str()));
-                std::cout << std::setw(14) << "--" + optional.name;
-                std::cout << optional.desc << (optional.flag ? "": " (" + optional.value->getType() + ")") << std::endl;
+                std::cout << strings::format(
+                        optional.shortName ? "\t-%c, --%-14s%s%s" : "\t%-4c--%-14s%s%s",
+                        optional.shortName ? optional.shortName : ' ',
+                        optional.name.c_str(),
+                        optional.desc.c_str(),
+                        optional.flag ? "" : strings::format("(%s)", optional.value->getType().c_str()).c_str()
+                ) << std::endl;
             }
         }
 
         void error(const std::string &message) {
-            std::cout << "error:" << std::endl << "  " << message << std::endl;
+            std::cout << strings::format("error:\n\t%s", message.c_str()) << std::endl;
             help();
             exit(1);
         }
