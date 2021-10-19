@@ -165,13 +165,24 @@ namespace zero {
         }
 
     public:
+        void footer(const std::string &message) {
+            mFooter = message;
+        }
+
+        std::vector<std::string> rest() {
+            return mRest;
+        }
+
+    public:
         void parse(int argc, char **argv) {
             auto it = mPositionals.begin();
 
             for (int i = 1; i < argc; i++) {
                 if (!strings::startsWith(argv[i], "-")) {
-                    if (it == mPositionals.end())
-                        error(strings::format("positional argument unexpected: %s", argv[i]));
+                    if (it == mPositionals.end()) {
+                        mRest.emplace_back(argv[i]);
+                        continue;
+                    }
 
                     if (!it++->value->set(argv[i]))
                         error(strings::format("positional argument invalid: %s", argv[i]));
@@ -270,9 +281,10 @@ namespace zero {
             );
 
             std::cout << strings::format(
-                    "usage: %s [options] %s",
+                    "usage: %s [options] %s ... %s ...",
                     filesystem::path::getApplicationName().c_str(),
-                    strings::join(positionals, " ").c_str()
+                    strings::join(positionals, " ").c_str(),
+                    mFooter.empty() ? "extra" : mFooter.c_str()
             ) << std::endl;
 
             std::cout << "positional:" << std::endl;
@@ -304,6 +316,10 @@ namespace zero {
             help();
             exit(1);
         }
+
+    private:
+        std::string mFooter;
+        std::vector<std::string> mRest;
 
     private:
         std::list<COptional> mOptionals;
