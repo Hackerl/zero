@@ -18,6 +18,8 @@ namespace zero {
 
         bool getImageBase(pid_t pid, const std::string &path, CProcessMapping &processMapping);
         bool getProcessMappings(pid_t pid, std::list<CProcessMapping> &processMappings);
+
+        bool getThreads(pid_t pid, std::list<pid_t> &threads);
     }
 }
 

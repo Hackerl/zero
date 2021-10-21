@@ -1,8 +1,10 @@
 #include <zero/proc/process.h>
 #include <zero/strings/string.h>
 #include <zero/filesystem/path.h>
+#include <zero/filesystem/directory.h>
 #include <fstream>
 #include <algorithm>
+#include <cstring>
 
 constexpr auto PROCESS_MAPPING_FIELDS = 5;
 
@@ -58,6 +60,21 @@ bool zero::proc::getProcessMappings(pid_t pid, std::list<CProcessMapping> &proce
             processMapping.pathname = fields[5];
 
         processMappings.push_back(processMapping);
+    }
+
+    return true;
+}
+
+bool zero::proc::getThreads(pid_t pid, std::list<pid_t> &threads) {
+    std::string path = filesystem::path::join("/proc", std::to_string(pid), "task");
+
+    for (const auto &entry : filesystem::CDirectory({path, 1})) {
+        int thread = 0;
+
+        if (!strings::toNumber(basename(entry.path.c_str()), thread))
+            return false;
+
+        threads.emplace_back(thread);
     }
 
     return true;

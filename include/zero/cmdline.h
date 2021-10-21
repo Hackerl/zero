@@ -24,7 +24,7 @@ namespace zero {
         return strings::toNumber(str, value);
     }
 
-    template <typename T>
+    template<typename T>
     bool parseValue(const std::string &str, std::vector<T> &value) {
         for (const auto &token : strings::split(str, ',')) {
             T v;
@@ -38,7 +38,7 @@ namespace zero {
         return true;
     }
 
-    template <typename T>
+    template<typename T, std::enable_if_t<std::is_arithmetic<T>::value> * = nullptr>
     std::string demangle(const std::string &type) {
         int status = 0;
         std::unique_ptr<char> buffer(abi::__cxa_demangle(type.c_str(), nullptr, nullptr, &status));
@@ -49,9 +49,14 @@ namespace zero {
         return {buffer.get()};
     }
 
-    template <>
-    std::string demangle<std::string>(const std::string &type) {
+    template<typename T, std::enable_if_t<std::is_same<T, std::string>::value> * = nullptr>
+    std::string demangle(const std::string &type) {
         return "string";
+    }
+
+    template<typename T, std::enable_if_t<std::is_same<T, std::vector<typename T::value_type, typename T::allocator_type>>::value> * = nullptr>
+    std::string demangle(const std::string &type) {
+        return strings::format("%s[]", demangle<typename T::value_type>(typeid(typename T::value_type).name()).c_str());
     }
 
     class IValue : public Interface {
@@ -95,7 +100,7 @@ namespace zero {
         std::string mType;
     };
 
-    template <typename T, typename... Args>
+    template<typename T, typename... Args>
     std::shared_ptr<IValue> value(Args... args) {
         return std::make_shared<Value<T>>(args...);
     }
