@@ -17,6 +17,8 @@ namespace zero {
             std::string getApplicationPath();
             std::string getApplicationName();
             std::string getAbsolutePath(const std::string &path);
+            std::string getBaseName(const std::string &path);
+            std::string getDirectoryName(const std::string &path);
 
             bool isDirectory(const std::string &path);
             bool isRegularFile(const std::string &path);

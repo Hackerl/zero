@@ -71,7 +71,7 @@ bool zero::proc::getThreads(pid_t pid, std::list<pid_t> &threads) {
     for (const auto &entry : filesystem::CDirectory({path, 1})) {
         int thread = 0;
 
-        if (!strings::toNumber(basename(entry.path.c_str()), thread))
+        if (!strings::toNumber(zero::filesystem::path::getBaseName(entry.path), thread))
             return false;
 
         threads.emplace_back(thread);

@@ -41,7 +41,7 @@ namespace zero {
     template<typename T, std::enable_if_t<std::is_arithmetic<T>::value> * = nullptr>
     std::string demangle(const std::string &type) {
         int status = 0;
-        std::unique_ptr<char> buffer(abi::__cxa_demangle(type.c_str(), nullptr, nullptr, &status));
+        std::unique_ptr<char, typeof(std::free) *> buffer(abi::__cxa_demangle(type.c_str(), nullptr, nullptr, &status), std::free);
 
         if (status != 0 || !buffer)
             return "unknown";

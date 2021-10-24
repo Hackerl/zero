@@ -3,6 +3,8 @@
 #include <libgen.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <memory>
+#include <cstring>
 
 std::string zero::filesystem::path::getFileDescriptorPath(int fd) {
     char buffer[PATH_MAX + 1] = {};
@@ -14,12 +16,7 @@ std::string zero::filesystem::path::getFileDescriptorPath(int fd) {
 }
 
 std::string zero::filesystem::path::getApplicationDirectory() {
-    char buffer[PATH_MAX + 1] = {};
-
-    if (readlink("/proc/self/exe", buffer, PATH_MAX) == -1)
-        return "";
-
-    return {dirname(buffer)};
+    return getDirectoryName(getApplicationPath());
 }
 
 std::string zero::filesystem::path::getApplicationPath() {
@@ -32,12 +29,7 @@ std::string zero::filesystem::path::getApplicationPath() {
 }
 
 std::string zero::filesystem::path::getApplicationName() {
-    char buffer[PATH_MAX + 1] = {};
-
-    if (readlink("/proc/self/exe", buffer, PATH_MAX) == -1)
-        return "";
-
-    return {basename(buffer)};
+    return getBaseName(getApplicationPath());
 }
 
 std::string zero::filesystem::path::getAbsolutePath(const std::string &path) {
@@ -47,6 +39,14 @@ std::string zero::filesystem::path::getAbsolutePath(const std::string &path) {
         return "";
 
     return {buffer};
+}
+
+std::string zero::filesystem::path::getBaseName(const std::string &path) {
+    return basename(std::unique_ptr<char, typeof(std::free) *>(strdup(path.c_str()), std::free).get());
+}
+
+std::string zero::filesystem::path::getDirectoryName(const std::string &path) {
+    return dirname(std::unique_ptr<char, typeof(std::free) *>(strdup(path.c_str()), std::free).get());
 }
 
 bool zero::filesystem::path::isDirectory(const std::string &path) {
