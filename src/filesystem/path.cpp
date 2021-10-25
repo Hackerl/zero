@@ -42,11 +42,11 @@ std::string zero::filesystem::path::getAbsolutePath(const std::string &path) {
 }
 
 std::string zero::filesystem::path::getBaseName(const std::string &path) {
-    return basename(std::unique_ptr<char, typeof(std::free) *>(strdup(path.c_str()), std::free).get());
+    return basename(std::unique_ptr<char, decltype(free) *>(strdup(path.c_str()), free).get());
 }
 
 std::string zero::filesystem::path::getDirectoryName(const std::string &path) {
-    return dirname(std::unique_ptr<char, typeof(std::free) *>(strdup(path.c_str()), std::free).get());
+    return dirname(std::unique_ptr<char, decltype(free) *>(strdup(path.c_str()), free).get());
 }
 
 bool zero::filesystem::path::isDirectory(const std::string &path) {
