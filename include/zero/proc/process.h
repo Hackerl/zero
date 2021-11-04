@@ -10,7 +10,7 @@ namespace zero {
         constexpr auto WRITE_PERMISSION = 0x2;
         constexpr auto EXECUTE_PERMISSION = 0x4;
         constexpr auto SHARED_PERMISSION = 0x8;
-        constexpr auto PRIVATE_PERMISSION = 0x16;
+        constexpr auto PRIVATE_PERMISSION = 0x10;
 
         struct CProcessMapping {
             uintptr_t start;
