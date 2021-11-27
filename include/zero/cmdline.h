@@ -10,8 +10,11 @@
 #include <algorithm>
 #include <iostream>
 #include <cstring>
-#include <cxxabi.h>
 #include <iomanip>
+
+#ifdef __GNUC__
+#include <cxxabi.h>
+#endif
 
 namespace zero {
     bool parseValue(const std::string &str, std::string &value) {
@@ -40,6 +43,9 @@ namespace zero {
 
     template<typename T, std::enable_if_t<std::is_arithmetic<T>::value> * = nullptr>
     std::string demangle(const std::string &type) {
+#ifdef _MSC_VER
+        return type;
+#elif __GNUC__
         int status = 0;
         std::unique_ptr<char, decltype(free) *> buffer(abi::__cxa_demangle(type.c_str(), nullptr, nullptr, &status), free);
 
@@ -47,6 +53,7 @@ namespace zero {
             return "unknown";
 
         return {buffer.get()};
+#endif
     }
 
     template<typename T, std::enable_if_t<std::is_same<T, std::string>::value> * = nullptr>
