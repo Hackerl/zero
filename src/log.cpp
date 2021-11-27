@@ -1,17 +1,26 @@
 #include <zero/log.h>
-#include <unistd.h>
-#include <zero/filesystem/path.h>
 #include <zero/sh/shell.h>
+
+#ifdef __linux__
+#include <unistd.h>
+#endif
 
 void zero::CConsoleProvider::write(const std::string &message) {
     fwrite(message.c_str(), 1, message.length(), stderr);
 }
 
-zero::CFileProvider::CFileProvider(const char *name, unsigned long limit, const char *directory, unsigned long remain) {
+zero::CFileProvider::CFileProvider(const char *name, const char *directory, unsigned long limit, unsigned long remain) {
     mName = name;
     mLimit = limit;
-    mDirectory = directory;
     mRemain = remain;
+
+    mDirectory = directory ? directory : zero::filesystem::path::getTemporaryDirectory();
+
+#ifndef _WIN32
+    mPID = getpid();
+#else
+    mPID = _getpid();
+#endif
 
     mFile.open(getLogPath());
 }
@@ -20,7 +29,7 @@ std::string zero::CFileProvider::getLogPath() {
     std::string filename = strings::format(
             "%s.%d.%ld.log",
             mName.c_str(),
-            getpid(),
+            mPID,
             std::time(nullptr)
     );
 
@@ -29,7 +38,7 @@ std::string zero::CFileProvider::getLogPath() {
 
 void zero::CFileProvider::clean() {
     std::list<std::string> logs;
-    std::string pattern = strings::format("%s.%d.*.log", mName.c_str(), getpid());
+    std::string pattern = strings::format("%s.%d.*.log", mName.c_str(), mPID);
 
     if (!sh::match(filesystem::path::join(mDirectory, pattern), logs))
         return;

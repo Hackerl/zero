@@ -6,8 +6,11 @@
 
 namespace zero {
     namespace sh {
-        bool match(const std::string &pattern, std::list<std::string> &paths);
+#ifdef __linux__
         bool expansion(const std::string &str, std::list<std::string> &words);
+#endif
+
+        bool match(const std::string &pattern, std::list<std::string> &paths);
     }
 }
 

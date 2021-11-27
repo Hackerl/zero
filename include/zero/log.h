@@ -8,9 +8,15 @@
 #include "zero/chrono/date.h"
 #include "zero/atomic/event.h"
 #include "zero/atomic/circular_buffer.h"
+#include "zero/filesystem/path.h"
 #include <fstream>
 #include <list>
 #include <cstring>
+
+#undef ERROR
+#undef WARNING
+#undef INFO
+#undef DEBUG
 
 namespace zero {
     constexpr const char * LOG_TAGS[] = {"ERROR", "WARN", "INFO", "DEBUG"};
@@ -36,8 +42,8 @@ namespace zero {
     public:
         explicit CFileProvider(
                 const char *name,
+                const char *directory = nullptr,
                 unsigned long limit = 10 * 1024 * 1024,
-                const char *directory = "/tmp",
                 unsigned long remain = 10);
 
     private:
@@ -58,6 +64,7 @@ namespace zero {
         unsigned long mRemain;
 
     private:
+        int mPID;
         std::ofstream mFile;
     };
 
@@ -145,10 +152,10 @@ namespace zero {
 }
 
 #define INIT_CONSOLE_LOG(level)             zero::Singleton<zero::CLogger>::getInstance()->addProvider(level, new zero::CConsoleProvider())
-#define INIT_FILE_LOG(level, name, args...) zero::Singleton<zero::CLogger>::getInstance()->addProvider(level, new zero::AsyncProvider<zero::CFileProvider>(name, ## args))
+#define INIT_FILE_LOG(level, name, ...)     zero::Singleton<zero::CLogger>::getInstance()->addProvider(level, new zero::AsyncProvider<zero::CFileProvider>(name, ## __VA_ARGS__))
 
 #define NEWLINE                             "\n"
-#define SOURCE                              strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__
+#define SOURCE                              strrchr(__FILE__, zero::filesystem::path::PATH_SEPARATOR) ? strrchr(__FILE__, zero::filesystem::path::PATH_SEPARATOR) + 1 : __FILE__
 
 #define LOG_FMT                             "%s | %-5s | %20s:%-4d] "
 #define LOG_TAG(level)                      zero::LOG_TAGS[level]
@@ -159,9 +166,9 @@ namespace zero {
 #undef LOG_WARNING
 #undef LOG_ERROR
 
-#define LOG_DEBUG(message, args...)         zero::Singleton<zero::CLogger>::getInstance()->log(zero::DEBUG, LOG_FMT message NEWLINE, LOG_ARGS(zero::DEBUG), ## args)
-#define LOG_INFO(message, args...)          zero::Singleton<zero::CLogger>::getInstance()->log(zero::INFO, LOG_FMT message NEWLINE, LOG_ARGS(zero::INFO), ## args)
-#define LOG_WARNING(message, args...)       zero::Singleton<zero::CLogger>::getInstance()->log(zero::WARNING, LOG_FMT message NEWLINE, LOG_ARGS(zero::WARNING), ## args)
-#define LOG_ERROR(message, args...)         zero::Singleton<zero::CLogger>::getInstance()->log(zero::ERROR, LOG_FMT message NEWLINE, LOG_ARGS(zero::ERROR), ## args)
+#define LOG_DEBUG(message, ...)             zero::Singleton<zero::CLogger>::getInstance()->log(zero::DEBUG, LOG_FMT message NEWLINE, LOG_ARGS(zero::DEBUG), ## __VA_ARGS__)
+#define LOG_INFO(message, ...)              zero::Singleton<zero::CLogger>::getInstance()->log(zero::INFO, LOG_FMT message NEWLINE, LOG_ARGS(zero::INFO), ## __VA_ARGS__)
+#define LOG_WARNING(message, ...)           zero::Singleton<zero::CLogger>::getInstance()->log(zero::WARNING, LOG_FMT message NEWLINE, LOG_ARGS(zero::WARNING), ## __VA_ARGS__)
+#define LOG_ERROR(message, ...)             zero::Singleton<zero::CLogger>::getInstance()->log(zero::ERROR, LOG_FMT message NEWLINE, LOG_ARGS(zero::ERROR), ## __VA_ARGS__)
 
 #endif //ZERO_LOG_H

@@ -4,6 +4,10 @@
 #include <atomic>
 #include <climits>
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 namespace zero {
     namespace atomic {
         template<typename T, unsigned long N>
@@ -11,7 +15,7 @@ namespace zero {
         private:
             static constexpr auto MODULO = ULONG_MAX - (ULONG_MAX % N);
 
-            enum emState {
+            enum emState : unsigned int {
                 IDLE,
                 PUTTING,
                 VALID,
@@ -29,6 +33,15 @@ namespace zero {
 
                 index %= N;
 
+#ifdef _WIN32
+                while (InterlockedCompareExchange((unsigned int *)&mState[index], PUTTING, IDLE) != IDLE) {
+
+                }
+
+                mBuffer[index] = item;
+
+                InterlockedExchange((unsigned int *)&mState[index], VALID);
+#elif __linux__
                 while (!__sync_bool_compare_and_swap(&mState[index], IDLE, PUTTING)) {
 
                 }
@@ -36,6 +49,7 @@ namespace zero {
                 mBuffer[index] = item;
 
                 __atomic_store_n(&mState[index], VALID, __ATOMIC_SEQ_CST);
+#endif
 
                 return true;
             }
@@ -50,6 +64,15 @@ namespace zero {
 
                 index %= N;
 
+#ifdef _WIN32
+                while (InterlockedCompareExchange((unsigned int *)&mState[index], TAKING, VALID) != VALID) {
+
+                }
+
+                item = mBuffer[index];
+
+                InterlockedExchange((unsigned int *)&mState[index], IDLE);
+#elif __linux__
                 while (!__sync_bool_compare_and_swap(&mState[index], VALID, TAKING)) {
 
                 }
@@ -57,6 +80,7 @@ namespace zero {
                 item = mBuffer[index];
 
                 __atomic_store_n(&mState[index], IDLE, __ATOMIC_SEQ_CST);
+#endif
 
                 return true;
             }

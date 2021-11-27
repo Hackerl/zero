@@ -7,6 +7,7 @@
 
 namespace zero {
     namespace proc {
+#ifdef __linux__
         constexpr auto READ_PERMISSION = 0x1;
         constexpr auto WRITE_PERMISSION = 0x2;
         constexpr auto EXECUTE_PERMISSION = 0x4;
@@ -28,6 +29,7 @@ namespace zero {
         bool getProcessMappings(pid_t pid, std::list<CProcessMapping> &processMappings);
 
         bool getThreads(pid_t pid, std::list<pid_t> &threads);
+#endif
     }
 }
 

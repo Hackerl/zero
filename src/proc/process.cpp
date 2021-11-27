@@ -1,4 +1,6 @@
 #include <zero/proc/process.h>
+
+#ifdef __linux__
 #include <zero/strings/string.h>
 #include <zero/filesystem/path.h>
 #include <zero/filesystem/directory.h>
@@ -116,3 +118,4 @@ bool zero::proc::getThreads(pid_t pid, std::list<pid_t> &threads) {
 
     return true;
 }
+#endif
