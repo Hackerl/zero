@@ -9,12 +9,11 @@ void zero::CConsoleProvider::write(const std::string &message) {
     fwrite(message.c_str(), 1, message.length(), stderr);
 }
 
-zero::CFileProvider::CFileProvider(const char *name, const char *directory, unsigned long limit, unsigned long remain) {
+zero::CFileProvider::CFileProvider(const char *name, const std::string &directory, unsigned long limit, unsigned long remain) {
     mName = name;
     mLimit = limit;
     mRemain = remain;
-
-    mDirectory = directory ? directory : zero::filesystem::path::getTemporaryDirectory();
+    mDirectory = !directory.empty() ? directory : zero::filesystem::path::getTemporaryDirectory();
 
 #ifndef _WIN32
     mPID = getpid();

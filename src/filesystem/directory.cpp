@@ -1,7 +1,8 @@
 #include <zero/filesystem/directory.h>
-#include <zero/filesystem/path.h>
 
-#ifdef __linux__
+#ifdef _WIN32
+#include <zero/filesystem/path.h>
+#elif __linux__
 #include <fcntl.h>
 #include <unistd.h>
 #endif
@@ -85,6 +86,7 @@ zero::filesystem::CDirectoryIterator &zero::filesystem::CDirectoryIterator::oper
 
     return *this;
 }
+
 #elif __linux__
 zero::filesystem::CDirectoryIterator::CDirectoryIterator(zero::filesystem::CDirectoryIterator &iterator) noexcept {
     mEntry = iterator.mEntry;
@@ -190,4 +192,5 @@ zero::filesystem::CDirectoryIterator &zero::filesystem::CDirectoryIterator::oper
 
     return *this;
 }
+
 #endif

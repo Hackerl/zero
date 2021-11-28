@@ -5,6 +5,7 @@
 #include <tuple>
 #include <Windows.h>
 #include <algorithm>
+#include <iterator>
 #elif __linux__
 #include <glob.h>
 #include <wordexp.h>
@@ -31,7 +32,7 @@ bool zero::sh::match(const std::string &pattern, std::list<std::string> &paths) 
         return CompareFileTime(&std::get<0>(prev), &std::get<0>(next)) == -1;
     });
 
-    std::transform(files.begin(), files.end(), paths.begin(), [](const auto &file) {
+    std::transform(files.begin(), files.end(), std::back_inserter(paths), [](const auto &file) {
         return std::get<1>(file);
     });
 

@@ -42,7 +42,7 @@ namespace zero {
     public:
         explicit CFileProvider(
                 const char *name,
-                const char *directory = nullptr,
+                const std::string &directory = "",
                 unsigned long limit = 10 * 1024 * 1024,
                 unsigned long remain = 10);
 
@@ -151,8 +151,9 @@ namespace zero {
     };
 }
 
-#define INIT_CONSOLE_LOG(level)             zero::Singleton<zero::CLogger>::getInstance()->addProvider(level, new zero::CConsoleProvider())
-#define INIT_FILE_LOG(level, name, ...)     zero::Singleton<zero::CLogger>::getInstance()->addProvider(level, new zero::AsyncProvider<zero::CFileProvider>(name, ## __VA_ARGS__))
+#define GLOBAL_LOGGER                       zero::Singleton<zero::CLogger>::getInstance()
+#define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER->addProvider(level, new zero::CConsoleProvider())
+#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, new zero::AsyncProvider<zero::CFileProvider>(name, ## __VA_ARGS__))
 
 #define NEWLINE                             "\n"
 #define SOURCE                              strrchr(__FILE__, zero::filesystem::path::PATH_SEPARATOR) ? strrchr(__FILE__, zero::filesystem::path::PATH_SEPARATOR) + 1 : __FILE__
@@ -166,9 +167,9 @@ namespace zero {
 #undef LOG_WARNING
 #undef LOG_ERROR
 
-#define LOG_DEBUG(message, ...)             zero::Singleton<zero::CLogger>::getInstance()->log(zero::DEBUG, LOG_FMT message NEWLINE, LOG_ARGS(zero::DEBUG), ## __VA_ARGS__)
-#define LOG_INFO(message, ...)              zero::Singleton<zero::CLogger>::getInstance()->log(zero::INFO, LOG_FMT message NEWLINE, LOG_ARGS(zero::INFO), ## __VA_ARGS__)
-#define LOG_WARNING(message, ...)           zero::Singleton<zero::CLogger>::getInstance()->log(zero::WARNING, LOG_FMT message NEWLINE, LOG_ARGS(zero::WARNING), ## __VA_ARGS__)
-#define LOG_ERROR(message, ...)             zero::Singleton<zero::CLogger>::getInstance()->log(zero::ERROR, LOG_FMT message NEWLINE, LOG_ARGS(zero::ERROR), ## __VA_ARGS__)
+#define LOG_DEBUG(message, ...)             GLOBAL_LOGGER->log(zero::DEBUG, LOG_FMT message NEWLINE, LOG_ARGS(zero::DEBUG), ## __VA_ARGS__)
+#define LOG_INFO(message, ...)              GLOBAL_LOGGER->log(zero::INFO, LOG_FMT message NEWLINE, LOG_ARGS(zero::INFO), ## __VA_ARGS__)
+#define LOG_WARNING(message, ...)           GLOBAL_LOGGER->log(zero::WARNING, LOG_FMT message NEWLINE, LOG_ARGS(zero::WARNING), ## __VA_ARGS__)
+#define LOG_ERROR(message, ...)             GLOBAL_LOGGER->log(zero::ERROR, LOG_FMT message NEWLINE, LOG_ARGS(zero::ERROR), ## __VA_ARGS__)
 
 #endif //ZERO_LOG_H

@@ -130,4 +130,5 @@ std::string zero::filesystem::path::getDirectoryName(const std::string &path) {
 std::string zero::filesystem::path::getTemporaryDirectory() {
     return P_tmpdir;
 }
+
 #endif
