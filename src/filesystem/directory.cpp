@@ -1,8 +1,7 @@
 #include <zero/filesystem/directory.h>
-
-#ifdef _WIN32
 #include <zero/filesystem/path.h>
-#elif __linux__
+
+#ifdef __linux__
 #include <fcntl.h>
 #include <unistd.h>
 #endif

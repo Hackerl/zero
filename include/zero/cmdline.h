@@ -52,7 +52,7 @@ namespace zero {
         if (status != 0 || !buffer)
             return "unknown";
 
-        return {buffer.get()};
+        return buffer.get();
 #endif
     }
 

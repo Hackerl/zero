@@ -98,7 +98,7 @@ std::string zero::filesystem::path::getFileDescriptorPath(int fd) {
     if (readlink(join("/proc/self/fd", std::to_string(fd)).c_str(), buffer, PATH_MAX) == -1)
         return "";
 
-    return {buffer};
+    return buffer;
 }
 
 std::string zero::filesystem::path::getApplicationPath() {
@@ -107,7 +107,7 @@ std::string zero::filesystem::path::getApplicationPath() {
     if (readlink("/proc/self/exe", buffer, PATH_MAX) == -1)
         return "";
 
-    return {buffer};
+    return buffer;
 }
 
 std::string zero::filesystem::path::getAbsolutePath(const std::string &path) {
@@ -116,7 +116,7 @@ std::string zero::filesystem::path::getAbsolutePath(const std::string &path) {
     if (!realpath(path.c_str(), buffer))
         return "";
 
-    return {buffer};
+    return buffer;
 }
 
 std::string zero::filesystem::path::getBaseName(const std::string &path) {
