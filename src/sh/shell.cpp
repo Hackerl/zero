@@ -13,7 +13,6 @@
 
 #ifdef _WIN32
 bool zero::sh::match(const std::string &pattern, std::list<std::string> &paths) {
-    std::list<std::tuple<FILETIME, std::string>> files;
     std::string directory = zero::filesystem::path::getDirectoryName(pattern);
 
     WIN32_FIND_DATAA data = {};
@@ -23,18 +22,11 @@ bool zero::sh::match(const std::string &pattern, std::list<std::string> &paths) 
         return false;
 
     do {
-        files.emplace_back(data.ftCreationTime, zero::filesystem::path::join(directory, data.cFileName));
+        paths.push_back(zero::filesystem::path::join(directory, data.cFileName));
     } while (FindNextFileA(handle, &data));
 
     FindClose(handle);
-
-    files.sort([](const auto &prev, const auto &next) {
-        return CompareFileTime(&std::get<0>(prev), &std::get<0>(next)) == -1;
-    });
-
-    std::transform(files.begin(), files.end(), std::back_inserter(paths), [](const auto &file) {
-        return std::get<1>(file);
-    });
+    paths.sort();
 
     return true;
 }
