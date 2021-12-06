@@ -20,7 +20,7 @@ namespace zero {
         std::string tolower(std::string str);
         std::string toupper(std::string str);
 
-        std::vector<std::string> split(const std::string &str, char delimiter);
+        std::vector<std::string> split(const std::string &str, char delimiter, int limit = 0);
 
         template<typename T>
         std::string join(const T &containers, const char *delimiter) {
