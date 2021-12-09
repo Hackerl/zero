@@ -219,6 +219,11 @@ namespace zero {
                 char *p = strchr(argv[i], '=');
                 unsigned long n = p ? p - argv[i] : strlen(argv[i]);
 
+                if (n == 2) {
+                    mRest.insert(mRest.end(), argv + i + 1, argv + argc);
+                    break;
+                }
+
                 COptional optional = findByName({argv[i] + 2, n - 2});
 
                 if (optional.flag) {
