@@ -107,6 +107,9 @@ bool zero::proc::getProcessMappings(pid_t pid, std::list<CProcessMapping> &proce
 bool zero::proc::getThreads(pid_t pid, std::list<pid_t> &threads) {
     std::string path = filesystem::path::join("/proc", std::to_string(pid), "task");
 
+    if (!filesystem::path::isDirectory(path))
+        return false;
+
     for (const auto &entry : filesystem::CDirectory({path, 1})) {
         int thread = 0;
 
