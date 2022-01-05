@@ -3,8 +3,6 @@ project(zero)
 
 set(CMAKE_CXX_STANDARD 14)
 
-include_directories(include)
-
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 
