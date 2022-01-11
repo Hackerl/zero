@@ -83,17 +83,24 @@ std::string zero::strings::toupper(std::string str) {
     return str;
 }
 
-std::vector<std::string> zero::strings::split(const std::string &str, char delimiter, int limit) {
+std::vector<std::string> zero::strings::split(const std::string &str, const std::string &delimiter, int limit) {
     std::vector<std::string> tokens;
 
-    std::stringstream ss(str);
-    std::string s;
+    size_t prev = 0;
 
-    while (getline(ss, s, delimiter)) {
-        tokens.push_back(s);
+    while (true) {
+        size_t pos = str.find(delimiter, prev);
 
-        if (!--limit && !ss.eof()) {
-            tokens.push_back(str.substr(ss.tellg()));
+        if (pos == std::string::npos) {
+            tokens.push_back(str.substr(prev));
+            break;
+        }
+
+        tokens.push_back(str.substr(prev, pos - prev));
+        prev = pos + delimiter.length();
+
+        if (!--limit) {
+            tokens.push_back(str.substr(prev));
             break;
         }
     }

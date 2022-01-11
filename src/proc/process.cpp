@@ -56,12 +56,12 @@ bool zero::proc::getProcessMappings(pid_t pid, std::list<CProcessMapping> &proce
     std::string line;
 
     while (std::getline(stream, line)) {
-        std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), ' ');
+        std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), " ");
 
         if (fields.size() < MAPPING_BASIC_FIELDS)
             continue;
 
-        std::vector<std::string> address = strings::split(fields[0], '-');
+        std::vector<std::string> address = strings::split(fields[0], "-");
 
         if (address.size() != 2)
             continue;
