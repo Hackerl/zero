@@ -29,7 +29,7 @@ namespace zero {
 
     template<typename T>
     bool parseValue(const std::string &str, std::vector<T> &value) {
-        for (const auto &token : strings::split(str, ',')) {
+        for (const auto &token : strings::split(str, ",")) {
             T v;
 
             if (!parseValue(strings::trim(token), v))
