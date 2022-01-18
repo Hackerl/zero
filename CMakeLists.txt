@@ -18,6 +18,7 @@ add_library(
         src/filesystem/path.cpp
         src/filesystem/directory.cpp
         src/encoding/base64.cpp
+        src/encoding/hex.cpp
 )
 
 target_include_directories(zero PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
