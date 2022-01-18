@@ -17,6 +17,7 @@ add_library(
         src/atomic/event.cpp
         src/filesystem/path.cpp
         src/filesystem/directory.cpp
+        src/encoding/base64.cpp
 )
 
 target_include_directories(zero PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
