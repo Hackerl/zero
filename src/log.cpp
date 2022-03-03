@@ -61,4 +61,5 @@ void zero::CFileProvider::write(const std::string &message) {
     }
 
     mFile.write(message.c_str(), (std::streamsize)message.length());
+    mFile.flush();
 }
