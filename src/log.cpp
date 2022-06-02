@@ -1,19 +1,19 @@
 #include <zero/log.h>
-#include <zero/sh/shell.h>
+#include <zero/filesystem/path.h>
 
 #ifdef __linux__
 #include <unistd.h>
 #endif
 
-void zero::CConsoleProvider::write(const std::string &message) {
+void zero::ConsoleProvider::write(const std::string &message) {
     fwrite(message.c_str(), 1, message.length(), stderr);
 }
 
-zero::CFileProvider::CFileProvider(const char *name, const std::string &directory, unsigned long limit, unsigned long remain) {
+zero::FileProvider::FileProvider(const std::string &name, const std::filesystem::path &directory, long limit, int remain) {
     mName = name;
     mLimit = limit;
     mRemain = remain;
-    mDirectory = !directory.empty() ? directory : zero::filesystem::path::getTemporaryDirectory();
+    mDirectory = std::filesystem::is_directory(directory) ? directory : std::filesystem::temp_directory_path();
 
 #ifndef _WIN32
     mPID = getpid();
@@ -24,7 +24,7 @@ zero::CFileProvider::CFileProvider(const char *name, const std::string &director
     mFile.open(getLogPath());
 }
 
-std::string zero::CFileProvider::getLogPath() {
+std::filesystem::path zero::FileProvider::getLogPath() {
     std::string filename = strings::format(
             "%s.%d.%ld.log",
             mName.c_str(),
@@ -32,29 +32,29 @@ std::string zero::CFileProvider::getLogPath() {
             std::time(nullptr)
     );
 
-    return filesystem::path::join(mDirectory, filename);
+    return mDirectory / filename;
 }
 
-void zero::CFileProvider::clean() {
-    std::list<std::string> logs;
+void zero::FileProvider::clean() {
     std::string pattern = strings::format("%s.%d.*.log", mName.c_str(), mPID);
+    std::optional<std::list<std::filesystem::path>> logs = zero::filesystem::glob((mDirectory / pattern).string());
 
-    if (!sh::match(filesystem::path::join(mDirectory, pattern), logs))
+    if (!logs)
         return;
 
-    unsigned long size = logs.size();
+    size_t size = logs->size();
 
     if (size <= mRemain)
         return;
 
-    std::list<std::string> expired(logs.begin(), std::next(logs.begin(), (std::ptrdiff_t)(size - mRemain)));
+    std::list<std::filesystem::path> expired(logs->begin(), std::next(logs->begin(), (std::ptrdiff_t)(size - mRemain)));
 
     for (const auto &path: expired) {
-        remove(path.c_str());
+        std::filesystem::remove(path);
     }
 }
 
-void zero::CFileProvider::write(const std::string &message) {
+void zero::FileProvider::write(const std::string &message) {
     if (mFile.tellp() > mLimit) {
         mFile = std::ofstream(getLogPath());
         clean();

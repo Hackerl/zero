@@ -3,10 +3,8 @@
 
 #include <string>
 
-namespace zero {
-    namespace chrono {
-        std::string getTimeString();
-    }
+namespace zero::time {
+    std::string getTimeString();
 }
 
 #endif //ZERO_DATE_H

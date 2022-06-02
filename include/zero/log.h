@@ -4,14 +4,14 @@
 #include "thread.h"
 #include "interface.h"
 #include "singleton.h"
-#include "zero/strings/string.h"
-#include "zero/chrono/date.h"
+#include "zero/strings/strings.h"
+#include "zero/time/date.h"
 #include "zero/atomic/event.h"
 #include "zero/atomic/circular_buffer.h"
-#include "zero/filesystem/path.h"
 #include <fstream>
 #include <list>
 #include <cstring>
+#include <filesystem>
 
 #undef ERROR
 #undef WARNING
@@ -21,7 +21,7 @@
 namespace zero {
     constexpr const char * LOG_TAGS[] = {"ERROR", "WARN", "INFO", "DEBUG"};
 
-    enum emLogLevel {
+    enum LogLevel {
         ERROR,
         WARNING,
         INFO,
@@ -33,21 +33,21 @@ namespace zero {
         virtual void write(const std::string &message) = 0;
     };
 
-    class CConsoleProvider: public ILogProvider {
+    class ConsoleProvider: public ILogProvider {
     public:
         void write(const std::string &message) override;
     };
 
-    class CFileProvider: public ILogProvider {
+    class FileProvider: public ILogProvider {
     public:
-        explicit CFileProvider(
-                const char *name,
-                const std::string &directory = "",
-                unsigned long limit = 10 * 1024 * 1024,
-                unsigned long remain = 10);
+        explicit FileProvider(
+                const std::string &name,
+                const std::filesystem::path &directory = "",
+                long limit = 10 * 1024 * 1024,
+                int remain = 10);
 
     private:
-        std::string getLogPath();
+        std::filesystem::path getLogPath();
 
     private:
         void clean();
@@ -57,14 +57,14 @@ namespace zero {
 
     private:
         std::string mName;
-        std::string mDirectory;
-
-    private:
-        unsigned long mLimit;
-        unsigned long mRemain;
+        std::filesystem::path mDirectory;
 
     private:
         int mPID;
+        int mRemain;
+        long mLimit;
+
+    private:
         std::ofstream mFile;
     };
 
@@ -110,19 +110,19 @@ namespace zero {
         bool mExit{false};
 
     private:
-        atomic::CEvent mEvent;
+        atomic::Event mEvent;
         atomic::CircularBuffer<std::string, 100> mBuffer;
         Thread<AsyncProvider<T>> mThread{this};
     };
 
-    struct CProviderRegister {
-        emLogLevel level;
+    struct ProviderRegister {
+        LogLevel level;
         ILogProvider *provider;
     };
 
-    class CLogger {
+    class Logger {
     public:
-        ~CLogger() {
+        ~Logger() {
             for (const auto &r : mRegistry) {
                 delete r.provider;
             }
@@ -130,7 +130,7 @@ namespace zero {
 
     public:
         template<typename T, typename... Args>
-        void log(emLogLevel level, const T format, Args... args) {
+        void log(LogLevel level, const T format, Args... args) {
             std::string message = strings::format(format, args...);
 
             for (const auto &r : mRegistry) {
@@ -142,25 +142,25 @@ namespace zero {
         }
 
     public:
-        void addProvider(emLogLevel level, ILogProvider *provider) {
+        void addProvider(LogLevel level, ILogProvider *provider) {
             mRegistry.push_back({level, provider});
         }
 
     private:
-        std::list<CProviderRegister> mRegistry;
+        std::list<ProviderRegister> mRegistry;
     };
 }
 
-#define GLOBAL_LOGGER                       zero::Singleton<zero::CLogger>::getInstance()
-#define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER->addProvider(level, new zero::CConsoleProvider())
-#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, new zero::AsyncProvider<zero::CFileProvider>(name, ## __VA_ARGS__))
+#define GLOBAL_LOGGER                       zero::Singleton<zero::Logger>::getInstance()
+#define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER->addProvider(level, new zero::ConsoleProvider())
+#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, new zero::AsyncProvider<zero::FileProvider>(name, ## __VA_ARGS__))
 
 #define NEWLINE                             "\n"
-#define SOURCE                              strrchr(__FILE__, zero::filesystem::path::PATH_SEPARATOR) ? strrchr(__FILE__, zero::filesystem::path::PATH_SEPARATOR) + 1 : __FILE__
+#define SOURCE                              std::filesystem::path(__FILE__).filename().string().c_str()
 
 #define LOG_FMT                             "%s | %-5s | %20s:%-4d] "
 #define LOG_TAG(level)                      zero::LOG_TAGS[level]
-#define LOG_ARGS(level)                     zero::chrono::getTimeString().c_str(), LOG_TAG(level), SOURCE, __LINE__
+#define LOG_ARGS(level)                     zero::time::getTimeString().c_str(), LOG_TAG(level), SOURCE, __LINE__
 
 #undef LOG_DEBUG
 #undef LOG_INFO

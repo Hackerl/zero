@@ -47,9 +47,9 @@ std::string zero::encoding::base64::encode(const unsigned char *buffer, size_t l
     return encoded;
 }
 
-std::vector<unsigned char> zero::encoding::base64::decode(std::string encoded) {
-    while (encoded.size() % 4)
-        encoded.push_back('=');
+std::optional<std::vector<unsigned char>> zero::encoding::base64::decode(const std::string &encoded) {
+    if (encoded.size() % 4)
+        return std::nullopt;
 
     size_t size = encoded.size();
 

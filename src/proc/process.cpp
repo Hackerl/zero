@@ -1,59 +1,55 @@
 #include <zero/proc/process.h>
 
 #ifdef __linux__
-#include <zero/strings/string.h>
-#include <zero/filesystem/path.h>
-#include <zero/filesystem/directory.h>
+#include <zero/strings/strings.h>
 #include <fstream>
 #include <algorithm>
+#include <filesystem>
 
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
-bool zero::proc::getImageBase(pid_t pid, const std::string &path, zero::proc::CProcessMapping &processMapping) {
-    std::list<CProcessMapping> processMappings;
+std::optional<zero::proc::ProcessMapping> zero::proc::getImageBase(pid_t pid, const std::string &path) {
+    std::optional<std::list<ProcessMapping>> processMappings = getProcessMappings(pid);
 
-    if (!getProcessMappings(pid, processMappings))
-        return false;
+    if (!processMappings)
+        return std::nullopt;
 
-    auto it = std::find_if(processMappings.begin(), processMappings.end(), [=](const auto &m) {
+    auto it = std::find_if(processMappings->begin(), processMappings->end(), [=](const auto &m) {
         return m.pathname.find(path) != std::string::npos;
     });
 
-    if (it == processMappings.end())
-        return false;
+    if (it == processMappings->end())
+        return std::nullopt;
 
-    processMapping = *it;
-
-    return true;
+    return *it;
 }
 
-bool zero::proc::getAddressMapping(pid_t pid, uintptr_t address, zero::proc::CProcessMapping &processMapping) {
-    std::list<CProcessMapping> processMappings;
+std::optional<zero::proc::ProcessMapping> zero::proc::getAddressMapping(pid_t pid, uintptr_t address) {
+    std::optional<std::list<ProcessMapping>> processMappings = getProcessMappings(pid);
 
-    if (!getProcessMappings(pid, processMappings))
-        return false;
+    if (!processMappings)
+        return std::nullopt;
 
-    auto it = std::find_if(processMappings.begin(), processMappings.end(), [=](const auto &m) {
+    auto it = std::find_if(processMappings->begin(), processMappings->end(), [=](const auto &m) {
         return m.start <= address && address < m.end;
     });
 
-    if (it == processMappings.end())
-        return false;
+    if (it == processMappings->end())
+        return std::nullopt;
 
-    processMapping = *it;
-
-    return true;
+    return *it;
 }
 
-bool zero::proc::getProcessMappings(pid_t pid, std::list<CProcessMapping> &processMappings) {
-    std::string path = filesystem::path::join("/proc", std::to_string(pid), "maps");
+std::optional<std::list<zero::proc::ProcessMapping>> zero::proc::getProcessMappings(pid_t pid) {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid) / "maps";
     std::ifstream stream(path);
 
     if (!stream.is_open())
-        return false;
+        return std::nullopt;
 
     std::string line;
+    std::list<zero::proc::ProcessMapping> processMappings;
 
     while (std::getline(stream, line)) {
         std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), " ");
@@ -66,13 +62,20 @@ bool zero::proc::getProcessMappings(pid_t pid, std::list<CProcessMapping> &proce
         if (address.size() != 2)
             continue;
 
-        CProcessMapping processMapping = {};
+        std::optional<uintptr_t> start = strings::toNumber<uintptr_t>(address[0], 16);
+        std::optional<uintptr_t> end = strings::toNumber<uintptr_t>(address[1], 16);
+        std::optional<off_t> offset = strings::toNumber<off_t>(fields[2], 16);
+        std::optional<ino_t> inode = strings::toNumber<ino_t>(fields[4]);
 
-        strings::toNumber(address[0], processMapping.start, 16);
-        strings::toNumber(address[1], processMapping.end, 16);
-        strings::toNumber(fields[2], processMapping.offset, 16);
-        strings::toNumber(fields[4], processMapping.inode);
+        if (!start || !end || !offset || !inode)
+            return std::nullopt;
 
+        ProcessMapping processMapping = {};
+
+        processMapping.start = *start;
+        processMapping.end = *end;
+        processMapping.offset = *offset;
+        processMapping.inode = *inode;
         processMapping.device = fields[3];
 
         if (fields.size() > MAPPING_BASIC_FIELDS)
@@ -81,7 +84,7 @@ bool zero::proc::getProcessMappings(pid_t pid, std::list<CProcessMapping> &proce
         std::string permissions = fields[1];
 
         if (permissions.length() < MAPPING_PERMISSIONS_LENGTH)
-            return false;
+            return std::nullopt;
 
         if (permissions.at(0) == 'r')
             processMapping.permissions |= READ_PERMISSION;
@@ -101,24 +104,26 @@ bool zero::proc::getProcessMappings(pid_t pid, std::list<CProcessMapping> &proce
         processMappings.push_back(processMapping);
     }
 
-    return true;
+    return processMappings;
 }
 
-bool zero::proc::getThreads(pid_t pid, std::list<pid_t> &threads) {
-    std::string path = filesystem::path::join("/proc", std::to_string(pid), "task");
+std::optional<std::list<pid_t>> zero::proc::getThreads(pid_t pid) {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid) / "task";
 
-    if (!filesystem::path::isDirectory(path))
-        return false;
+    if (!std::filesystem::is_directory(path))
+        return std::nullopt;
 
-    for (const auto &entry : filesystem::CDirectory({path, 1})) {
-        int thread = 0;
+    std::list<pid_t> threads;
 
-        if (!strings::toNumber(zero::filesystem::path::getBaseName(entry.path), thread))
-            return false;
+    for (const auto &entry : std::filesystem::directory_iterator(path)) {
+        std::optional<pid_t> thread = strings::toNumber<pid_t>(entry.path().filename());
 
-        threads.emplace_back(thread);
+        if (!thread)
+            return std::nullopt;
+
+        threads.emplace_back(*thread);
     }
 
-    return true;
+    return threads;
 }
 #endif

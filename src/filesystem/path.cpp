@@ -3,46 +3,11 @@
 #ifdef _WIN32
 #include <Shlwapi.h>
 #elif __linux__
-#include <sys/stat.h>
-#include <memory>
-#include <climits>
-#include <libgen.h>
-#include <unistd.h>
-#include <cstring>
+#include <glob.h>
 #endif
 
-std::string zero::filesystem::path::getApplicationDirectory() {
-    return getDirectoryName(getApplicationPath());
-}
-
-std::string zero::filesystem::path::getApplicationName() {
-    return getBaseName(getApplicationPath());
-}
-
-bool zero::filesystem::path::isDirectory(const std::string &path) {
-    struct stat sb = {};
-
-    if (stat(path.c_str(), &sb) != 0)
-        return false;
-
-    return (sb.st_mode & S_IFMT) == S_IFDIR;
-}
-
-bool zero::filesystem::path::isRegularFile(const std::string &path) {
-    struct stat sb = {};
-
-    if (stat(path.c_str(), &sb) != 0)
-        return false;
-
-    return (sb.st_mode & S_IFMT) == S_IFREG;
-}
-
-std::string zero::filesystem::path::join(const std::string &path) {
-    return path;
-}
-
+std::filesystem::path zero::filesystem::getApplicationPath() {
 #ifdef _WIN32
-std::string zero::filesystem::path::getApplicationPath() {
     char buffer[MAX_PATH] = {};
 
     DWORD length = GetModuleFileNameA(nullptr, buffer, MAX_PATH);
@@ -51,84 +16,50 @@ std::string zero::filesystem::path::getApplicationPath() {
         return "";
 
     return buffer;
-}
-
-std::string zero::filesystem::path::getAbsolutePath(const std::string &path) {
-    char buffer[MAX_PATH] = {};
-
-    if (!PathCanonicalizeA(buffer, path.c_str()))
-        return "";
-
-    return buffer;
-}
-
-std::string zero::filesystem::path::getBaseName(const std::string &path) {
-    char buffer[MAX_PATH] = {};
-
-    strncpy_s(buffer, path.c_str(), MAX_PATH - 1);
-    PathStripPathA(buffer);
-
-    return buffer;
-}
-
-std::string zero::filesystem::path::getDirectoryName(const std::string &path) {
-    char buffer[MAX_PATH] = {};
-
-    strncpy_s(buffer, path.c_str(), MAX_PATH - 1);
-
-    if (!PathRemoveFileSpecA(buffer))
-        return path;
-
-    return buffer;
-}
-
-std::string zero::filesystem::path::getTemporaryDirectory() {
-    char buffer[MAX_PATH + 1] = {};
-
-    if (!GetTempPathA(MAX_PATH + 1, buffer))
-        return "";
-
-    return buffer;
-}
-
 #elif __linux__
-std::string zero::filesystem::path::getFileDescriptorPath(int fd) {
-    char buffer[PATH_MAX + 1] = {};
-
-    if (readlink(join("/proc/self/fd", std::to_string(fd)).c_str(), buffer, PATH_MAX) == -1)
-        return "";
-
-    return buffer;
-}
-
-std::string zero::filesystem::path::getApplicationPath() {
-    char buffer[PATH_MAX + 1] = {};
-
-    if (readlink("/proc/self/exe", buffer, PATH_MAX) == -1)
-        return "";
-
-    return buffer;
-}
-
-std::string zero::filesystem::path::getAbsolutePath(const std::string &path) {
-    char buffer[PATH_MAX] = {};
-
-    if (!realpath(path.c_str(), buffer))
-        return "";
-
-    return buffer;
-}
-
-std::string zero::filesystem::path::getBaseName(const std::string &path) {
-    return basename(std::unique_ptr<char, decltype(free) *>(strdup(path.c_str()), free).get());
-}
-
-std::string zero::filesystem::path::getDirectoryName(const std::string &path) {
-    return dirname(std::unique_ptr<char, decltype(free) *>(strdup(path.c_str()), free).get());
-}
-
-std::string zero::filesystem::path::getTemporaryDirectory() {
-    return P_tmpdir;
-}
-
+    return std::filesystem::read_symlink("/proc/self/exe");
 #endif
+}
+
+std::filesystem::path zero::filesystem::getApplicationDirectory() {
+    return getApplicationPath().parent_path();
+}
+
+std::optional<std::list<std::filesystem::path>> zero::filesystem::glob(const std::string &pattern) {
+    std::filesystem::path directory = std::filesystem::path(pattern).parent_path();
+
+    if (!std::filesystem::is_directory(directory))
+        return std::nullopt;
+
+    std::list<std::filesystem::path> paths;
+
+#ifdef _WIN32
+    WIN32_FIND_DATAA data = {};
+    HANDLE handle = FindFirstFileA(pattern.c_str(), &data);
+
+    if (handle == INVALID_HANDLE_VALUE)
+        return std::nullopt;
+
+    do {
+        paths.push_back(directory / data.cFileName);
+    } while (FindNextFileA(handle, &data));
+
+    FindClose(handle);
+    paths.sort();
+#elif __linux__
+    glob_t g = {};
+
+    if (glob(pattern.c_str(), 0, nullptr, &g) != 0) {
+        globfree(&g);
+        return std::nullopt;
+    }
+
+    for (int i = 0; i < g.gl_pathc; i++) {
+        paths.emplace_back(g.gl_pathv[i]);
+    }
+
+    globfree(&g);
+#endif
+
+    return paths;
+}

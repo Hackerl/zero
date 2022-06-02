@@ -1,5 +1,5 @@
 #include <zero/encoding/hex.h>
-#include <zero/strings/string.h>
+#include <zero/strings/strings.h>
 
 constexpr char HEX_MAP[] = {
         '0', '1', '2', '3', '4', '5', '6', '7',
@@ -17,16 +17,19 @@ std::string zero::encoding::hex::encode(const unsigned char *buffer, size_t leng
     return encoded;
 }
 
-std::vector<unsigned char> zero::encoding::hex::decode(const std::string &encoded) {
+std::optional<std::vector<unsigned char>> zero::encoding::hex::decode(const std::string &encoded) {
+    if (encoded.length() % 2)
+        return std::nullopt;
+
     std::vector<unsigned char> buffer;
 
     for (size_t i = 0; i < encoded.size(); i += 2) {
-        unsigned int number;
+        std::optional<unsigned int> number = zero::strings::toNumber<unsigned int>(encoded.substr(i, 2), 16);
 
-        if (!zero::strings::toNumber(encoded.substr(i, 2), number, 16))
-            break;
+        if (!number)
+            return std::nullopt;
 
-        buffer.push_back(number & 0xff);
+        buffer.push_back(*number & 0xff);
     }
 
     return buffer;

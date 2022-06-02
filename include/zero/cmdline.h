@@ -1,144 +1,109 @@
 #ifndef ZERO_CMDLINE_H
 #define ZERO_CMDLINE_H
 
-#include "interface.h"
+#include "strings/strings.h"
 #include "filesystem/path.h"
-#include "strings/string.h"
-#include <string>
-#include <memory>
 #include <list>
 #include <algorithm>
 #include <iostream>
 #include <cstring>
-#include <iomanip>
+#include <functional>
+#include <any>
 
 #ifdef __GNUC__
 #include <cxxabi.h>
 #endif
 
 namespace zero {
-    bool parseValue(const std::string &str, std::string &value) {
-        value = str;
-        return true;
-    }
+    template<typename T>
+    std::any parseValue(const std::string &str) {
+        if constexpr (std::is_arithmetic_v<T>) {
+            std::optional<T> value = strings::toNumber<T>(str);
 
-    template<typename T, std::enable_if_t<std::is_arithmetic<T>::value> * = nullptr>
-    bool parseValue(const std::string &str, T &value) {
-        return strings::toNumber(str, value);
+            if (!value)
+                return {};
+
+            return *value;
+        } else if (std::is_same_v<T, std::string>) {
+            return str;
+        } else if (std::is_same_v<T, std::vector<typename T::value_type, typename T::allocator_type>>) {
+            T value;
+
+            for (const auto &token : strings::split(str, ",")) {
+                std::any v = parseValue<typename T::value_type>(strings::trim(token));
+
+                if (!v.has_value())
+                    return {};
+
+                value.push_back(std::any_cast<typename T::value_type>(v));
+            }
+
+            return value;
+        }
+
+        return {};
     }
 
     template<typename T>
-    bool parseValue(const std::string &str, std::vector<T> &value) {
-        for (const auto &token : strings::split(str, ",")) {
-            T v;
-
-            if (!parseValue(strings::trim(token), v))
-                return false;
-
-            value.push_back(v);
-        }
-
-        return true;
-    }
-
-    template<typename T, std::enable_if_t<std::is_arithmetic<T>::value> * = nullptr>
-    std::string demangle(const std::string &type) {
+    std::string demangle() {
+        if constexpr (std::is_arithmetic_v<T>) {
 #ifdef _MSC_VER
-        return type;
+            return typeid(T).name();
 #elif __GNUC__
-        int status = 0;
-        std::unique_ptr<char, decltype(free) *> buffer(abi::__cxa_demangle(type.c_str(), nullptr, nullptr, &status), free);
+            int status = 0;
+            std::unique_ptr<char, decltype(free) *> buffer(abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status), free);
 
-        if (status != 0 || !buffer)
-            return "unknown";
+            if (status != 0 || !buffer)
+                return "unknown";
 
-        return buffer.get();
+            return buffer.get();
 #endif
-    }
-
-    template<typename T, std::enable_if_t<std::is_same<T, std::string>::value> * = nullptr>
-    std::string demangle(const std::string &type) {
-        return "string";
-    }
-
-    template<typename T, std::enable_if_t<std::is_same<T, std::vector<typename T::value_type, typename T::allocator_type>>::value> * = nullptr>
-    std::string demangle(const std::string &type) {
-        return strings::format("%s[]", demangle<typename T::value_type>(typeid(typename T::value_type).name()).c_str());
-    }
-
-    class IValue : public Interface {
-    public:
-        virtual bool get(const std::string &type, void *ptr) = 0;
-        virtual bool set(const std::string &str) = 0;
-
-    public:
-        virtual std::string getType() = 0;
-    };
-
-    template<typename T>
-    class Value : public IValue {
-    public:
-        template<typename... Args>
-        explicit Value<T>(Args... args) : mValue(args...) {
-            mType = typeid(T).name();
+        } else if (std::is_same_v<T, std::string>) {
+            return "string";
+        } else if (std::is_same_v<T, std::vector<typename T::value_type, typename T::allocator_type>>) {
+            return strings::format("%s[]", demangle<typename T::value_type>().c_str());
         }
 
-    public:
-        bool get(const std::string &type, void *ptr) override {
-            if (type != mType)
-                return false;
-
-            *(T *)ptr = mValue;
-
-            return true;
-        }
-
-        bool set(const std::string &str) override {
-            return parseValue(str, mValue);
-        }
-
-    public:
-        std::string getType() override {
-            return demangle<T>(mType);
-        }
-
-    private:
-        T mValue;
-        std::string mType;
-    };
-
-    template<typename T, typename... Args>
-    std::shared_ptr<IValue> value(Args... args) {
-        return std::make_shared<Value<T>>(args...);
+        return "unknown";
     }
 
-    struct COptional {
+    struct Optional {
         std::string name;
         char shortName;
         std::string desc;
-        std::shared_ptr<IValue> value;
-        bool flag = false;
+        std::any value;
+        bool flag;
+        std::string type;
+        std::function<std::any(const std::string &)> parser;
     };
 
-    struct CPositional {
+    struct Positional {
         std::string name;
         std::string desc;
-        std::shared_ptr<IValue> value;
+        std::any value;
+        std::string type;
+        std::function<std::any(const std::string &)> parser;
     };
 
-    class CCmdline {
+    class Cmdline {
     public:
-        CCmdline() {
-            addOptional({"help", '?', "print help message", value<bool>(), true});
+        Cmdline() {
+            addOptional("help", '?', "print help message");
         }
 
     public:
-        void add(const CPositional &positional) {
-            mPositionals.push_back(positional);
+        template<typename T>
+        void add(const std::string &name, const std::string &desc) {
+            mPositionals.push_back({name, desc, T{}, demangle<T>(), parseValue<T>});
         }
 
-        void addOptional(const COptional &optional) {
-            mOptionals.push_back(optional);
+        void addOptional(const std::string &name, char shortName, const std::string &desc) {
+            mOptionals.push_back({name, shortName, desc, false, true});
+        }
+
+        template<typename T>
+        void addOptional(const std::string &name, char shortName, const std::string &desc, T def = {}) {
+            mOptionals.push_back({name, shortName, desc, def, false, demangle<T>(), parseValue<T>});
         }
 
     public:
@@ -155,25 +120,12 @@ namespace zero {
             if (it == mPositionals.end())
                 error(strings::format("can't find positional argument: %s", name.c_str()));
 
-            T v;
-
-            if (!it->value->get(typeid(T).name(), &v)) {
-                error(strings::format("get positional argument failed: %s", name.c_str()));
-            }
-
-            return v;
+            return std::any_cast<T>(it->value);
         }
 
         template<typename T>
         T getOptional(const std::string &name) {
-            T v;
-            COptional optional = findByName(name);
-
-            if (!optional.value->get(typeid(T).name(), &v)) {
-                error(strings::format("get optional argument failed: %s", name.c_str()));
-            }
-
-            return v;
+            return std::any_cast<T>(findByName(name).value);
         }
 
     public:
@@ -196,21 +148,28 @@ namespace zero {
                         continue;
                     }
 
-                    if (!it++->value->set(argv[i]))
+                    it->value = it->parser(argv[i]);
+
+                    if (!it++->value.has_value())
                         error(strings::format("positional argument invalid: %s", argv[i]));
 
                     continue;
                 }
 
                 if (argv[i][1] != '-') {
-                    COptional optional = findByShortName(argv[i][1]);
+                    Optional &optional = findByShortName(argv[i][1]);
 
                     if (optional.flag) {
-                        optional.value->set("1");
+                        optional.value = true;
                         continue;
                     }
 
-                    if (!argv[i + 1] || !optional.value->set(argv[++i]))
+                    if (!argv[i + 1])
+                        error(strings::format("optional short argument invalid: %s", argv[i]));
+
+                    optional.value = optional.parser(argv[++i]);
+
+                    if (!optional.value.has_value())
                         error(strings::format("optional short argument invalid: %s", argv[i]));
 
                     continue;
@@ -224,17 +183,19 @@ namespace zero {
                     break;
                 }
 
-                COptional optional = findByName({argv[i] + 2, n - 2});
+                Optional &optional = findByName({argv[i] + 2, n - 2});
 
                 if (optional.flag) {
-                    optional.value->set("1");
+                    optional.value = true;
                     continue;
                 }
 
                 if (!p)
                     error(strings::format("optional argument need value: %s", argv[i]));
 
-                if (!optional.value->set(p + 1))
+                optional.value = optional.parser(p + 1);
+
+                if (!optional.value.has_value())
                     error(strings::format("optional argument invalid: %s", argv[i]));
             }
 
@@ -248,7 +209,7 @@ namespace zero {
         }
 
     private:
-        COptional findByName(const std::string &name) {
+        Optional &findByName(const std::string &name) {
             if (name.empty())
                 error("require option name");
 
@@ -261,12 +222,12 @@ namespace zero {
             );
 
             if (it == mOptionals.end())
-                error(strings::format("can't find optional argument: %s", name.c_str()));
+                error(strings::format("can't find optional argument: --%s", name.c_str()));
 
             return *it;
         }
 
-        COptional findByShortName(char shortName) {
+        Optional &findByShortName(char shortName) {
             if (!shortName)
                 error("require option name");
 
@@ -279,7 +240,7 @@ namespace zero {
             );
 
             if (it == mOptionals.end())
-                error(strings::format("can't find optional short argument: %c", shortName));
+                error(strings::format("can't find optional short argument: -%c", shortName));
 
             return *it;
         }
@@ -293,13 +254,13 @@ namespace zero {
                     mPositionals.end(),
                     std::back_inserter(positionals),
                     [](const auto &p) {
-                        return strings::format("%s(%s)", p.name.c_str(), p.value->getType().c_str());
+                        return strings::format("%s(%s)", p.name.c_str(), p.type.c_str());
                     }
             );
 
             std::cout << strings::format(
                     "usage: %s [options] %s ... %s ...",
-                    filesystem::path::getApplicationName().c_str(),
+                    zero::filesystem::getApplicationPath().filename().string().c_str(),
                     strings::join(positionals, " ").c_str(),
                     mFooter.empty() ? "extra" : mFooter.c_str()
             ) << std::endl;
@@ -311,7 +272,7 @@ namespace zero {
                         "\t%-20s%s(%s)",
                         positional.name.c_str(),
                         positional.desc.c_str(),
-                        positional.value->getType().c_str()
+                        positional.type.c_str()
                 ) << std::endl;
             }
 
@@ -323,7 +284,7 @@ namespace zero {
                         optional.shortName ? optional.shortName : ' ',
                         optional.name.c_str(),
                         optional.desc.c_str(),
-                        optional.flag ? "" : strings::format("(%s)", optional.value->getType().c_str()).c_str()
+                        optional.flag ? "" : strings::format("(%s)", optional.type.c_str()).c_str()
                 ) << std::endl;
             }
         }
@@ -339,8 +300,8 @@ namespace zero {
         std::vector<std::string> mRest;
 
     private:
-        std::list<COptional> mOptionals;
-        std::list<CPositional> mPositionals;
+        std::list<Optional> mOptionals;
+        std::list<Positional> mPositionals;
     };
 }
 
