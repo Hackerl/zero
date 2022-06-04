@@ -1,7 +1,6 @@
 #ifndef ZERO_EVENT_H
 #define ZERO_EVENT_H
 
-#include <ctime>
 #include <chrono>
 
 #ifdef _WIN32
@@ -10,11 +9,6 @@
 
 namespace zero::atomic {
     class Event {
-#ifdef _WIN32
-    public:
-        Event();
-        ~Event();
-#endif
     public:
         void wait(const std::chrono::seconds &timeout = std::chrono::seconds::zero());
 
@@ -25,8 +19,6 @@ namespace zero::atomic {
     private:
 #ifdef _WIN32
         LONG mState{};
-        HANDLE mMEvent;
-        HANDLE mAEvent;
 #elif __linux__
         int mState{};
 #endif

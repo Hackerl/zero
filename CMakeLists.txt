@@ -20,4 +20,4 @@ add_library(
 )
 
 target_include_directories(zero PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(zero $<$<BOOL:${WIN32}>:Shlwapi>)
+target_link_libraries(zero $<$<BOOL:${WIN32}>:Shlwapi Synchronization>)
