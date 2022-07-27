@@ -1,7 +1,9 @@
 #ifndef ZERO_CIRCULAR_BUFFER_H
 #define ZERO_CIRCULAR_BUFFER_H
 
+#include <cstddef>
 #include <atomic>
+#include <optional>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -21,12 +23,12 @@ namespace zero::atomic {
         };
 
     public:
-        bool enqueue(const T &item) {
+        std::optional<size_t> reserve() {
             size_t index = mTail;
 
             do {
                 if (full())
-                    return false;
+                    return std::nullopt;
             } while (!mTail.compare_exchange_weak(index, (index + 1) % MODULO));
 
             index %= N;
@@ -35,29 +37,30 @@ namespace zero::atomic {
             while (InterlockedCompareExchange((LONG *)&mState[index], PUTTING, IDLE) != IDLE) {
 
             }
-
-            mBuffer[index] = item;
-
-            InterlockedExchange((LONG *)&mState[index], VALID);
 #elif __linux__
             while (!__sync_bool_compare_and_swap(&mState[index], IDLE, PUTTING)) {
 
             }
-
-            mBuffer[index] = item;
-
-            __atomic_store_n(&mState[index], VALID, __ATOMIC_SEQ_CST);
 #endif
 
-            return true;
+            return index;
         }
 
-        bool dequeue(T &item) {
+        void commit(size_t index) {
+#ifdef _WIN32
+            InterlockedExchange((LONG *)&mState[index], VALID);
+#elif __linux__
+            __atomic_store_n(&mState[index], VALID, __ATOMIC_SEQ_CST);
+#endif
+        }
+
+    public:
+        std::optional<size_t> acquire() {
             size_t index = mHead;
 
             do {
                 if (empty())
-                    return false;
+                    return std::nullopt;
             } while (!mHead.compare_exchange_weak(index, (index + 1) % MODULO));
 
             index %= N;
@@ -66,21 +69,26 @@ namespace zero::atomic {
             while (InterlockedCompareExchange((LONG *)&mState[index], TAKING, VALID) != VALID) {
 
             }
-
-            item = mBuffer[index];
-
-            InterlockedExchange((LONG *)&mState[index], IDLE);
 #elif __linux__
             while (!__sync_bool_compare_and_swap(&mState[index], VALID, TAKING)) {
 
             }
-
-            item = mBuffer[index];
-
-            __atomic_store_n(&mState[index], IDLE, __ATOMIC_SEQ_CST);
 #endif
 
-            return true;
+            return index;
+        }
+
+        void release(size_t index) {
+#ifdef _WIN32
+            InterlockedExchange((LONG *)&mState[index], IDLE);
+#elif __linux__
+            __atomic_store_n(&mState[index], IDLE, __ATOMIC_SEQ_CST);
+#endif
+        }
+
+    public:
+        T &operator[](size_t index) {
+            return mBuffer[index];
         }
 
     public:
@@ -101,8 +109,8 @@ namespace zero::atomic {
         State mState[N]{IDLE};
 
     private:
-        std::atomic<size_t> mHead{0};
-        std::atomic<size_t> mTail{0};
+        std::atomic<size_t> mHead{};
+        std::atomic<size_t> mTail{};
     };
 }
 

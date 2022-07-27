@@ -87,7 +87,14 @@ namespace zero {
             if (mBuffer.full())
                 return;
 
-            mBuffer.enqueue(message);
+            std::optional<size_t> index = mBuffer.reserve();
+
+            if (!index)
+                return;
+
+            mBuffer[*index] = message;
+            mBuffer.commit(*index);
+
             mEvent.notify();
         }
 
@@ -97,12 +104,13 @@ namespace zero {
                 if (mBuffer.empty())
                     mEvent.wait();
 
-                std::string message = {};
+                std::optional<size_t> index = mBuffer.acquire();
 
-                if (!mBuffer.dequeue(message))
-                    continue;
+                if (!index)
+                    return;
 
-                T::write(message);
+                T::write(mBuffer[*index]);
+                mBuffer.release(*index);
             }
         }
 
