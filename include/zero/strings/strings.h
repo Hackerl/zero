@@ -57,7 +57,7 @@ namespace zero::strings {
         if (length <= 0)
             return "";
 
-        std::unique_ptr<char> buffer(new char[length + 1]);
+        std::unique_ptr<char[]> buffer = std::make_unique<char[]>(length + 1);
         snprintf(buffer.get(), length + 1, fmt, args...);
 
         return {buffer.get(), (std::size_t)length};
