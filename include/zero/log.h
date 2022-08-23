@@ -107,7 +107,7 @@ namespace zero {
                 std::optional<size_t> index = mBuffer.acquire();
 
                 if (!index)
-                    return;
+                    continue;
 
                 T::write(mBuffer[*index]);
                 mBuffer.release(*index);
