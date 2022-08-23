@@ -13,7 +13,7 @@ namespace zero::atomic {
     template<typename T, size_t N>
     class CircularBuffer {
     private:
-        static constexpr auto MODULO = SIZE_MAX - (SIZE_MAX % N);
+        static constexpr auto MODULO = SIZE_MAX / N * N;
 
         enum State : long {
             IDLE,

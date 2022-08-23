@@ -14,8 +14,7 @@ constexpr unsigned char DECODE_MAP[] = {
 };
 
 std::string zero::encoding::base64::encode(const unsigned char *buffer, size_t length) {
-    size_t piece = length % 3;
-    size_t missing = piece ? 3 - piece : 0;
+    size_t missing = (length + 2) / 3 * 3 - length;
     size_t size = (length + missing) * 4 / 3;
 
     std::string encoded;
@@ -48,7 +47,7 @@ std::string zero::encoding::base64::encode(const unsigned char *buffer, size_t l
 }
 
 std::optional<std::vector<unsigned char>> zero::encoding::base64::decode(const std::string &encoded) {
-    if (encoded.size() % 4)
+    if (encoded.length() % 4)
         return std::nullopt;
 
     size_t size = encoded.size();
