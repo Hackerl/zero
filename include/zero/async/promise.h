@@ -8,6 +8,11 @@
 #include <tuple>
 #include <any>
 
+#define P_CONTINUE(p)       p->reject({})
+#define P_BREAK(p)          p->resolve()
+#define P_BREAK_V(p, ...)   p->resolve(__VA_ARGS__)
+#define P_BREAK_E(p, ...)   p->reject(__VA_ARGS__)
+
 namespace zero::async::promise {
     template<typename Result>
     class Promise;
@@ -98,7 +103,7 @@ namespace zero::async::promise {
 
     public:
         template<typename Next, typename ...Args, typename NextResult = promise_result_t<Next>>
-        auto
+        std::shared_ptr<Promise<NextResult>>
         then(const std::function<Next(Args...)> &onFulfilled, const std::function<Next(const Reason &)> &onRejected) {
             auto p = std::make_shared<Promise<NextResult>>();
 
@@ -135,10 +140,14 @@ namespace zero::async::promise {
                         if constexpr (std::is_same_v<void, NextResult>) {
                             next->then([p]() {
                                 p->resolve();
+                            }, [p](const Reason &reason) {
+                                p->reject(reason);
                             });
                         } else {
                             next->then([p](const NextResult &result) {
                                 p->resolve(result);
+                            }, [p](const Reason &reason) {
+                                p->reject(reason);
                             });
                         }
                     }
@@ -163,10 +172,14 @@ namespace zero::async::promise {
                         if constexpr (std::is_same_v<void, NextResult>) {
                             next->then([p]() {
                                 p->resolve();
+                            }, [p](const Reason &reason) {
+                                p->reject(reason);
                             });
                         } else {
                             next->then([p](const NextResult &result) {
                                 p->resolve(result);
+                            }, [p](const Reason &reason) {
+                                p->reject(reason);
                             });
                         }
                     }
@@ -189,7 +202,7 @@ namespace zero::async::promise {
             return p;
         }
 
-        auto finally(const std::function<void()> &onFinally) {
+        std::shared_ptr<Promise<Result>> finally(const std::function<void()> &onFinally) {
             auto p = std::make_shared<Promise<Result>>();
 
             auto onFulfilledTrigger = [=]() {
@@ -288,7 +301,8 @@ namespace zero::async::promise {
 
     public:
         template<typename Next, typename NextResult = promise_result_t<Next>>
-        auto then(const std::function<Next()> &onFulfilled, const std::function<Next(const Reason &)> &onRejected) {
+        std::shared_ptr<Promise<NextResult>>
+        then(const std::function<Next()> &onFulfilled, const std::function<Next(const Reason &)> &onRejected) {
             auto p = std::make_shared<Promise<NextResult>>();
 
             auto onFulfilledTrigger = [=]() {
@@ -313,10 +327,14 @@ namespace zero::async::promise {
                         if constexpr (std::is_same_v<void, NextResult>) {
                             next->then([p]() {
                                 p->resolve();
+                            }, [p](const Reason &reason) {
+                                p->reject(reason);
                             });
                         } else {
                             next->then([p](const NextResult &result) {
                                 p->resolve(result);
+                            }, [p](const Reason &reason) {
+                                p->reject(reason);
                             });
                         }
                     }
@@ -341,10 +359,14 @@ namespace zero::async::promise {
                         if constexpr (std::is_same_v<void, NextResult>) {
                             next->then([p]() {
                                 p->resolve();
+                            }, [p](const Reason &reason) {
+                                p->reject(reason);
                             });
                         } else {
                             next->then([p](const NextResult &result) {
                                 p->resolve(result);
+                            }, [p](const Reason &reason) {
+                                p->reject(reason);
                             });
                         }
                     }
@@ -367,7 +389,7 @@ namespace zero::async::promise {
             return p;
         }
 
-        auto finally(const std::function<void()> &onFinally) {
+        std::shared_ptr<Promise<void>> finally(const std::function<void()> &onFinally) {
             auto p = std::make_shared<Promise<void>>();
 
             auto onFulfilledTrigger = [=]() {
@@ -429,7 +451,7 @@ namespace zero::async::promise {
     };
 
     template<typename Result>
-    auto chain(std::function<void(std::shared_ptr<Promise<Result>>)> func) {
+    std::shared_ptr<Promise<Result>> chain(const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
         auto p = std::make_shared<Promise<Result>>();
         p->start(func);
 
@@ -437,7 +459,7 @@ namespace zero::async::promise {
     }
 
     template<typename Result>
-    auto reject(const Reason &reason) {
+    std::shared_ptr<Promise<Result>> reject(const Reason &reason) {
         auto p = std::make_shared<Promise<Result>>();
         p->reject(reason);
 
@@ -445,7 +467,7 @@ namespace zero::async::promise {
     }
 
     template<typename Result, typename... Ts>
-    auto resolve(Ts... args) {
+    std::shared_ptr<Promise<Result>> resolve(const Ts &... args) {
         auto p = std::make_shared<Promise<Result>>();
         p->resolve(args...);
 
@@ -481,7 +503,8 @@ namespace zero::async::promise {
     >;
 
     template<size_t...Index, typename ...Results>
-    auto all(std::index_sequence<Index...>, const std::shared_ptr<Promise<Results>> &... promises) {
+    std::shared_ptr<Promise<promises_result_t<Results...>>>
+    all(std::index_sequence<Index...>, const std::shared_ptr<Promise<Results>> &... promises) {
         auto remain = std::make_shared<size_t>(sizeof...(promises));
         auto results = std::make_shared<promises_result_t<Results...>>();
         auto p = std::make_shared<Promise<promises_result_t<Results...>>>();
@@ -514,12 +537,13 @@ namespace zero::async::promise {
     }
 
     template<typename ...Results>
-    auto all(const std::shared_ptr<Promise<Results>> &... promises) {
+    std::shared_ptr<Promise<promises_result_t<Results...>>> all(const std::shared_ptr<Promise<Results>> &... promises) {
         return all(promises_result_index_sequence_for<Results...>{}, promises...);
     }
 
     template<size_t... Index, typename ...Results>
-    auto allSettled(std::index_sequence<Index...>, const std::shared_ptr<Promise<Results>> &... promises) {
+    std::shared_ptr<Promise<std::tuple<std::shared_ptr<Promise<Results>>...>>>
+    allSettled(std::index_sequence<Index...>, const std::shared_ptr<Promise<Results>> &... promises) {
         auto remain = std::make_shared<size_t>(sizeof...(Results));
         auto results = std::make_shared<std::tuple<std::shared_ptr<Promise<Results>>...>>();
         auto p = std::make_shared<Promise<std::tuple<std::shared_ptr<Promise<Results>>...>>>();
@@ -539,12 +563,14 @@ namespace zero::async::promise {
     }
 
     template<typename ...Results>
-    auto allSettled(const std::shared_ptr<Promise<Results>> &... promises) {
+    std::shared_ptr<Promise<std::tuple<std::shared_ptr<Promise<Results>>...>>>
+    allSettled(const std::shared_ptr<Promise<Results>> &... promises) {
         return allSettled(std::index_sequence_for<Results...>{}, promises...);
     }
 
     template<typename ...Results, typename T = std::tuple_element_t<0, std::tuple<Results...>>, bool Same = (std::is_same_v<T, Results> && ...)>
-    auto any(const std::shared_ptr<Promise<Results>> &... promises) {
+    std::shared_ptr<Promise<std::conditional_t<Same, T, std::any>>>
+    any(const std::shared_ptr<Promise<Results>> &... promises) {
         auto remain = std::make_shared<size_t>(sizeof...(Results));
         auto tail = std::make_shared<Reason>();
         auto p = std::make_shared<Promise<std::conditional_t<Same, T, std::any>>>();
@@ -592,7 +618,8 @@ namespace zero::async::promise {
     }
 
     template<typename ...Results, typename T = std::tuple_element_t<0, std::tuple<Results...>>, bool Same = (std::is_same_v<T, Results> && ...)>
-    auto race(const std::shared_ptr<Promise<Results>> &... promises) {
+    std::shared_ptr<Promise<std::conditional_t<Same, T, std::any>>>
+    race(const std::shared_ptr<Promise<Results>> &... promises) {
         auto p = std::make_shared<Promise<std::conditional_t<Same, T, std::any>>>();
 
         ([=]() {
@@ -615,6 +642,16 @@ namespace zero::async::promise {
         }(), ...);
 
         return p;
+    }
+
+    template<typename Result>
+    std::shared_ptr<Promise<Result>> loop(const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
+        return chain<Result>(func)->fail([=](const Reason &reason) {
+            if (reason.code < 0)
+                return reject<Result>(reason);
+
+            return loop<Result>(func);
+        });
     }
 }
 
