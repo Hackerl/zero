@@ -16,7 +16,7 @@
 
 namespace zero {
     template<typename T>
-    std::any parseValue(const std::string &str) {
+    std::any parseValue(std::string_view str) {
         if constexpr (std::is_arithmetic_v<T>) {
             std::optional<T> value = strings::toNumber<T>(str);
 
@@ -25,7 +25,7 @@ namespace zero {
 
             return *value;
         } else if (std::is_same_v<T, std::string>) {
-            return str;
+            return std::string{str};
         } else if (std::is_same_v<T, std::vector<typename T::value_type, typename T::allocator_type>>) {
             T value;
 
@@ -74,7 +74,7 @@ namespace zero {
         std::any value;
         bool flag;
         std::string type;
-        std::function<std::any(const std::string &)> parser;
+        std::function<std::any(std::string_view)> parse;
     };
 
     struct Positional {
@@ -82,7 +82,7 @@ namespace zero {
         std::string desc;
         std::any value;
         std::string type;
-        std::function<std::any(const std::string &)> parser;
+        std::function<std::any(std::string_view)> parse;
     };
 
     class Cmdline {
@@ -93,22 +93,22 @@ namespace zero {
 
     public:
         template<typename T>
-        void add(const std::string &name, const std::string &desc) {
+        void add(const char *name, const char *desc) {
             mPositionals.push_back({name, desc, T{}, demangle<T>(), parseValue<T>});
         }
 
-        void addOptional(const std::string &name, char shortName, const std::string &desc) {
+        void addOptional(const char *name, char shortName, const char *desc) {
             mOptionals.push_back({name, shortName, desc, false, true});
         }
 
         template<typename T>
-        void addOptional(const std::string &name, char shortName, const std::string &desc, T def = {}) {
+        void addOptional(const char *name, char shortName, const char *desc, T def = {}) {
             mOptionals.push_back({name, shortName, desc, def, false, demangle<T>(), parseValue<T>});
         }
 
     public:
         template<typename T>
-        T get(const std::string &name) {
+        T get(const char *name) {
             auto it = std::find_if(
                     mPositionals.begin(),
                     mPositionals.end(),
@@ -118,18 +118,18 @@ namespace zero {
             );
 
             if (it == mPositionals.end())
-                error(strings::format("can't find positional argument: %s", name.c_str()));
+                error(strings::format("can't find positional argument: %s", name));
 
             return std::any_cast<T>(it->value);
         }
 
         template<typename T>
-        T getOptional(const std::string &name) {
+        T getOptional(const char *name) {
             return std::any_cast<T>(findByName(name).value);
         }
 
     public:
-        void footer(const std::string &message) {
+        void footer(const char *message) {
             mFooter = message;
         }
 
@@ -148,7 +148,7 @@ namespace zero {
                         continue;
                     }
 
-                    it->value = it->parser(argv[i]);
+                    it->value = it->parse(argv[i]);
 
                     if (!it++->value.has_value())
                         error(strings::format("positional argument invalid: %s", argv[i]));
@@ -167,7 +167,7 @@ namespace zero {
                     if (!argv[i + 1])
                         error(strings::format("optional short argument invalid: %s", argv[i]));
 
-                    optional.value = optional.parser(argv[++i]);
+                    optional.value = optional.parse(argv[++i]);
 
                     if (!optional.value.has_value())
                         error(strings::format("optional short argument invalid: %s", argv[i]));
@@ -193,7 +193,7 @@ namespace zero {
                 if (!p)
                     error(strings::format("optional argument need value: %s", argv[i]));
 
-                optional.value = optional.parser(p + 1);
+                optional.value = optional.parse(p + 1);
 
                 if (!optional.value.has_value())
                     error(strings::format("optional argument invalid: %s", argv[i]));
@@ -289,8 +289,8 @@ namespace zero {
             }
         }
 
-        void error(const std::string &message) {
-            std::cout << strings::format("error:\n\t%s", message.c_str()) << std::endl;
+        void error(std::string_view message) {
+            std::cout << "error:\n\t" << message << std::endl;
             help();
             exit(1);
         }

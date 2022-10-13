@@ -9,7 +9,7 @@
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
-std::optional<zero::proc::ProcessMapping> zero::proc::getImageBase(pid_t pid, const std::string &path) {
+std::optional<zero::proc::ProcessMapping> zero::proc::getImageBase(pid_t pid, std::string_view path) {
     std::optional<std::list<ProcessMapping>> processMappings = getProcessMappings(pid);
 
     if (!processMappings)
@@ -116,7 +116,7 @@ std::optional<std::list<pid_t>> zero::proc::getThreads(pid_t pid) {
     std::list<pid_t> threads;
 
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
-        std::optional<pid_t> thread = strings::toNumber<pid_t>(entry.path().filename());
+        std::optional<pid_t> thread = strings::toNumber<pid_t>(entry.path().filename().string());
 
         if (!thread)
             return std::nullopt;

@@ -30,18 +30,18 @@ namespace zero {
 
     class ILogProvider: public Interface {
     public:
-        virtual void write(const std::string &message) = 0;
+        virtual void write(std::string_view message) = 0;
     };
 
     class ConsoleProvider: public ILogProvider {
     public:
-        void write(const std::string &message) override;
+        void write(std::string_view message) override;
     };
 
     class FileProvider: public ILogProvider {
     public:
         explicit FileProvider(
-                const std::string &name,
+                const char *name,
                 const std::filesystem::path &directory = "",
                 long limit = 10 * 1024 * 1024,
                 int remain = 10);
@@ -53,7 +53,7 @@ namespace zero {
         void clean();
 
     public:
-        void write(const std::string &message) override;
+        void write(std::string_view message) override;
 
     private:
         std::string mName;
@@ -83,7 +83,7 @@ namespace zero {
         }
 
     public:
-        void write(const std::string &message) override {
+        void write(std::string_view message) override {
             if (mBuffer.full())
                 return;
 

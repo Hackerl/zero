@@ -4,10 +4,11 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <cstddef>
 
 namespace zero::encoding::hex {
-    std::string encode(const unsigned char *buffer, size_t length);
-    std::optional<std::vector<unsigned char>> decode(const std::string &encoded);
+    std::string encode(const std::byte *buffer, size_t length);
+    std::optional<std::vector<std::byte>> decode(std::string_view encoded);
 }
 
 #endif //ZERO_HEX_H

@@ -10,7 +10,7 @@
 namespace zero::atomic {
     class Event {
     public:
-        void wait(const std::chrono::seconds &timeout = std::chrono::seconds::zero());
+        void wait(std::chrono::seconds timeout = std::chrono::seconds::zero());
 
     public:
         void notify();

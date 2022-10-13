@@ -5,11 +5,11 @@
 #include <unistd.h>
 #endif
 
-void zero::ConsoleProvider::write(const std::string &message) {
-    fwrite(message.c_str(), 1, message.length(), stderr);
+void zero::ConsoleProvider::write(std::string_view message) {
+    fwrite(message.data(), 1, message.length(), stderr);
 }
 
-zero::FileProvider::FileProvider(const std::string &name, const std::filesystem::path &directory, long limit, int remain) {
+zero::FileProvider::FileProvider(const char *name, const std::filesystem::path &directory, long limit, int remain) {
     mName = name;
     mLimit = limit;
     mRemain = remain;
@@ -54,12 +54,12 @@ void zero::FileProvider::clean() {
     }
 }
 
-void zero::FileProvider::write(const std::string &message) {
+void zero::FileProvider::write(std::string_view message) {
     if (mFile.tellp() > mLimit) {
         mFile = std::ofstream(getLogPath());
         clean();
     }
 
-    mFile.write(message.c_str(), (std::streamsize)message.length());
+    mFile.write(message.data(), (std::streamsize)message.length());
     mFile.flush();
 }

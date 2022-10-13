@@ -9,9 +9,9 @@
 #include <charconv>
 
 namespace zero::strings {
-    bool containsIC(const std::string &str, const std::string &substr);
-    bool startsWith(const std::string &str, const std::string &prefix);
-    bool endsWith(const std::string &str, const std::string &suffix);
+    bool containsIC(std::string_view str, std::string_view substr);
+    bool startsWith(std::string_view str, std::string_view prefix);
+    bool endsWith(std::string_view str, std::string_view suffix);
 
     std::string trim(const std::string &str);
     std::string ltrim(std::string str);
@@ -21,7 +21,7 @@ namespace zero::strings {
     std::string tolower(std::string str);
     std::string toupper(std::string str);
 
-    std::vector<std::string> split(const std::string &str, const std::string &delimiter, int limit = 0);
+    std::vector<std::string> split(std::string_view str, std::string_view delimiter, int limit = 0);
 
     template<typename T>
     std::string join(const T &containers, const char *delimiter) {
@@ -39,7 +39,7 @@ namespace zero::strings {
     }
 
     template<typename T>
-    std::optional<T> toNumber(const std::string &str, int base = 10) {
+    std::optional<T> toNumber(std::string_view str, int base = 10) {
         T value;
 
         std::from_chars_result result = std::from_chars(str.data(), str.data() + str.length(), value, base);

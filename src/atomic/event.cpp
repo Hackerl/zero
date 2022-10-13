@@ -8,7 +8,7 @@
 #include <climits>
 #endif
 
-void zero::atomic::Event::wait(const std::chrono::seconds &timeout) {
+void zero::atomic::Event::wait(std::chrono::seconds timeout) {
     while (true) {
 #ifdef _WIN32
         LONG state = InterlockedCompareExchange(&mState, 0, 1);

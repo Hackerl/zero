@@ -24,7 +24,7 @@ namespace zero::proc {
         std::string pathname;
     };
 
-    std::optional<ProcessMapping> getImageBase(pid_t pid, const std::string &path);
+    std::optional<ProcessMapping> getImageBase(pid_t pid, std::string_view path);
     std::optional<ProcessMapping> getAddressMapping(pid_t pid, uintptr_t address);
     std::optional<std::list<ProcessMapping>> getProcessMappings(pid_t pid);
     std::optional<std::list<pid_t>> getThreads(pid_t pid);
