@@ -10,9 +10,10 @@ add_library(
         zero
         STATIC
         src/log.cpp
+        src/os/os.cpp
+        src/os/process.cpp
         src/time/date.cpp
         src/strings/strings.cpp
-        src/proc/process.cpp
         src/atomic/event.cpp
         src/filesystem/path.cpp
         src/encoding/base64.cpp

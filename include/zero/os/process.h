@@ -7,12 +7,14 @@
 #include <sys/types.h>
 #include <optional>
 
-namespace zero::proc {
-    constexpr auto READ_PERMISSION = 0x1;
-    constexpr auto WRITE_PERMISSION = 0x2;
-    constexpr auto EXECUTE_PERMISSION = 0x4;
-    constexpr auto SHARED_PERMISSION = 0x8;
-    constexpr auto PRIVATE_PERMISSION = 0x10;
+namespace zero::os::process {
+    enum MemoryPermission {
+        READ = 0x1,
+        WRITE = 0x2,
+        EXECUTE = 0x4,
+        SHARED = 0x8,
+        PRIVATE = 0x10
+    };
 
     struct ProcessMapping {
         uintptr_t start;

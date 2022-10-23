@@ -1,4 +1,4 @@
-#include <zero/proc/process.h>
+#include <zero/os/process.h>
 
 #ifdef __linux__
 #include <zero/strings/strings.h>
@@ -9,7 +9,7 @@
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
-std::optional<zero::proc::ProcessMapping> zero::proc::getImageBase(pid_t pid, std::string_view path) {
+std::optional<zero::os::process::ProcessMapping> zero::os::process::getImageBase(pid_t pid, std::string_view path) {
     std::optional<std::list<ProcessMapping>> processMappings = getProcessMappings(pid);
 
     if (!processMappings)
@@ -25,7 +25,7 @@ std::optional<zero::proc::ProcessMapping> zero::proc::getImageBase(pid_t pid, st
     return *it;
 }
 
-std::optional<zero::proc::ProcessMapping> zero::proc::getAddressMapping(pid_t pid, uintptr_t address) {
+std::optional<zero::os::process::ProcessMapping> zero::os::process::getAddressMapping(pid_t pid, uintptr_t address) {
     std::optional<std::list<ProcessMapping>> processMappings = getProcessMappings(pid);
 
     if (!processMappings)
@@ -41,7 +41,7 @@ std::optional<zero::proc::ProcessMapping> zero::proc::getAddressMapping(pid_t pi
     return *it;
 }
 
-std::optional<std::list<zero::proc::ProcessMapping>> zero::proc::getProcessMappings(pid_t pid) {
+std::optional<std::list<zero::os::process::ProcessMapping>> zero::os::process::getProcessMappings(pid_t pid) {
     std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid) / "maps";
     std::ifstream stream(path);
 
@@ -49,7 +49,7 @@ std::optional<std::list<zero::proc::ProcessMapping>> zero::proc::getProcessMappi
         return std::nullopt;
 
     std::string line;
-    std::list<zero::proc::ProcessMapping> processMappings;
+    std::list<ProcessMapping> processMappings;
 
     while (std::getline(stream, line)) {
         std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), " ");
@@ -87,19 +87,19 @@ std::optional<std::list<zero::proc::ProcessMapping>> zero::proc::getProcessMappi
             return std::nullopt;
 
         if (permissions.at(0) == 'r')
-            processMapping.permissions |= READ_PERMISSION;
+            processMapping.permissions |= READ;
 
         if (permissions.at(1) == 'w')
-            processMapping.permissions |= WRITE_PERMISSION;
+            processMapping.permissions |= WRITE;
 
         if (permissions.at(2) == 'x')
-            processMapping.permissions |= EXECUTE_PERMISSION;
+            processMapping.permissions |= EXECUTE;
 
         if (permissions.at(3) == 's')
-            processMapping.permissions |= SHARED_PERMISSION;
+            processMapping.permissions |= SHARED;
 
         if (permissions.at(3) == 'p')
-            processMapping.permissions |= PRIVATE_PERMISSION;
+            processMapping.permissions |= PRIVATE;
 
         processMappings.push_back(processMapping);
     }
@@ -107,7 +107,7 @@ std::optional<std::list<zero::proc::ProcessMapping>> zero::proc::getProcessMappi
     return processMappings;
 }
 
-std::optional<std::list<pid_t>> zero::proc::getThreads(pid_t pid) {
+std::optional<std::list<pid_t>> zero::os::process::getThreads(pid_t pid) {
     std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid) / "task";
 
     if (!std::filesystem::is_directory(path))
