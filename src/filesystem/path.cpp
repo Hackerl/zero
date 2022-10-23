@@ -6,23 +6,34 @@
 #include <glob.h>
 #endif
 
-std::filesystem::path zero::filesystem::getApplicationPath() {
+std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {
 #ifdef _WIN32
     char buffer[MAX_PATH] = {};
 
     DWORD length = GetModuleFileNameA(nullptr, buffer, MAX_PATH);
 
     if (length == 0 || length == MAX_PATH)
-        return "";
+        return std::nullopt;
 
     return buffer;
 #elif __linux__
-    return std::filesystem::read_symlink("/proc/self/exe");
+    std::error_code ec;
+    std::filesystem::path path = std::filesystem::read_symlink("/proc/self/exe", ec);
+
+    if (ec)
+        return std::nullopt;
+
+    return path;
 #endif
 }
 
-std::filesystem::path zero::filesystem::getApplicationDirectory() {
-    return getApplicationPath().parent_path();
+std::optional<std::filesystem::path> zero::filesystem::getApplicationDirectory() {
+    std::optional<std::filesystem::path> path = getApplicationPath();
+
+    if (!path)
+        return std::nullopt;
+
+    return path->parent_path();
 }
 
 std::optional<std::list<std::filesystem::path>> zero::filesystem::glob(const std::string &pattern) {

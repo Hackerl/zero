@@ -8,39 +8,39 @@
 #include <climits>
 #endif
 
-std::string zero::os::hostname() {
+std::optional<std::string> zero::os::hostname() {
 #ifdef _WIN32
     char name[MAX_COMPUTERNAME_LENGTH + 1] = {};
     DWORD length = sizeof(name);
 
     if (!GetComputerNameA(name, &length))
-        return "";
+        return std::nullopt;
 
     return name;
 #elif __linux__
     char name[HOST_NAME_MAX + 1] = {};
 
     if (gethostname(name, sizeof(name)) < 0)
-        return "";
+        return std::nullopt;
 
     return name;
 #endif
 }
 
-std::string zero::os::username() {
+std::optional<std::string> zero::os::username() {
 #ifdef _WIN32
     char name[UNLEN + 1] = {};
     DWORD length = sizeof(name);
 
     if (!GetUserNameA(name, &length))
-        return "";
+        return std::nullopt;
 
     return name;
 #elif __linux__
     char name[LOGIN_NAME_MAX + 1] = {};
 
     if (getlogin_r(name, sizeof(name)) != 0)
-        return "";
+        return std::nullopt;
 
     return name;
 #endif

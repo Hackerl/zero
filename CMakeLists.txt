@@ -11,6 +11,7 @@ add_library(
         STATIC
         src/log.cpp
         src/os/os.cpp
+        src/os/net.cpp
         src/os/process.cpp
         src/time/date.cpp
         src/strings/strings.cpp
@@ -21,4 +22,10 @@ add_library(
 )
 
 target_include_directories(zero PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(zero $<$<BOOL:${WIN32}>:Synchronization>)
+
+target_link_libraries(
+        zero
+        $<$<BOOL:${WIN32}>:Ws2_32>
+        $<$<BOOL:${WIN32}>:Iphlpapi>
+        $<$<BOOL:${WIN32}>:Synchronization>
+)

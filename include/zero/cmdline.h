@@ -260,7 +260,7 @@ namespace zero {
 
             std::cout << strings::format(
                     "usage: %s [options] %s ... %s ...",
-                    zero::filesystem::getApplicationPath().filename().string().c_str(),
+                    zero::filesystem::getApplicationPath().value_or("").filename().string().c_str(),
                     strings::join(positionals, " ").c_str(),
                     mFooter.empty() ? "extra" : mFooter.c_str()
             ) << std::endl;

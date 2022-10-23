@@ -2,10 +2,11 @@
 #define ZERO_OS_H
 
 #include <string>
+#include <optional>
 
 namespace zero::os {
-    std::string hostname();
-    std::string username();
+    std::optional<std::string> hostname();
+    std::optional<std::string> username();
 }
 
 #endif //ZERO_OS_H

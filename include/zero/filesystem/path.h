@@ -7,8 +7,8 @@
 #include <string>
 
 namespace zero::filesystem {
-    std::filesystem::path getApplicationPath();
-    std::filesystem::path getApplicationDirectory();
+    std::optional<std::filesystem::path> getApplicationPath();
+    std::optional<std::filesystem::path> getApplicationDirectory();
     std::optional<std::list<std::filesystem::path>> glob(const std::string &pattern);
 }
 
