@@ -4,10 +4,10 @@
 #include "thread.h"
 #include "interface.h"
 #include "singleton.h"
-#include "zero/strings/strings.h"
-#include "zero/time/date.h"
-#include "zero/atomic/event.h"
-#include "zero/atomic/circular_buffer.h"
+#include "strings/strings.h"
+#include "time/date.h"
+#include "atomic/event.h"
+#include "atomic/circular_buffer.h"
 #include <fstream>
 #include <list>
 #include <cstring>

@@ -118,7 +118,7 @@ namespace zero {
             );
 
             if (it == mPositionals.end())
-                error(strings::format("can't find positional argument: %s", name));
+                error("positional argument not found: %s", name);
 
             return std::any_cast<T>(it->value);
         }
@@ -151,7 +151,7 @@ namespace zero {
                     it->value = it->parse(argv[i]);
 
                     if (!it++->value.has_value())
-                        error(strings::format("positional argument invalid: %s", argv[i]));
+                        error("invalid positional argument: %s", argv[i]);
 
                     continue;
                 }
@@ -165,12 +165,12 @@ namespace zero {
                     }
 
                     if (!argv[i + 1])
-                        error(strings::format("optional short argument invalid: %s", argv[i]));
+                        error("invalid optional argument: %s", argv[i]);
 
                     optional.value = optional.parse(argv[++i]);
 
                     if (!optional.value.has_value())
-                        error(strings::format("optional short argument invalid: %s", argv[i]));
+                        error("invalid optional argument: %s", argv[i]);
 
                     continue;
                 }
@@ -191,12 +191,12 @@ namespace zero {
                 }
 
                 if (!p)
-                    error(strings::format("optional argument need value: %s", argv[i]));
+                    error("optional argument requires value: %s", argv[i]);
 
                 optional.value = optional.parse(p + 1);
 
                 if (!optional.value.has_value())
-                    error(strings::format("optional argument invalid: %s", argv[i]));
+                    error("invalid optional argument: %s", argv[i]);
             }
 
             if (getOptional<bool>("help")) {
@@ -211,7 +211,7 @@ namespace zero {
     private:
         Optional &findByName(const std::string &name) {
             if (name.empty())
-                error("require option name");
+                error("empty option name");
 
             auto it = std::find_if(
                     mOptionals.begin(),
@@ -222,14 +222,14 @@ namespace zero {
             );
 
             if (it == mOptionals.end())
-                error(strings::format("can't find optional argument: --%s", name.c_str()));
+                error("optional argument not found: --%s", name.c_str());
 
             return *it;
         }
 
         Optional &findByShortName(char shortName) {
             if (!shortName)
-                error("require option name");
+                error("empty option name");
 
             auto it = std::find_if(
                     mOptionals.begin(),
@@ -240,7 +240,7 @@ namespace zero {
             );
 
             if (it == mOptionals.end())
-                error(strings::format("can't find optional short argument: -%c", shortName));
+                error("optional argument not found: -%c", shortName);
 
             return *it;
         }
@@ -289,8 +289,14 @@ namespace zero {
             }
         }
 
-        void error(std::string_view message) {
-            std::cout << "error:\n\t" << message << std::endl;
+        template<typename... Args>
+        void error(const char *message, Args... args) {
+            if constexpr (sizeof...(args) == 0) {
+                std::cout << "error:\n\t" << message << std::endl;
+            } else {
+                std::cout << "error:\n\t" << zero::strings::format(message, args...) << std::endl;
+            }
+
             help();
             exit(1);
         }
