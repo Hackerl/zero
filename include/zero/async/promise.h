@@ -1,12 +1,13 @@
 #ifndef ZERO_PROMISE_H
 #define ZERO_PROMISE_H
 
-#include <memory>
-#include <functional>
-#include <list>
-#include <stdexcept>
-#include <tuple>
 #include <any>
+#include <list>
+#include <tuple>
+#include <string>
+#include <memory>
+#include <stdexcept>
+#include <functional>
 
 #define P_CONTINUE(p)       p->reject({})
 #define P_BREAK(p)          p->resolve()

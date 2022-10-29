@@ -72,7 +72,7 @@ namespace zero {
     class AsyncProvider: public T {
     public:
         template<typename... Args>
-        explicit AsyncProvider<T>(Args... args) : T(args...) {
+        explicit AsyncProvider<T>(Args &&... args) : T(std::forward<Args>(args)...) {
             mThread.start(&AsyncProvider<T>::loopThread);
         }
 
@@ -123,45 +123,33 @@ namespace zero {
         Thread<AsyncProvider<T>> mThread{this};
     };
 
-    struct ProviderRegister {
-        LogLevel level;
-        ILogProvider *provider;
-    };
-
     class Logger {
-    public:
-        ~Logger() {
-            for (const auto &r : mRegistry) {
-                delete r.provider;
-            }
-        }
-
     public:
         template<typename T, typename... Args>
         void log(LogLevel level, const T format, Args... args) {
             std::string message = strings::format(format, args...);
 
-            for (const auto &r : mRegistry) {
-                if (level > r.level)
+            for (const auto &provider: mProviders) {
+                if (level > provider.first)
                     continue;
 
-                r.provider->write(message);
+                provider.second->write(message);
             }
         }
 
     public:
-        void addProvider(LogLevel level, ILogProvider *provider) {
-            mRegistry.push_back({level, provider});
+        void addProvider(LogLevel level, std::unique_ptr<ILogProvider> provider) {
+            mProviders.emplace_back(level, std::move(provider));
         }
 
     private:
-        std::list<ProviderRegister> mRegistry;
+        std::list<std::pair<LogLevel, std::unique_ptr<ILogProvider>>> mProviders;
     };
 }
 
 #define GLOBAL_LOGGER                       zero::Singleton<zero::Logger>::getInstance()
-#define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER->addProvider(level, new zero::ConsoleProvider())
-#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, new zero::AsyncProvider<zero::FileProvider>(name, ## __VA_ARGS__))
+#define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::ConsoleProvider>())
+#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::AsyncProvider<zero::FileProvider>>(name, ## __VA_ARGS__))
 
 #define NEWLINE                             "\n"
 #define SOURCE                              std::filesystem::path(__FILE__).filename().string().c_str()

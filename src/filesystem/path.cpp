@@ -1,9 +1,7 @@
 #include <zero/filesystem/path.h>
 
 #ifdef _WIN32
-#include <Shlwapi.h>
-#elif __linux__
-#include <glob.h>
+#include <Windows.h>
 #endif
 
 std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {
@@ -34,43 +32,4 @@ std::optional<std::filesystem::path> zero::filesystem::getApplicationDirectory()
         return std::nullopt;
 
     return path->parent_path();
-}
-
-std::optional<std::list<std::filesystem::path>> zero::filesystem::glob(const std::string &pattern) {
-    std::filesystem::path directory = std::filesystem::path(pattern).parent_path();
-
-    if (!std::filesystem::is_directory(directory))
-        return std::nullopt;
-
-    std::list<std::filesystem::path> paths;
-
-#ifdef _WIN32
-    WIN32_FIND_DATAA data = {};
-    HANDLE handle = FindFirstFileA(pattern.c_str(), &data);
-
-    if (handle == INVALID_HANDLE_VALUE)
-        return std::nullopt;
-
-    do {
-        paths.push_back(directory / data.cFileName);
-    } while (FindNextFileA(handle, &data));
-
-    FindClose(handle);
-    paths.sort();
-#elif __linux__
-    glob_t g = {};
-
-    if (glob(pattern.c_str(), 0, nullptr, &g) != 0) {
-        globfree(&g);
-        return std::nullopt;
-    }
-
-    for (int i = 0; i < g.gl_pathc; i++) {
-        paths.emplace_back(g.gl_pathv[i]);
-    }
-
-    globfree(&g);
-#endif
-
-    return paths;
 }

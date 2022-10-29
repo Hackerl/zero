@@ -1,5 +1,6 @@
 #include <zero/log.h>
 #include <zero/filesystem/path.h>
+#include <set>
 
 #ifdef __linux__
 #include <unistd.h>
@@ -9,10 +10,12 @@ void zero::ConsoleProvider::write(std::string_view message) {
     fwrite(message.data(), 1, message.length(), stderr);
 }
 
-zero::FileProvider::FileProvider(const char *name, const std::filesystem::path &directory, long limit, int remain) {
-    mName = name;
-    mLimit = limit;
-    mRemain = remain;
+zero::FileProvider::FileProvider(
+        const char *name,
+        const std::filesystem::path &directory,
+        long limit,
+        int remain
+) : mName(name), mLimit(limit), mRemain(remain) {
     mDirectory = std::filesystem::is_directory(directory) ? directory : std::filesystem::temp_directory_path();
 
 #ifndef _WIN32
@@ -36,21 +39,27 @@ std::filesystem::path zero::FileProvider::getLogPath() {
 }
 
 void zero::FileProvider::clean() {
-    std::string pattern = strings::format("%s.%d.*.log", mName.c_str(), mPID);
-    std::optional<std::list<std::filesystem::path>> logs = zero::filesystem::glob((mDirectory / pattern).string());
+    std::string prefix = strings::format("%s.%d", mName.c_str(), mPID);
+    std::set<std::filesystem::path> logs;
 
-    if (!logs)
-        return;
+    for (const auto &entry: std::filesystem::directory_iterator(mDirectory)) {
+        if (!entry.is_regular_file())
+            continue;
 
-    size_t size = logs->size();
+        if (!zero::strings::startsWith(entry.path().filename().string(), prefix))
+            continue;
+
+        logs.insert(entry);
+    }
+
+    size_t size = logs.size();
 
     if (size <= mRemain)
         return;
 
-    std::list<std::filesystem::path> expired(logs->begin(), std::next(logs->begin(), (std::ptrdiff_t)(size - mRemain)));
-
-    for (const auto &path: expired) {
-        std::filesystem::remove(path);
+    for (auto it = logs.begin(); it != std::prev(logs.end(), mRemain); it++) {
+        std::error_code ec;
+        std::filesystem::remove(*it, ec);
     }
 }
 
@@ -60,6 +69,6 @@ void zero::FileProvider::write(std::string_view message) {
         clean();
     }
 
-    mFile.write(message.data(), (std::streamsize)message.length());
+    mFile.write(message.data(), (std::streamsize) message.length());
     mFile.flush();
 }
