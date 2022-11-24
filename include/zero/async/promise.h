@@ -308,7 +308,7 @@ namespace zero::async::promise {
 
             auto onFulfilledTrigger = [=]() {
                 if (!onFulfilled) {
-                    if constexpr (std::is_same_v<void, NextResult>) {
+                    if constexpr (std::is_same_v<NextResult, void>) {
                         p->resolve();
                         return;
                     } else {
@@ -325,7 +325,7 @@ namespace zero::async::promise {
                     if constexpr (!is_promise_v<Next>) {
                         p->resolve(next);
                     } else {
-                        if constexpr (std::is_same_v<void, NextResult>) {
+                        if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([p]() {
                                 p->resolve();
                             }, [p](const Reason &reason) {
@@ -357,7 +357,7 @@ namespace zero::async::promise {
                     if constexpr (!is_promise_v<Next>) {
                         p->resolve(next);
                     } else {
-                        if constexpr (std::is_same_v<void, NextResult>) {
+                        if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([p]() {
                                 p->resolve();
                             }, [p](const Reason &reason) {
@@ -479,7 +479,7 @@ namespace zero::async::promise {
     using promises_result_t = decltype(std::tuple_cat(
             std::declval<
                     std::conditional_t<
-                            std::is_same_v<void, Ts>,
+                            std::is_same_v<Ts, void>,
                             std::tuple<>,
                             std::tuple<Ts>
                     >
@@ -500,7 +500,7 @@ namespace zero::async::promise {
     using promises_result_index_sequence_for = promises_result_index_sequence<
             sizeof...(Ts),
             0,
-            (std::is_same_v<void, Ts> ? 0 : 1)...
+            (std::is_same_v<Ts, void> ? 0 : 1)...
     >;
 
     template<size_t...Index, typename ...Results>
@@ -646,12 +646,36 @@ namespace zero::async::promise {
     }
 
     template<typename Result>
-    std::shared_ptr<Promise<Result>> loop(const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
-        return chain<Result>(func)->fail([=](const Reason &reason) {
-            if (reason.code < 0)
-                return reject<Result>(reason);
+    void repeat(const std::shared_ptr<Promise<Result>> &p, const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
+        if constexpr (std::is_same_v<Result, void>) {
+            chain<Result>(func)->then([=]() {
+                p->resolve();
+            }, [=](const Reason &reason) {
+                if (reason.code < 0) {
+                    p->reject(reason);
+                    return;
+                }
 
-            return loop<Result>(func);
+                repeat(p, func);
+            });
+        } else {
+            chain<Result>(func)->then([=](const Result &result) {
+                p->resolve(result);
+            }, [=](const Reason &reason) {
+                if (reason.code < 0) {
+                    p->reject(reason);
+                    return;
+                }
+
+                repeat(p, func);
+            });
+        }
+    }
+
+    template<typename Result>
+    std::shared_ptr<Promise<Result>> loop(const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
+        return chain<Result>([=](const auto &p) {
+            repeat(p, func);
         });
     }
 }
