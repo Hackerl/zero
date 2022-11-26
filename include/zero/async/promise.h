@@ -3,6 +3,7 @@
 
 #include <any>
 #include <list>
+#include <array>
 #include <tuple>
 #include <string>
 #include <memory>
@@ -476,15 +477,29 @@ namespace zero::async::promise {
     }
 
     template<typename...Ts>
-    using promises_result_t = decltype(std::tuple_cat(
-            std::declval<
-                    std::conditional_t<
-                            std::is_same_v<Ts, void>,
-                            std::tuple<>,
-                            std::tuple<Ts>
-                    >
-            >()...)
-    );
+    using first_element_t = std::tuple_element_t<0, std::tuple<Ts...>>;
+
+    template<typename T, typename...Ts>
+    inline constexpr bool is_elements_same_v = (std::is_same_v<T, Ts> && ...);
+
+    template<typename...Ts>
+    using promises_result_t = std::conditional_t<
+            is_elements_same_v<first_element_t<Ts...>, Ts...>,
+            std::conditional_t<
+                    std::is_same_v<first_element_t<Ts...>, void>,
+                    void,
+                    std::array<first_element_t<Ts...>, sizeof...(Ts)>
+            >,
+            decltype(std::tuple_cat(
+                    std::declval<
+                            std::conditional_t<
+                                    std::is_same_v<Ts, void>,
+                                    std::tuple<>,
+                                    std::tuple<Ts>
+                            >
+                    >()...)
+            )
+    >;
 
     template<size_t Count, size_t Index, size_t N, size_t... Is>
     struct promises_result_index_sequence : promises_result_index_sequence<Count - 1, Index + N, Is..., Index> {
@@ -507,32 +522,46 @@ namespace zero::async::promise {
     std::shared_ptr<Promise<promises_result_t<Results...>>>
     all(std::index_sequence<Index...>, const std::shared_ptr<Promise<Results>> &... promises) {
         auto remain = std::make_shared<size_t>(sizeof...(promises));
-        auto results = std::make_shared<promises_result_t<Results...>>();
         auto p = std::make_shared<Promise<promises_result_t<Results...>>>();
 
-        ([=]() {
-            if constexpr (std::is_same_v<Results, void>) {
+        if constexpr (std::is_same_v<promises_result_t<Results...>, void>) {
+            ([=]() {
                 promises->then([=]() {
                     if (--(*remain) > 0)
                         return;
 
-                    p->resolve(*results);
+                    p->resolve();
                 }, [=](const Reason &reason) {
                     p->reject(reason);
                 });
-            } else {
-                promises->then([=](const Results &result) {
-                    std::get<Index>(*results) = result;
+            }(), ...);
+        } else {
+            auto results = std::make_shared<promises_result_t<Results...>>();
 
-                    if (--(*remain) > 0)
-                        return;
+            ([=]() {
+                if constexpr (std::is_same_v<Results, void>) {
+                    promises->then([=]() {
+                        if (--(*remain) > 0)
+                            return;
 
-                    p->resolve(*results);
-                }, [=](const Reason &reason) {
-                    p->reject(reason);
-                });
-            }
-        }(), ...);
+                        p->resolve(*results);
+                    }, [=](const Reason &reason) {
+                        p->reject(reason);
+                    });
+                } else {
+                    promises->then([=](const Results &result) {
+                        std::get<Index>(*results) = result;
+
+                        if (--(*remain) > 0)
+                            return;
+
+                        p->resolve(*results);
+                    }, [=](const Reason &reason) {
+                        p->reject(reason);
+                    });
+                }
+            }(), ...);
+        }
 
         return p;
     }
@@ -569,7 +598,7 @@ namespace zero::async::promise {
         return allSettled(std::index_sequence_for<Results...>{}, promises...);
     }
 
-    template<typename ...Results, typename T = std::tuple_element_t<0, std::tuple<Results...>>, bool Same = (std::is_same_v<T, Results> && ...)>
+    template<typename ...Results, typename T = first_element_t<Results...>, bool Same = is_elements_same_v<T, Results...>>
     std::shared_ptr<Promise<std::conditional_t<Same, T, std::any>>>
     any(const std::shared_ptr<Promise<Results>> &... promises) {
         auto remain = std::make_shared<size_t>(sizeof...(Results));
@@ -618,7 +647,7 @@ namespace zero::async::promise {
         return p;
     }
 
-    template<typename ...Results, typename T = std::tuple_element_t<0, std::tuple<Results...>>, bool Same = (std::is_same_v<T, Results> && ...)>
+    template<typename ...Results, typename T = first_element_t<Results...>, bool Same = is_elements_same_v<T, Results...>>
     std::shared_ptr<Promise<std::conditional_t<Same, T, std::any>>>
     race(const std::shared_ptr<Promise<Results>> &... promises) {
         auto p = std::make_shared<Promise<std::conditional_t<Same, T, std::any>>>();
