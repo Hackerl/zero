@@ -139,7 +139,7 @@ namespace zero::async::promise {
                     if constexpr (!is_promise_v<Next>) {
                         p->resolve(next);
                     } else {
-                        if constexpr (std::is_same_v<void, NextResult>) {
+                        if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([p]() {
                                 p->resolve();
                             }, [p](const Reason &reason) {
@@ -171,7 +171,7 @@ namespace zero::async::promise {
                     if constexpr (!is_promise_v<Next>) {
                         p->resolve(next);
                     } else {
-                        if constexpr (std::is_same_v<void, NextResult>) {
+                        if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([p]() {
                                 p->resolve();
                             }, [p](const Reason &reason) {
@@ -680,23 +680,23 @@ namespace zero::async::promise {
             chain<Result>(func)->then([=]() {
                 p->resolve();
             }, [=](const Reason &reason) {
-                if (reason.code < 0) {
-                    p->reject(reason);
+                if (reason.code == 0 && reason.message.empty()) {
+                    repeat(p, func);
                     return;
                 }
 
-                repeat(p, func);
+                p->reject(reason);
             });
         } else {
             chain<Result>(func)->then([=](const Result &result) {
                 p->resolve(result);
             }, [=](const Reason &reason) {
-                if (reason.code < 0) {
-                    p->reject(reason);
+                if (reason.code == 0 && reason.message.empty()) {
+                    repeat(p, func);
                     return;
                 }
 
-                repeat(p, func);
+                p->reject(reason);
             });
         }
     }
