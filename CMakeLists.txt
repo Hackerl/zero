@@ -3,6 +3,8 @@ project(zero)
 
 set(CMAKE_CXX_STANDARD 17)
 
+option(DISABLE_TESTS "disable unit test" OFF)
+
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 
@@ -29,3 +31,7 @@ target_link_libraries(
         $<$<BOOL:${WIN32}>:Iphlpapi>
         $<$<BOOL:${WIN32}>:Synchronization>
 )
+
+if (NOT DISABLE_TESTS)
+    add_subdirectory(test)
+endif ()

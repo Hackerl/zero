@@ -1,7 +1,10 @@
 #include <zero/strings/strings.h>
 #include <algorithm>
 
-bool zero::strings::containsIC(std::string_view str, std::string_view substr) {
+bool zero::strings::containsIgnoreCase(std::string_view str, std::string_view substr) {
+    if (substr.empty())
+        return true;
+
     return std::search(
             str.begin(), str.end(),
             substr.begin(), substr.end(),
@@ -85,6 +88,11 @@ std::string zero::strings::toupper(std::string str) {
 
 std::vector<std::string> zero::strings::split(std::string_view str, std::string_view delimiter, int limit) {
     std::vector<std::string> tokens;
+
+    if (delimiter.empty()) {
+        tokens.emplace_back(str);
+        return tokens;
+    }
 
     size_t prev = 0;
 

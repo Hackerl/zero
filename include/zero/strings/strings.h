@@ -9,7 +9,7 @@
 #include <charconv>
 
 namespace zero::strings {
-    bool containsIC(std::string_view str, std::string_view substr);
+    bool containsIgnoreCase(std::string_view str, std::string_view substr);
     bool startsWith(std::string_view str, std::string_view prefix);
     bool endsWith(std::string_view str, std::string_view suffix);
 
