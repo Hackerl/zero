@@ -34,7 +34,7 @@ namespace zero::atomic {
             index %= N;
 
 #ifdef _WIN32
-            while (InterlockedCompareExchange((LONG *)&mState[index], PUTTING, IDLE) != IDLE) {
+            while (InterlockedCompareExchange((LONG *) &mState[index], PUTTING, IDLE) != IDLE) {
 
             }
 #elif __linux__
@@ -48,7 +48,7 @@ namespace zero::atomic {
 
         void commit(size_t index) {
 #ifdef _WIN32
-            InterlockedExchange((LONG *)&mState[index], VALID);
+            InterlockedExchange((LONG *) &mState[index], VALID);
 #elif __linux__
             __atomic_store_n(&mState[index], VALID, __ATOMIC_SEQ_CST);
 #endif
@@ -66,7 +66,7 @@ namespace zero::atomic {
             index %= N;
 
 #ifdef _WIN32
-            while (InterlockedCompareExchange((LONG *)&mState[index], TAKING, VALID) != VALID) {
+            while (InterlockedCompareExchange((LONG *) &mState[index], TAKING, VALID) != VALID) {
 
             }
 #elif __linux__
@@ -80,7 +80,7 @@ namespace zero::atomic {
 
         void release(size_t index) {
 #ifdef _WIN32
-            InterlockedExchange((LONG *)&mState[index], IDLE);
+            InterlockedExchange((LONG *) &mState[index], IDLE);
 #elif __linux__
             __atomic_store_n(&mState[index], IDLE, __ATOMIC_SEQ_CST);
 #endif

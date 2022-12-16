@@ -1,3 +1,5 @@
+find_package(Threads REQUIRED)
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -8,5 +10,12 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(catch2)
 
-add_executable(zero_test strings/strings.cpp cache/lru.cpp)
-target_link_libraries(zero_test zero Catch2::Catch2WithMain)
+add_executable(
+        zero_test
+        atomic/event.cpp
+        atomic/circular_buffer.cpp
+        strings/strings.cpp
+        cache/lru.cpp
+)
+
+target_link_libraries(zero_test zero Catch2::Catch2WithMain Threads::Threads)

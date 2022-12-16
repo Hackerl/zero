@@ -7,8 +7,8 @@ namespace zero {
     template<typename T>
     class Thread {
     public:
-        explicit Thread(T *that) {
-            mThat = that;
+        explicit Thread(T *that) : mThat(that), mThread(nullptr) {
+
         }
 
     public:
@@ -37,7 +37,7 @@ namespace zero {
 
     private:
         T *mThat;
-        std::thread *mThread{};
+        std::thread *mThread;
     };
 }
 

@@ -8,7 +8,7 @@
 #include <climits>
 #endif
 
-void zero::atomic::Event::wait(std::chrono::seconds timeout) {
+void zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
     while (true) {
 #ifdef _WIN32
         LONG state = InterlockedCompareExchange(&mState, 0, 1);
@@ -16,17 +16,28 @@ void zero::atomic::Event::wait(std::chrono::seconds timeout) {
         if (state == 1)
             break;
 
-        DWORD milliseconds = timeout != std::chrono::seconds::zero() ? (DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count() : INFINITE;
+        if (!timeout) {
+            WaitOnAddress(&mState, &state, sizeof(LONG), INFINITE);
+            continue;
+        }
 
-        if (!WaitOnAddress(&mState, &state, sizeof(LONG), milliseconds) && GetLastError() == ERROR_TIMEOUT)
+        if (!WaitOnAddress(&mState, &state, sizeof(LONG), (DWORD) timeout->count()) && GetLastError() == ERROR_TIMEOUT)
             break;
 #elif __linux__
         if (__sync_bool_compare_and_swap(&mState, 1, 0))
             break;
 
-        timespec t = {timeout.count()};
+        if (!timeout) {
+            syscall(SYS_futex, &mState, FUTEX_WAIT, 0, nullptr, nullptr, 0);
+            continue;
+        }
 
-        if (syscall(SYS_futex, &mState, FUTEX_WAIT, 0, timeout !=  std::chrono::seconds::zero() ? &t : nullptr, nullptr, 0) < 0 && errno == ETIMEDOUT)
+        timespec ts = {
+                timeout->count() / 1000,
+                (timeout->count() % 1000) * 1000000
+        };
+
+        if (syscall(SYS_futex, &mState, FUTEX_WAIT, 0, &ts, nullptr, 0) < 0 && errno == ETIMEDOUT)
             break;
 #endif
     }

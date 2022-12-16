@@ -60,7 +60,7 @@ namespace zero::strings {
         std::unique_ptr<char[]> buffer = std::make_unique<char[]>(length + 1);
         snprintf(buffer.get(), length + 1, fmt, args...);
 
-        return {buffer.get(), (std::size_t)length};
+        return {buffer.get(), (std::size_t) length};
     }
 }
 

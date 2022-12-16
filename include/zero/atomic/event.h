@@ -2,6 +2,7 @@
 #define ZERO_EVENT_H
 
 #include <chrono>
+#include <optional>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -10,7 +11,7 @@
 namespace zero::atomic {
     class Event {
     public:
-        void wait(std::chrono::seconds timeout = std::chrono::seconds::zero());
+        void wait(std::optional<std::chrono::milliseconds> timeout = {});
 
     public:
         void notify();
