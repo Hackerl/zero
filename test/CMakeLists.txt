@@ -14,6 +14,9 @@ add_executable(
         zero_test
         atomic/event.cpp
         atomic/circular_buffer.cpp
+        async/promise.cpp
+        encoding/hex.cpp
+        encoding/base64.cpp
         strings/strings.cpp
         cache/lru.cpp
 )

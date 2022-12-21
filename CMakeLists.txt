@@ -29,9 +29,9 @@ target_include_directories(zero PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(
         zero
-        $<$<BOOL:${WIN32}>:Ws2_32>
-        $<$<BOOL:${WIN32}>:Iphlpapi>
-        $<$<BOOL:${WIN32}>:Synchronization>
+        $<$<BOOL:$<PLATFORM_ID:Windows>>:Ws2_32>
+        $<$<BOOL:$<PLATFORM_ID:Windows>>:Iphlpapi>
+        $<$<BOOL:$<PLATFORM_ID:Windows>>:Synchronization>
 )
 
 if (NOT DISABLE_TESTS)
