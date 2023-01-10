@@ -2,8 +2,9 @@
 #define ZERO_PROCESS_H
 
 #ifdef __linux__
-#include <string>
+#include <map>
 #include <list>
+#include <string>
 #include <sys/types.h>
 #include <optional>
 
@@ -81,11 +82,25 @@ namespace zero::os::process {
         std::optional<int> exitCode;
     };
 
-    std::optional<MemoryMapping> getImageBase(pid_t pid, std::string_view path);
-    std::optional<MemoryMapping> getAddressMapping(pid_t pid, uintptr_t address);
-    std::optional<std::list<MemoryMapping>> getProcessMappings(pid_t pid);
-    std::optional<std::list<pid_t>> getThreads(pid_t pid);
-    std::optional<Stat> getProcessStat(pid_t pid);
+    class Process {
+    public:
+        explicit Process(pid_t pid);
+
+    public:
+        [[nodiscard]] std::optional<MemoryMapping> getImageBase(std::string_view path) const;
+        [[nodiscard]] std::optional<MemoryMapping> findMapping(uintptr_t address) const;
+
+    public:
+        [[nodiscard]] std::optional<std::string> comm() const;
+        [[nodiscard]] std::optional<std::string> cmdline() const;
+        [[nodiscard]] std::optional<std::map<std::string, std::string>> environ() const;
+        [[nodiscard]] std::optional<Stat> stat() const;
+        [[nodiscard]] std::optional<std::list<pid_t>> tasks() const;
+        [[nodiscard]] std::optional<std::list<MemoryMapping>> maps() const;
+
+    private:
+        pid_t mPID;
+    };
 }
 #endif
 

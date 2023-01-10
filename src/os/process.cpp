@@ -9,8 +9,12 @@
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
-std::optional<zero::os::process::MemoryMapping> zero::os::process::getImageBase(pid_t pid, std::string_view path) {
-    std::optional<std::list<MemoryMapping>> memoryMappings = getProcessMappings(pid);
+zero::os::process::Process::Process(pid_t pid) : mPID(pid) {
+
+}
+
+std::optional<zero::os::process::MemoryMapping> zero::os::process::Process::getImageBase(std::string_view path) const {
+    std::optional<std::list<MemoryMapping>> memoryMappings = maps();
 
     if (!memoryMappings)
         return std::nullopt;
@@ -25,8 +29,8 @@ std::optional<zero::os::process::MemoryMapping> zero::os::process::getImageBase(
     return *it;
 }
 
-std::optional<zero::os::process::MemoryMapping> zero::os::process::getAddressMapping(pid_t pid, uintptr_t address) {
-    std::optional<std::list<MemoryMapping>> memoryMappings = getProcessMappings(pid);
+std::optional<zero::os::process::MemoryMapping> zero::os::process::Process::findMapping(uintptr_t address) const {
+    std::optional<std::list<MemoryMapping>> memoryMappings = maps();
 
     if (!memoryMappings)
         return std::nullopt;
@@ -41,94 +45,54 @@ std::optional<zero::os::process::MemoryMapping> zero::os::process::getAddressMap
     return *it;
 }
 
-std::optional<std::list<zero::os::process::MemoryMapping>> zero::os::process::getProcessMappings(pid_t pid) {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid) / "maps";
+std::optional<std::string> zero::os::process::Process::comm() const {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "comm";
     std::ifstream stream(path);
 
     if (!stream.is_open())
         return std::nullopt;
 
-    std::string line;
-    std::list<MemoryMapping> memoryMappings;
-
-    while (std::getline(stream, line)) {
-        std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), " ");
-
-        if (fields.size() < MAPPING_BASIC_FIELDS)
-            continue;
-
-        std::vector<std::string> address = strings::split(fields[0], "-");
-
-        if (address.size() != 2)
-            continue;
-
-        std::optional<uintptr_t> start = strings::toNumber<uintptr_t>(address[0], 16);
-        std::optional<uintptr_t> end = strings::toNumber<uintptr_t>(address[1], 16);
-        std::optional<off_t> offset = strings::toNumber<off_t>(fields[2], 16);
-        std::optional<ino_t> inode = strings::toNumber<ino_t>(fields[4]);
-
-        if (!start || !end || !offset || !inode)
-            return std::nullopt;
-
-        MemoryMapping memoryMapping = {};
-
-        memoryMapping.start = *start;
-        memoryMapping.end = *end;
-        memoryMapping.offset = *offset;
-        memoryMapping.inode = *inode;
-        memoryMapping.device = fields[3];
-
-        if (fields.size() > MAPPING_BASIC_FIELDS)
-            memoryMapping.pathname = fields[5];
-
-        std::string permissions = fields[1];
-
-        if (permissions.length() < MAPPING_PERMISSIONS_LENGTH)
-            return std::nullopt;
-
-        if (permissions.at(0) == 'r')
-            memoryMapping.permissions |= READ;
-
-        if (permissions.at(1) == 'w')
-            memoryMapping.permissions |= WRITE;
-
-        if (permissions.at(2) == 'x')
-            memoryMapping.permissions |= EXECUTE;
-
-        if (permissions.at(3) == 's')
-            memoryMapping.permissions |= SHARED;
-
-        if (permissions.at(3) == 'p')
-            memoryMapping.permissions |= PRIVATE;
-
-        memoryMappings.push_back(memoryMapping);
-    }
-
-    return memoryMappings;
+    return std::string{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
 }
 
-std::optional<std::list<pid_t>> zero::os::process::getThreads(pid_t pid) {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid) / "task";
+std::optional<std::string> zero::os::process::Process::cmdline() const {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "cmdline";
+    std::ifstream stream(path);
 
-    if (!std::filesystem::is_directory(path))
+    if (!stream.is_open())
         return std::nullopt;
 
-    std::list<pid_t> threads;
-
-    for (const auto &entry: std::filesystem::directory_iterator(path)) {
-        std::optional<pid_t> thread = strings::toNumber<pid_t>(entry.path().filename().string());
-
-        if (!thread)
-            return std::nullopt;
-
-        threads.emplace_back(*thread);
-    }
-
-    return threads;
+    return std::string{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
 }
 
-std::optional<zero::os::process::Stat> zero::os::process::getProcessStat(pid_t pid) {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid) / "stat";
+std::optional<std::map<std::string, std::string>> zero::os::process::Process::environ() const {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "environ";
+    std::ifstream stream(path);
+
+    if (!stream.is_open())
+        return std::nullopt;
+
+    std::vector<std::string> tokens = zero::strings::split(
+            std::string{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()},
+            {"\0", 1}
+    );
+
+    std::map<std::string, std::string> environ;
+
+    for (const auto &token: tokens) {
+        size_t pos = token.find('=');
+
+        if (pos == std::string::npos)
+            continue;
+
+        environ[token.substr(0, pos)] = token.substr(pos + 1);
+    }
+
+    return environ;
+}
+
+std::optional<zero::os::process::Stat> zero::os::process::Process::stat() const {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "stat";
     std::ifstream stream(path);
 
     if (!stream.is_open())
@@ -268,5 +232,91 @@ std::optional<zero::os::process::Stat> zero::os::process::getProcessStat(pid_t p
     stat.exitCode = zero::strings::toNumber<int>(*it++);
 
     return stat;
+}
+
+std::optional<std::list<pid_t>> zero::os::process::Process::tasks() const {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "task";
+
+    if (!std::filesystem::is_directory(path))
+        return std::nullopt;
+
+    std::list<pid_t> threads;
+
+    for (const auto &entry: std::filesystem::directory_iterator(path)) {
+        std::optional<pid_t> thread = strings::toNumber<pid_t>(entry.path().filename().string());
+
+        if (!thread)
+            return std::nullopt;
+
+        threads.emplace_back(*thread);
+    }
+
+    return threads;
+}
+
+std::optional<std::list<zero::os::process::MemoryMapping>> zero::os::process::Process::maps() const {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "maps";
+    std::ifstream stream(path);
+
+    if (!stream.is_open())
+        return std::nullopt;
+
+    std::string line;
+    std::list<MemoryMapping> memoryMappings;
+
+    while (std::getline(stream, line)) {
+        std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), " ");
+
+        if (fields.size() < MAPPING_BASIC_FIELDS)
+            continue;
+
+        std::vector<std::string> address = strings::split(fields[0], "-");
+
+        if (address.size() != 2)
+            continue;
+
+        std::optional<uintptr_t> start = strings::toNumber<uintptr_t>(address[0], 16);
+        std::optional<uintptr_t> end = strings::toNumber<uintptr_t>(address[1], 16);
+        std::optional<off_t> offset = strings::toNumber<off_t>(fields[2], 16);
+        std::optional<ino_t> inode = strings::toNumber<ino_t>(fields[4]);
+
+        if (!start || !end || !offset || !inode)
+            return std::nullopt;
+
+        MemoryMapping memoryMapping;
+
+        memoryMapping.start = *start;
+        memoryMapping.end = *end;
+        memoryMapping.offset = *offset;
+        memoryMapping.inode = *inode;
+        memoryMapping.device = fields[3];
+
+        if (fields.size() > MAPPING_BASIC_FIELDS)
+            memoryMapping.pathname = fields[5];
+
+        std::string permissions = fields[1];
+
+        if (permissions.length() < MAPPING_PERMISSIONS_LENGTH)
+            return std::nullopt;
+
+        if (permissions.at(0) == 'r')
+            memoryMapping.permissions |= READ;
+
+        if (permissions.at(1) == 'w')
+            memoryMapping.permissions |= WRITE;
+
+        if (permissions.at(2) == 'x')
+            memoryMapping.permissions |= EXECUTE;
+
+        if (permissions.at(3) == 's')
+            memoryMapping.permissions |= SHARED;
+
+        if (permissions.at(3) == 'p')
+            memoryMapping.permissions |= PRIVATE;
+
+        memoryMappings.push_back(memoryMapping);
+    }
+
+    return memoryMappings;
 }
 #endif
