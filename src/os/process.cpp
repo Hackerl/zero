@@ -231,8 +231,9 @@ std::optional<zero::os::process::Stat> zero::os::process::Process::stat() const 
 
 std::optional<std::list<pid_t>> zero::os::process::Process::tasks() const {
     std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "task";
+    std::error_code ec;
 
-    if (!std::filesystem::is_directory(path))
+    if (!std::filesystem::is_directory(path, ec))
         return std::nullopt;
 
     std::list<pid_t> tasks;

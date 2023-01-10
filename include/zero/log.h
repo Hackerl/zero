@@ -19,7 +19,7 @@
 #undef DEBUG
 
 namespace zero {
-    constexpr const char * LOG_TAGS[] = {"ERROR", "WARN", "INFO", "DEBUG"};
+    constexpr const char *LOG_TAGS[] = {"ERROR", "WARN", "INFO", "DEBUG"};
 
     enum LogLevel {
         ERROR,
@@ -28,21 +28,21 @@ namespace zero {
         DEBUG
     };
 
-    class ILogProvider: public Interface {
+    class ILogProvider : public Interface {
     public:
         virtual void write(std::string_view message) = 0;
     };
 
-    class ConsoleProvider: public ILogProvider {
+    class ConsoleProvider : public ILogProvider {
     public:
         void write(std::string_view message) override;
     };
 
-    class FileProvider: public ILogProvider {
+    class FileProvider : public ILogProvider {
     public:
         explicit FileProvider(
                 const char *name,
-                const std::filesystem::path &directory = "",
+                const std::filesystem::path &directory = {},
                 long limit = 10 * 1024 * 1024,
                 int remain = 10);
 
@@ -69,7 +69,7 @@ namespace zero {
     };
 
     template<typename T>
-    class AsyncProvider: public T {
+    class AsyncProvider : public T {
     public:
         template<typename... Args>
         explicit AsyncProvider<T>(Args &&... args) : T(std::forward<Args>(args)...) {
