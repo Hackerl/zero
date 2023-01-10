@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <filesystem>
 
+constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
@@ -46,8 +47,7 @@ std::optional<zero::os::process::MemoryMapping> zero::os::process::Process::find
 }
 
 std::optional<std::string> zero::os::process::Process::comm() const {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "comm";
-    std::ifstream stream(path);
+    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "comm");
 
     if (!stream.is_open())
         return std::nullopt;
@@ -56,8 +56,7 @@ std::optional<std::string> zero::os::process::Process::comm() const {
 }
 
 std::optional<std::string> zero::os::process::Process::cmdline() const {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "cmdline";
-    std::ifstream stream(path);
+    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "cmdline");
 
     if (!stream.is_open())
         return std::nullopt;
@@ -66,8 +65,7 @@ std::optional<std::string> zero::os::process::Process::cmdline() const {
 }
 
 std::optional<std::map<std::string, std::string>> zero::os::process::Process::environ() const {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "environ";
-    std::ifstream stream(path);
+    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "environ");
 
     if (!stream.is_open())
         return std::nullopt;
@@ -92,8 +90,7 @@ std::optional<std::map<std::string, std::string>> zero::os::process::Process::en
 }
 
 std::optional<zero::os::process::Stat> zero::os::process::Process::stat() const {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "stat";
-    std::ifstream stream(path);
+    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "stat");
 
     if (!stream.is_open())
         return std::nullopt;
@@ -101,7 +98,7 @@ std::optional<zero::os::process::Stat> zero::os::process::Process::stat() const 
     std::string str{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
 
     size_t start = str.find('(');
-    size_t end = str.find(')');
+    size_t end = str.rfind(')');
 
     if (start == std::string::npos || end == std::string::npos)
         return std::nullopt;
@@ -113,9 +110,7 @@ std::optional<zero::os::process::Stat> zero::os::process::Process::stat() const 
 
     std::vector<std::string> tokens = zero::strings::split(str.substr(end + 2), " ");
 
-    size_t size = tokens.size();
-
-    if (size < 35)
+    if (tokens.size() < STAT_BASIC_FIELDS - 2)
         return std::nullopt;
 
     auto it = tokens.begin();
@@ -240,7 +235,7 @@ std::optional<std::list<pid_t>> zero::os::process::Process::tasks() const {
     if (!std::filesystem::is_directory(path))
         return std::nullopt;
 
-    std::list<pid_t> threads;
+    std::list<pid_t> tasks;
 
     for (const auto &entry: std::filesystem::directory_iterator(path)) {
         std::optional<pid_t> thread = strings::toNumber<pid_t>(entry.path().filename().string());
@@ -248,15 +243,14 @@ std::optional<std::list<pid_t>> zero::os::process::Process::tasks() const {
         if (!thread)
             return std::nullopt;
 
-        threads.emplace_back(*thread);
+        tasks.emplace_back(*thread);
     }
 
-    return threads;
+    return tasks;
 }
 
 std::optional<std::list<zero::os::process::MemoryMapping>> zero::os::process::Process::maps() const {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "maps";
-    std::ifstream stream(path);
+    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "maps");
 
     if (!stream.is_open())
         return std::nullopt;
