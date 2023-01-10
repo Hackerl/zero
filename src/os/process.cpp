@@ -9,39 +9,39 @@
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
-std::optional<zero::os::process::ProcessMapping> zero::os::process::getImageBase(pid_t pid, std::string_view path) {
-    std::optional<std::list<ProcessMapping>> processMappings = getProcessMappings(pid);
+std::optional<zero::os::process::MemoryMapping> zero::os::process::getImageBase(pid_t pid, std::string_view path) {
+    std::optional<std::list<MemoryMapping>> memoryMappings = getProcessMappings(pid);
 
-    if (!processMappings)
+    if (!memoryMappings)
         return std::nullopt;
 
-    auto it = std::find_if(processMappings->begin(), processMappings->end(), [=](const auto &m) {
+    auto it = std::find_if(memoryMappings->begin(), memoryMappings->end(), [=](const auto &m) {
         return m.pathname.find(path) != std::string::npos;
     });
 
-    if (it == processMappings->end())
+    if (it == memoryMappings->end())
         return std::nullopt;
 
     return *it;
 }
 
-std::optional<zero::os::process::ProcessMapping> zero::os::process::getAddressMapping(pid_t pid, uintptr_t address) {
-    std::optional<std::list<ProcessMapping>> processMappings = getProcessMappings(pid);
+std::optional<zero::os::process::MemoryMapping> zero::os::process::getAddressMapping(pid_t pid, uintptr_t address) {
+    std::optional<std::list<MemoryMapping>> memoryMappings = getProcessMappings(pid);
 
-    if (!processMappings)
+    if (!memoryMappings)
         return std::nullopt;
 
-    auto it = std::find_if(processMappings->begin(), processMappings->end(), [=](const auto &m) {
+    auto it = std::find_if(memoryMappings->begin(), memoryMappings->end(), [=](const auto &m) {
         return m.start <= address && address < m.end;
     });
 
-    if (it == processMappings->end())
+    if (it == memoryMappings->end())
         return std::nullopt;
 
     return *it;
 }
 
-std::optional<std::list<zero::os::process::ProcessMapping>> zero::os::process::getProcessMappings(pid_t pid) {
+std::optional<std::list<zero::os::process::MemoryMapping>> zero::os::process::getProcessMappings(pid_t pid) {
     std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid) / "maps";
     std::ifstream stream(path);
 
@@ -49,7 +49,7 @@ std::optional<std::list<zero::os::process::ProcessMapping>> zero::os::process::g
         return std::nullopt;
 
     std::string line;
-    std::list<ProcessMapping> processMappings;
+    std::list<MemoryMapping> memoryMappings;
 
     while (std::getline(stream, line)) {
         std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), " ");
@@ -70,16 +70,16 @@ std::optional<std::list<zero::os::process::ProcessMapping>> zero::os::process::g
         if (!start || !end || !offset || !inode)
             return std::nullopt;
 
-        ProcessMapping processMapping = {};
+        MemoryMapping memoryMapping = {};
 
-        processMapping.start = *start;
-        processMapping.end = *end;
-        processMapping.offset = *offset;
-        processMapping.inode = *inode;
-        processMapping.device = fields[3];
+        memoryMapping.start = *start;
+        memoryMapping.end = *end;
+        memoryMapping.offset = *offset;
+        memoryMapping.inode = *inode;
+        memoryMapping.device = fields[3];
 
         if (fields.size() > MAPPING_BASIC_FIELDS)
-            processMapping.pathname = fields[5];
+            memoryMapping.pathname = fields[5];
 
         std::string permissions = fields[1];
 
@@ -87,24 +87,24 @@ std::optional<std::list<zero::os::process::ProcessMapping>> zero::os::process::g
             return std::nullopt;
 
         if (permissions.at(0) == 'r')
-            processMapping.permissions |= READ;
+            memoryMapping.permissions |= READ;
 
         if (permissions.at(1) == 'w')
-            processMapping.permissions |= WRITE;
+            memoryMapping.permissions |= WRITE;
 
         if (permissions.at(2) == 'x')
-            processMapping.permissions |= EXECUTE;
+            memoryMapping.permissions |= EXECUTE;
 
         if (permissions.at(3) == 's')
-            processMapping.permissions |= SHARED;
+            memoryMapping.permissions |= SHARED;
 
         if (permissions.at(3) == 'p')
-            processMapping.permissions |= PRIVATE;
+            memoryMapping.permissions |= PRIVATE;
 
-        processMappings.push_back(processMapping);
+        memoryMappings.push_back(memoryMapping);
     }
 
-    return processMappings;
+    return memoryMappings;
 }
 
 std::optional<std::list<pid_t>> zero::os::process::getThreads(pid_t pid) {
@@ -115,7 +115,7 @@ std::optional<std::list<pid_t>> zero::os::process::getThreads(pid_t pid) {
 
     std::list<pid_t> threads;
 
-    for (const auto &entry : std::filesystem::directory_iterator(path)) {
+    for (const auto &entry: std::filesystem::directory_iterator(path)) {
         std::optional<pid_t> thread = strings::toNumber<pid_t>(entry.path().filename().string());
 
         if (!thread)
@@ -125,5 +125,148 @@ std::optional<std::list<pid_t>> zero::os::process::getThreads(pid_t pid) {
     }
 
     return threads;
+}
+
+std::optional<zero::os::process::Stat> zero::os::process::getProcessStat(pid_t pid) {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid) / "stat";
+    std::ifstream stream(path);
+
+    if (!stream.is_open())
+        return std::nullopt;
+
+    std::string str{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+
+    size_t start = str.find('(');
+    size_t end = str.find(')');
+
+    if (start == std::string::npos || end == std::string::npos)
+        return std::nullopt;
+
+    Stat stat;
+
+    stat.pid = zero::strings::toNumber<pid_t>(str.substr(0, start - 1)).value_or(-1);
+    stat.comm = str.substr(start + 1, end - start - 1);
+
+    std::vector<std::string> tokens = zero::strings::split(str.substr(end + 2), " ");
+
+    size_t size = tokens.size();
+
+    if (size < 35)
+        return std::nullopt;
+
+    auto it = tokens.begin();
+
+    stat.state = it++->at(0);
+    stat.ppid = *zero::strings::toNumber<pid_t>(*it++);
+    stat.pgrp = *zero::strings::toNumber<pid_t>(*it++);
+    stat.session = *zero::strings::toNumber<int>(*it++);
+    stat.tty = *zero::strings::toNumber<int>(*it++);
+    stat.tpgid = *zero::strings::toNumber<pid_t>(*it++);
+    stat.flags = *zero::strings::toNumber<unsigned int>(*it++);
+    stat.minFlt = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.cMinFlt = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.majFlt = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.cMajFlt = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.uTime = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.sTime = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.cuTime = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.csTime = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.priority = *zero::strings::toNumber<long>(*it++);
+    stat.nice = *zero::strings::toNumber<long>(*it++);
+    stat.numThreads = *zero::strings::toNumber<long>(*it++);
+    stat.intervalValue = *zero::strings::toNumber<long>(*it++);
+    stat.startTime = *zero::strings::toNumber<unsigned long long>(*it++);
+    stat.vSize = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.rss = *zero::strings::toNumber<long>(*it++);
+    stat.rssLimit = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.startCode = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.endCode = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.startStack = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.esp = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.eip = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.signal = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.blocked = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.sigIgnore = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.sigCatch = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.wChan = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.nSwap = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.cnSwap = *zero::strings::toNumber<unsigned long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.exitSignal = zero::strings::toNumber<int>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.processor = zero::strings::toNumber<int>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.rtPriority = zero::strings::toNumber<unsigned int>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.policy = zero::strings::toNumber<unsigned int>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.delayAcctBlkIOTicks = zero::strings::toNumber<unsigned long long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.guestTime = zero::strings::toNumber<unsigned long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.cGuestTime = zero::strings::toNumber<long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.startData = zero::strings::toNumber<unsigned long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.endData = zero::strings::toNumber<unsigned long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.startBrk = zero::strings::toNumber<unsigned long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.argStart = zero::strings::toNumber<unsigned long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.argEnd = zero::strings::toNumber<unsigned long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.envStart = zero::strings::toNumber<unsigned long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.envEnd = zero::strings::toNumber<unsigned long>(*it++);
+
+    if (it == tokens.end())
+        return stat;
+
+    stat.exitCode = zero::strings::toNumber<int>(*it++);
+
+    return stat;
 }
 #endif
