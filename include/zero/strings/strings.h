@@ -21,6 +21,7 @@ namespace zero::strings {
     std::string tolower(std::string str);
     std::string toupper(std::string str);
 
+    std::vector<std::string> split(std::string_view str, int limit = 0);
     std::vector<std::string> split(std::string_view str, std::string_view delimiter, int limit = 0);
 
     template<typename T>

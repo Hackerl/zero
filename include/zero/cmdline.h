@@ -260,7 +260,7 @@ namespace zero {
 
             std::cout << strings::format(
                     "usage: %s [options] %s ... %s ...",
-                    zero::filesystem::getApplicationPath().value_or("").filename().string().c_str(),
+                    filesystem::getApplicationPath().value_or("").filename().string().c_str(),
                     strings::join(positionals, " ").c_str(),
                     mFooter.empty() ? "extra" : mFooter.c_str()
             ) << std::endl;
@@ -294,7 +294,7 @@ namespace zero {
             if constexpr (sizeof...(args) == 0) {
                 std::cout << "error:\n\t" << message << std::endl;
             } else {
-                std::cout << "error:\n\t" << zero::strings::format(message, args...) << std::endl;
+                std::cout << "error:\n\t" << strings::format(message, args...) << std::endl;
             }
 
             help();

@@ -69,7 +69,8 @@ std::string zero::strings::trimExtraSpace(std::string str) {
                     str.end(),
                     [](char ch1, char ch2) {
                         return std::isspace(ch1) && std::isspace(ch2);
-                    }),
+                    }
+            ),
             str.end()
     );
 
@@ -84,6 +85,37 @@ std::string zero::strings::tolower(std::string str) {
 std::string zero::strings::toupper(std::string str) {
     std::transform(str.begin(), str.end(), str.begin(), ::toupper);
     return str;
+}
+
+std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
+    std::vector<std::string> tokens;
+
+    auto prev = std::find_if(str.begin(), str.end(), [](char ch) { return !std::isspace(ch); });
+
+    while (true) {
+        if (prev == str.end())
+            break;
+
+        auto it = std::find_if(prev, str.end(), [](char ch) { return std::isspace(ch); });
+
+        if (it == str.end()) {
+            tokens.emplace_back(prev, str.end());
+            break;
+        }
+
+        tokens.emplace_back(prev, it);
+        prev = std::find_if(it, str.end(), [](char ch) { return !std::isspace(ch); });
+
+        if (!--limit) {
+            if (prev == str.end())
+                break;
+
+            tokens.emplace_back(prev, str.end());
+            break;
+        }
+    }
+
+    return tokens;
 }
 
 std::vector<std::string> zero::strings::split(std::string_view str, std::string_view delimiter, int limit) {

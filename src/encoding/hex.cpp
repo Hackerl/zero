@@ -25,7 +25,7 @@ std::optional<std::vector<std::byte>> zero::encoding::hex::decode(std::string_vi
     std::vector<std::byte> buffer;
 
     for (size_t i = 0; i < encoded.size(); i += 2) {
-        std::optional<unsigned int> number = zero::strings::toNumber<unsigned int>(encoded.substr(i, 2), 16);
+        std::optional<unsigned int> number = strings::toNumber<unsigned int>(encoded.substr(i, 2), 16);
 
         if (!number)
             return std::nullopt;

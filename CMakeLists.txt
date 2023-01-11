@@ -16,13 +16,13 @@ add_library(
         src/log.cpp
         src/os/os.cpp
         src/os/net.cpp
-        src/os/process.cpp
         src/time/date.cpp
         src/strings/strings.cpp
         src/atomic/event.cpp
         src/filesystem/path.cpp
         src/encoding/base64.cpp
         src/encoding/hex.cpp
+        $<$<BOOL:$<PLATFORM_ID:Linux>>:src/os/process.cpp>
 )
 
 target_include_directories(zero PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

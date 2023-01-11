@@ -131,6 +131,26 @@ TEST_CASE("split string to vector", "[strings]") {
     };
 }
 
+TEST_CASE("split string to vector by whitespace", "[strings]") {
+    REQUIRE(zero::strings::split("").empty());
+    REQUIRE(zero::strings::split(" ").empty());
+    REQUIRE(zero::strings::split(" \n\t ").empty());
+    REQUIRE(zero::strings::split(" A \n B    C ") == std::vector<std::string>{"A", "B", "C"});
+    REQUIRE(zero::strings::split("aBcd") == std::vector<std::string>{"aBcd"});
+    REQUIRE(zero::strings::split("aBc d") == std::vector<std::string>{"aBc", "d"});
+    REQUIRE(zero::strings::split("aBc  d") == std::vector<std::string>{"aBc", "d"});
+    REQUIRE(zero::strings::split("a  B c  d") == std::vector<std::string>{"a", "B", "c", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", 0) == std::vector<std::string>{"a", "B", "c", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", -1) == std::vector<std::string>{"a", "B", "c", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", 2) == std::vector<std::string>{"a", "B", "c  d"});
+    REQUIRE(zero::strings::split(" a  B c  d ", 2) == std::vector<std::string>{"a", "B", "c  d "});
+    REQUIRE(zero::strings::split("\na \t\n B    c  d ", 2) == std::vector<std::string>{"a", "B", "c  d "});
+
+    BENCHMARK("zero::strings::split") {
+        return zero::strings::split("a  B c  d");
+    };
+}
+
 TEST_CASE("concatenates the given elements with the delimiter", "[strings]") {
     REQUIRE(zero::strings::join(std::vector<std::string>{}, "").empty());
     REQUIRE(zero::strings::join(std::vector<std::string>{}, " ").empty());

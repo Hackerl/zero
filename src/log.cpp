@@ -46,7 +46,7 @@ void zero::FileProvider::clean() {
         if (!entry.is_regular_file())
             continue;
 
-        if (!zero::strings::startsWith(entry.path().filename().string(), prefix))
+        if (!strings::startsWith(entry.path().filename().string(), prefix))
             continue;
 
         logs.insert(entry);

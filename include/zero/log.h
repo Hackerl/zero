@@ -44,7 +44,8 @@ namespace zero {
                 const char *name,
                 const std::filesystem::path &directory = {},
                 long limit = 10 * 1024 * 1024,
-                int remain = 10);
+                int remain = 10
+        );
 
     private:
         std::filesystem::path getLogPath();

@@ -1,6 +1,4 @@
 #include <zero/os/process.h>
-
-#ifdef __linux__
 #include <zero/strings/strings.h>
 #include <fstream>
 #include <algorithm>
@@ -52,16 +50,32 @@ std::optional<std::string> zero::os::process::Process::comm() const {
     if (!stream.is_open())
         return std::nullopt;
 
-    return std::string{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    return strings::trim({std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()});
 }
 
-std::optional<std::string> zero::os::process::Process::cmdline() const {
+std::optional<std::vector<std::string>> zero::os::process::Process::cmdline() const {
     std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "cmdline");
 
     if (!stream.is_open())
         return std::nullopt;
 
-    return std::string{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    std::vector<std::string> tokens = strings::split(
+            std::string{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()},
+            {"\0", 1}
+    );
+
+    std::vector<std::string> cmdline;
+
+    std::copy_if(
+            tokens.begin(),
+            tokens.end(),
+            std::back_inserter(cmdline),
+            [](const auto &token) {
+                return !token.empty();
+            }
+    );
+
+    return cmdline;
 }
 
 std::optional<std::map<std::string, std::string>> zero::os::process::Process::environ() const {
@@ -70,7 +84,7 @@ std::optional<std::map<std::string, std::string>> zero::os::process::Process::en
     if (!stream.is_open())
         return std::nullopt;
 
-    std::vector<std::string> tokens = zero::strings::split(
+    std::vector<std::string> tokens = strings::split(
             std::string{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()},
             {"\0", 1}
     );
@@ -78,6 +92,9 @@ std::optional<std::map<std::string, std::string>> zero::os::process::Process::en
     std::map<std::string, std::string> environ;
 
     for (const auto &token: tokens) {
+        if (token.empty())
+            continue;
+
         size_t pos = token.find('=');
 
         if (pos == std::string::npos)
@@ -105,10 +122,10 @@ std::optional<zero::os::process::Stat> zero::os::process::Process::stat() const 
 
     Stat stat;
 
-    stat.pid = zero::strings::toNumber<pid_t>(str.substr(0, start - 1)).value_or(-1);
+    stat.pid = strings::toNumber<pid_t>(str.substr(0, start - 1)).value_or(-1);
     stat.comm = str.substr(start + 1, end - start - 1);
 
-    std::vector<std::string> tokens = zero::strings::split(str.substr(end + 2), " ");
+    std::vector<std::string> tokens = strings::split(str.substr(end + 2), " ");
 
     if (tokens.size() < STAT_BASIC_FIELDS - 2)
         return std::nullopt;
@@ -116,117 +133,308 @@ std::optional<zero::os::process::Stat> zero::os::process::Process::stat() const 
     auto it = tokens.begin();
 
     stat.state = it++->at(0);
-    stat.ppid = *zero::strings::toNumber<pid_t>(*it++);
-    stat.pgrp = *zero::strings::toNumber<pid_t>(*it++);
-    stat.session = *zero::strings::toNumber<int>(*it++);
-    stat.tty = *zero::strings::toNumber<int>(*it++);
-    stat.tpgid = *zero::strings::toNumber<pid_t>(*it++);
-    stat.flags = *zero::strings::toNumber<unsigned int>(*it++);
-    stat.minFlt = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.cMinFlt = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.majFlt = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.cMajFlt = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.uTime = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.sTime = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.cuTime = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.csTime = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.priority = *zero::strings::toNumber<long>(*it++);
-    stat.nice = *zero::strings::toNumber<long>(*it++);
-    stat.numThreads = *zero::strings::toNumber<long>(*it++);
-    stat.intervalValue = *zero::strings::toNumber<long>(*it++);
-    stat.startTime = *zero::strings::toNumber<unsigned long long>(*it++);
-    stat.vSize = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.rss = *zero::strings::toNumber<long>(*it++);
-    stat.rssLimit = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.startCode = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.endCode = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.startStack = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.esp = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.eip = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.signal = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.blocked = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.sigIgnore = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.sigCatch = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.wChan = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.nSwap = *zero::strings::toNumber<unsigned long>(*it++);
-    stat.cnSwap = *zero::strings::toNumber<unsigned long>(*it++);
+    stat.ppid = *strings::toNumber<pid_t>(*it++);
+    stat.pgrp = *strings::toNumber<pid_t>(*it++);
+    stat.session = *strings::toNumber<int>(*it++);
+    stat.tty = *strings::toNumber<int>(*it++);
+    stat.tpgid = *strings::toNumber<pid_t>(*it++);
+    stat.flags = *strings::toNumber<unsigned int>(*it++);
+    stat.minFlt = *strings::toNumber<unsigned long>(*it++);
+    stat.cMinFlt = *strings::toNumber<unsigned long>(*it++);
+    stat.majFlt = *strings::toNumber<unsigned long>(*it++);
+    stat.cMajFlt = *strings::toNumber<unsigned long>(*it++);
+    stat.uTime = *strings::toNumber<unsigned long>(*it++);
+    stat.sTime = *strings::toNumber<unsigned long>(*it++);
+    stat.cuTime = *strings::toNumber<unsigned long>(*it++);
+    stat.csTime = *strings::toNumber<unsigned long>(*it++);
+    stat.priority = *strings::toNumber<long>(*it++);
+    stat.nice = *strings::toNumber<long>(*it++);
+    stat.numThreads = *strings::toNumber<long>(*it++);
+    stat.intervalValue = *strings::toNumber<long>(*it++);
+    stat.startTime = *strings::toNumber<unsigned long long>(*it++);
+    stat.vSize = *strings::toNumber<unsigned long>(*it++);
+    stat.rss = *strings::toNumber<long>(*it++);
+    stat.rssLimit = *strings::toNumber<unsigned long>(*it++);
+    stat.startCode = *strings::toNumber<unsigned long>(*it++);
+    stat.endCode = *strings::toNumber<unsigned long>(*it++);
+    stat.startStack = *strings::toNumber<unsigned long>(*it++);
+    stat.esp = *strings::toNumber<unsigned long>(*it++);
+    stat.eip = *strings::toNumber<unsigned long>(*it++);
+    stat.signal = *strings::toNumber<unsigned long>(*it++);
+    stat.blocked = *strings::toNumber<unsigned long>(*it++);
+    stat.sigIgnore = *strings::toNumber<unsigned long>(*it++);
+    stat.sigCatch = *strings::toNumber<unsigned long>(*it++);
+    stat.wChan = *strings::toNumber<unsigned long>(*it++);
+    stat.nSwap = *strings::toNumber<unsigned long>(*it++);
+    stat.cnSwap = *strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.exitSignal = zero::strings::toNumber<int>(*it++);
+    stat.exitSignal = strings::toNumber<int>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.processor = zero::strings::toNumber<int>(*it++);
+    stat.processor = strings::toNumber<int>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.rtPriority = zero::strings::toNumber<unsigned int>(*it++);
+    stat.rtPriority = strings::toNumber<unsigned int>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.policy = zero::strings::toNumber<unsigned int>(*it++);
+    stat.policy = strings::toNumber<unsigned int>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.delayAcctBlkIOTicks = zero::strings::toNumber<unsigned long long>(*it++);
+    stat.delayAcctBlkIOTicks = strings::toNumber<unsigned long long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.guestTime = zero::strings::toNumber<unsigned long>(*it++);
+    stat.guestTime = strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.cGuestTime = zero::strings::toNumber<long>(*it++);
+    stat.cGuestTime = strings::toNumber<long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.startData = zero::strings::toNumber<unsigned long>(*it++);
+    stat.startData = strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.endData = zero::strings::toNumber<unsigned long>(*it++);
+    stat.endData = strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.startBrk = zero::strings::toNumber<unsigned long>(*it++);
+    stat.startBrk = strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.argStart = zero::strings::toNumber<unsigned long>(*it++);
+    stat.argStart = strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.argEnd = zero::strings::toNumber<unsigned long>(*it++);
+    stat.argEnd = strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.envStart = zero::strings::toNumber<unsigned long>(*it++);
+    stat.envStart = strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.envEnd = zero::strings::toNumber<unsigned long>(*it++);
+    stat.envEnd = strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.exitCode = zero::strings::toNumber<int>(*it++);
+    stat.exitCode = strings::toNumber<int>(*it++);
 
     return stat;
+}
+
+template<typename T>
+std::optional<T> statusIntegerField(const std::map<std::string, std::string> &map, const char *key, int base = 10) {
+    auto it = map.find(key);
+
+    if (it == map.end())
+        return std::nullopt;
+
+    return zero::strings::toNumber<T>(it->second, base);
+}
+
+std::optional<zero::os::process::Status> zero::os::process::Process::status() const {
+    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "status");
+
+    if (!stream.is_open())
+        return std::nullopt;
+
+    std::string line;
+    std::map<std::string, std::string> map;
+
+    while (std::getline(stream, line)) {
+        if (line.empty())
+            continue;
+
+        std::vector<std::string> tokens = strings::split(line, ":");
+
+        if (tokens.size() != 2)
+            continue;
+
+        map[tokens[0]] = strings::trim(tokens[1]);
+    }
+
+    Status status;
+
+    status.name = map["Name"];
+    status.umask = statusIntegerField<mode_t>(map, "Umask", 8);
+    status.state = map["State"];
+    status.tgid = *strings::toNumber<pid_t>(map["Tgid"]);
+    status.ngid = statusIntegerField<pid_t>(map, "Ngid");
+    status.pid = *strings::toNumber<pid_t>(map["Pid"]);
+    status.ppid = *strings::toNumber<pid_t>(map["PPid"]);
+    status.tracerPID = *strings::toNumber<pid_t>(map["TracerPid"]);
+
+    std::vector<std::string> tokens = strings::split(map["Uid"]);
+
+    if (tokens.size() != 4)
+        return std::nullopt;
+
+    for (size_t i = 0; i < 4; i++)
+        status.uid[i] = *strings::toNumber<uid_t>(tokens[i]);
+
+    tokens = strings::split(map["Gid"]);
+
+    if (tokens.size() != 4)
+        return std::nullopt;
+
+    for (size_t i = 0; i < 4; i++)
+        status.gid[i] = *strings::toNumber<pid_t>(tokens[i]);
+
+    status.fdSize = *strings::toNumber<int>(map["FDSize"]);
+
+    for (const auto &token: strings::split(map["Groups"]))
+        status.groups.emplace_back(*strings::toNumber<pid_t>(token));
+
+    status.nstgid = statusIntegerField<pid_t>(map, "NStgid");
+    status.nspid = statusIntegerField<pid_t>(map, "NSpid");
+    status.nspgid = statusIntegerField<pid_t>(map, "NSpgid");
+    status.nssid = statusIntegerField<int>(map, "NSsid");
+    status.vmPeak = statusIntegerField<unsigned long>(map, "VmPeak");
+    status.vmSize = statusIntegerField<unsigned long>(map, "VmSize");
+    status.vmLck = statusIntegerField<unsigned long>(map, "VmLck");
+    status.vmPin = statusIntegerField<unsigned long>(map, "VmPin");
+    status.vmHWM = statusIntegerField<unsigned long>(map, "VmHWM");
+    status.vmRSS = statusIntegerField<unsigned long>(map, "VmRSS");
+    status.rssAnon = statusIntegerField<unsigned long>(map, "RssAnon");
+    status.rssFile = statusIntegerField<unsigned long>(map, "RssFile");
+    status.rssShMem = statusIntegerField<unsigned long>(map, "RssShmem");
+    status.vmData = statusIntegerField<unsigned long>(map, "VmData");
+    status.vmStk = statusIntegerField<unsigned long>(map, "VmStk");
+    status.vmExe = statusIntegerField<unsigned long>(map, "VmExe");
+    status.vmLib = statusIntegerField<unsigned long>(map, "VmLib");
+    status.vmPTE = statusIntegerField<unsigned long>(map, "VmPTE");
+    status.vmPMD = statusIntegerField<unsigned long>(map, "VmPMD");
+    status.vmSwap = statusIntegerField<unsigned long>(map, "VmSwap");
+    status.hugeTLBPages = statusIntegerField<unsigned long>(map, "HugetlbPages");
+    status.threads = *statusIntegerField<int>(map, "Threads");
+
+    tokens = strings::split(map["SigQ"], "/");
+
+    if (tokens.size() != 2)
+        return std::nullopt;
+
+    status.sigQ[0] = *strings::toNumber<int>(tokens[0]);
+    status.sigQ[1] = *strings::toNumber<int>(tokens[1]);
+
+    status.sigPnd = *strings::toNumber<unsigned long>(map["SigPnd"], 16);
+    status.shdPnd = *strings::toNumber<unsigned long>(map["ShdPnd"], 16);
+    status.sigBlk = *strings::toNumber<unsigned long>(map["SigBlk"], 16);
+    status.sigIgn = *strings::toNumber<unsigned long>(map["SigIgn"], 16);
+    status.sigCgt = *strings::toNumber<unsigned long>(map["SigCgt"], 16);
+    status.capInh = *strings::toNumber<unsigned long>(map["CapInh"], 16);
+    status.capPrm = *strings::toNumber<unsigned long>(map["CapPrm"], 16);
+    status.capEff = *strings::toNumber<unsigned long>(map["CapEff"], 16);
+    status.capBnd = statusIntegerField<unsigned long>(map, "CapBnd", 16);
+    status.capAmb = statusIntegerField<unsigned long>(map, "CapAmb", 16);
+    status.noNewPrivileges = statusIntegerField<unsigned long>(map, "NoNewPrivs");
+    status.seccomp = statusIntegerField<int>(map, "Seccomp");
+
+    auto it = map.find("Speculation_Store_Bypass");
+
+    if (it != map.end())
+        status.speculationStoreBypass = it->second;
+
+    it = map.find("Cpus_allowed");
+
+    if (it != map.end()) {
+        status.cpusAllowed = std::vector<unsigned int>();
+
+        for (const auto &token: strings::split(it->second, ",")) {
+            status.cpusAllowed->emplace_back(*strings::toNumber<unsigned int>(token, 16));
+        }
+    }
+
+    it = map.find("Cpus_allowed_list");
+
+    if (it != map.end()) {
+        status.cpusAllowedList = std::vector<std::pair<unsigned int, unsigned int>>();
+
+        for (const auto &token: strings::split(it->second, ",")) {
+            if (token.find('-') == std::string::npos) {
+                unsigned int n = *strings::toNumber<unsigned int>(token);
+                status.cpusAllowedList->emplace_back(n, n);
+                break;
+            }
+
+            tokens = strings::split(token, "-");
+
+            if (tokens.size() != 2)
+                continue;
+
+            status.cpusAllowedList->emplace_back(
+                    *strings::toNumber<unsigned int>(tokens[0]),
+                    *strings::toNumber<unsigned int>(tokens[1])
+            );
+        }
+    }
+
+    it = map.find("Mems_allowed");
+
+    if (it != map.end()) {
+        status.memoryNodesAllowed = std::vector<unsigned int>();
+
+        for (const auto &token: strings::split(it->second, ",")) {
+            status.memoryNodesAllowed->emplace_back(*strings::toNumber<unsigned int>(token, 16));
+        }
+    }
+
+    it = map.find("Mems_allowed_list");
+
+    if (it != map.end()) {
+        status.memoryNodesAllowedList = std::vector<std::pair<unsigned int, unsigned int>>();
+
+        for (const auto &token: strings::split(it->second, ",")) {
+            if (token.find('-') == std::string::npos) {
+                unsigned int n = *strings::toNumber<unsigned int>(token);
+                status.memoryNodesAllowedList->emplace_back(n, n);
+                break;
+            }
+
+            tokens = strings::split(token, "-");
+
+            if (tokens.size() != 2)
+                continue;
+
+            status.memoryNodesAllowedList->emplace_back(
+                    *strings::toNumber<unsigned int>(tokens[0]),
+                    *strings::toNumber<unsigned int>(tokens[1])
+            );
+        }
+    }
+
+    status.voluntaryContextSwitches = statusIntegerField<int>(map, "voluntary_ctxt_switches");
+    status.nonVoluntaryContextSwitches = statusIntegerField<int>(map, "nonvoluntary_ctxt_switches");
+
+    it = map.find("CoreDumping");
+
+    if (it != map.end())
+        status.coreDumping = it->second == "1";
+
+    return status;
 }
 
 std::optional<std::list<pid_t>> zero::os::process::Process::tasks() const {
@@ -314,4 +522,3 @@ std::optional<std::list<zero::os::process::MemoryMapping>> zero::os::process::Pr
 
     return memoryMappings;
 }
-#endif

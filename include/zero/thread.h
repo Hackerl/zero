@@ -2,13 +2,24 @@
 #define ZERO_THREAD_H
 
 #include <thread>
+#include <memory.h>
 
 namespace zero {
     template<typename T>
     class Thread {
     public:
-        explicit Thread(T *that) : mThat(that), mThread(nullptr) {
+        explicit Thread(T *that) : mThat(that) {
 
+        }
+
+        ~Thread() {
+            if (!mThread)
+                return;
+
+            if (mThread->joinable())
+                mThread->join();
+
+            mThread.reset();
         }
 
     public:
@@ -17,9 +28,9 @@ namespace zero {
             if (mThread)
                 return false;
 
-            mThread = new std::thread(f, mThat, args...);
+            mThread = std::make_unique<std::thread>(f, mThat, args...);
 
-            return mThread != nullptr;
+            return true;
         }
 
         bool stop() {
@@ -29,15 +40,14 @@ namespace zero {
             if (mThread->joinable())
                 mThread->join();
 
-            delete mThread;
-            mThread = nullptr;
+            mThread.reset();
 
             return true;
         }
 
     private:
         T *mThat;
-        std::thread *mThread;
+        std::unique_ptr<std::thread> mThread;
     };
 }
 
