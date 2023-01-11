@@ -1,4 +1,5 @@
 #include <zero/os/process.h>
+#include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -20,6 +21,8 @@ TEST_CASE("linux procfs", "[process]") {
     REQUIRE(process.maps());
     REQUIRE(*process.comm() == "(test)");
     REQUIRE(*process.tasks() == std::list<pid_t>{pid});
+    REQUIRE(*process.exe() == zero::filesystem::getApplicationPath());
+    REQUIRE(*process.cwd() == zero::filesystem::getApplicationDirectory());
 
     std::optional<zero::os::process::Stat> stat = process.stat();
 

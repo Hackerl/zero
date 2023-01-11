@@ -44,6 +44,32 @@ std::optional<zero::os::process::MemoryMapping> zero::os::process::Process::find
     return *it;
 }
 
+std::optional<std::filesystem::path> zero::os::process::Process::exe() const {
+    std::error_code ec;
+    std::filesystem::path path = std::filesystem::read_symlink(
+            std::filesystem::path("/proc") / std::to_string(mPID) / "exe",
+            ec
+    );
+
+    if (ec)
+        return std::nullopt;
+
+    return path;
+}
+
+std::optional<std::filesystem::path> zero::os::process::Process::cwd() const {
+    std::error_code ec;
+    std::filesystem::path path = std::filesystem::read_symlink(
+            std::filesystem::path("/proc") / std::to_string(mPID) / "cwd",
+            ec
+    );
+
+    if (ec)
+        return std::nullopt;
+
+    return path;
+}
+
 std::optional<std::string> zero::os::process::Process::comm() const {
     std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "comm");
 

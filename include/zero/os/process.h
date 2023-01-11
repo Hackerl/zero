@@ -7,6 +7,7 @@
 #include <string>
 #include <sys/types.h>
 #include <optional>
+#include <filesystem>
 
 namespace zero::os::process {
     enum MemoryPermission {
@@ -150,6 +151,8 @@ namespace zero::os::process {
         [[nodiscard]] std::optional<MemoryMapping> findMapping(uintptr_t address) const;
 
     public:
+        [[nodiscard]] std::optional<std::filesystem::path> exe() const;
+        [[nodiscard]] std::optional<std::filesystem::path> cwd() const;
         [[nodiscard]] std::optional<std::string> comm() const;
         [[nodiscard]] std::optional<std::vector<std::string>> cmdline() const;
         [[nodiscard]] std::optional<std::map<std::string, std::string>> environ() const;
