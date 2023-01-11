@@ -3,7 +3,7 @@ project(zero)
 
 set(CMAKE_CXX_STANDARD 17)
 
-option(DISABLE_TESTS "disable unit test" OFF)
+option(ZERO_DISABLE_TESTS "disable unit test" OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
@@ -34,6 +34,6 @@ target_link_libraries(
         $<$<BOOL:$<PLATFORM_ID:Windows>>:Synchronization>
 )
 
-if (NOT DISABLE_TESTS)
+if (NOT ZERO_DISABLE_TESTS)
     add_subdirectory(test)
 endif ()
