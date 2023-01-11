@@ -138,6 +138,7 @@ namespace zero::os::process {
         std::optional<int> voluntaryContextSwitches;
         std::optional<int> nonVoluntaryContextSwitches;
         std::optional<bool> coreDumping;
+        std::optional<bool> thpEnabled;
     };
 
     class Process {

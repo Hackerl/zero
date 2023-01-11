@@ -434,6 +434,11 @@ std::optional<zero::os::process::Status> zero::os::process::Process::status() co
     if (it != map.end())
         status.coreDumping = it->second == "1";
 
+    it = map.find("THP_enabled");
+
+    if (it != map.end())
+        status.thpEnabled = it->second == "1";
+
     return status;
 }
 
