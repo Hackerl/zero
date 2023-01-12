@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <cstring>
+#include <climits>
 
 constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
