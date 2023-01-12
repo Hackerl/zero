@@ -113,7 +113,9 @@ std::optional<std::string> zero::os::procfs::Process::comm() const {
     if (!content)
         return std::nullopt;
 
-    return strings::trim(*content);
+    content->pop_back();
+
+    return *content;
 }
 
 std::optional<std::vector<std::string>> zero::os::procfs::Process::cmdline() const {
