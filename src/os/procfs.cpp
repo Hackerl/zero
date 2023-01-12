@@ -317,10 +317,7 @@ std::optional<zero::os::procfs::Status> zero::os::procfs::Process::status() cons
 
     std::map<std::string, std::string> map;
 
-    for (const auto &line: strings::split(*content, "\n")) {
-        if (line.empty())
-            continue;
-
+    for (const auto &line: strings::split(strings::trim(*content), "\n")) {
         std::vector<std::string> tokens = strings::split(line, ":");
 
         if (tokens.size() != 2)
@@ -536,19 +533,19 @@ std::optional<std::list<zero::os::procfs::MemoryMapping>> zero::os::procfs::Proc
 
     std::list<MemoryMapping> memoryMappings;
 
-    for (const auto &line: strings::split(*content, "\n")) {
-        std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), " ");
+    for (const auto &line: strings::split(strings::trim(*content), "\n")) {
+        std::vector<std::string> fields = strings::split(line);
 
         if (fields.size() < MAPPING_BASIC_FIELDS)
             continue;
 
-        std::vector<std::string> address = strings::split(fields[0], "-");
+        std::vector<std::string> tokens = strings::split(fields[0], "-");
 
-        if (address.size() != 2)
+        if (tokens.size() != 2)
             continue;
 
-        std::optional<uintptr_t> start = strings::toNumber<uintptr_t>(address[0], 16);
-        std::optional<uintptr_t> end = strings::toNumber<uintptr_t>(address[1], 16);
+        std::optional<uintptr_t> start = strings::toNumber<uintptr_t>(tokens[0], 16);
+        std::optional<uintptr_t> end = strings::toNumber<uintptr_t>(tokens[1], 16);
         std::optional<off_t> offset = strings::toNumber<off_t>(fields[2], 16);
         std::optional<ino_t> inode = strings::toNumber<ino_t>(fields[4]);
 
