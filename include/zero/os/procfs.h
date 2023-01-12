@@ -1,5 +1,5 @@
-#ifndef ZERO_PROCESS_H
-#define ZERO_PROCESS_H
+#ifndef ZERO_PROCFS_H
+#define ZERO_PROCFS_H
 
 #include <map>
 #include <list>
@@ -8,8 +8,9 @@
 #include <sys/types.h>
 #include <optional>
 #include <filesystem>
+#include <unistd.h>
 
-namespace zero::os::process {
+namespace zero::os::procfs {
     enum MemoryPermission {
         READ = 0x1,
         WRITE = 0x2,
@@ -144,7 +145,15 @@ namespace zero::os::process {
 
     class Process {
     public:
-        explicit Process(pid_t pid);
+        Process(int fd, pid_t pid);
+        Process(Process &&rhs) noexcept;
+        ~Process();
+
+    private:
+        [[nodiscard]] std::optional<std::string> readFile(const char *filename) const;
+
+    public:
+        [[nodiscard]] pid_t pid() const;
 
     public:
         [[nodiscard]] std::optional<MemoryMapping> getImageBase(std::string_view path) const;
@@ -162,8 +171,11 @@ namespace zero::os::process {
         [[nodiscard]] std::optional<std::list<MemoryMapping>> maps() const;
 
     private:
+        int mFD;
         pid_t mPID;
     };
+
+    std::optional<Process> openProcess(pid_t pid);
 }
 
-#endif //ZERO_PROCESS_H
+#endif //ZERO_PROCFS_H

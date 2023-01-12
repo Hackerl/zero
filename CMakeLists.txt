@@ -22,7 +22,7 @@ add_library(
         src/filesystem/path.cpp
         src/encoding/base64.cpp
         src/encoding/hex.cpp
-        $<$<BOOL:$<PLATFORM_ID:Linux>>:src/os/process.cpp>
+        $<$<BOOL:$<PLATFORM_ID:Linux>>:src/os/procfs.cpp>
 )
 
 target_include_directories(zero PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

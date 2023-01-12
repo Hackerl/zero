@@ -1,18 +1,63 @@
-#include <zero/os/process.h>
+#include <zero/os/procfs.h>
 #include <zero/strings/strings.h>
-#include <fstream>
 #include <algorithm>
-#include <filesystem>
+#include <dirent.h>
+#include <fcntl.h>
+#include <cstring>
 
 constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
-zero::os::process::Process::Process(pid_t pid) : mPID(pid) {
+zero::os::procfs::Process::Process(int fd, pid_t pid) : mFD(fd), mPID(pid) {
 
 }
 
-std::optional<zero::os::process::MemoryMapping> zero::os::process::Process::getImageBase(std::string_view path) const {
+zero::os::procfs::Process::Process(zero::os::procfs::Process &&rhs) noexcept: mFD(-1), mPID(0) {
+    std::swap(mFD, rhs.mFD);
+    std::swap(mPID, rhs.mPID);
+}
+
+zero::os::procfs::Process::~Process() {
+    if (mFD < 0)
+        return;
+
+    close(mFD);
+}
+
+std::optional<std::string> zero::os::procfs::Process::readFile(const char *filename) const {
+    int fd = openat(mFD, filename, O_RDONLY);
+
+    if (fd < 0)
+        return std::nullopt;
+
+    std::optional<std::string> content = std::make_optional<std::string>();
+
+    while (true) {
+        char buffer[1024];
+
+        ssize_t n = read(fd, buffer, sizeof(buffer));
+
+        if (n <= 0) {
+            if (n == -1)
+                content.reset();
+
+            break;
+        }
+
+        content->append(buffer, n);
+    }
+
+    close(fd);
+
+    return content;
+}
+
+pid_t zero::os::procfs::Process::pid() const {
+    return mPID;
+}
+
+std::optional<zero::os::procfs::MemoryMapping> zero::os::procfs::Process::getImageBase(std::string_view path) const {
     std::optional<std::list<MemoryMapping>> memoryMappings = maps();
 
     if (!memoryMappings)
@@ -28,7 +73,7 @@ std::optional<zero::os::process::MemoryMapping> zero::os::process::Process::getI
     return *it;
 }
 
-std::optional<zero::os::process::MemoryMapping> zero::os::process::Process::findMapping(uintptr_t address) const {
+std::optional<zero::os::procfs::MemoryMapping> zero::os::procfs::Process::findMapping(uintptr_t address) const {
     std::optional<std::list<MemoryMapping>> memoryMappings = maps();
 
     if (!memoryMappings)
@@ -44,52 +89,40 @@ std::optional<zero::os::process::MemoryMapping> zero::os::process::Process::find
     return *it;
 }
 
-std::optional<std::filesystem::path> zero::os::process::Process::exe() const {
-    std::error_code ec;
-    std::filesystem::path path = std::filesystem::read_symlink(
-            std::filesystem::path("/proc") / std::to_string(mPID) / "exe",
-            ec
-    );
+std::optional<std::filesystem::path> zero::os::procfs::Process::exe() const {
+    char buffer[PATH_MAX + 1] = {};
 
-    if (ec)
+    if (readlinkat(mFD, "exe", buffer, PATH_MAX) == -1)
         return std::nullopt;
 
-    return path;
+    return buffer;
 }
 
-std::optional<std::filesystem::path> zero::os::process::Process::cwd() const {
-    std::error_code ec;
-    std::filesystem::path path = std::filesystem::read_symlink(
-            std::filesystem::path("/proc") / std::to_string(mPID) / "cwd",
-            ec
-    );
+std::optional<std::filesystem::path> zero::os::procfs::Process::cwd() const {
+    char buffer[PATH_MAX + 1] = {};
 
-    if (ec)
+    if (readlinkat(mFD, "cwd", buffer, PATH_MAX) == -1)
         return std::nullopt;
 
-    return path;
+    return buffer;
 }
 
-std::optional<std::string> zero::os::process::Process::comm() const {
-    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "comm");
+std::optional<std::string> zero::os::procfs::Process::comm() const {
+    std::optional<std::string> content = readFile("comm");
 
-    if (!stream.is_open())
+    if (!content)
         return std::nullopt;
 
-    return strings::trim({std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()});
+    return strings::trim(*content);
 }
 
-std::optional<std::vector<std::string>> zero::os::process::Process::cmdline() const {
-    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "cmdline");
+std::optional<std::vector<std::string>> zero::os::procfs::Process::cmdline() const {
+    std::optional<std::string> content = readFile("cmdline");
 
-    if (!stream.is_open())
+    if (!content)
         return std::nullopt;
 
-    std::vector<std::string> tokens = strings::split(
-            std::string{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()},
-            {"\0", 1}
-    );
-
+    std::vector<std::string> tokens = strings::split(*content, {"\0", 1});
     std::vector<std::string> cmdline;
 
     std::copy_if(
@@ -104,17 +137,13 @@ std::optional<std::vector<std::string>> zero::os::process::Process::cmdline() co
     return cmdline;
 }
 
-std::optional<std::map<std::string, std::string>> zero::os::process::Process::environ() const {
-    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "environ");
+std::optional<std::map<std::string, std::string>> zero::os::procfs::Process::environ() const {
+    std::optional<std::string> content = readFile("environ");
 
-    if (!stream.is_open())
+    if (!content)
         return std::nullopt;
 
-    std::vector<std::string> tokens = strings::split(
-            std::string{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()},
-            {"\0", 1}
-    );
-
+    std::vector<std::string> tokens = strings::split(*content, {"\0", 1});
     std::map<std::string, std::string> environ;
 
     for (const auto &token: tokens) {
@@ -132,26 +161,24 @@ std::optional<std::map<std::string, std::string>> zero::os::process::Process::en
     return environ;
 }
 
-std::optional<zero::os::process::Stat> zero::os::process::Process::stat() const {
-    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "stat");
+std::optional<zero::os::procfs::Stat> zero::os::procfs::Process::stat() const {
+    std::optional<std::string> content = readFile("stat");
 
-    if (!stream.is_open())
+    if (!content)
         return std::nullopt;
 
-    std::string str{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-
-    size_t start = str.find('(');
-    size_t end = str.rfind(')');
+    size_t start = content->find('(');
+    size_t end = content->rfind(')');
 
     if (start == std::string::npos || end == std::string::npos)
         return std::nullopt;
 
     Stat stat;
 
-    stat.pid = strings::toNumber<pid_t>(str.substr(0, start - 1)).value_or(-1);
-    stat.comm = str.substr(start + 1, end - start - 1);
+    stat.pid = strings::toNumber<pid_t>(content->substr(0, start - 1)).value_or(-1);
+    stat.comm = content->substr(start + 1, end - start - 1);
 
-    std::vector<std::string> tokens = strings::split(str.substr(end + 2), " ");
+    std::vector<std::string> tokens = strings::split(content->substr(end + 2), " ");
 
     if (tokens.size() < STAT_BASIC_FIELDS - 2)
         return std::nullopt;
@@ -282,16 +309,15 @@ std::optional<T> statusIntegerField(const std::map<std::string, std::string> &ma
     return zero::strings::toNumber<T>(it->second, base);
 }
 
-std::optional<zero::os::process::Status> zero::os::process::Process::status() const {
-    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "status");
+std::optional<zero::os::procfs::Status> zero::os::procfs::Process::status() const {
+    std::optional<std::string> content = readFile("status");
 
-    if (!stream.is_open())
+    if (!content)
         return std::nullopt;
 
-    std::string line;
     std::map<std::string, std::string> map;
 
-    while (std::getline(stream, line)) {
+    for (const auto &line: strings::split(*content, "\n")) {
         if (line.empty())
             continue;
 
@@ -468,37 +494,49 @@ std::optional<zero::os::process::Status> zero::os::process::Process::status() co
     return status;
 }
 
-std::optional<std::list<pid_t>> zero::os::process::Process::tasks() const {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(mPID) / "task";
-    std::error_code ec;
+std::optional<std::list<pid_t>> zero::os::procfs::Process::tasks() const {
+    int fd = openat(mFD, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 
-    if (!std::filesystem::is_directory(path, ec))
+    if (fd < 0)
         return std::nullopt;
 
-    std::list<pid_t> tasks;
+    DIR *dir = fdopendir(fd);
 
-    for (const auto &entry: std::filesystem::directory_iterator(path)) {
-        std::optional<pid_t> thread = strings::toNumber<pid_t>(entry.path().filename().string());
-
-        if (!thread)
-            return std::nullopt;
-
-        tasks.emplace_back(*thread);
+    if (!dir) {
+        close(fd);
+        return std::nullopt;
     }
+
+    std::optional<std::list<pid_t>> tasks = std::make_optional<std::list<pid_t>>();
+
+    for (dirent *e = readdir(dir); e; e = readdir(dir)) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
+            continue;
+
+        std::optional<pid_t> tid = strings::toNumber<pid_t>(e->d_name);
+
+        if (!tid) {
+            tasks.reset();
+            break;
+        }
+
+        tasks->push_back(*tid);
+    }
+
+    closedir(dir);
 
     return tasks;
 }
 
-std::optional<std::list<zero::os::process::MemoryMapping>> zero::os::process::Process::maps() const {
-    std::ifstream stream(std::filesystem::path("/proc") / std::to_string(mPID) / "maps");
+std::optional<std::list<zero::os::procfs::MemoryMapping>> zero::os::procfs::Process::maps() const {
+    std::optional<std::string> content = readFile("maps");
 
-    if (!stream.is_open())
+    if (!content)
         return std::nullopt;
 
-    std::string line;
     std::list<MemoryMapping> memoryMappings;
 
-    while (std::getline(stream, line)) {
+    for (const auto &line: strings::split(*content, "\n")) {
         std::vector<std::string> fields = strings::split(strings::trimExtraSpace(line), " ");
 
         if (fields.size() < MAPPING_BASIC_FIELDS)
@@ -552,4 +590,20 @@ std::optional<std::list<zero::os::process::MemoryMapping>> zero::os::process::Pr
     }
 
     return memoryMappings;
+}
+
+std::optional<zero::os::procfs::Process> zero::os::procfs::openProcess(pid_t pid) {
+    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid);
+
+    std::error_code ec;
+
+    if (!std::filesystem::is_directory(path, ec))
+        return std::nullopt;
+
+    int fd = open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
+
+    if (fd < 0)
+        return std::nullopt;
+
+    return Process{fd, pid};
 }
