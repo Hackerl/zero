@@ -128,29 +128,45 @@ namespace zero::async::promise {
 
                     p->resolve();
                 } else {
-                    Next next;
-
                     if constexpr (std::is_same_v<Result, std::tuple<std::remove_const_t<std::remove_reference_t<Args>>...>>) {
-                        next = std::apply(onFulfilled, this->mResult);
-                    } else {
-                        next = onFulfilled(this->mResult);
-                    }
+                        Next next = std::apply(onFulfilled, this->mResult);
 
-                    if constexpr (!is_promise_v<Next>) {
-                        p->resolve(next);
-                    } else {
-                        if constexpr (std::is_same_v<NextResult, void>) {
-                            next->then([p]() {
-                                p->resolve();
-                            }, [p](const Reason &reason) {
-                                p->reject(reason);
-                            });
+                        if constexpr (!is_promise_v<Next>) {
+                            p->resolve(next);
                         } else {
-                            next->then([p](const NextResult &result) {
-                                p->resolve(result);
-                            }, [p](const Reason &reason) {
-                                p->reject(reason);
-                            });
+                            if constexpr (std::is_same_v<NextResult, void>) {
+                                next->then([=]() {
+                                    p->resolve();
+                                }, [=](const Reason &reason) {
+                                    p->reject(reason);
+                                });
+                            } else {
+                                next->then([=](const NextResult &result) {
+                                    p->resolve(result);
+                                }, [=](const Reason &reason) {
+                                    p->reject(reason);
+                                });
+                            }
+                        }
+                    } else {
+                        Next next = onFulfilled(this->mResult);
+
+                        if constexpr (!is_promise_v<Next>) {
+                            p->resolve(next);
+                        } else {
+                            if constexpr (std::is_same_v<NextResult, void>) {
+                                next->then([=]() {
+                                    p->resolve();
+                                }, [=](const Reason &reason) {
+                                    p->reject(reason);
+                                });
+                            } else {
+                                next->then([=](const NextResult &result) {
+                                    p->resolve(result);
+                                }, [=](const Reason &reason) {
+                                    p->reject(reason);
+                                });
+                            }
                         }
                     }
                 }
@@ -172,15 +188,15 @@ namespace zero::async::promise {
                         p->resolve(next);
                     } else {
                         if constexpr (std::is_same_v<NextResult, void>) {
-                            next->then([p]() {
+                            next->then([=]() {
                                 p->resolve();
-                            }, [p](const Reason &reason) {
+                            }, [=](const Reason &reason) {
                                 p->reject(reason);
                             });
                         } else {
-                            next->then([p](const NextResult &result) {
+                            next->then([=](const NextResult &result) {
                                 p->resolve(result);
-                            }, [p](const Reason &reason) {
+                            }, [=](const Reason &reason) {
                                 p->reject(reason);
                             });
                         }
@@ -327,15 +343,15 @@ namespace zero::async::promise {
                         p->resolve(next);
                     } else {
                         if constexpr (std::is_same_v<NextResult, void>) {
-                            next->then([p]() {
+                            next->then([=]() {
                                 p->resolve();
-                            }, [p](const Reason &reason) {
+                            }, [=](const Reason &reason) {
                                 p->reject(reason);
                             });
                         } else {
-                            next->then([p](const NextResult &result) {
+                            next->then([=](const NextResult &result) {
                                 p->resolve(result);
-                            }, [p](const Reason &reason) {
+                            }, [=](const Reason &reason) {
                                 p->reject(reason);
                             });
                         }
@@ -359,15 +375,15 @@ namespace zero::async::promise {
                         p->resolve(next);
                     } else {
                         if constexpr (std::is_same_v<NextResult, void>) {
-                            next->then([p]() {
+                            next->then([=]() {
                                 p->resolve();
-                            }, [p](const Reason &reason) {
+                            }, [=](const Reason &reason) {
                                 p->reject(reason);
                             });
                         } else {
-                            next->then([p](const NextResult &result) {
+                            next->then([=](const NextResult &result) {
                                 p->resolve(result);
-                            }, [p](const Reason &reason) {
+                            }, [=](const Reason &reason) {
                                 p->reject(reason);
                             });
                         }
@@ -675,7 +691,10 @@ namespace zero::async::promise {
     }
 
     template<typename Result>
-    void repeat(const std::shared_ptr<Promise<Result>> &p, const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
+    void repeat(
+            const std::shared_ptr<Promise<Result>> &p,
+            const std::function<void(std::shared_ptr<Promise<Result>>)> &func
+    ) {
         if constexpr (std::is_same_v<Result, void>) {
             chain<Result>(func)->then([=]() {
                 p->resolve();

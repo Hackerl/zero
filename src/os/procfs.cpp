@@ -509,7 +509,12 @@ std::optional<std::list<pid_t>> zero::os::procfs::Process::tasks() const {
 
     std::optional<std::list<pid_t>> tasks = std::make_optional<std::list<pid_t>>();
 
-    for (dirent *e = readdir(dir); e; e = readdir(dir)) {
+    while (true) {
+        dirent *e = readdir(dir);
+
+        if (!e)
+            break;
+
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
             continue;
 
