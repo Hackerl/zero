@@ -79,12 +79,12 @@ namespace zero::async::promise {
 
     public:
         template<typename T>
-        void resolve(const T &result) {
+        void resolve(T &&result) {
             if (mStatus != PENDING)
                 return;
 
             mStatus = FULFILLED;
-            mResult = result;
+            mResult = std::forward<T>(result);
 
             for (const auto &n: mTriggers) {
                 n.first();
@@ -132,7 +132,7 @@ namespace zero::async::promise {
                         Next next = std::apply(onFulfilled, this->mResult);
 
                         if constexpr (!is_promise_v<Next>) {
-                            p->resolve(next);
+                            p->resolve(std::move(next));
                         } else {
                             if constexpr (std::is_same_v<NextResult, void>) {
                                 next->then([=]() {
@@ -152,7 +152,7 @@ namespace zero::async::promise {
                         Next next = onFulfilled(this->mResult);
 
                         if constexpr (!is_promise_v<Next>) {
-                            p->resolve(next);
+                            p->resolve(std::move(next));
                         } else {
                             if constexpr (std::is_same_v<NextResult, void>) {
                                 next->then([=]() {
@@ -185,7 +185,7 @@ namespace zero::async::promise {
                     Next next = onRejected(this->mReason);
 
                     if constexpr (!is_promise_v<Next>) {
-                        p->resolve(next);
+                        p->resolve(std::move(next));
                     } else {
                         if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([=]() {
@@ -340,7 +340,7 @@ namespace zero::async::promise {
                     Next next = onFulfilled();
 
                     if constexpr (!is_promise_v<Next>) {
-                        p->resolve(next);
+                        p->resolve(std::move(next));
                     } else {
                         if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([=]() {
@@ -372,7 +372,7 @@ namespace zero::async::promise {
                     Next next = onRejected(this->mReason);
 
                     if constexpr (!is_promise_v<Next>) {
-                        p->resolve(next);
+                        p->resolve(std::move(next));
                     } else {
                         if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([=]() {
@@ -485,9 +485,9 @@ namespace zero::async::promise {
     }
 
     template<typename Result, typename... Ts>
-    std::shared_ptr<Promise<Result>> resolve(const Ts &... args) {
+    std::shared_ptr<Promise<Result>> resolve(Ts &&... args) {
         auto p = std::make_shared<Promise<Result>>();
-        p->resolve(args...);
+        p->resolve(std::forward<Ts>(args)...);
 
         return p;
     }
@@ -560,7 +560,7 @@ namespace zero::async::promise {
                         if (--(*remain) > 0)
                             return;
 
-                        p->resolve(*results);
+                        p->resolve(std::move(*results));
                     }, [=](const Reason &reason) {
                         p->reject(reason);
                     });
@@ -571,7 +571,7 @@ namespace zero::async::promise {
                         if (--(*remain) > 0)
                             return;
 
-                        p->resolve(*results);
+                        p->resolve(std::move(*results));
                     }, [=](const Reason &reason) {
                         p->reject(reason);
                     });
@@ -601,7 +601,7 @@ namespace zero::async::promise {
                 if (--(*remain) > 0)
                     return;
 
-                p->resolve(*results);
+                p->resolve(std::move(*results));
             });
         }(), ...);
 

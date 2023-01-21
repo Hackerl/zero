@@ -1,5 +1,6 @@
 #include <zero/async/promise.h>
 #include <catch2/catch_test_macros.hpp>
+#include <cstring>
 
 TEST_CASE("asynchronous callback chain", "[promise]") {
     SECTION("single promise") {
@@ -24,6 +25,20 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
         })->then([=](int result) {
             REQUIRE(*i == 1);
             REQUIRE(result == 1);
+        });
+
+        zero::async::promise::chain<std::unique_ptr<char[]>>([](const auto &p) {
+            std::unique_ptr buffer = std::make_unique<char[]>(1024);
+
+            buffer[0] = 'h';
+            buffer[1] = 'e';
+            buffer[2] = 'l';
+            buffer[3] = 'l';
+            buffer[4] = 'o';
+
+            p->resolve(std::move(buffer));
+        })->then([](const std::unique_ptr<char[]> &buffer) {
+            REQUIRE(strcmp(buffer.get(), "hello") == 0);
         });
     }
 
