@@ -46,17 +46,21 @@ namespace zero::async::promise {
     inline constexpr bool is_promise_v = is_promise<T>::value;
 
     template<typename T>
-    struct promise_function : public promise_function<decltype(&T::operator())> {
+    struct promise_callback_traits : public promise_callback_traits<decltype(&T::operator())> {
 
     };
 
     template<typename T, typename ReturnType, typename... Args>
-    struct promise_function<ReturnType(T::*)(Args...) const> {
+    struct promise_callback_traits<ReturnType(T::*)(Args...) const> {
         typedef std::function<ReturnType(const std::remove_const_t<std::remove_reference_t<Args>> &...)> type;
+        typedef promise_result_t<ReturnType> result;
     };
 
     template<typename T>
-    using promise_function_t = typename promise_function<T>::type;
+    using promise_callback_t = typename promise_callback_traits<T>::type;
+
+    template<typename T>
+    using promise_callback_result_t = typename promise_callback_traits<T>::result;
 
     enum State {
         PENDING,
@@ -86,8 +90,20 @@ namespace zero::async::promise {
             mStatus = FULFILLED;
             mResult = std::forward<T>(result);
 
-            for (const auto &n: mTriggers) {
-                n.first();
+            for (const auto &trigger: mTriggers) {
+                trigger.first();
+            }
+        }
+
+        void reject(Reason &&reason) {
+            if (mStatus != PENDING)
+                return;
+
+            mStatus = REJECTED;
+            mReason = std::move(reason);
+
+            for (const auto &trigger: mTriggers) {
+                trigger.second();
             }
         }
 
@@ -98,21 +114,21 @@ namespace zero::async::promise {
             mStatus = REJECTED;
             mReason = reason;
 
-            for (const auto &n: mTriggers) {
-                n.second();
+            for (const auto &trigger: mTriggers) {
+                trigger.second();
             }
         }
 
     public:
         template<typename Next, typename ...Args, typename NextResult = promise_result_t<Next>>
         std::shared_ptr<Promise<NextResult>>
-        then(const std::function<Next(Args...)> &onFulfilled, const std::function<Next(const Reason &)> &onRejected) {
+        then(std::function<Next(Args...)> &&onFulfilled, std::function<Next(const Reason &)> &&onRejected) {
             auto p = std::make_shared<Promise<NextResult>>();
 
-            auto onFulfilledTrigger = [=]() {
+            auto onFulfilledTrigger = [=, onFulfilled = std::move(onFulfilled)]() {
                 if (!onFulfilled) {
                     if constexpr (std::is_same_v<Result, NextResult>) {
-                        p->resolve(this->mResult);
+                        p->resolve(mResult);
                         return;
                     } else {
                         throw std::logic_error("mismatched result type");
@@ -121,15 +137,15 @@ namespace zero::async::promise {
 
                 if constexpr (std::is_same_v<Next, void>) {
                     if constexpr (std::is_same_v<Result, std::tuple<std::remove_const_t<std::remove_reference_t<Args>>...>>) {
-                        std::apply(onFulfilled, this->mResult);
+                        std::apply(onFulfilled, mResult);
                     } else {
-                        onFulfilled(this->mResult);
+                        onFulfilled(mResult);
                     }
 
                     p->resolve();
                 } else {
                     if constexpr (std::is_same_v<Result, std::tuple<std::remove_const_t<std::remove_reference_t<Args>>...>>) {
-                        Next next = std::apply(onFulfilled, this->mResult);
+                        Next next = std::apply(onFulfilled, mResult);
 
                         if constexpr (!is_promise_v<Next>) {
                             p->resolve(std::move(next));
@@ -149,7 +165,7 @@ namespace zero::async::promise {
                             }
                         }
                     } else {
-                        Next next = onFulfilled(this->mResult);
+                        Next next = onFulfilled(mResult);
 
                         if constexpr (!is_promise_v<Next>) {
                             p->resolve(std::move(next));
@@ -172,17 +188,17 @@ namespace zero::async::promise {
                 }
             };
 
-            auto onRejectedTrigger = [=]() {
+            auto onRejectedTrigger = [=, onRejected = std::move(onRejected)]() {
                 if (!onRejected) {
-                    p->reject(this->mReason);
+                    p->reject(mReason);
                     return;
                 }
 
                 if constexpr (std::is_same_v<Next, void>) {
-                    onRejected(this->mReason);
+                    onRejected(mReason);
                     p->resolve();
                 } else {
-                    Next next = onRejected(this->mReason);
+                    Next next = onRejected(mReason);
 
                     if constexpr (!is_promise_v<Next>) {
                         p->resolve(std::move(next));
@@ -214,7 +230,7 @@ namespace zero::async::promise {
                     break;
 
                 case PENDING:
-                    mTriggers.emplace_back(onFulfilledTrigger, onRejectedTrigger);
+                    mTriggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
             }
 
             return p;
@@ -225,12 +241,12 @@ namespace zero::async::promise {
 
             auto onFulfilledTrigger = [=]() {
                 onFinally();
-                p->resolve(this->mResult);
+                p->resolve(mResult);
             };
 
             auto onRejectedTrigger = [=]() {
                 onFinally();
-                p->reject(this->mReason);
+                p->reject(mReason);
             };
 
             switch (mStatus) {
@@ -243,25 +259,31 @@ namespace zero::async::promise {
                     break;
 
                 case PENDING:
-                    mTriggers.push_back({onFulfilledTrigger, onRejectedTrigger});
+                    mTriggers.push_back({std::move(onFulfilledTrigger), std::move(onRejectedTrigger)});
             }
 
             return p;
         }
 
         template<typename F>
-        auto then(const F &onFulfilled) {
-            return then((promise_function_t<F>) onFulfilled, {});
+        std::shared_ptr<Promise<promise_callback_result_t<F>>> then(F &&onFulfilled) {
+            return then(promise_callback_t<F>{std::forward<F>(onFulfilled)}, {});
         }
 
         template<typename F, typename R>
-        auto then(const F &onFulfilled, const R &onRejected) {
-            return then((promise_function_t<F>) onFulfilled, (promise_function_t<R>) onRejected);
+        std::shared_ptr<Promise<promise_callback_result_t<F>>> then(F &&onFulfilled, R &&onRejected) {
+            return then(
+                    promise_callback_t<F>{std::forward<F>(onFulfilled)},
+                    promise_callback_t<R>{std::forward<R>(onRejected)}
+            );
         }
 
-        template<typename F, typename Next = std::invoke_result_t<F, Reason>>
-        auto fail(const F &onRejected) {
-            return then(std::function<Next(Result)>{}, (promise_function_t<F>) onRejected);
+        template<typename R>
+        std::shared_ptr<Promise<promise_callback_result_t<R>>> fail(R &&onRejected) {
+            return then(
+                    std::function<std::invoke_result_t<R, Reason>(Result)>{},
+                    promise_callback_t<R>{std::forward<R>(onRejected)}
+            );
         }
 
     public:
@@ -290,7 +312,7 @@ namespace zero::async::promise {
     class Promise<void> : public std::enable_shared_from_this<Promise<void>> {
     public:
         void start(const std::function<void(std::shared_ptr<Promise<void>>)> &func) {
-            func(this->shared_from_this());
+            func(shared_from_this());
         }
 
     public:
@@ -300,8 +322,20 @@ namespace zero::async::promise {
 
             mStatus = FULFILLED;
 
-            for (const auto &n: mTriggers) {
-                n.first();
+            for (const auto &trigger: mTriggers) {
+                trigger.first();
+            }
+        }
+
+        void reject(Reason &&reason) {
+            if (mStatus != PENDING)
+                return;
+
+            mStatus = REJECTED;
+            mReason = std::move(reason);
+
+            for (const auto &trigger: mTriggers) {
+                trigger.second();
             }
         }
 
@@ -312,18 +346,18 @@ namespace zero::async::promise {
             mStatus = REJECTED;
             mReason = reason;
 
-            for (const auto &n: mTriggers) {
-                n.second();
+            for (const auto &trigger: mTriggers) {
+                trigger.second();
             }
         }
 
     public:
         template<typename Next, typename NextResult = promise_result_t<Next>>
         std::shared_ptr<Promise<NextResult>>
-        then(const std::function<Next()> &onFulfilled, const std::function<Next(const Reason &)> &onRejected) {
+        then(std::function<Next()> &&onFulfilled, std::function<Next(const Reason &)> &&onRejected) {
             auto p = std::make_shared<Promise<NextResult>>();
 
-            auto onFulfilledTrigger = [=]() {
+            auto onFulfilledTrigger = [=, onFulfilled = std::move(onFulfilled)]() {
                 if (!onFulfilled) {
                     if constexpr (std::is_same_v<NextResult, void>) {
                         p->resolve();
@@ -359,17 +393,17 @@ namespace zero::async::promise {
                 }
             };
 
-            auto onRejectedTrigger = [=]() {
+            auto onRejectedTrigger = [=, onRejected = std::move(onRejected)]() {
                 if (!onRejected) {
-                    p->reject(this->mReason);
+                    p->reject(mReason);
                     return;
                 }
 
                 if constexpr (std::is_same_v<Next, void>) {
-                    onRejected(this->mReason);
+                    onRejected(mReason);
                     p->resolve();
                 } else {
-                    Next next = onRejected(this->mReason);
+                    Next next = onRejected(mReason);
 
                     if constexpr (!is_promise_v<Next>) {
                         p->resolve(std::move(next));
@@ -401,7 +435,7 @@ namespace zero::async::promise {
                     break;
 
                 case PENDING:
-                    mTriggers.push_back({onFulfilledTrigger, onRejectedTrigger});
+                    mTriggers.push_back({std::move(onFulfilledTrigger), std::move(onRejectedTrigger)});
             }
 
             return p;
@@ -417,7 +451,7 @@ namespace zero::async::promise {
 
             auto onRejectedTrigger = [=]() {
                 onFinally();
-                p->reject(this->mReason);
+                p->reject(mReason);
             };
 
             switch (mStatus) {
@@ -430,25 +464,28 @@ namespace zero::async::promise {
                     break;
 
                 case PENDING:
-                    mTriggers.emplace_back(onFulfilledTrigger, onRejectedTrigger);
+                    mTriggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
             }
 
             return p;
         }
 
         template<typename F>
-        auto then(const F &onFulfilled) {
-            return then((promise_function_t<F>) onFulfilled, {});
+        std::shared_ptr<Promise<promise_callback_result_t<F>>> then(F &&onFulfilled) {
+            return then(promise_callback_t<F>{std::forward<F>(onFulfilled)}, {});
         }
 
         template<typename F, typename R>
-        auto then(const F &onFulfilled, const R &onRejected) {
-            return then((promise_function_t<F>) onFulfilled, (promise_function_t<R>) onRejected);
+        std::shared_ptr<Promise<promise_callback_result_t<F>>> then(F &&onFulfilled, R &&onRejected) {
+            return then(
+                    promise_callback_t<F>{std::forward<F>(onFulfilled)},
+                    promise_callback_t<R>{std::forward<R>(onRejected)}
+            );
         }
 
-        template<typename F, typename Next = std::invoke_result_t<F, Reason>>
-        auto fail(const F &onRejected) {
-            return then(std::function<Next()>{}, (promise_function_t<F>) onRejected);
+        template<typename R>
+        std::shared_ptr<Promise<promise_callback_result_t<R>>> fail(R &&onRejected) {
+            return then({}, promise_callback_t<R>{std::forward<R>(onRejected)});
         }
 
     public:
@@ -472,6 +509,14 @@ namespace zero::async::promise {
     std::shared_ptr<Promise<Result>> chain(const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
         auto p = std::make_shared<Promise<Result>>();
         p->start(func);
+
+        return p;
+    }
+
+    template<typename Result>
+    std::shared_ptr<Promise<Result>> reject(Reason &&reason) {
+        auto p = std::make_shared<Promise<Result>>();
+        p->reject(std::move(reason));
 
         return p;
     }
@@ -639,7 +684,7 @@ namespace zero::async::promise {
                     if (--(*remain) > 0)
                         return;
 
-                    p->reject(*tail);
+                    p->reject(std::move(*tail));
                 });
             } else {
                 promises->then([=](const Results &result) {
@@ -655,7 +700,7 @@ namespace zero::async::promise {
                     if (--(*remain) > 0)
                         return;
 
-                    p->reject(*tail);
+                    p->reject(std::move(*tail));
                 });
             }
         }(), ...);
