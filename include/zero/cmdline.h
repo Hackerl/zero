@@ -186,7 +186,7 @@ namespace zero {
         }
 
     public:
-        void parse(int argc, const char **argv) {
+        void parse(int argc, const char *const argv[]) {
             auto it = mPositionals.begin();
 
             for (int i = 1; i < argc; i++) {
