@@ -15,6 +15,19 @@
 #endif
 
 namespace zero {
+    template<typename>
+    struct is_vector : std::false_type {
+
+    };
+
+    template<typename T, typename A>
+    struct is_vector<std::vector<T, A>> : std::true_type {
+
+    };
+
+    template<typename T>
+    inline constexpr bool is_vector_v = is_vector<T>::value;
+
     template<typename T>
     std::any parseValue(std::string_view str) {
         if constexpr (std::is_arithmetic_v<T>) {
@@ -24,18 +37,18 @@ namespace zero {
                 return {};
 
             return *value;
-        } else if (std::is_same_v<T, std::string>) {
-            return std::string{str};
-        } else if (std::is_same_v<T, std::vector<typename T::value_type, typename T::allocator_type>>) {
+        } else if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, std::filesystem::path>) {
+            return T{str};
+        } else if constexpr (is_vector_v<T>) {
             T value;
 
-            for (const auto &token : strings::split(str, ",")) {
+            for (const auto &token: strings::split(str, ",")) {
                 std::any v = parseValue<typename T::value_type>(strings::trim(token));
 
                 if (!v.has_value())
                     return {};
 
-                value.push_back(std::any_cast<typename T::value_type>(v));
+                value.push_back(std::any_cast<typename T::value_type>(std::move(v)));
             }
 
             return value;
@@ -51,16 +64,27 @@ namespace zero {
             return typeid(T).name();
 #elif __GNUC__
             int status = 0;
-            std::unique_ptr<char, decltype(free) *> buffer(abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status), free);
+
+            std::unique_ptr<char, decltype(free) *> buffer(
+                    abi::__cxa_demangle(
+                            typeid(T).name(),
+                            nullptr,
+                            nullptr,
+                            &status
+                    ),
+                    free
+            );
 
             if (status != 0 || !buffer)
                 return "unknown";
 
             return buffer.get();
 #endif
-        } else if (std::is_same_v<T, std::string>) {
+        } else if constexpr (std::is_same_v<T, std::string>) {
             return "string";
-        } else if (std::is_same_v<T, std::vector<typename T::value_type, typename T::allocator_type>>) {
+        } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
+            return "path";
+        } else if constexpr (is_vector_v<T>) {
             return strings::format("%s[]", demangle<typename T::value_type>().c_str());
         }
 
@@ -102,8 +126,18 @@ namespace zero {
         }
 
         template<typename T>
-        void addOptional(const char *name, char shortName, const char *desc, T def = {}) {
-            mOptionals.push_back({name, shortName, desc, def, false, demangle<T>(), parseValue<T>});
+        void addOptional(const char *name, char shortName, const char *desc, std::optional<T> def = std::nullopt) {
+            mOptionals.push_back(
+                    {
+                            name,
+                            shortName,
+                            desc,
+                            def ? std::any{*def} : std::any{},
+                            false,
+                            demangle<T>(),
+                            parseValue<T>
+                    }
+            );
         }
 
     public:
@@ -123,9 +157,23 @@ namespace zero {
             return std::any_cast<T>(it->value);
         }
 
+        bool exist(const char *name) {
+            std::optional<std::reference_wrapper<Optional>> optional = find(name);
+
+            if (!optional)
+                return false;
+
+            return std::any_cast<bool>(optional->get().value);
+        }
+
         template<typename T>
-        T getOptional(const char *name) {
-            return std::any_cast<T>(findByName(name).value);
+        std::optional<T> getOptional(const char *name) {
+            std::optional<std::reference_wrapper<Optional>> optional = find(name);
+
+            if (!optional || !optional->get().value.has_value())
+                return std::nullopt;
+
+            return std::any_cast<T>(optional->get().value);
         }
 
     public:
@@ -138,7 +186,7 @@ namespace zero {
         }
 
     public:
-        void parse(int argc, char **argv) {
+        void parse(int argc, const char **argv) {
             auto it = mPositionals.begin();
 
             for (int i = 1; i < argc; i++) {
@@ -157,49 +205,55 @@ namespace zero {
                 }
 
                 if (argv[i][1] != '-') {
-                    Optional &optional = findByShortName(argv[i][1]);
+                    std::optional<std::reference_wrapper<Optional>> optional = find(argv[i][1]);
 
-                    if (optional.flag) {
-                        optional.value = true;
+                    if (!optional)
+                        error("optional argument not found: -%c", argv[i][1]);
+
+                    if (optional->get().flag) {
+                        optional->get().value = true;
                         continue;
                     }
 
                     if (!argv[i + 1])
                         error("invalid optional argument: %s", argv[i]);
 
-                    optional.value = optional.parse(argv[++i]);
+                    optional->get().value = optional->get().parse(argv[++i]);
 
-                    if (!optional.value.has_value())
+                    if (!optional->get().value.has_value())
                         error("invalid optional argument: %s", argv[i]);
 
                     continue;
                 }
 
-                char *p = strchr(argv[i], '=');
-                unsigned long n = p ? p - argv[i] : strlen(argv[i]);
+                const char *p = strchr(argv[i], '=');
+                size_t n = p ? p - argv[i] : strlen(argv[i]);
 
                 if (n == 2) {
                     mRest.insert(mRest.end(), argv + i + 1, argv + argc);
                     break;
                 }
 
-                Optional &optional = findByName({argv[i] + 2, n - 2});
+                std::optional<std::reference_wrapper<Optional>> optional = find({argv[i] + 2, n - 2});
 
-                if (optional.flag) {
-                    optional.value = true;
+                if (!optional)
+                    error("optional argument not found: --%.*s", n - 2, argv[i] + 2);
+
+                if (optional->get().flag) {
+                    optional->get().value = true;
                     continue;
                 }
 
                 if (!p)
                     error("optional argument requires value: %s", argv[i]);
 
-                optional.value = optional.parse(p + 1);
+                optional->get().value = optional->get().parse(p + 1);
 
-                if (!optional.value.has_value())
+                if (!optional->get().value.has_value())
                     error("invalid optional argument: %s", argv[i]);
             }
 
-            if (getOptional<bool>("help")) {
+            if (exist("help")) {
                 help();
                 exit(0);
             }
@@ -209,28 +263,7 @@ namespace zero {
         }
 
     private:
-        Optional &findByName(const std::string &name) {
-            if (name.empty())
-                error("empty option name");
-
-            auto it = std::find_if(
-                    mOptionals.begin(),
-                    mOptionals.end(),
-                    [=](const auto &optional) {
-                        return optional.name == name;
-                    }
-            );
-
-            if (it == mOptionals.end())
-                error("optional argument not found: --%s", name.c_str());
-
-            return *it;
-        }
-
-        Optional &findByShortName(char shortName) {
-            if (!shortName)
-                error("empty option name");
-
+        std::optional<std::reference_wrapper<Optional>> find(char shortName) {
             auto it = std::find_if(
                     mOptionals.begin(),
                     mOptionals.end(),
@@ -240,7 +273,22 @@ namespace zero {
             );
 
             if (it == mOptionals.end())
-                error("optional argument not found: -%c", shortName);
+                return std::nullopt;
+
+            return *it;
+        }
+
+        std::optional<std::reference_wrapper<Optional>> find(std::string_view name) {
+            auto it = std::find_if(
+                    mOptionals.begin(),
+                    mOptionals.end(),
+                    [=](const auto &optional) {
+                        return optional.name == name;
+                    }
+            );
+
+            if (it == mOptionals.end())
+                return std::nullopt;
 
             return *it;
         }
@@ -267,7 +315,7 @@ namespace zero {
 
             std::cout << "positional:" << std::endl;
 
-            for (const auto &positional : mPositionals) {
+            for (const auto &positional: mPositionals) {
                 std::cout << strings::format(
                         "\t%-20s%s(%s)",
                         positional.name.c_str(),
@@ -278,7 +326,7 @@ namespace zero {
 
             std::cout << "optional:" << std::endl;
 
-            for (const auto &optional : mOptionals) {
+            for (const auto &optional: mOptionals) {
                 std::cout << strings::format(
                         optional.shortName ? "\t-%c, --%-14s%s%s" : "\t%-4c--%-14s%s%s",
                         optional.shortName ? optional.shortName : ' ',

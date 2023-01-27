@@ -12,6 +12,7 @@ FetchContent_MakeAvailable(catch2)
 
 add_executable(
         zero_test
+        cmdline.cpp
         atomic/event.cpp
         atomic/circular_buffer.cpp
         async/promise.cpp
