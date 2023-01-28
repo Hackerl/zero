@@ -18,7 +18,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             REQUIRE(reason.code == -1);
         });
 
-        std::shared_ptr i = std::make_shared<int>(0);
+        std::shared_ptr<int> i = std::make_shared<int>(0);
 
         zero::async::promise::resolve<int>(1)->finally([=]() {
             *i = 1;
@@ -172,7 +172,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
     }
 
     SECTION("promise::loop") {
-        std::shared_ptr i = std::make_shared<int>(0);
+        std::shared_ptr<int> i = std::make_shared<int>(0);
 
         zero::async::promise::loop<int>([=](const auto &loop) {
             *i += 1;

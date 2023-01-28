@@ -13,13 +13,8 @@ namespace zero {
         }
 
         ~Thread() {
-            if (!mThread)
-                return;
-
-            if (mThread->joinable())
+            if (mThread && mThread->joinable())
                 mThread->join();
-
-            mThread.reset();
         }
 
     public:
@@ -28,7 +23,11 @@ namespace zero {
             if (mThread)
                 return false;
 
-            mThread = std::make_unique<std::thread>(f, mThat, args...);
+            mThread = std::make_unique<std::thread>(
+                    std::forward<F>(f),
+                    mThat,
+                    std::forward<Args>(args)...
+            );
 
             return true;
         }
