@@ -107,7 +107,9 @@ namespace zero {
             if (!T::rotate())
                 return false;
 
+            mResult = SUCCEEDED;
             mEvent.notify();
+
             return true;
         }
 
@@ -120,8 +122,8 @@ namespace zero {
 
             mBuffer[*index] = message;
             mBuffer.commit(*index);
-
             mEvent.notify();
+
             return mResult;
         }
 
