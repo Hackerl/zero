@@ -28,14 +28,28 @@ namespace zero {
         DEBUG
     };
 
+    enum LogResult {
+        FAILED,
+        SUCCEEDED,
+        ROTATED
+    };
+
     class ILogProvider : public Interface {
     public:
-        virtual void write(std::string_view message) = 0;
+        virtual bool init() = 0;
+        virtual bool rotate() = 0;
+
+    public:
+        virtual LogResult write(std::string_view message) = 0;
     };
 
     class ConsoleProvider : public ILogProvider {
     public:
-        void write(std::string_view message) override;
+        bool init() override;
+        bool rotate() override;
+
+    public:
+        LogResult write(std::string_view message) override;
     };
 
     class FileProvider : public ILogProvider {
@@ -43,18 +57,19 @@ namespace zero {
         explicit FileProvider(
                 const char *name,
                 const std::filesystem::path &directory = {},
-                long limit = 10 * 1024 * 1024,
+                size_t limit = 10 * 1024 * 1024,
                 int remain = 10
         );
 
     private:
         std::filesystem::path getLogPath();
 
-    private:
-        void clean();
+    public:
+        bool init() override;
+        bool rotate() override;
 
     public:
-        void write(std::string_view message) override;
+        LogResult write(std::string_view message) override;
 
     private:
         std::string mName;
@@ -63,65 +78,85 @@ namespace zero {
     private:
         int mPID;
         int mRemain;
-        long mLimit;
+        size_t mLimit;
+        size_t mPosition;
 
     private:
-        std::ofstream mFile;
+        std::ofstream mStream;
     };
 
-    template<typename T>
+    template<typename T, size_t N>
     class AsyncProvider : public T {
     public:
         template<typename... Args>
-        explicit AsyncProvider<T>(Args &&... args) : T(std::forward<Args>(args)...) {
-            mThread.start(&AsyncProvider<T>::loopThread);
+        explicit AsyncProvider<T, N>(Args &&... args) : T(std::forward<Args>(args)...) {
+            mThread.start(&AsyncProvider<T, N>::consume);
         }
 
-        ~AsyncProvider<T>() override {
+        ~AsyncProvider<T, N>() override {
             mExit = true;
             mEvent.notify();
-            mThread.stop();
         }
 
     public:
-        void write(std::string_view message) override {
-            if (mBuffer.full())
-                return;
+        bool init() override {
+            return T::init();
+        }
 
+        bool rotate() override {
+            if (!T::rotate())
+                return false;
+
+            mEvent.notify();
+            return true;
+        }
+
+    public:
+        LogResult write(std::string_view message) override {
             std::optional<size_t> index = mBuffer.reserve();
 
             if (!index)
-                return;
+                return mResult;
 
             mBuffer[*index] = message;
             mBuffer.commit(*index);
 
             mEvent.notify();
+            return mResult;
         }
 
     public:
-        void loopThread() {
+        void consume() {
             while (!mExit) {
-                if (mBuffer.empty())
+                if (mResult == ROTATED) {
                     mEvent.wait();
+                    continue;
+                }
 
                 std::optional<size_t> index = mBuffer.acquire();
 
-                if (!index)
+                if (!index) {
+                    mEvent.wait();
                     continue;
+                }
 
-                T::write(mBuffer[*index]);
+                mResult = T::write(mBuffer[*index]);
+
+                if (mResult == FAILED)
+                    mExit = true;
+
                 mBuffer.release(*index);
             }
         }
 
     private:
         bool mExit{false};
+        std::atomic<LogResult> mResult{SUCCEEDED};
 
     private:
         atomic::Event mEvent;
-        atomic::CircularBuffer<std::string, 100> mBuffer;
-        Thread<AsyncProvider<T>> mThread{this};
+        atomic::CircularBuffer<std::string, N> mBuffer;
+        Thread<AsyncProvider<T, N>> mThread{this};
     };
 
     class Logger {
@@ -130,16 +165,30 @@ namespace zero {
         void log(LogLevel level, const T format, Args... args) {
             std::string message = strings::format(format, args...);
 
-            for (const auto &provider: mProviders) {
-                if (level > provider.first)
-                    continue;
+            auto it = mProviders.begin();
 
-                provider.second->write(message);
+            while (it != mProviders.end()) {
+                if (level > it->first) {
+                    it++;
+                    continue;
+                }
+
+                LogResult result = it->second->write(message);
+
+                if (result == FAILED || (result == ROTATED && !it->second->rotate())) {
+                    it = mProviders.erase(it);
+                    continue;
+                }
+
+                it++;
             }
         }
 
     public:
         void addProvider(LogLevel level, std::unique_ptr<ILogProvider> provider) {
+            if (!provider->init())
+                return;
+
             mProviders.emplace_back(level, std::move(provider));
         }
 
@@ -150,7 +199,7 @@ namespace zero {
 
 #define GLOBAL_LOGGER                       zero::Singleton<zero::Logger>::getInstance()
 #define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::ConsoleProvider>())
-#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::AsyncProvider<zero::FileProvider>>(name, ## __VA_ARGS__))
+#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::AsyncProvider<zero::FileProvider, 100>>(name, ## __VA_ARGS__))
 
 #define NEWLINE                             "\n"
 #define SOURCE                              std::filesystem::path(__FILE__).filename().string().c_str()

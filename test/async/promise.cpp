@@ -28,7 +28,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
         });
 
         zero::async::promise::chain<std::unique_ptr<char[]>>([](const auto &p) {
-            std::unique_ptr buffer = std::make_unique<char[]>(1024);
+            std::unique_ptr<char[]> buffer = std::make_unique<char[]>(1024);
 
             buffer[0] = 'h';
             buffer[1] = 'e';
