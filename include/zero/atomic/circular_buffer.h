@@ -5,10 +5,6 @@
 #include <atomic>
 #include <optional>
 
-#ifdef _WIN32
-#include <Windows.h>
-#endif
-
 namespace zero::atomic {
     template<typename T, size_t N>
     class CircularBuffer {
@@ -33,25 +29,18 @@ namespace zero::atomic {
 
             index %= N;
 
-#ifdef _WIN32
-            while (InterlockedCompareExchange((LONG *) &mState[index], PUTTING, IDLE) != IDLE) {
+            while (true) {
+                State expected = IDLE;
 
+                if (mState[index].compare_exchange_weak(expected, PUTTING))
+                    break;
             }
-#elif __linux__
-            while (!__sync_bool_compare_and_swap(&mState[index], IDLE, PUTTING)) {
-
-            }
-#endif
 
             return index;
         }
 
         void commit(size_t index) {
-#ifdef _WIN32
-            InterlockedExchange((LONG *) &mState[index], VALID);
-#elif __linux__
-            __atomic_store_n(&mState[index], VALID, __ATOMIC_SEQ_CST);
-#endif
+            mState[index] = VALID;
         }
 
     public:
@@ -65,25 +54,18 @@ namespace zero::atomic {
 
             index %= N;
 
-#ifdef _WIN32
-            while (InterlockedCompareExchange((LONG *) &mState[index], TAKING, VALID) != VALID) {
+            while (true) {
+                State expected = VALID;
 
+                if (mState[index].compare_exchange_weak(expected, TAKING))
+                    break;
             }
-#elif __linux__
-            while (!__sync_bool_compare_and_swap(&mState[index], VALID, TAKING)) {
-
-            }
-#endif
 
             return index;
         }
 
         void release(size_t index) {
-#ifdef _WIN32
-            InterlockedExchange((LONG *) &mState[index], IDLE);
-#elif __linux__
-            __atomic_store_n(&mState[index], IDLE, __ATOMIC_SEQ_CST);
-#endif
+            mState[index] = IDLE;
         }
 
     public:
@@ -105,12 +87,12 @@ namespace zero::atomic {
         }
 
     private:
-        T mBuffer[N]{};
-        State mState[N]{IDLE};
+        T mBuffer[N];
+        std::atomic<State> mState[N];
 
     private:
-        std::atomic<size_t> mHead{};
-        std::atomic<size_t> mTail{};
+        std::atomic<size_t> mHead;
+        std::atomic<size_t> mTail;
     };
 }
 

@@ -56,13 +56,10 @@ namespace zero {
     public:
         explicit FileProvider(
                 const char *name,
-                const std::filesystem::path &directory = {},
+                std::filesystem::path directory = {},
                 size_t limit = 10 * 1024 * 1024,
                 int remain = 10
         );
-
-    private:
-        std::filesystem::path getLogPath();
 
     public:
         bool init() override;

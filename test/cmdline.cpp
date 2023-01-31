@@ -1,5 +1,6 @@
 #include <zero/cmdline.h>
 #include <catch2/catch_test_macros.hpp>
+#include <array>
 
 TEST_CASE("parse command line arguments", "[cmdline]") {
     std::array<const char *, 7> argv = {

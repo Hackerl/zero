@@ -23,10 +23,8 @@ zero::LogResult zero::ConsoleProvider::write(std::string_view message) {
     return SUCCEEDED;
 }
 
-zero::FileProvider::FileProvider(const char *name, const std::filesystem::path &directory, size_t limit, int remain)
-        : mName(name), mLimit(limit), mRemain(remain), mPosition(0) {
-    mDirectory = std::filesystem::is_directory(directory) ? directory : std::filesystem::temp_directory_path();
-
+zero::FileProvider::FileProvider(const char *name, std::filesystem::path directory, size_t limit, int remain)
+        : mName(name), mDirectory(std::move(directory)), mLimit(limit), mRemain(remain), mPosition(0) {
 #ifndef _WIN32
     mPID = getpid();
 #else
@@ -34,19 +32,22 @@ zero::FileProvider::FileProvider(const char *name, const std::filesystem::path &
 #endif
 }
 
-std::filesystem::path zero::FileProvider::getLogPath() {
-    std::string filename = strings::format(
+bool zero::FileProvider::init() {
+    std::filesystem::path path = strings::format(
             "%s.%d.%ld.log",
             mName.c_str(),
             mPID,
             std::time(nullptr)
     );
 
-    return mDirectory / filename;
-}
+    std::error_code ec;
 
-bool zero::FileProvider::init() {
-    mStream.open(getLogPath());
+    if (std::filesystem::is_directory(mDirectory, ec))
+        path = mDirectory / path;
+    else
+        path = std::filesystem::temp_directory_path(ec) / path;
+
+    mStream.open(path);
 
     if (!mStream.is_open())
         return false;
