@@ -52,14 +52,25 @@ namespace zero {
             }
 
             return value;
-        }
+        } else {
+            T value;
 
-        return {};
+            if (!convert(str, value))
+                return {};
+
+            return value;
+        }
     }
 
     template<typename T>
-    std::string demangle() {
-        if constexpr (std::is_arithmetic_v<T>) {
+    std::string getType() {
+        if constexpr (std::is_same_v<T, std::string>) {
+            return "string";
+        } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
+            return "path";
+        } else if constexpr (is_vector_v<T>) {
+            return strings::format("%s[]", getType<typename T::value_type>().c_str());
+        } else {
 #ifdef _MSC_VER
             return typeid(T).name();
 #elif __GNUC__
@@ -80,15 +91,7 @@ namespace zero {
 
             return buffer.get();
 #endif
-        } else if constexpr (std::is_same_v<T, std::string>) {
-            return "string";
-        } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
-            return "path";
-        } else if constexpr (is_vector_v<T>) {
-            return strings::format("%s[]", demangle<typename T::value_type>().c_str());
         }
-
-        return "unknown";
     }
 
     struct Optional {
@@ -118,7 +121,7 @@ namespace zero {
     public:
         template<typename T>
         void add(const char *name, const char *desc) {
-            mPositionals.push_back({name, desc, T{}, demangle<T>(), parseValue<T>});
+            mPositionals.push_back({name, desc, T{}, getType<T>(), parseValue<T>});
         }
 
         void addOptional(const char *name, char shortName, const char *desc) {
@@ -134,7 +137,7 @@ namespace zero {
                             desc,
                             def ? std::any{*def} : std::any{},
                             false,
-                            demangle<T>(),
+                            getType<T>(),
                             parseValue<T>
                     }
             );
