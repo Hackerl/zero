@@ -19,6 +19,11 @@ namespace zero::atomic {
         };
 
     public:
+        CircularBuffer() : mHead(0), mTail(0), mState() {
+
+        }
+
+    public:
         std::optional<size_t> reserve() {
             size_t index = mTail;
 
