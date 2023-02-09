@@ -737,38 +737,43 @@ namespace zero::async::promise {
 
     template<typename Result>
     void repeat(
-            const std::shared_ptr<Promise<Result>> &p,
+            const std::shared_ptr<Promise<Result>> &loop,
             const std::function<void(std::shared_ptr<Promise<Result>>)> &func
     ) {
+        std::shared_ptr<Promise<Result>> p = chain<Result>(func);
+
+        while (p->status() == REJECTED && p->reason().code == 0 && p->reason().message.empty())
+            p = chain<Result>(func);
+
         if constexpr (std::is_same_v<Result, void>) {
-            chain<Result>(func)->then([=]() {
-                p->resolve();
+            p->then([=]() {
+                loop->resolve();
             }, [=](const Reason &reason) {
                 if (reason.code == 0 && reason.message.empty()) {
-                    repeat(p, func);
+                    repeat(loop, func);
                     return;
                 }
 
-                p->reject(reason);
+                loop->reject(reason);
             });
         } else {
-            chain<Result>(func)->then([=](const Result &result) {
-                p->resolve(result);
+            p->then([=](const Result &result) {
+                loop->resolve(result);
             }, [=](const Reason &reason) {
                 if (reason.code == 0 && reason.message.empty()) {
-                    repeat(p, func);
+                    repeat(loop, func);
                     return;
                 }
 
-                p->reject(reason);
+                loop->reject(reason);
             });
         }
     }
 
     template<typename Result>
     std::shared_ptr<Promise<Result>> loop(const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
-        return chain<Result>([=](const auto &p) {
-            repeat(p, func);
+        return chain<Result>([=](const auto &loop) {
+            repeat(loop, func);
         });
     }
 }
