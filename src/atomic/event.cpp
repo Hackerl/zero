@@ -33,8 +33,8 @@ void zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout)
         }
 
         timespec ts = {
-                timeout->count() / 1000,
-                (timeout->count() % 1000) * 1000000
+                (time_t) (timeout->count() / 1000),
+                (long) ((timeout->count() % 1000) * 1000000)
         };
 
         if (syscall(SYS_futex, &mState, FUTEX_WAIT, 0, &ts, nullptr, 0) < 0 && errno == ETIMEDOUT)

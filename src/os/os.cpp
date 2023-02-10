@@ -37,11 +37,20 @@ std::optional<std::string> zero::os::username() {
 
     return name;
 #elif __linux__
+#if __ANDROID__ && __ANDROID_API__ < 28
+    char *name = getlogin();
+
+    if (!name)
+        return std::nullopt;
+
+    return name;
+#else
     char name[LOGIN_NAME_MAX + 1] = {};
 
     if (getlogin_r(name, sizeof(name)) != 0)
         return std::nullopt;
 
     return name;
+#endif
 #endif
 }
