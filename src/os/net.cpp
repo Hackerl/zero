@@ -93,6 +93,9 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
 
     return interfaces;
 #elif __linux__
+#if __ANDROID__ && __ANDROID_API__ < 24
+    return std::nullopt;
+#else
     ifaddrs *addr;
 
     if (getifaddrs(&addr) < 0)
@@ -160,5 +163,6 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
     });
 
     return interfaces;
+#endif
 #endif
 }

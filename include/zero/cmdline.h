@@ -71,6 +71,7 @@ namespace zero {
         } else if constexpr (is_vector_v<T>) {
             return strings::format("%s[]", getType<typename T::value_type>().c_str());
         } else {
+#if _CPPRTTI || __GXX_RTTI
 #ifdef _MSC_VER
             return typeid(T).name();
 #elif __GNUC__
@@ -90,6 +91,9 @@ namespace zero {
                 return "unknown";
 
             return buffer.get();
+#endif
+#else
+            return "unknown";
 #endif
         }
     }

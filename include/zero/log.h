@@ -212,9 +212,16 @@ namespace zero {
 #undef LOG_WARNING
 #undef LOG_ERROR
 
+#ifdef ZERO_NO_LOG
+#define LOG_DEBUG(message, ...)
+#define LOG_INFO(message, ...)
+#define LOG_WARNING(message, ...)
+#define LOG_ERROR(message, ...)
+#else
 #define LOG_DEBUG(message, ...)             GLOBAL_LOGGER->log(zero::DEBUG, LOG_FMT message NEWLINE, LOG_ARGS(zero::DEBUG), ## __VA_ARGS__)
 #define LOG_INFO(message, ...)              GLOBAL_LOGGER->log(zero::INFO, LOG_FMT message NEWLINE, LOG_ARGS(zero::INFO), ## __VA_ARGS__)
 #define LOG_WARNING(message, ...)           GLOBAL_LOGGER->log(zero::WARNING, LOG_FMT message NEWLINE, LOG_ARGS(zero::WARNING), ## __VA_ARGS__)
 #define LOG_ERROR(message, ...)             GLOBAL_LOGGER->log(zero::ERROR, LOG_FMT message NEWLINE, LOG_ARGS(zero::ERROR), ## __VA_ARGS__)
+#endif
 
 #endif //ZERO_LOG_H

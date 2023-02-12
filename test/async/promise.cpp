@@ -108,7 +108,9 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                     zero::async::promise::reject<void>({-1}),
                     zero::async::promise::reject<long>({-1})
             )->then([](const std::any &result) {
+#if _CPPRTTI || __GXX_RTTI
                 REQUIRE(result.type() == typeid(int));
+#endif
                 REQUIRE(std::any_cast<int>(result) == 1);
             });
 
@@ -157,7 +159,9 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                     zero::async::promise::reject<int>({-1}),
                     zero::async::promise::resolve<long>(2)
             )->then([](const std::any &result) {
+#if _CPPRTTI || __GXX_RTTI
                 REQUIRE(result.type() == typeid(int));
+#endif
                 REQUIRE(std::any_cast<int>(result) == 1);
             });
 

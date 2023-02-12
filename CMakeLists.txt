@@ -4,6 +4,7 @@ project(zero)
 set(CMAKE_CXX_STANDARD 17)
 
 option(ZERO_DISABLE_TESTS "disable unit test" OFF)
+option(ZERO_DISABLE_LOG "disable log module" OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
@@ -24,6 +25,10 @@ add_library(
         src/encoding/hex.cpp
         $<$<BOOL:${UNIX}>:src/os/procfs.cpp>
 )
+
+if (ZERO_DISABLE_LOG)
+    target_compile_definitions(zero INTERFACE ZERO_NO_LOG)
+endif ()
 
 target_include_directories(zero PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
