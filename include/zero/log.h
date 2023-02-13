@@ -13,19 +13,14 @@
 #include <cstring>
 #include <filesystem>
 
-#undef ERROR
-#undef WARNING
-#undef INFO
-#undef DEBUG
-
 namespace zero {
     constexpr const char *LOG_TAGS[] = {"ERROR", "WARN", "INFO", "DEBUG"};
 
     enum LogLevel {
-        ERROR,
-        WARNING,
-        INFO,
-        DEBUG
+        ERROR_LEVEL,
+        WARNING_LEVEL,
+        INFO_LEVEL,
+        DEBUG_LEVEL
     };
 
     enum LogResult {
@@ -218,10 +213,10 @@ namespace zero {
 #define LOG_WARNING(message, ...)
 #define LOG_ERROR(message, ...)
 #else
-#define LOG_DEBUG(message, ...)             GLOBAL_LOGGER->log(zero::DEBUG, LOG_FMT message NEWLINE, LOG_ARGS(zero::DEBUG), ## __VA_ARGS__)
-#define LOG_INFO(message, ...)              GLOBAL_LOGGER->log(zero::INFO, LOG_FMT message NEWLINE, LOG_ARGS(zero::INFO), ## __VA_ARGS__)
-#define LOG_WARNING(message, ...)           GLOBAL_LOGGER->log(zero::WARNING, LOG_FMT message NEWLINE, LOG_ARGS(zero::WARNING), ## __VA_ARGS__)
-#define LOG_ERROR(message, ...)             GLOBAL_LOGGER->log(zero::ERROR, LOG_FMT message NEWLINE, LOG_ARGS(zero::ERROR), ## __VA_ARGS__)
+#define LOG_DEBUG(message, ...)             GLOBAL_LOGGER->log(zero::DEBUG_LEVEL, LOG_FMT message NEWLINE, LOG_ARGS(zero::DEBUG_LEVEL), ## __VA_ARGS__)
+#define LOG_INFO(message, ...)              GLOBAL_LOGGER->log(zero::INFO_LEVEL, LOG_FMT message NEWLINE, LOG_ARGS(zero::INFO_LEVEL), ## __VA_ARGS__)
+#define LOG_WARNING(message, ...)           GLOBAL_LOGGER->log(zero::WARNING_LEVEL, LOG_FMT message NEWLINE, LOG_ARGS(zero::WARNING_LEVEL), ## __VA_ARGS__)
+#define LOG_ERROR(message, ...)             GLOBAL_LOGGER->log(zero::ERROR_LEVEL, LOG_FMT message NEWLINE, LOG_ARGS(zero::ERROR_LEVEL), ## __VA_ARGS__)
 #endif
 
 #endif //ZERO_LOG_H
