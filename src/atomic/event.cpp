@@ -1,6 +1,8 @@
 #include <zero/atomic/event.h>
 
-#ifdef __linux__
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <linux/futex.h>
 #include <unistd.h>
 #include <syscall.h>
@@ -8,36 +10,36 @@
 #include <climits>
 #endif
 
+zero::atomic::Event::Event() : mState() {
+
+}
+
 void zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
     while (true) {
 #ifdef _WIN32
-        LONG state = InterlockedCompareExchange(&mState, 0, 1);
+        LONG expected = 1;
 
-        if (state == 1)
+        if (mState.compare_exchange_strong(expected, 0))
             break;
 
-        if (!timeout) {
-            WaitOnAddress(&mState, &state, sizeof(LONG), INFINITE);
-            continue;
-        }
-
-        if (!WaitOnAddress(&mState, &state, sizeof(LONG), (DWORD) timeout->count()) && GetLastError() == ERROR_TIMEOUT)
+        if (!WaitOnAddress(&mState, &expected, sizeof(LONG), timeout ? (DWORD) timeout->count() : INFINITE) &&
+            GetLastError() == ERROR_TIMEOUT)
             break;
 #elif __linux__
-        if (__sync_bool_compare_and_swap(&mState, 1, 0))
+        int expected = 1;
+
+        if (mState.compare_exchange_strong(expected, 0))
             break;
 
-        if (!timeout) {
-            syscall(SYS_futex, &mState, FUTEX_WAIT, 0, nullptr, nullptr, 0);
-            continue;
-        }
+        std::optional<timespec> ts;
 
-        timespec ts = {
-                (time_t) (timeout->count() / 1000),
-                (long) ((timeout->count() % 1000) * 1000000)
-        };
+        if (timeout)
+            ts = {
+                    (time_t) (timeout->count() / 1000),
+                    (long) ((timeout->count() % 1000) * 1000000)
+            };
 
-        if (syscall(SYS_futex, &mState, FUTEX_WAIT, 0, &ts, nullptr, 0) < 0 && errno == ETIMEDOUT)
+        if (syscall(SYS_futex, &mState, FUTEX_WAIT, 0, ts ? &*ts : nullptr, nullptr, 0) < 0 && errno == ETIMEDOUT)
             break;
 #endif
     }
@@ -45,11 +47,15 @@ void zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout)
 
 void zero::atomic::Event::notify() {
 #ifdef _WIN32
-    if (InterlockedCompareExchange(&mState, 1, 0) == 0) {
+    LONG expected = 0;
+
+    if (mState.compare_exchange_strong(expected, 1)) {
         WakeByAddressSingle(&mState);
     }
 #elif __linux__
-    if (__sync_bool_compare_and_swap(&mState, 0, 1)) {
+    int expected = 0;
+
+    if (mState.compare_exchange_strong(expected, 1)) {
         syscall(SYS_futex, &mState, FUTEX_WAKE, 1, nullptr, nullptr, 0);
     }
 #endif
@@ -57,11 +63,15 @@ void zero::atomic::Event::notify() {
 
 void zero::atomic::Event::broadcast() {
 #ifdef _WIN32
-    if (InterlockedCompareExchange(&mState, 1, 0) == 0) {
+    LONG expected = 0;
+
+    if (mState.compare_exchange_strong(expected, 1)) {
         WakeByAddressAll(&mState);
     }
 #elif __linux__
-    if (__sync_bool_compare_and_swap(&mState, 0, 1)) {
+    int expected = 0;
+
+    if (mState.compare_exchange_strong(expected, 1)) {
         syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
     }
 #endif

@@ -1,7 +1,7 @@
 #include <zero/os/os.h>
 
 #ifdef _WIN32
-#include <Windows.h>
+#include <windows.h>
 #include <Lmcons.h>
 #elif __linux__
 #include <unistd.h>

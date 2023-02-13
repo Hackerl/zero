@@ -1,7 +1,7 @@
 #include <zero/filesystem/path.h>
 
 #ifdef _WIN32
-#include <Windows.h>
+#include <windows.h>
 #endif
 
 std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {

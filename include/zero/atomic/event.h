@@ -1,27 +1,27 @@
 #ifndef ZERO_EVENT_H
 #define ZERO_EVENT_H
 
+#include <atomic>
 #include <chrono>
 #include <optional>
-
-#ifdef _WIN32
-#include <Windows.h>
-#endif
 
 namespace zero::atomic {
     class Event {
     public:
-        void wait(std::optional<std::chrono::milliseconds> timeout = {});
+        Event();
+
+    public:
+        void wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
     public:
         void notify();
         void broadcast();
 
-    private:
+    protected:
 #ifdef _WIN32
-        LONG mState{};
+        std::atomic<long> mState;
 #elif __linux__
-        int mState{};
+        std::atomic<int> mState;
 #endif
     };
 }

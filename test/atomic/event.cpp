@@ -2,6 +2,8 @@
 #include <zero/atomic/event.h>
 #include <catch2/catch_test_macros.hpp>
 
+using namespace std::chrono_literals;
+
 TEST_CASE("notify event", "[event]") {
     zero::atomic::Event event;
 
@@ -9,14 +11,11 @@ TEST_CASE("notify event", "[event]") {
 
     SECTION("normal notification") {
         std::thread thread(
-                [](zero::atomic::Event *event, int *n) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds{100});
-
-                    *n = 1;
-                    event->notify();
-                },
-                &event,
-                &n
+                [&]() {
+                    std::this_thread::sleep_for(100ms);
+                    n = 1;
+                    event.notify();
+                }
         );
 
         event.wait();
@@ -27,17 +26,14 @@ TEST_CASE("notify event", "[event]") {
 
     SECTION("wait timeout") {
         std::thread thread(
-                [](zero::atomic::Event *event, int *n) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds{500});
-
-                    *n = 1;
-                    event->notify();
-                },
-                &event,
-                &n
+                [&]() {
+                    std::this_thread::sleep_for(500ms);
+                    n = 1;
+                    event.notify();
+                }
         );
 
-        event.wait(std::chrono::milliseconds{100});
+        event.wait(100ms);
         REQUIRE(n == 0);
 
         thread.join();
