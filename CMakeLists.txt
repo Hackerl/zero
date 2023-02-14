@@ -23,7 +23,7 @@ add_library(
         src/filesystem/path.cpp
         src/encoding/base64.cpp
         src/encoding/hex.cpp
-        $<$<BOOL:${UNIX}>:src/os/procfs.cpp>
+        $<$<PLATFORM_ID:Linux,Android>:src/os/procfs.cpp>
 )
 
 if (ZERO_DISABLE_LOG)
@@ -34,9 +34,10 @@ target_include_directories(zero PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(
         zero
-        $<$<BOOL:$<PLATFORM_ID:Windows>>:Ws2_32>
-        $<$<BOOL:$<PLATFORM_ID:Windows>>:Iphlpapi>
-        $<$<BOOL:$<PLATFORM_ID:Windows>>:Synchronization>
+        INTERFACE
+        $<$<PLATFORM_ID:Windows>:Ws2_32>
+        $<$<PLATFORM_ID:Windows>:Iphlpapi>
+        $<$<PLATFORM_ID:Windows>:Synchronization>
 )
 
 if (NOT ZERO_DISABLE_TESTS)

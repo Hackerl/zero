@@ -20,7 +20,7 @@ add_executable(
         encoding/base64.cpp
         strings/strings.cpp
         cache/lru.cpp
-        $<$<BOOL:$<PLATFORM_ID:Linux>>:os/procfs.cpp>
+        $<$<PLATFORM_ID:Linux,Android>:os/procfs.cpp>
 )
 
 target_link_libraries(zero_test zero Catch2::Catch2WithMain Threads::Threads)
