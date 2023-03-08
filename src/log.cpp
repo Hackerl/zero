@@ -23,8 +23,14 @@ zero::LogResult zero::ConsoleProvider::write(std::string_view message) {
     return SUCCEEDED;
 }
 
-zero::FileProvider::FileProvider(const char *name, std::filesystem::path directory, size_t limit, int remain)
-        : mName(name), mDirectory(std::move(directory)), mLimit(limit), mRemain(remain), mPosition(0) {
+zero::FileProvider::FileProvider(
+        const char *name,
+        const std::optional<std::filesystem::path> &directory,
+        size_t limit,
+        int remain
+) : mName(name), mLimit(limit), mRemain(remain), mPosition(0) {
+    std::error_code ec;
+    mDirectory = directory ? *directory : std::filesystem::temp_directory_path(ec);
 #ifndef _WIN32
     mPID = getpid();
 #else
@@ -33,21 +39,14 @@ zero::FileProvider::FileProvider(const char *name, std::filesystem::path directo
 }
 
 bool zero::FileProvider::init() {
-    std::filesystem::path path = strings::format(
+    std::filesystem::path name = strings::format(
             "%s.%d.%ld.log",
             mName.c_str(),
             mPID,
             std::time(nullptr)
     );
 
-    std::error_code ec;
-
-    if (std::filesystem::is_directory(mDirectory, ec))
-        path = mDirectory / path;
-    else
-        path = std::filesystem::temp_directory_path(ec) / path;
-
-    mStream.open(path);
+    mStream.open(mDirectory / name);
 
     if (!mStream.is_open())
         return false;
@@ -58,8 +57,9 @@ bool zero::FileProvider::init() {
 bool zero::FileProvider::rotate() {
     std::string prefix = strings::format("%s.%d", mName.c_str(), mPID);
     std::set<std::filesystem::path> logs;
+    std::error_code ec;
 
-    for (const auto &entry: std::filesystem::directory_iterator(mDirectory)) {
+    for (const auto &entry: std::filesystem::directory_iterator(mDirectory, ec)) {
         if (!entry.is_regular_file())
             continue;
 
@@ -71,11 +71,11 @@ bool zero::FileProvider::rotate() {
 
     size_t size = logs.size();
 
-    if (size > mRemain) {
-        for (auto it = logs.begin(); it != std::prev(logs.end(), mRemain); it++) {
-            std::error_code ec;
-            std::filesystem::remove(*it, ec);
-        }
+    if (size <= mRemain)
+        return init();
+
+    for (auto it = logs.begin(); it != std::prev(logs.end(), mRemain); it++) {
+        std::filesystem::remove(*it, ec);
     }
 
     return init();
