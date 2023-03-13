@@ -605,7 +605,11 @@ std::optional<zero::os::procfs::Process> zero::os::procfs::openProcess(pid_t pid
     if (!std::filesystem::is_directory(path, ec))
         return std::nullopt;
 
+#ifdef O_PATH
     int fd = open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
+#else
+    int fd = open(path.string().c_str(), O_DIRECTORY | O_CLOEXEC);
+#endif
 
     if (fd < 0)
         return std::nullopt;
