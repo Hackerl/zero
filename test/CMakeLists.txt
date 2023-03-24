@@ -20,6 +20,7 @@ add_executable(
         encoding/base64.cpp
         strings/strings.cpp
         cache/lru.cpp
+        $<$<PLATFORM_ID:Windows>:os/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:os/procfs.cpp>
 )
 
