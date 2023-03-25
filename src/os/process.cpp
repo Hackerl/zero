@@ -1,8 +1,9 @@
 #include <zero/os/process.h>
+#include <zero/strings/strings.h>
 #include <algorithm>
 #include <winternl.h>
 
-zero::os::process::Process::Process(HANDLE handle, int pid) : mHandle(handle), mPID(pid) {
+zero::os::process::Process::Process(HANDLE handle, DWORD pid) : mHandle(handle), mPID(pid) {
 
 }
 
@@ -18,7 +19,7 @@ zero::os::process::Process::~Process() {
     CloseHandle(mHandle);
 }
 
-int zero::os::process::Process::pid() const {
+DWORD zero::os::process::Process::pid() const {
     return mPID;
 }
 
@@ -103,33 +104,25 @@ std::optional<std::vector<std::string>> zero::os::process::Process::cmdline() co
     if (!args)
         return std::nullopt;
 
-    std::vector<std::string> cmdline;
+    std::optional<std::vector<std::string>> cmdline = std::make_optional<std::vector<std::string>>();
 
-    std::transform(
-            args,
-            args + num,
-            std::back_inserter(cmdline),
-            [](const auto &arg) -> std::string {
-                int n = WideCharToMultiByte(CP_UTF8, 0, arg, -1, nullptr, 0, nullptr, nullptr);
+    for (int i = 0; i < num; i++) {
+        std::optional<std::string> arg = zero::strings::encode(args[i]);
 
-                if (n == 0)
-                    return "";
+        if (!arg) {
+            cmdline.reset();
+            break;
+        }
 
-                std::unique_ptr<char[]> buffer = std::make_unique<char[]>(n);
-
-                if (WideCharToMultiByte(CP_UTF8, 0, arg, -1, buffer.get(), n, nullptr, nullptr) == 0)
-                    return "";
-
-                return buffer.get();
-            }
-    );
+        cmdline->push_back(*arg);
+    }
 
     LocalFree(args);
 
     return cmdline;
 }
 
-std::optional<zero::os::process::Process> zero::os::process::openProcess(int pid) {
+std::optional<zero::os::process::Process> zero::os::process::openProcess(DWORD pid) {
     HANDLE handle = OpenProcess(
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
             false,

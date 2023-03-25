@@ -32,14 +32,9 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
     std::vector<Interface> interfaces;
 
     for (auto adapter = (PIP_ADAPTER_ADDRESSES) buffer.get(); adapter; adapter = adapter->Next) {
-        int n = WideCharToMultiByte(CP_UTF8, 0, adapter->FriendlyName, -1, nullptr, 0, nullptr, nullptr);
+        std::optional<std::string> name = zero::strings::encode(adapter->FriendlyName);
 
-        if (n == 0)
-            continue;
-
-        std::unique_ptr<char[]> name = std::make_unique<char[]>(n);
-
-        if (WideCharToMultiByte(CP_UTF8, 0, adapter->FriendlyName, -1, name.get(), n, nullptr, nullptr) == 0)
+        if (!name)
             continue;
 
         std::vector<IPAddress> addresses;
@@ -76,7 +71,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
 
         interfaces.push_back(
                 {
-                        name.get(),
+                        *name,
                         strings::format(
                                 "%02x:%02x:%02x:%02x:%02x:%02x",
                                 adapter->PhysicalAddress[0],

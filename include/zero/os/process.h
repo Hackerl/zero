@@ -8,12 +8,12 @@
 namespace zero::os::process {
     class Process {
     public:
-        Process(HANDLE handle, int pid);
+        Process(HANDLE handle, DWORD pid);
         Process(Process &&rhs) noexcept;
         ~Process();
 
     public:
-        [[nodiscard]] int pid() const;
+        [[nodiscard]] DWORD pid() const;
 
     public:
         [[nodiscard]] std::optional<std::string> name() const;
@@ -21,11 +21,11 @@ namespace zero::os::process {
         [[nodiscard]] std::optional<std::vector<std::string>> cmdline() const;
 
     private:
-        int mPID;
+        DWORD mPID;
         HANDLE mHandle;
     };
 
-    std::optional<Process> openProcess(int pid);
+    std::optional<Process> openProcess(DWORD pid);
 }
 
 #endif //ZERO_PROCESS_H

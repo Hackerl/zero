@@ -1,6 +1,12 @@
 #include <zero/strings/strings.h>
 #include <algorithm>
 
+#ifdef _WIN32
+#include <windows.h>
+#elif __linux__
+#include <iconv.h>
+#endif
+
 bool zero::strings::containsIgnoreCase(std::string_view str, std::string_view substr) {
     if (substr.empty())
         return true;
@@ -146,4 +152,100 @@ std::vector<std::string> zero::strings::split(std::string_view str, std::string_
     }
 
     return tokens;
+}
+
+std::optional<std::string> zero::strings::encode(const std::wstring &str) {
+#ifdef _WIN32
+    int n = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, nullptr, 0, nullptr, nullptr);
+
+    if (n == 0)
+        return std::nullopt;
+
+    std::unique_ptr<char[]> buffer = std::make_unique<char[]>(n);
+
+    if (WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, buffer.get(), n, nullptr, nullptr) == 0)
+        return std::nullopt;
+
+    return buffer.get();
+#elif __linux__
+#if __ANDROID__ && __ANDROID_API__ < 28
+    return std::nullopt;
+#else
+    iconv_t cd = iconv_open("UTF-8", "WCHAR_T");
+
+    if (cd == (iconv_t) -1)
+        return std::nullopt;
+
+    std::optional<std::string> output = std::make_optional<std::string>();
+
+    char *input = (char *) str.c_str();
+    size_t inBytesLeft = str.length() * sizeof(wchar_t);
+
+    while (inBytesLeft > 0) {
+        char buffer[1024] = {};
+
+        char *ptr = buffer;
+        size_t outBytesLeft = sizeof(buffer);
+
+        if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
+            output.reset();
+            break;
+        }
+
+        output->append(buffer, sizeof(buffer) - outBytesLeft);
+    }
+
+    iconv_close(cd);
+
+    return output;
+#endif
+#endif
+}
+
+std::optional<std::wstring> zero::strings::decode(const std::string &str) {
+#ifdef _WIN32
+    int n = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0);
+
+    if (n == 0)
+        return std::nullopt;
+
+    std::unique_ptr<wchar_t[]> buffer = std::make_unique<wchar_t[]>(n);
+
+    if (MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, buffer.get(), n) == 0)
+        return std::nullopt;
+
+    return buffer.get();
+#elif __linux__
+#if __ANDROID__ && __ANDROID_API__ < 28
+    return std::nullopt;
+#else
+    iconv_t cd = iconv_open("WCHAR_T", "UTF-8");
+
+    if (cd == (iconv_t) -1)
+        return std::nullopt;
+
+    std::optional<std::wstring> output = std::make_optional<std::wstring>();
+
+    char *input = (char *) str.c_str();
+    size_t inBytesLeft = str.length();
+
+    while (inBytesLeft > 0) {
+        char buffer[1024] = {};
+
+        char *ptr = buffer;
+        size_t outBytesLeft = sizeof(buffer);
+
+        if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
+            output.reset();
+            break;
+        }
+
+        output->append((wchar_t *) buffer, (sizeof(buffer) - outBytesLeft) / sizeof(wchar_t));
+    }
+
+    iconv_close(cd);
+
+    return output;
+#endif
+#endif
 }
