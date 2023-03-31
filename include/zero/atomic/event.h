@@ -9,6 +9,8 @@ namespace zero::atomic {
     class Event {
     public:
         Event();
+        Event(Event &) = delete;
+        Event(Event &&) = delete;
 
     public:
         void wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
