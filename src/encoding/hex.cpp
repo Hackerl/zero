@@ -7,12 +7,12 @@ constexpr auto HEX_MAP = std::array{
         '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
 };
 
-std::string zero::encoding::hex::encode(const std::byte *buffer, size_t length) {
+std::string zero::encoding::hex::encode(nonstd::span<std::byte> buffer) {
     std::string encoded;
 
-    for (size_t i = 0; i < length; i++) {
-        encoded.push_back(HEX_MAP[std::to_integer<unsigned char>((buffer[i] & std::byte{0xf0}) >> 4)]);
-        encoded.push_back(HEX_MAP[std::to_integer<unsigned char>(buffer[i] & std::byte{0x0f})]);
+    for (const auto &byte: buffer) {
+        encoded.push_back(HEX_MAP[std::to_integer<unsigned char>((byte & std::byte{0xf0}) >> 4)]);
+        encoded.push_back(HEX_MAP[std::to_integer<unsigned char>(byte & std::byte{0x0f})]);
     }
 
     return encoded;

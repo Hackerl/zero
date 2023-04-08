@@ -10,8 +10,8 @@ TEST_CASE("hex encoding", "[base64]") {
             std::byte{'o'}
     };
 
-    REQUIRE(zero::encoding::hex::encode(buffer, 0).empty());
-    REQUIRE(zero::encoding::hex::encode(buffer, 5) == "68656c6c6f");
+    REQUIRE(zero::encoding::hex::encode({buffer, 0}).empty());
+    REQUIRE(zero::encoding::hex::encode(buffer) == "68656c6c6f");
     REQUIRE(!zero::encoding::hex::decode("68656c6c6"));
     REQUIRE(zero::encoding::hex::decode("68656c6c6f") == std::vector<std::byte>(buffer, buffer + 5));
 }

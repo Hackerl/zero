@@ -9,6 +9,7 @@
 #include <memory>
 #include <stdexcept>
 #include <functional>
+#include <nonstd/expected.hpp>
 
 #define P_CONTINUE(p)       p->reject({})
 #define P_BREAK(p)          p->resolve()
@@ -16,6 +17,8 @@
 #define P_BREAK_E(p, ...)   p->reject(__VA_ARGS__)
 
 namespace zero::async::promise {
+    struct Reason;
+
     template<typename Result>
     class Promise;
 
@@ -26,6 +29,11 @@ namespace zero::async::promise {
 
     template<typename Result>
     struct promise_result<std::shared_ptr<Promise<Result>>> {
+        typedef Result type;
+    };
+
+    template<typename Result>
+    struct promise_result<nonstd::expected<Result, Reason>> {
         typedef Result type;
     };
 
@@ -148,7 +156,14 @@ namespace zero::async::promise {
                         Next next = std::apply(onFulfilled, mResult);
 
                         if constexpr (!is_promise_v<Next>) {
-                            p->resolve(std::move(next));
+                            if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
+                                if (next)
+                                    p->resolve(std::move(next.value()));
+                                else
+                                    p->reject(std::move(next.error()));
+                            } else {
+                                p->resolve(std::move(next));
+                            }
                         } else {
                             if constexpr (std::is_same_v<NextResult, void>) {
                                 next->then([=]() {
@@ -168,7 +183,14 @@ namespace zero::async::promise {
                         Next next = onFulfilled(mResult);
 
                         if constexpr (!is_promise_v<Next>) {
-                            p->resolve(std::move(next));
+                            if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
+                                if (next)
+                                    p->resolve(std::move(next.value()));
+                                else
+                                    p->reject(std::move(next.error()));
+                            } else {
+                                p->resolve(std::move(next));
+                            }
                         } else {
                             if constexpr (std::is_same_v<NextResult, void>) {
                                 next->then([=]() {
@@ -201,7 +223,14 @@ namespace zero::async::promise {
                     Next next = onRejected(mReason);
 
                     if constexpr (!is_promise_v<Next>) {
-                        p->resolve(std::move(next));
+                        if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
+                            if (next)
+                                p->resolve(std::move(next.value()));
+                            else
+                                p->reject(std::move(next.error()));
+                        } else {
+                            p->resolve(std::move(next));
+                        }
                     } else {
                         if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([=]() {
@@ -374,7 +403,14 @@ namespace zero::async::promise {
                     Next next = onFulfilled();
 
                     if constexpr (!is_promise_v<Next>) {
-                        p->resolve(std::move(next));
+                        if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
+                            if (next)
+                                p->resolve(std::move(next.value()));
+                            else
+                                p->reject(std::move(next.error()));
+                        } else {
+                            p->resolve(std::move(next));
+                        }
                     } else {
                         if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([=]() {
@@ -406,7 +442,14 @@ namespace zero::async::promise {
                     Next next = onRejected(mReason);
 
                     if constexpr (!is_promise_v<Next>) {
-                        p->resolve(std::move(next));
+                        if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
+                            if (next)
+                                p->resolve(std::move(next.value()));
+                            else
+                                p->reject(std::move(next.error()));
+                        } else {
+                            p->resolve(std::move(next));
+                        }
                     } else {
                         if constexpr (std::is_same_v<NextResult, void>) {
                             next->then([=]() {

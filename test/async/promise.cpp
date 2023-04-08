@@ -18,6 +18,28 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             REQUIRE(reason.code == -1);
         });
 
+        zero::async::promise::resolve<int>(1)->then(
+                [](int result) -> nonstd::expected<int, zero::async::promise::Reason> {
+                    if (result == 2)
+                        return nonstd::make_unexpected(zero::async::promise::Reason{-1});
+
+                    return 2;
+                }
+        )->then([](int result) {
+            REQUIRE(result == 2);
+        });
+
+        zero::async::promise::resolve<int>(1)->then(
+                [](int result) -> nonstd::expected<int, zero::async::promise::Reason> {
+                    if (result == 1)
+                        return nonstd::make_unexpected(zero::async::promise::Reason{-1});
+
+                    return 2;
+                }
+        )->fail([](const zero::async::promise::Reason &reason) {
+            REQUIRE(reason.code == -1);
+        });
+
         std::shared_ptr<int> i = std::make_shared<int>(0);
 
         zero::async::promise::resolve<int>(1)->finally([=]() {
