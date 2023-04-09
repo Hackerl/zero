@@ -1,29 +1,52 @@
-#include <zero/os/process.h>
+#include <zero/os/nt/process.h>
 #include <zero/strings/strings.h>
 #include <algorithm>
 #include <winternl.h>
 
-zero::os::process::Process::Process(HANDLE handle, DWORD pid) : mHandle(handle), mPID(pid) {
+static auto queryInformationProcess = (decltype(NtQueryInformationProcess) *) GetProcAddress(
+        GetModuleHandleA("ntdll"),
+        "NtQueryInformationProcess"
+);
+
+zero::os::nt::process::Process::Process(HANDLE handle, DWORD pid) : mHandle(handle), mPID(pid) {
 
 }
 
-zero::os::process::Process::Process(zero::os::process::Process &&rhs) noexcept: mHandle(nullptr), mPID(0) {
+zero::os::nt::process::Process::Process(zero::os::nt::process::Process &&rhs) noexcept: mHandle(nullptr), mPID(0) {
     std::swap(mHandle, rhs.mHandle);
     std::swap(mPID, rhs.mPID);
 }
 
-zero::os::process::Process::~Process() {
+zero::os::nt::process::Process::~Process() {
     if (!mHandle)
         return;
 
     CloseHandle(mHandle);
 }
 
-DWORD zero::os::process::Process::pid() const {
+DWORD zero::os::nt::process::Process::pid() const {
     return mPID;
 }
 
-std::optional<std::string> zero::os::process::Process::name() const {
+std::optional<DWORD> zero::os::nt::process::Process::ppid() const {
+    if (!queryInformationProcess)
+        return std::nullopt;
+
+    PROCESS_BASIC_INFORMATION info = {};
+
+    if (!NT_SUCCESS(queryInformationProcess(
+            mHandle,
+            ProcessBasicInformation,
+            &info,
+            sizeof(info),
+            nullptr
+    )))
+        return std::nullopt;
+
+    return (DWORD) (uintptr_t) info.Reserved3;
+}
+
+std::optional<std::string> zero::os::nt::process::Process::name() const {
     std::optional<std::filesystem::path> path = image();
 
     if (!path)
@@ -32,7 +55,7 @@ std::optional<std::string> zero::os::process::Process::name() const {
     return path->filename().string();
 }
 
-std::optional<std::filesystem::path> zero::os::process::Process::image() const {
+std::optional<std::filesystem::path> zero::os::nt::process::Process::image() const {
     char buffer[MAX_PATH] = {};
     DWORD size = sizeof(buffer);
 
@@ -42,12 +65,7 @@ std::optional<std::filesystem::path> zero::os::process::Process::image() const {
     return buffer;
 }
 
-std::optional<std::vector<std::string>> zero::os::process::Process::cmdline() const {
-    static auto queryInformationProcess = (decltype(NtQueryInformationProcess) *) GetProcAddress(
-            GetModuleHandleA("ntdll"),
-            "NtQueryInformationProcess"
-    );
-
+std::optional<std::vector<std::string>> zero::os::nt::process::Process::cmdline() const {
     if (!queryInformationProcess)
         return std::nullopt;
 
@@ -122,7 +140,7 @@ std::optional<std::vector<std::string>> zero::os::process::Process::cmdline() co
     return cmdline;
 }
 
-std::optional<zero::os::process::Process> zero::os::process::openProcess(DWORD pid) {
+std::optional<zero::os::nt::process::Process> zero::os::nt::process::openProcess(DWORD pid) {
     HANDLE handle = OpenProcess(
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
             false,

@@ -1,5 +1,5 @@
 find_package(Threads REQUIRED)
-find_package(Catch2 REQUIRED)
+find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(
         zero_test
@@ -11,7 +11,7 @@ add_executable(
         encoding/base64.cpp
         strings/strings.cpp
         cache/lru.cpp
-        $<$<PLATFORM_ID:Windows>:os/process.cpp>
+        $<$<PLATFORM_ID:Windows>:os/nt/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:os/procfs.cpp>
 )
 

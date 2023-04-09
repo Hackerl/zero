@@ -31,7 +31,7 @@ add_library(
         src/filesystem/path.cpp
         src/encoding/base64.cpp
         src/encoding/hex.cpp
-        $<$<PLATFORM_ID:Windows>:src/os/process.cpp>
+        $<$<PLATFORM_ID:Windows>:src/os/nt/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:src/os/procfs.cpp>
 )
 
