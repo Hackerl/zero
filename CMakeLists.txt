@@ -54,7 +54,6 @@ target_link_libraries(
         INTERFACE
         $<$<PLATFORM_ID:Windows>:Ws2_32>
         $<$<PLATFORM_ID:Windows>:Iphlpapi>
-        $<$<PLATFORM_ID:Windows>:Synchronization>
 )
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")

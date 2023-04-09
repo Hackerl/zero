@@ -5,12 +5,17 @@
 #include <chrono>
 #include <optional>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace zero::atomic {
     class Event {
     public:
         Event();
-        Event(Event &) = delete;
-        Event(Event &&) = delete;
+#ifdef _WIN32
+        ~Event();
+#endif
 
     public:
         void wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
@@ -21,6 +26,7 @@ namespace zero::atomic {
 
     protected:
 #ifdef _WIN32
+        HANDLE mEvent;
         std::atomic<long> mState;
 #elif __linux__
         std::atomic<int> mState;

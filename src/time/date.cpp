@@ -1,20 +1,18 @@
 #include <zero/time/date.h>
-#include <ctime>
+#include <chrono>
 
 std::string zero::time::getTimeString() {
-    tm m = {};
-    time_t t = {};
-
-    std::time(&t);
+    std::tm tm = {};
+    std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
 #ifdef _WIN32
-    localtime_s(&m, &t);
+    localtime_s(&tm, &now);
 #else
-    localtime_r(&t, &m);
+    localtime_r(&now, &tm);
 #endif
 
     char buffer[64] = {};
-    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &m);
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm);
 
     return buffer;
 }

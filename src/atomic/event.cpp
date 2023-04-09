@@ -1,8 +1,6 @@
 #include <zero/atomic/event.h>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
+#ifdef __linux__
 #include <linux/futex.h>
 #include <unistd.h>
 #include <syscall.h>
@@ -11,8 +9,19 @@
 #endif
 
 zero::atomic::Event::Event() : mState() {
-
+#ifdef _WIN32
+    mEvent = CreateEventA(nullptr, false, false, nullptr);
+#endif
 }
+
+#ifdef _WIN32
+zero::atomic::Event::~Event() {
+    if (!mEvent)
+        return;
+
+    CloseHandle(mEvent);
+}
+#endif
 
 void zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
     while (true) {
@@ -22,8 +31,7 @@ void zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout)
         if (mState.compare_exchange_strong(expected, 0))
             break;
 
-        if (!WaitOnAddress(&mState, &expected, sizeof(LONG), timeout ? (DWORD) timeout->count() : INFINITE) &&
-            GetLastError() == ERROR_TIMEOUT)
+        if (WaitForSingleObject(mEvent, timeout ? (DWORD) timeout->count() : INFINITE) == WAIT_TIMEOUT)
             break;
 #elif __linux__
         int expected = 1;
@@ -50,7 +58,7 @@ void zero::atomic::Event::notify() {
     LONG expected = 0;
 
     if (mState.compare_exchange_strong(expected, 1)) {
-        WakeByAddressSingle(&mState);
+        SetEvent(mEvent);
     }
 #elif __linux__
     int expected = 0;
@@ -66,7 +74,7 @@ void zero::atomic::Event::broadcast() {
     LONG expected = 0;
 
     if (mState.compare_exchange_strong(expected, 1)) {
-        WakeByAddressAll(&mState);
+        PulseEvent(mEvent);
     }
 #elif __linux__
     int expected = 0;
