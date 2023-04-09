@@ -58,11 +58,11 @@ target_link_libraries(
 )
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    set(EXCLUDE_HEADERS ${EXCLUDE_HEADERS} PATTERN "process.h" EXCLUDE)
+    set(EXCLUDE_HEADERS ${EXCLUDE_HEADERS} PATTERN "os/nt" EXCLUDE)
 endif ()
 
 if (NOT CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
-    set(EXCLUDE_HEADERS ${EXCLUDE_HEADERS} PATTERN "procfs.h" EXCLUDE)
+    set(EXCLUDE_HEADERS ${EXCLUDE_HEADERS} PATTERN "os/procfs.h" EXCLUDE)
 endif ()
 
 install(

@@ -1,5 +1,5 @@
-#ifndef ZERO_NT_PROCESS_H
-#define ZERO_NT_PROCESS_H
+#ifndef ZERO_PROCESS_H
+#define ZERO_PROCESS_H
 
 #include <windows.h>
 #include <optional>
@@ -29,4 +29,4 @@ namespace zero::os::nt::process {
     std::optional<Process> openProcess(DWORD pid);
 }
 
-#endif //ZERO_NT_PROCESS_H
+#endif //ZERO_PROCESS_H
