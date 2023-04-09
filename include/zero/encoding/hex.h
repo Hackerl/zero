@@ -8,7 +8,7 @@
 #include <nonstd/span.hpp>
 
 namespace zero::encoding::hex {
-    std::string encode(nonstd::span<std::byte> buffer);
+    std::string encode(nonstd::span<const std::byte> buffer);
     std::optional<std::vector<std::byte>> decode(std::string_view encoded);
 }
 

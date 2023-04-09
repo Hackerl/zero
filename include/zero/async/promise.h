@@ -60,7 +60,7 @@ namespace zero::async::promise {
 
     template<typename T, typename ReturnType, typename... Args>
     struct promise_callback_traits<ReturnType(T::*)(Args...) const> {
-        typedef std::function<ReturnType(const std::remove_const_t<std::remove_reference_t<Args>> &...)> type;
+        typedef std::function<ReturnType(Args...)> type;
         typedef promise_result_t<ReturnType> result;
     };
 

@@ -7,7 +7,7 @@ constexpr auto HEX_MAP = std::array{
         '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
 };
 
-std::string zero::encoding::hex::encode(nonstd::span<std::byte> buffer) {
+std::string zero::encoding::hex::encode(nonstd::span<const std::byte> buffer) {
     std::string encoded;
 
     for (const auto &byte: buffer) {
