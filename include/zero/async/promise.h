@@ -59,6 +59,12 @@ namespace zero::async::promise {
     };
 
     template<typename T, typename ReturnType, typename... Args>
+    struct promise_callback_traits<ReturnType(T::*)(Args...)> {
+        typedef std::function<ReturnType(Args...)> type;
+        typedef promise_result_t<ReturnType> result;
+    };
+
+    template<typename T, typename ReturnType, typename... Args>
     struct promise_callback_traits<ReturnType(T::*)(Args...) const> {
         typedef std::function<ReturnType(Args...)> type;
         typedef promise_result_t<ReturnType> result;
@@ -85,7 +91,8 @@ namespace zero::async::promise {
     template<typename Result>
     class Promise : public std::enable_shared_from_this<Promise<Result>> {
     public:
-        void start(const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
+        template<typename F>
+        void start(F &&func) {
             func(this->shared_from_this());
         }
 
@@ -340,7 +347,8 @@ namespace zero::async::promise {
     template<>
     class Promise<void> : public std::enable_shared_from_this<Promise<void>> {
     public:
-        void start(const std::function<void(std::shared_ptr<Promise<void>>)> &func) {
+        template<typename F>
+        void start(F &&func) {
             func(shared_from_this());
         }
 
@@ -548,10 +556,10 @@ namespace zero::async::promise {
         std::list<std::pair<std::function<void()>, std::function<void()>>> mTriggers;
     };
 
-    template<typename Result>
-    std::shared_ptr<Promise<Result>> chain(const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
+    template<typename Result, typename F>
+    std::shared_ptr<Promise<Result>> chain(F &&func) {
         auto p = std::make_shared<Promise<Result>>();
-        p->start(func);
+        p->start(std::forward<F>(func));
 
         return p;
     }
@@ -778,10 +786,10 @@ namespace zero::async::promise {
         return p;
     }
 
-    template<typename Result>
+    template<typename Result, typename F>
     void repeat(
             const std::shared_ptr<Promise<Result>> &loop,
-            const std::function<void(std::shared_ptr<Promise<Result>>)> &func
+            F &&func
     ) {
         std::shared_ptr<Promise<Result>> p = chain<Result>(func);
 
@@ -791,9 +799,9 @@ namespace zero::async::promise {
         if constexpr (std::is_same_v<Result, void>) {
             p->then([=]() {
                 loop->resolve();
-            }, [=](const Reason &reason) {
+            }, [=, func = std::forward<F>(func)](const Reason &reason) mutable {
                 if (reason.code == 0 && reason.message.empty()) {
-                    repeat(loop, func);
+                    repeat(loop, std::move(func));
                     return;
                 }
 
@@ -802,9 +810,9 @@ namespace zero::async::promise {
         } else {
             p->then([=](const Result &result) {
                 loop->resolve(result);
-            }, [=](const Reason &reason) {
+            }, [=, func = std::forward<F>(func)](const Reason &reason) mutable {
                 if (reason.code == 0 && reason.message.empty()) {
-                    repeat(loop, func);
+                    repeat(loop, std::move(func));
                     return;
                 }
 
@@ -813,10 +821,10 @@ namespace zero::async::promise {
         }
     }
 
-    template<typename Result>
-    std::shared_ptr<Promise<Result>> loop(const std::function<void(std::shared_ptr<Promise<Result>>)> &func) {
-        return chain<Result>([=](const auto &loop) {
-            repeat(loop, func);
+    template<typename Result, typename F>
+    std::shared_ptr<Promise<Result>> loop(F &&func) {
+        return chain<Result>([func = std::forward<F>(func)](const auto &loop) mutable {
+            repeat<Result>(loop, std::move(func));
         });
     }
 }
