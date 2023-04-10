@@ -10,6 +10,8 @@
 #include "atomic/circular_buffer.h"
 #include <fstream>
 #include <list>
+#include <mutex>
+#include <tuple>
 #include <cstring>
 #include <filesystem>
 
@@ -96,6 +98,11 @@ namespace zero {
         }
 
         bool rotate() override {
+            std::lock_guard<std::mutex> guard(mMutex);
+
+            if (mResult != ROTATED)
+                return true;
+
             if (!T::rotate())
                 return false;
 
@@ -148,6 +155,7 @@ namespace zero {
         std::atomic<LogResult> mResult{SUCCEEDED};
 
     private:
+        std::mutex mMutex;
         atomic::Event mEvent;
         atomic::CircularBuffer<std::string, N> mBuffer;
         Thread<AsyncProvider<T, N>> mThread{this};
@@ -159,22 +167,19 @@ namespace zero {
         void log(LogLevel level, const T format, Args... args) {
             std::string message = strings::format(format, args...);
 
-            auto it = mProviders.begin();
+            for (auto &[lv, abnormal, provider]: mProviders) {
+                if (level > lv)
+                    continue;
 
-            while (it != mProviders.end()) {
-                if (level > it->first) {
-                    it++;
+                if (abnormal)
+                    continue;
+
+                LogResult result = provider->write(message);
+
+                if (result == FAILED || (result == ROTATED && !provider->rotate())) {
+                    abnormal = true;
                     continue;
                 }
-
-                LogResult result = it->second->write(message);
-
-                if (result == FAILED || (result == ROTATED && !it->second->rotate())) {
-                    it = mProviders.erase(it);
-                    continue;
-                }
-
-                it++;
             }
         }
 
@@ -183,11 +188,11 @@ namespace zero {
             if (!provider->init())
                 return;
 
-            mProviders.emplace_back(level, std::move(provider));
+            mProviders.emplace_back(level, false, std::move(provider));
         }
 
     private:
-        std::list<std::pair<LogLevel, std::unique_ptr<ILogProvider>>> mProviders;
+        std::list<std::tuple<LogLevel, std::atomic<bool>, std::unique_ptr<ILogProvider>>> mProviders;
     };
 }
 

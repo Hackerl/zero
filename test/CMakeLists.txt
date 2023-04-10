@@ -3,6 +3,7 @@ find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(
         zero_test
+        log.cpp
         cmdline.cpp
         atomic/event.cpp
         atomic/circular_buffer.cpp
