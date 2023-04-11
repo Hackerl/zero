@@ -164,10 +164,15 @@ namespace zero::async::promise {
 
                         if constexpr (!is_promise_v<Next>) {
                             if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
-                                if (next)
-                                    p->resolve(std::move(next.value()));
-                                else
+                                if (next) {
+                                    if constexpr (std::is_same_v<NextResult, void>) {
+                                        p->resolve();
+                                    } else {
+                                        p->resolve(std::move(next.value()));
+                                    }
+                                } else {
                                     p->reject(std::move(next.error()));
+                                }
                             } else {
                                 p->resolve(std::move(next));
                             }
@@ -191,10 +196,15 @@ namespace zero::async::promise {
 
                         if constexpr (!is_promise_v<Next>) {
                             if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
-                                if (next)
-                                    p->resolve(std::move(next.value()));
-                                else
+                                if (next) {
+                                    if constexpr (std::is_same_v<NextResult, void>) {
+                                        p->resolve();
+                                    } else {
+                                        p->resolve(std::move(next.value()));
+                                    }
+                                } else {
                                     p->reject(std::move(next.error()));
+                                }
                             } else {
                                 p->resolve(std::move(next));
                             }
@@ -231,10 +241,15 @@ namespace zero::async::promise {
 
                     if constexpr (!is_promise_v<Next>) {
                         if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
-                            if (next)
-                                p->resolve(std::move(next.value()));
-                            else
+                            if (next) {
+                                if constexpr (std::is_same_v<NextResult, void>) {
+                                    p->resolve();
+                                } else {
+                                    p->resolve(std::move(next.value()));
+                                }
+                            } else {
                                 p->reject(std::move(next.error()));
+                            }
                         } else {
                             p->resolve(std::move(next));
                         }
@@ -412,10 +427,15 @@ namespace zero::async::promise {
 
                     if constexpr (!is_promise_v<Next>) {
                         if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
-                            if (next)
-                                p->resolve(std::move(next.value()));
-                            else
+                            if (next) {
+                                if constexpr (std::is_same_v<NextResult, void>) {
+                                    p->resolve();
+                                } else {
+                                    p->resolve(std::move(next.value()));
+                                }
+                            } else {
                                 p->reject(std::move(next.error()));
+                            }
                         } else {
                             p->resolve(std::move(next));
                         }
@@ -451,10 +471,15 @@ namespace zero::async::promise {
 
                     if constexpr (!is_promise_v<Next>) {
                         if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
-                            if (next)
-                                p->resolve(std::move(next.value()));
-                            else
+                            if (next) {
+                                if constexpr (std::is_same_v<NextResult, void>) {
+                                    p->resolve();
+                                } else {
+                                    p->resolve(std::move(next.value()));
+                                }
+                            } else {
                                 p->reject(std::move(next.error()));
+                            }
                         } else {
                             p->resolve(std::move(next));
                         }
