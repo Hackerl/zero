@@ -125,7 +125,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
         }
 
         SECTION("different types") {
-            zero::async::promise::all(
+            zero::async::promise::any(
                     zero::async::promise::resolve<int>(1),
                     zero::async::promise::reject<void>({-1}),
                     zero::async::promise::reject<long>({-1})
@@ -136,7 +136,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 REQUIRE(std::any_cast<int>(result) == 1);
             });
 
-            zero::async::promise::all(
+            zero::async::promise::any(
                     zero::async::promise::reject<int>({-1}),
                     zero::async::promise::resolve<void>(),
                     zero::async::promise::reject<long>({-1})
