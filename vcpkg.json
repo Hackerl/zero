@@ -6,6 +6,9 @@
     "expected-lite",
     "span-lite"
   ],
+  "default-features": [
+    "tests"
+  ],
   "features": {
     "tests": {
       "description": "Build Tests",
