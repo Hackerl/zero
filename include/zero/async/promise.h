@@ -63,6 +63,17 @@ namespace zero::async::promise {
         static constexpr bool value = std::is_invocable_v<F, Ts...>;
     };
 
+    template<typename F, typename T1, typename T2>
+    struct is_applicable<F, std::pair<T1, T2>> {
+        static constexpr bool value = std::is_invocable_v<F, T1, T2>;
+    };
+
+    template<typename F, typename T, size_t N>
+    struct is_applicable<F, std::array<T, N>>
+            : is_applicable<F, decltype(std::tuple_cat(std::declval<std::array<T, N>>()))> {
+
+    };
+
     template<typename F, typename T>
     inline constexpr bool is_applicable_v = is_applicable<F, T>::value;
 
