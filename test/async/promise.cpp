@@ -18,6 +18,14 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             REQUIRE(reason.code == -1);
         });
 
+        zero::async::promise::resolve<std::tuple<int, long, double>>(std::tuple{1, 2L, 3.0})->then(
+                [](int r1, long r2, double r3) {
+                    REQUIRE(r1 == 1);
+                    REQUIRE(r2 == 2L);
+                    REQUIRE(r3 == 3.0);
+                }
+        );
+
         zero::async::promise::resolve<int>(1)->then(
                 [](int result) -> nonstd::expected<int, zero::async::promise::Reason> {
                     if (result == 2)

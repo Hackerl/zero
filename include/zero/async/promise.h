@@ -53,6 +53,19 @@ namespace zero::async::promise {
     template<typename T>
     inline constexpr bool is_promise_v = is_promise<T>::value;
 
+    template<typename, typename>
+    struct is_applicable : std::false_type {
+
+    };
+
+    template<typename F, typename ...Ts>
+    struct is_applicable<F, std::tuple<Ts...>> {
+        static constexpr bool value = std::is_invocable_v<F, Ts...>;
+    };
+
+    template<typename F, typename T>
+    inline constexpr bool is_applicable_v = is_applicable<F, T>::value;
+
     template<typename T>
     struct promise_callback_traits : public promise_callback_traits<decltype(&T::operator())> {
 
@@ -151,7 +164,7 @@ namespace zero::async::promise {
                 }
 
                 if constexpr (std::is_same_v<Next, void>) {
-                    if constexpr (std::is_same_v<Result, std::tuple<std::remove_const_t<std::remove_reference_t<Args>>...>>) {
+                    if constexpr (is_applicable_v<Next(Args...), Result>) {
                         std::apply(onFulfilled, mResult);
                     } else {
                         onFulfilled(mResult);
@@ -159,7 +172,7 @@ namespace zero::async::promise {
 
                     p->resolve();
                 } else {
-                    if constexpr (std::is_same_v<Result, std::tuple<std::remove_const_t<std::remove_reference_t<Args>>...>>) {
+                    if constexpr (is_applicable_v<Next(Args...), Result>) {
                         Next next = std::apply(onFulfilled, mResult);
 
                         if constexpr (!is_promise_v<Next>) {
