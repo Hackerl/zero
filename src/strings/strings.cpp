@@ -5,6 +5,13 @@
 #include <windows.h>
 #elif __linux__
 #include <iconv.h>
+#if __ANDROID__ && __ANDROID_API__ < 28
+#include <dlfcn.h>
+
+static auto iconv_open = (iconv_t (*)(const char *, const char *)) dlsym(RTLD_DEFAULT, "iconv_open");
+static auto iconv = (size_t (*)(iconv_t, char **, size_t *, char **, size_t *)) dlsym(RTLD_DEFAULT, "iconv");
+static auto iconv_close = (int (*)(iconv_t)) dlsym(RTLD_DEFAULT, "iconv_close");
+#endif
 #endif
 
 bool zero::strings::containsIgnoreCase(std::string_view str, std::string_view substr) {
@@ -169,8 +176,9 @@ std::optional<std::string> zero::strings::encode(const std::wstring &str) {
     return buffer.get();
 #elif __linux__
 #if __ANDROID__ && __ANDROID_API__ < 28
-    return std::nullopt;
-#else
+    if (!iconv_open || !iconv || !iconv_close)
+        return std::nullopt;
+#endif
     iconv_t cd = iconv_open("UTF-8", "WCHAR_T");
 
     if (cd == (iconv_t) -1)
@@ -199,7 +207,6 @@ std::optional<std::string> zero::strings::encode(const std::wstring &str) {
 
     return output;
 #endif
-#endif
 }
 
 std::optional<std::wstring> zero::strings::decode(const std::string &str) {
@@ -217,8 +224,9 @@ std::optional<std::wstring> zero::strings::decode(const std::string &str) {
     return buffer.get();
 #elif __linux__
 #if __ANDROID__ && __ANDROID_API__ < 28
-    return std::nullopt;
-#else
+    if (!iconv_open || !iconv || !iconv_close)
+        return std::nullopt;
+#endif
     iconv_t cd = iconv_open("WCHAR_T", "UTF-8");
 
     if (cd == (iconv_t) -1)
@@ -246,6 +254,5 @@ std::optional<std::wstring> zero::strings::decode(const std::string &str) {
     iconv_close(cd);
 
     return output;
-#endif
 #endif
 }

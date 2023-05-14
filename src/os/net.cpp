@@ -12,6 +12,9 @@
 #include <linux/if_packet.h>
 #include <algorithm>
 #include <map>
+#if __ANDROID__ && __ANDROID_API__ < 24
+#include <dlfcn.h>
+#endif
 #endif
 
 std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces() {
@@ -89,8 +92,12 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
     return interfaces;
 #elif __linux__
 #if __ANDROID__ && __ANDROID_API__ < 24
-    return std::nullopt;
-#else
+    static auto getifaddrs = (int (*)(ifaddrs **)) dlsym(RTLD_DEFAULT, "getifaddrs");
+    static auto freeifaddrs = (void (*)(ifaddrs *)) dlsym(RTLD_DEFAULT, "freeifaddrs");
+
+    if (!getifaddrs || !freeifaddrs)
+        return std::nullopt;
+#endif
     ifaddrs *addr;
 
     if (getifaddrs(&addr) < 0)
@@ -158,6 +165,5 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
     });
 
     return interfaces;
-#endif
 #endif
 }
