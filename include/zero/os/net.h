@@ -3,24 +3,28 @@
 
 #include <string>
 #include <vector>
+#include <variant>
 #include <optional>
+#include <nonstd/span.hpp>
 
 namespace zero::os::net {
-    enum AddressType {
-        IPV4,
-        IPV6
+    struct IPv4Address {
+        std::byte address[4];
+        std::byte mask[4];
     };
 
-    struct IPAddress {
-        AddressType type;
-        std::string address;
+    struct IPv6Address {
+        std::byte address[16];
     };
 
     struct Interface {
         std::string name;
-        std::string mac;
-        std::vector<IPAddress> addresses;
+        std::byte mac[6];
+        std::vector<std::variant<IPv4Address, IPv6Address>> addresses;
     };
+
+    std::string stringifyIP(nonstd::span<const std::byte, 4> ip);
+    std::string stringifyIP(nonstd::span<const std::byte, 16> ip);
 
     std::optional<std::vector<Interface>> interfaces();
 }

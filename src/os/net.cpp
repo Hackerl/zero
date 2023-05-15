@@ -1,21 +1,44 @@
 #include <zero/os/net.h>
-#include <zero/strings/strings.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
 #include <iphlpapi.h>
 #include <memory>
 #include <ws2tcpip.h>
+#include <zero/strings/strings.h>
 #elif __linux__
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
 #include <algorithm>
+#include <cstring>
 #include <map>
-#if __ANDROID__ && __ANDROID_API__ < 24
+#if __ANDROID__
+#include <unistd.h>
+#include <linux/if.h>
+#if __ANDROID_API__ < 24
 #include <dlfcn.h>
 #endif
 #endif
+#endif
+
+std::string zero::os::net::stringifyIP(nonstd::span<const std::byte, 4> ip) {
+    char address[INET_ADDRSTRLEN] = {};
+
+    if (!inet_ntop(AF_INET, ip.data(), address, sizeof(address)))
+        throw std::runtime_error("unable to convert IPv4 address from binary to text form");
+
+    return address;
+}
+
+std::string zero::os::net::stringifyIP(nonstd::span<const std::byte, 16> ip) {
+    char address[INET6_ADDRSTRLEN] = {};
+
+    if (!inet_ntop(AF_INET6, ip.data(), address, sizeof(address)))
+        throw std::runtime_error("unable to convert IPv6 address from binary to text form");
+
+    return address;
+}
 
 std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces() {
 #ifdef _WIN32
@@ -40,27 +63,27 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
         if (!name)
             continue;
 
-        std::vector<IPAddress> addresses;
+        std::vector<std::variant<IPv4Address, IPv6Address>> addresses;
 
         for (PIP_ADAPTER_UNICAST_ADDRESS addr = adapter->FirstUnicastAddress; addr; addr = addr->Next) {
             switch (addr->Address.lpSockaddr->sa_family) {
                 case AF_INET: {
-                    char address[16] = {};
+                    IPv4Address address = {};
 
-                    if (!inet_ntop(AF_INET, &((sockaddr_in *) addr->Address.lpSockaddr)->sin_addr, address, sizeof(address)))
+                    memcpy(address.address, &((sockaddr_in *) addr->Address.lpSockaddr)->sin_addr, 4);
+
+                    if (ConvertLengthToIpv4Mask(addr->OnLinkPrefixLength, (PULONG) address.mask) != NO_ERROR)
                         break;
 
-                    addresses.push_back({IPV4, address});
+                    addresses.emplace_back(address);
                     break;
                 }
 
                 case AF_INET6: {
-                    char address[46] = {};
+                    IPv6Address address = {};
+                    memcpy(address.address, &((sockaddr_in6 *) addr->Address.lpSockaddr)->sin6_addr, 16);
 
-                    if (!inet_ntop(AF_INET6, &((sockaddr_in6 *) addr->Address.lpSockaddr)->sin6_addr, address, sizeof(address)))
-                        break;
-
-                    addresses.push_back({IPV6, address});
+                    addresses.emplace_back(address);
                     break;
                 }
 
@@ -72,21 +95,14 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
         if (adapter->PhysicalAddressLength != 6)
             continue;
 
-        interfaces.push_back(
-                {
-                        *name,
-                        strings::format(
-                                "%02x:%02x:%02x:%02x:%02x:%02x",
-                                adapter->PhysicalAddress[0],
-                                adapter->PhysicalAddress[1],
-                                adapter->PhysicalAddress[2],
-                                adapter->PhysicalAddress[3],
-                                adapter->PhysicalAddress[4],
-                                adapter->PhysicalAddress[5]
-                        ),
-                        addresses
-                }
-        );
+        Interface item;
+
+        item.name = std::move(*name);
+        item.addresses = std::move(addresses);
+
+        memcpy(item.mac, adapter->PhysicalAddress, 6);
+
+        interfaces.push_back(std::move(item));
     }
 
     return interfaces;
@@ -113,22 +129,20 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
 
         switch (p->ifa_addr->sa_family) {
             case AF_INET: {
-                char address[INET_ADDRSTRLEN] = {};
+                IPv4Address address = {};
 
-                if (!inet_ntop(AF_INET, &((sockaddr_in *) p->ifa_addr)->sin_addr, address, sizeof(address)))
-                    break;
+                memcpy(address.address, &((sockaddr_in *) p->ifa_addr)->sin_addr, 4);
+                memcpy(address.mask, &((sockaddr_in *) p->ifa_netmask)->sin_addr, 4);
 
-                interfaceTable[p->ifa_name].addresses.push_back({IPV4, address});
+                interfaceTable[p->ifa_name].addresses.emplace_back(address);
                 break;
             }
 
             case AF_INET6: {
-                char address[INET6_ADDRSTRLEN] = {};
+                IPv6Address address = {};
+                memcpy(address.address, &((sockaddr_in6 *) p->ifa_addr)->sin6_addr, 16);
 
-                if (!inet_ntop(AF_INET6, &((sockaddr_in6 *) p->ifa_addr)->sin6_addr, address, sizeof(address)))
-                    break;
-
-                interfaceTable[p->ifa_name].addresses.push_back({IPV6, address});
+                interfaceTable[p->ifa_name].addresses.emplace_back(address);
                 break;
             }
 
@@ -138,16 +152,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
                 if (address->sll_halen != 6)
                     break;
 
-                interfaceTable[p->ifa_name].mac = strings::format(
-                        "%02x:%02x:%02x:%02x:%02x:%02x",
-                        address->sll_addr[0],
-                        address->sll_addr[1],
-                        address->sll_addr[2],
-                        address->sll_addr[3],
-                        address->sll_addr[4],
-                        address->sll_addr[5]
-                );
-
+                memcpy(interfaceTable[p->ifa_name].mac, address->sll_addr, 6);
                 break;
             }
 
@@ -160,9 +165,35 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
 
     std::vector<Interface> interfaces;
 
-    std::transform(interfaceTable.begin(), interfaceTable.end(), std::back_inserter(interfaces), [](const auto &it) {
-        return it.second;
-    });
+    std::transform(
+            interfaceTable.begin(),
+            interfaceTable.end(),
+            std::back_inserter(interfaces),
+            [](const auto &it) {
+                return it.second;
+            }
+    );
+
+#if __ANDROID__
+    int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+
+    if (fd < 0)
+        return std::nullopt;
+
+    for (auto &interface: interfaces) {
+        ifreq request = {};
+
+        request.ifr_addr.sa_family = AF_INET;
+        strncpy(request.ifr_name, interface.name.c_str(), IFNAMSIZ);
+
+        if (ioctl(fd, SIOCGIFHWADDR, &request) < 0)
+            continue;
+
+        memcpy(interface.mac, request.ifr_hwaddr.sa_data, 6);
+    }
+
+    close(fd);
+#endif
 
     return interfaces;
 #endif
