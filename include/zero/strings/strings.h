@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <charconv>
+#include <stdexcept>
 
 namespace zero::strings {
     bool containsIgnoreCase(std::string_view str, std::string_view substr);
@@ -56,15 +57,25 @@ namespace zero::strings {
 
     template<typename... Args>
     std::string format(const char *fmt, Args... args) {
-        int length = snprintf(nullptr, 0, fmt, args...);
+        size_t length = 4096;
+        std::unique_ptr<char[]> buffer = std::make_unique<char[]>(length);
 
-        if (length <= 0)
-            return "";
+        while (true) {
+            int n = snprintf(buffer.get(), length, fmt, args...);
 
-        std::unique_ptr<char[]> buffer = std::make_unique<char[]>(length + 1);
-        snprintf(buffer.get(), length + 1, fmt, args...);
+            if (n < 0)
+                throw std::invalid_argument("format string error");
 
-        return {buffer.get(), (std::size_t) length};
+            if (n >= length) {
+                length = n + 1;
+                buffer = std::make_unique<char[]>(length);
+                continue;
+            }
+
+            break;
+        }
+
+        return buffer.get();
     }
 }
 
