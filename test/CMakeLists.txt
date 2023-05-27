@@ -12,6 +12,7 @@ add_executable(
         encoding/base64.cpp
         strings/strings.cpp
         cache/lru.cpp
+        ptr/ref.cpp
         os/net.cpp
         $<$<PLATFORM_ID:Windows>:os/nt/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:os/procfs.cpp>
