@@ -98,22 +98,24 @@ namespace zero {
         }
     }
 
+    struct TypeInfo {
+        std::string type;
+        std::function<std::any(std::string_view)> parse;
+    };
+
     struct Optional {
         std::string name;
         char shortName;
         std::string desc;
         std::any value;
-        bool flag;
-        std::string type;
-        std::function<std::any(std::string_view)> parse;
+        std::optional<TypeInfo> typeInfo;
     };
 
     struct Positional {
         std::string name;
         std::string desc;
         std::any value;
-        std::string type;
-        std::function<std::any(std::string_view)> parse;
+        TypeInfo typeInfo;
     };
 
     class Cmdline {
@@ -125,11 +127,11 @@ namespace zero {
     public:
         template<typename T>
         void add(const char *name, const char *desc) {
-            mPositionals.push_back({name, desc, T{}, getType<T>(), parseValue<T>});
+            mPositionals.push_back({name, desc, std::any{}, {getType<T>(), parseValue<T>}});
         }
 
         void addOptional(const char *name, char shortName, const char *desc) {
-            mOptionals.push_back({name, shortName, desc, false, true});
+            mOptionals.push_back({name, shortName, desc, false, std::nullopt});
         }
 
         template<typename T>
@@ -140,9 +142,10 @@ namespace zero {
                             shortName,
                             desc,
                             def ? std::any{*def} : std::any{},
-                            false,
-                            getType<T>(),
-                            parseValue<T>
+                            TypeInfo{
+                                    getType<T>(),
+                                    parseValue<T>
+                            }
                     }
             );
         }
@@ -184,11 +187,11 @@ namespace zero {
         }
 
     public:
-        void footer(const char *message) {
-            mFooter = message;
+        std::string &footer() {
+            return mFooter;
         }
 
-        std::vector<std::string> rest() {
+        [[nodiscard]] std::vector<std::string> rest() const {
             return mRest;
         }
 
@@ -203,7 +206,7 @@ namespace zero {
                         continue;
                     }
 
-                    it->value = it->parse(argv[i]);
+                    it->value = it->typeInfo.parse(argv[i]);
 
                     if (!it++->value.has_value())
                         error("invalid positional argument: %s", argv[i]);
@@ -217,7 +220,7 @@ namespace zero {
                     if (!optional)
                         error("optional argument not found: -%c", argv[i][1]);
 
-                    if (optional->get().flag) {
+                    if (!optional->get().typeInfo) {
                         optional->get().value = true;
                         continue;
                     }
@@ -225,7 +228,7 @@ namespace zero {
                     if (!argv[i + 1])
                         error("invalid optional argument: %s", argv[i]);
 
-                    optional->get().value = optional->get().parse(argv[++i]);
+                    optional->get().value = optional->get().typeInfo->parse(argv[++i]);
 
                     if (!optional->get().value.has_value())
                         error("invalid optional argument: %s", argv[i]);
@@ -246,7 +249,7 @@ namespace zero {
                 if (!optional)
                     error("optional argument not found: --%.*s", n - 2, argv[i] + 2);
 
-                if (optional->get().flag) {
+                if (!optional->get().typeInfo) {
                     optional->get().value = true;
                     continue;
                 }
@@ -254,7 +257,7 @@ namespace zero {
                 if (!p)
                     error("optional argument requires value: %s", argv[i]);
 
-                optional->get().value = optional->get().parse(p + 1);
+                optional->get().value = optional->get().typeInfo->parse(p + 1);
 
                 if (!optional->get().value.has_value())
                     error("invalid optional argument: %s", argv[i]);
@@ -301,7 +304,7 @@ namespace zero {
         }
 
     private:
-        void help() {
+        void help() const {
             std::list<std::string> positionals;
 
             std::transform(
@@ -309,7 +312,7 @@ namespace zero {
                     mPositionals.end(),
                     std::back_inserter(positionals),
                     [](const auto &p) {
-                        return strings::format("%s(%s)", p.name.c_str(), p.type.c_str());
+                        return strings::format("%s(%s)", p.name.c_str(), p.typeInfo.type.c_str());
                     }
             );
 
@@ -327,7 +330,7 @@ namespace zero {
                         "\t%-20s%s(%s)",
                         positional.name.c_str(),
                         positional.desc.c_str(),
-                        positional.type.c_str()
+                        positional.typeInfo.type.c_str()
                 ) << std::endl;
             }
 
@@ -339,13 +342,13 @@ namespace zero {
                         optional.shortName ? optional.shortName : ' ',
                         optional.name.c_str(),
                         optional.desc.c_str(),
-                        optional.flag ? "" : strings::format("(%s)", optional.type.c_str()).c_str()
+                        !optional.typeInfo ? "" : strings::format("(%s)", optional.typeInfo->type.c_str()).c_str()
                 ) << std::endl;
             }
         }
 
         template<typename... Args>
-        void error(const char *message, Args... args) {
+        [[noreturn]] void error(const char *message, Args... args) const {
             if constexpr (sizeof...(args) == 0) {
                 std::cout << "error:\n\t" << message << std::endl;
             } else {

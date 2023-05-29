@@ -4,33 +4,38 @@
 #include <atomic>
 #include <chrono>
 #include <optional>
+#include <nonstd/expected.hpp>
 
-#ifdef _WIN32
+#ifdef ZERO_LEGACY_NT
 #include <windows.h>
 #endif
 
 namespace zero::atomic {
     class Event {
     public:
+        enum Error {
+            TIMEOUT,
+            UNEXPECTED
+        };
+
+    public:
         Event();
-#ifdef _WIN32
+#ifdef ZERO_LEGACY_NT
         ~Event();
 #endif
 
     public:
-        void wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+        nonstd::expected<void, Error> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
     public:
         void notify();
         void broadcast();
 
-    protected:
-#ifdef _WIN32
+    private:
+#ifdef ZERO_LEGACY_NT
         HANDLE mEvent;
-        std::atomic<long> mState;
-#elif __linux__
-        std::atomic<int> mState;
 #endif
+        std::atomic<int> mState;
     };
 }
 

@@ -23,8 +23,8 @@ namespace zero::os::net {
         std::vector<std::variant<IPv4Address, IPv6Address>> addresses;
     };
 
-    std::string stringifyIP(nonstd::span<const std::byte, 4> ip);
-    std::string stringifyIP(nonstd::span<const std::byte, 16> ip);
+    std::string stringify(nonstd::span<const std::byte, 4> ip);
+    std::string stringify(nonstd::span<const std::byte, 16> ip);
 
     std::optional<std::vector<Interface>> interfaces();
 }

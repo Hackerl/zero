@@ -1,10 +1,23 @@
 #include <zero/log.h>
+#include <zero/time/time.h>
 #include <zero/filesystem/path.h>
 #include <set>
 
 #ifdef __linux__
 #include <unistd.h>
 #endif
+
+std::string zero::stringify(const zero::LogMessage &message) {
+    return zero::strings::format(
+            "%s | %-5s | %20.*s:%-4d] %s\n",
+            zero::time::stringify(message.timestamp).c_str(),
+            zero::LOG_TAGS[message.level],
+            (int) message.filename.size(),
+            message.filename.data(),
+            message.line,
+            message.content.c_str()
+    );
+}
 
 bool zero::ConsoleProvider::init() {
     return stderr != nullptr;
@@ -14,10 +27,15 @@ bool zero::ConsoleProvider::rotate() {
     return true;
 }
 
-zero::LogResult zero::ConsoleProvider::write(std::string_view message) {
-    size_t length = message.length();
+bool zero::ConsoleProvider::flush() {
+    return fflush(stderr) == 0;
+}
 
-    if (fwrite(message.data(), 1, length, stderr) != length)
+zero::LogResult zero::ConsoleProvider::write(const LogMessage &message) {
+    std::string msg = stringify(message);
+    size_t length = msg.length();
+
+    if (fwrite(msg.data(), 1, length, stderr) != length)
         return FAILED;
 
     return SUCCEEDED;
@@ -81,13 +99,17 @@ bool zero::FileProvider::rotate() {
     return init();
 }
 
-zero::LogResult zero::FileProvider::write(std::string_view message) {
-    mStream << message << std::flush;
+bool zero::FileProvider::flush() {
+    return !mStream.flush().bad();
+}
 
-    if (mStream.bad())
+zero::LogResult zero::FileProvider::write(const LogMessage &message) {
+    std::string msg = stringify(message);
+
+    if (mStream.write(msg.c_str(), (std::streamsize) msg.length()).bad())
         return FAILED;
 
-    mPosition += message.length();
+    mPosition += msg.length();
 
     if (mPosition >= mLimit) {
         mPosition = 0;

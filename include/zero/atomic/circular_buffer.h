@@ -79,15 +79,15 @@ namespace zero::atomic {
         }
 
     public:
-        size_t size() {
+        [[nodiscard]] size_t size() const {
             return (mTail % N + N - mHead % N) % N;
         }
 
-        bool empty() {
+        [[nodiscard]] bool empty() const {
             return mHead == mTail;
         }
 
-        bool full() {
+        [[nodiscard]] bool full() const {
             return (mTail + 1) % N == mHead % N;
         }
 

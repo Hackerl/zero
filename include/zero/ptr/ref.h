@@ -32,7 +32,7 @@ namespace zero::ptr {
             }
         }
 
-        long useCount() {
+        [[nodiscard]] long useCount() const {
             return mCount;
         }
 
@@ -69,9 +69,6 @@ namespace zero::ptr {
         RefPtr(RefPtr &&rhs) noexcept: mPtr(nullptr) {
             std::swap(mPtr, rhs.mPtr);
         }
-
-        template<typename U>
-        friend class RefPtr;
 
         template<typename U>
         RefPtr(RefPtr<U> &&rhs) : mPtr(rhs.mPtr) {
@@ -112,11 +109,11 @@ namespace zero::ptr {
         }
 
     public:
-        T *get() const {
+        [[nodiscard]] T *get() const {
             return mPtr;
         }
 
-        long useCount() {
+        [[nodiscard]] long useCount() const {
             if (!mPtr)
                 return 0;
 
@@ -136,20 +133,23 @@ namespace zero::ptr {
         }
 
     public:
-        explicit operator bool() {
+        explicit operator bool() const {
             return mPtr;
         }
 
-        T *operator->() const {
+        [[nodiscard]] T *operator->() const {
             return mPtr;
         }
 
-        T &operator*() const {
+        [[nodiscard]] T &operator*() const {
             return *mPtr;
         }
 
     private:
         T *mPtr;
+
+        template<typename U>
+        friend class RefPtr;
     };
 
     template<typename T, typename ...Args>

@@ -18,7 +18,7 @@ TEST_CASE("notify event", "[event]") {
                 }
         );
 
-        event.wait();
+        REQUIRE(event.wait());
         REQUIRE(n == 1);
 
         thread.join();
@@ -33,7 +33,7 @@ TEST_CASE("notify event", "[event]") {
                 }
         );
 
-        event.wait(100ms);
+        REQUIRE(event.wait(100ms).error() == zero::atomic::Event::TIMEOUT);
         REQUIRE(n == 0);
 
         thread.join();

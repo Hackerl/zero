@@ -362,15 +362,15 @@ namespace zero::async::promise {
         }
 
     public:
-        State status() {
+        [[nodiscard]] State status() const {
             return mStatus;
         }
 
-        Result value() {
+        [[nodiscard]] Result value() const {
             return mResult;
         }
 
-        Reason reason() {
+        [[nodiscard]] Reason reason() const {
             return mReason;
         }
 
@@ -589,11 +589,11 @@ namespace zero::async::promise {
         }
 
     public:
-        State status() {
+        [[nodiscard]] State status() const {
             return mStatus;
         }
 
-        Reason reason() {
+        [[nodiscard]] Reason reason() const {
             return mReason;
         }
 

@@ -1,13 +1,12 @@
 #ifndef ZERO_LOG_H
 #define ZERO_LOG_H
 
-#include "thread.h"
 #include "interface.h"
 #include "singleton.h"
 #include "strings/strings.h"
-#include "time/date.h"
 #include "atomic/event.h"
 #include "atomic/circular_buffer.h"
+#include <thread>
 #include <fstream>
 #include <list>
 #include <mutex>
@@ -31,22 +30,34 @@ namespace zero {
         ROTATED
     };
 
+    struct LogMessage {
+        LogLevel level{};
+        std::time_t timestamp{};
+        int line{};
+        std::string_view filename;
+        std::string content;
+    };
+
+    std::string stringify(const LogMessage &message);
+
     class ILogProvider : public Interface {
     public:
         virtual bool init() = 0;
         virtual bool rotate() = 0;
+        virtual bool flush() = 0;
 
     public:
-        virtual LogResult write(std::string_view message) = 0;
+        virtual LogResult write(const LogMessage &message) = 0;
     };
 
     class ConsoleProvider : public ILogProvider {
     public:
         bool init() override;
         bool rotate() override;
+        bool flush() override;
 
     public:
-        LogResult write(std::string_view message) override;
+        LogResult write(const LogMessage &message) override;
     };
 
     class FileProvider : public ILogProvider {
@@ -61,9 +72,10 @@ namespace zero {
     public:
         bool init() override;
         bool rotate() override;
+        bool flush() override;
 
     public:
-        LogResult write(std::string_view message) override;
+        LogResult write(const LogMessage &message) override;
 
     private:
         std::string mName;
@@ -79,133 +91,192 @@ namespace zero {
         std::ofstream mStream;
     };
 
-    template<typename T, size_t N>
-    class AsyncProvider : public T {
+    class Logger {
+    private:
+        struct Config {
+            LogLevel level;
+            std::unique_ptr<ILogProvider> provider;
+            std::chrono::milliseconds flushInterval;
+            std::optional<std::chrono::time_point<std::chrono::system_clock>> flushDeadline;
+        };
+
     public:
-        template<typename... Args>
-        explicit AsyncProvider<T, N>(Args &&... args) : T(std::forward<Args>(args)...) {
-            mThread.start(&AsyncProvider<T, N>::consume);
+        Logger() : mExit(false) {
+
         }
 
-        ~AsyncProvider<T, N>() override {
+        ~Logger() {
             mExit = true;
             mEvent.notify();
+
+            if (mThread.joinable())
+                mThread.join();
         }
 
-    public:
-        bool init() override {
-            return T::init();
-        }
-
-        bool rotate() override {
-            std::lock_guard<std::mutex> guard(mMutex);
-
-            if (mResult != ROTATED)
-                return true;
-
-            if (!T::rotate())
-                return false;
-
-            mResult = SUCCEEDED;
-            mEvent.notify();
-
-            return true;
-        }
-
-    public:
-        LogResult write(std::string_view message) override {
-            std::optional<size_t> index = mBuffer.reserve();
-
-            if (!index)
-                return mResult;
-
-            mBuffer[*index] = message;
-            mBuffer.commit(*index);
-            mEvent.notify();
-
-            return mResult;
-        }
-
-    public:
+    private:
         void consume() {
-            while (!mExit) {
-                if (mResult == ROTATED) {
-                    mEvent.wait();
-                    continue;
-                }
-
+            while (true) {
                 std::optional<size_t> index = mBuffer.acquire();
 
                 if (!index) {
-                    mEvent.wait();
+                    if (mExit)
+                        break;
+
+                    std::list<std::chrono::milliseconds> durations;
+
+                    {
+                        std::lock_guard<std::mutex> guard(mMutex);
+                        std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
+
+                        auto it = mConfigs.begin();
+
+                        while (it != mConfigs.end()) {
+                            if (!it->flushDeadline) {
+                                it++;
+                                continue;
+                            }
+
+                            if (it->flushDeadline <= now) {
+                                if (!it->provider->flush()) {
+                                    it = mConfigs.erase(it);
+                                    continue;
+                                }
+
+                                it++->flushDeadline.reset();
+                                continue;
+                            }
+
+                            durations.push_back(
+                                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                                            *it->flushDeadline - now
+                                    )
+                            );
+
+                            it++;
+                        }
+                    }
+
+                    if (durations.empty()) {
+                        mEvent.wait();
+                        continue;
+                    }
+
+                    mEvent.wait(*std::min_element(durations.begin(), durations.end()));
                     continue;
                 }
 
-                mResult = T::write(mBuffer[*index]);
-
-                if (mResult == FAILED)
-                    mExit = true;
-
+                LogMessage message = std::move(mBuffer[*index]);
                 mBuffer.release(*index);
-            }
-        }
 
-    private:
-        bool mExit{false};
-        std::atomic<LogResult> mResult{SUCCEEDED};
+                std::lock_guard<std::mutex> guard(mMutex);
+                std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
 
-    private:
-        std::mutex mMutex;
-        atomic::Event mEvent;
-        atomic::CircularBuffer<std::string, N> mBuffer;
-        Thread<AsyncProvider<T, N>> mThread{this};
-    };
+                auto it = mConfigs.begin();
 
-    class Logger {
-    public:
-        template<typename T, typename... Args>
-        void log(LogLevel level, const T format, Args... args) {
-            std::string message = strings::format(format, args...);
+                while (it != mConfigs.end()) {
+                    if (message.level > it->level) {
+                        if (it->flushDeadline && it->flushDeadline <= now) {
+                            if (!it->provider->flush()) {
+                                it = mConfigs.erase(it);
+                                continue;
+                            }
 
-            for (auto &[lv, abnormal, provider]: mProviders) {
-                if (level > lv)
-                    continue;
+                            it->flushDeadline.reset();
+                        }
 
-                if (abnormal)
-                    continue;
+                        it++;
+                        continue;
+                    }
 
-                LogResult result = provider->write(message);
+                    LogResult result = it->provider->write(message);
 
-                if (result == FAILED || (result == ROTATED && !provider->rotate())) {
-                    abnormal = true;
-                    continue;
+                    if (result == FAILED || (result == ROTATED && !it->provider->rotate())) {
+                        it = mConfigs.erase(it);
+                        continue;
+                    }
+
+                    it++->flushDeadline = now + it->flushInterval;
                 }
             }
         }
 
     public:
-        void addProvider(LogLevel level, std::unique_ptr<ILogProvider> provider) {
+        template<typename... Args>
+        void log(LogLevel level, std::string_view filename, int line, const char *format, Args... args) {
+            if (mExit)
+                return;
+
+            std::optional<size_t> index = mBuffer.reserve();
+
+            if (!index)
+                return;
+
+            auto &message = mBuffer[*index];
+
+            message = {
+                    level,
+                    std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()),
+                    line,
+                    filename
+            };
+
+            if constexpr (sizeof...(Args) > 0) {
+                message.content = strings::format(format, args...);
+            } else {
+                message.content = format;
+            }
+
+            mBuffer.commit(*index);
+            mEvent.notify();
+        }
+
+    public:
+        void addProvider(
+                LogLevel level,
+                std::unique_ptr<ILogProvider> provider,
+                std::chrono::milliseconds interval = std::chrono::seconds{5}
+        ) {
+            std::call_once(mOnceFlag, [=]() {
+                mThread = std::thread(&Logger::consume, this);
+            });
+
             if (!provider->init())
                 return;
 
-            mProviders.emplace_back(level, false, std::move(provider));
+            std::lock_guard<std::mutex> guard(mMutex);
+
+            mConfigs.push_back(
+                    {
+                            level,
+                            std::move(provider),
+                            interval
+                    }
+            );
         }
 
     private:
-        std::list<std::tuple<LogLevel, std::atomic<bool>, std::unique_ptr<ILogProvider>>> mProviders;
+        std::mutex mMutex;
+        std::thread mThread;
+        atomic::Event mEvent;
+        std::atomic<bool> mExit;
+        std::once_flag mOnceFlag;
+        std::list<Config> mConfigs;
+        atomic::CircularBuffer<LogMessage, 1024> mBuffer;
     };
+
+    static inline constexpr std::string_view sourceFilename(std::string_view path) {
+        size_t pos = path.find_last_of("/\\");
+
+        if (pos == std::string_view::npos)
+            return path;
+
+        return path.substr(pos + 1);
+    }
 }
 
 #define GLOBAL_LOGGER                       zero::Singleton<zero::Logger>::getInstance()
 #define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::ConsoleProvider>())
-#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::AsyncProvider<zero::FileProvider, 100>>(name, ## __VA_ARGS__))
-
-#define NEWLINE                             "\n"
-#define SOURCE                              std::filesystem::path(__FILE__).filename().string().c_str()
-
-#define LOG_FMT                             "%s | %-5s | %20s:%-4d] "
-#define LOG_TAG(level)                      zero::LOG_TAGS[level]
-#define LOG_ARGS(level)                     zero::time::getTimeString().c_str(), LOG_TAG(level), SOURCE, __LINE__
+#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::FileProvider>(name, ## __VA_ARGS__))
 
 #undef LOG_DEBUG
 #undef LOG_INFO
@@ -218,10 +289,10 @@ namespace zero {
 #define LOG_WARNING(message, ...)
 #define LOG_ERROR(message, ...)
 #else
-#define LOG_DEBUG(message, ...)             GLOBAL_LOGGER->log(zero::DEBUG_LEVEL, LOG_FMT message NEWLINE, LOG_ARGS(zero::DEBUG_LEVEL), ## __VA_ARGS__)
-#define LOG_INFO(message, ...)              GLOBAL_LOGGER->log(zero::INFO_LEVEL, LOG_FMT message NEWLINE, LOG_ARGS(zero::INFO_LEVEL), ## __VA_ARGS__)
-#define LOG_WARNING(message, ...)           GLOBAL_LOGGER->log(zero::WARNING_LEVEL, LOG_FMT message NEWLINE, LOG_ARGS(zero::WARNING_LEVEL), ## __VA_ARGS__)
-#define LOG_ERROR(message, ...)             GLOBAL_LOGGER->log(zero::ERROR_LEVEL, LOG_FMT message NEWLINE, LOG_ARGS(zero::ERROR_LEVEL), ## __VA_ARGS__)
+#define LOG_DEBUG(message, ...)             GLOBAL_LOGGER->log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_INFO(message, ...)              GLOBAL_LOGGER->log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_WARNING(message, ...)           GLOBAL_LOGGER->log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_ERROR(message, ...)             GLOBAL_LOGGER->log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
 #endif
 
 #endif //ZERO_LOG_H

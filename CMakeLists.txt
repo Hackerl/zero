@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(ZERO_DISABLE_TESTS "disable unit test" OFF)
 option(ZERO_DISABLE_LOG "disable log module" OFF)
+option(ZERO_LEGACY_NT "compatible with older windows" OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
@@ -25,7 +26,7 @@ add_library(
         src/log.cpp
         src/os/os.cpp
         src/os/net.cpp
-        src/time/date.cpp
+        src/time/time.cpp
         src/strings/strings.cpp
         src/atomic/event.cpp
         src/filesystem/path.cpp
@@ -37,6 +38,10 @@ add_library(
 
 if (ZERO_DISABLE_LOG)
     target_compile_definitions(zero INTERFACE ZERO_NO_LOG)
+endif ()
+
+if (WIN32 AND ZERO_LEGACY_NT)
+    target_compile_definitions(zero PUBLIC ZERO_LEGACY_NT)
 endif ()
 
 target_include_directories(
@@ -54,6 +59,7 @@ target_link_libraries(
         INTERFACE
         $<$<PLATFORM_ID:Windows>:Ws2_32>
         $<$<PLATFORM_ID:Windows>:Iphlpapi>
+        $<$<AND:$<PLATFORM_ID:Windows>,$<NOT:$<BOOL:${ZERO_LEGACY_NT}>>>:Synchronization>
 )
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")

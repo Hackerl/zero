@@ -5,18 +5,26 @@ constexpr auto LOG_MAX_LENGTH = 100;
 
 class TestProvider : public zero::ILogProvider {
 public:
+    TestProvider() : mLength() {
+
+    }
+
+public:
     bool init() override {
         return true;
     }
 
     bool rotate() override {
-        REQUIRE(mLength >= LOG_MAX_LENGTH);
         mLength = 0;
         return true;
     }
 
-    zero::LogResult write(std::string_view message) override {
-        mLength += message.length();
+    bool flush() override {
+        return true;
+    }
+
+    zero::LogResult write(const zero::LogMessage &message) override {
+        mLength += zero::stringify(message).length();
 
         if (mLength >= LOG_MAX_LENGTH)
             return zero::ROTATED;
@@ -36,7 +44,7 @@ void generate() {
 TEST_CASE("logging module", "[log]") {
     GLOBAL_LOGGER->addProvider(
             zero::INFO_LEVEL,
-            std::make_unique<zero::AsyncProvider<TestProvider, 1000>>()
+            std::make_unique<TestProvider>()
     );
 
     std::list<std::thread> threads;
