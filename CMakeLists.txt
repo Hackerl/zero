@@ -5,14 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(ZERO_DISABLE_TESTS "disable unit test" OFF)
 option(ZERO_DISABLE_LOG "disable log module" OFF)
-option(ZERO_LEGACY_NT "compatible with older windows" OFF)
+option(ZERO_LEGACY_NT "compatible with older Windows" OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 
-set(ZERO_VERSION 1.0.2)
+set(ZERO_VERSION 1.0.3)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
