@@ -81,7 +81,7 @@ bool zero::FileProvider::rotate() {
         if (!entry.is_regular_file())
             continue;
 
-        if (!strings::startsWith(entry.path().filename().string(), prefix))
+        if (!strings::startsWith(entry.path().filename().u8string(), prefix))
             continue;
 
         logs.insert(entry);

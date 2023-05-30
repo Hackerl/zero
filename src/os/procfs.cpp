@@ -606,9 +606,9 @@ std::optional<zero::os::procfs::Process> zero::os::procfs::openProcess(pid_t pid
         return std::nullopt;
 
 #ifdef O_PATH
-    int fd = open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
+    int fd = open(path.u8string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
 #else
-    int fd = open(path.string().c_str(), O_DIRECTORY | O_CLOEXEC);
+    int fd = open(path.u8string().c_str(), O_DIRECTORY | O_CLOEXEC);
 #endif
 
     if (fd < 0)

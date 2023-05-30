@@ -52,7 +52,7 @@ std::optional<std::string> zero::os::nt::process::Process::name() const {
     if (!path)
         return std::nullopt;
 
-    return path->filename().string();
+    return path->filename().u8string();
 }
 
 std::optional<std::filesystem::path> zero::os::nt::process::Process::image() const {
