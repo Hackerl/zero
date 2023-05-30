@@ -32,9 +32,9 @@ namespace zero {
 
     struct LogMessage {
         LogLevel level{};
-        std::time_t timestamp{};
         int line{};
         std::string_view filename;
+        std::chrono::time_point<std::chrono::system_clock> timestamp;
         std::string content;
     };
 
@@ -215,9 +215,9 @@ namespace zero {
 
             message = {
                     level,
-                    std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()),
                     line,
-                    filename
+                    filename,
+                    std::chrono::system_clock::now()
             };
 
             if constexpr (sizeof...(Args) > 0) {
