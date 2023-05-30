@@ -3,6 +3,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <Lmcons.h>
+#include <zero/strings/strings.h>
 #elif __linux__
 #include <unistd.h>
 #include <climits>
@@ -10,13 +11,13 @@
 
 std::optional<std::string> zero::os::hostname() {
 #ifdef _WIN32
-    char name[MAX_COMPUTERNAME_LENGTH + 1] = {};
-    DWORD length = sizeof(name);
+    WCHAR name[MAX_COMPUTERNAME_LENGTH + 1] = {};
+    DWORD length = ARRAYSIZE(name);
 
-    if (!GetComputerNameA(name, &length))
+    if (!GetComputerNameW(name, &length))
         return std::nullopt;
 
-    return name;
+    return zero::strings::encode(name);
 #elif __linux__
     char name[HOST_NAME_MAX + 1] = {};
 
@@ -29,13 +30,13 @@ std::optional<std::string> zero::os::hostname() {
 
 std::optional<std::string> zero::os::username() {
 #ifdef _WIN32
-    char name[UNLEN + 1] = {};
-    DWORD length = sizeof(name);
+    WCHAR name[UNLEN + 1] = {};
+    DWORD length = ARRAYSIZE(name);
 
-    if (!GetUserNameA(name, &length))
+    if (!GetUserNameW(name, &length))
         return std::nullopt;
 
-    return name;
+    return zero::strings::encode(name);
 #elif __linux__
 #if __ANDROID__ && __ANDROID_API__ < 28
     char *name = getlogin();

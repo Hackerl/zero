@@ -56,10 +56,10 @@ std::optional<std::string> zero::os::nt::process::Process::name() const {
 }
 
 std::optional<std::filesystem::path> zero::os::nt::process::Process::image() const {
-    char buffer[MAX_PATH] = {};
-    DWORD size = sizeof(buffer);
+    WCHAR buffer[MAX_PATH] = {};
+    DWORD size = ARRAYSIZE(buffer);
 
-    if (!QueryFullProcessImageNameA(mHandle, 0, buffer, &size))
+    if (!QueryFullProcessImageNameW(mHandle, 0, buffer, &size))
         return std::nullopt;
 
     return buffer;

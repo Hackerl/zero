@@ -6,9 +6,8 @@
 
 std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {
 #ifdef _WIN32
-    char buffer[MAX_PATH] = {};
-
-    DWORD length = GetModuleFileNameA(nullptr, buffer, MAX_PATH);
+    WCHAR buffer[MAX_PATH] = {};
+    DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
 
     if (length == 0 || length == MAX_PATH)
         return std::nullopt;
