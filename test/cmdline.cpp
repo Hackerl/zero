@@ -7,16 +7,14 @@ struct Config {
     std::string password;
 };
 
-bool convert(std::string_view str, Config &config) {
+template<>
+std::optional<Config> zero::convert<Config>(std::string_view str) {
     std::vector<std::string> tokens = zero::strings::split(str, ":");
 
     if (tokens.size() != 2)
-        return false;
+        return std::nullopt;
 
-    config.username = zero::strings::trim(tokens[0]);
-    config.password = zero::strings::trim(tokens[1]);
-
-    return true;
+    return Config{zero::strings::trim(tokens[0]), zero::strings::trim(tokens[1])};
 }
 
 TEST_CASE("parse command line arguments", "[cmdline]") {

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cstring>
 #include <functional>
+#include <iomanip>
 #include <any>
 
 #ifdef __GNUC__
@@ -27,6 +28,9 @@ namespace zero {
 
     template<typename T>
     inline constexpr bool is_vector_v = is_vector<T>::value;
+
+    template<typename T>
+    std::optional<T> convert(std::string_view str);
 
     template<typename T>
     std::any parseValue(std::string_view str) {
@@ -53,12 +57,12 @@ namespace zero {
 
             return value;
         } else {
-            T value;
+            std::optional<T> value = convert<T>(str);
 
-            if (!convert(str, value))
+            if (!value)
                 return {};
 
-            return value;
+            return *value;
         }
     }
 
@@ -131,7 +135,7 @@ namespace zero {
         }
 
         void addOptional(const char *name, char shortName, const char *desc) {
-            mOptionals.push_back({name, shortName, desc, false, std::nullopt});
+            mOptionals.push_back({name, shortName, desc, false});
         }
 
         template<typename T>
@@ -316,44 +320,58 @@ namespace zero {
                     }
             );
 
-            std::cout << strings::format(
-                    "usage: %s [options] %s ... %s ...",
-                    filesystem::getApplicationPath()->filename().u8string().c_str(),
-                    strings::join(positionals, " ").c_str(),
-                    mFooter.empty() ? "extra" : mFooter.c_str()
-            ) << std::endl;
+            std::cout << "usage: "
+                      << filesystem::getApplicationPath()->filename().u8string()
+                      << " [options] " << strings::join(positionals, " ")
+                      << " ... "
+                      << (mFooter.empty() ? "extra" : mFooter)
+                      << " ..."
+                      << std::endl;
 
             std::cout << "positional:" << std::endl;
 
             for (const auto &positional: mPositionals) {
-                std::cout << strings::format(
-                        "\t%-20s%s(%s)",
-                        positional.name.c_str(),
-                        positional.desc.c_str(),
-                        positional.typeInfo.type.c_str()
-                ) << std::endl;
+                std::cout << '\t'
+                          << std::left << std::setw(20) << positional.name
+                          << positional.desc
+                          << '('
+                          << positional.typeInfo.type
+                          << ')'
+                          << std::endl;
             }
 
             std::cout << "optional:" << std::endl;
 
             for (const auto &optional: mOptionals) {
-                std::cout << strings::format(
-                        optional.shortName ? "\t-%c, --%-14s%s%s" : "\t%-4c--%-14s%s%s",
-                        optional.shortName ? optional.shortName : ' ',
-                        optional.name.c_str(),
-                        optional.desc.c_str(),
-                        !optional.typeInfo ? "" : strings::format("(%s)", optional.typeInfo->type.c_str()).c_str()
-                ) << std::endl;
+                std::cout << '\t';
+
+                if (optional.shortName) {
+                    std::cout << '-' << optional.shortName << ", --";
+                } else {
+                    std::cout << "    --";
+                }
+
+                std::cout << std::left << std::setw(14) << optional.name << optional.desc;
+
+                if (optional.typeInfo)
+                    std::cout << '(' << optional.typeInfo->type << ')';
+
+                std::cout << std::endl;
             }
         }
 
         template<typename... Args>
         [[noreturn]] void error(const char *message, Args... args) const {
+            std::cout << "error:" << std::endl;
+            std::cout << '\t';
+
             if constexpr (sizeof...(args) == 0) {
-                std::cout << "error:\n\t" << message << std::endl;
+                std::cout << message;
             } else {
-                std::cout << "error:\n\t" << strings::format(message, args...) << std::endl;
+                std::cout << strings::format(message, args...);
             }
+
+            std::cout << std::endl;
 
             help();
             exit(1);
