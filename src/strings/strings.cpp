@@ -1,18 +1,6 @@
 #include <zero/strings/strings.h>
 #include <algorithm>
-
-#ifdef _WIN32
-#include <windows.h>
-#elif __linux__
 #include <iconv.h>
-#if __ANDROID__ && __ANDROID_API__ < 28
-#include <dlfcn.h>
-
-static auto iconv_open = (iconv_t (*)(const char *, const char *)) dlsym(RTLD_DEFAULT, "iconv_open");
-static auto iconv = (size_t (*)(iconv_t, char **, size_t *, char **, size_t *)) dlsym(RTLD_DEFAULT, "iconv");
-static auto iconv_close = (int (*)(iconv_t)) dlsym(RTLD_DEFAULT, "iconv_close");
-#endif
-#endif
 
 bool zero::strings::containsIgnoreCase(std::string_view str, std::string_view substr) {
     if (substr.empty())
@@ -161,25 +149,8 @@ std::vector<std::string> zero::strings::split(std::string_view str, std::string_
     return tokens;
 }
 
-std::optional<std::string> zero::strings::encode(const std::wstring &str) {
-#ifdef _WIN32
-    int n = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, nullptr, 0, nullptr, nullptr);
-
-    if (n == 0)
-        return std::nullopt;
-
-    std::unique_ptr<char[]> buffer = std::make_unique<char[]>(n);
-
-    if (WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, buffer.get(), n, nullptr, nullptr) == 0)
-        return std::nullopt;
-
-    return buffer.get();
-#elif __linux__
-#if __ANDROID__ && __ANDROID_API__ < 28
-    if (!iconv_open || !iconv || !iconv_close)
-        return std::nullopt;
-#endif
-    iconv_t cd = iconv_open("UTF-8", "WCHAR_T");
+std::optional<std::string> zero::strings::encode(const std::wstring &str, const char *encoding) {
+    iconv_t cd = iconv_open(encoding, "WCHAR_T");
 
     if (cd == (iconv_t) -1)
         return std::nullopt;
@@ -206,28 +177,10 @@ std::optional<std::string> zero::strings::encode(const std::wstring &str) {
     iconv_close(cd);
 
     return output;
-#endif
 }
 
-std::optional<std::wstring> zero::strings::decode(const std::string &str) {
-#ifdef _WIN32
-    int n = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0);
-
-    if (n == 0)
-        return std::nullopt;
-
-    std::unique_ptr<wchar_t[]> buffer = std::make_unique<wchar_t[]>(n);
-
-    if (MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, buffer.get(), n) == 0)
-        return std::nullopt;
-
-    return buffer.get();
-#elif __linux__
-#if __ANDROID__ && __ANDROID_API__ < 28
-    if (!iconv_open || !iconv || !iconv_close)
-        return std::nullopt;
-#endif
-    iconv_t cd = iconv_open("WCHAR_T", "UTF-8");
+std::optional<std::wstring> zero::strings::decode(const std::string &str, const char *encoding) {
+    iconv_t cd = iconv_open("WCHAR_T", encoding);
 
     if (cd == (iconv_t) -1)
         return std::nullopt;
@@ -254,5 +207,4 @@ std::optional<std::wstring> zero::strings::decode(const std::string &str) {
     iconv_close(cd);
 
     return output;
-#endif
 }

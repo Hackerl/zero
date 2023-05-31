@@ -25,8 +25,8 @@ namespace zero::strings {
     std::vector<std::string> split(std::string_view str, int limit = 0);
     std::vector<std::string> split(std::string_view str, std::string_view delimiter, int limit = 0);
 
-    std::optional<std::string> encode(const std::wstring &str);
-    std::optional<std::wstring> decode(const std::string &str);
+    std::optional<std::string> encode(const std::wstring &str, const char *encoding = "UTF-8");
+    std::optional<std::wstring> decode(const std::string &str, const char *encoding = "UTF-8");
 
     template<typename T>
     std::string join(const T &containers, const char *delimiter) {

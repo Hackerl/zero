@@ -17,6 +17,7 @@ set(ZERO_VERSION 1.0.3)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+find_package(Iconv REQUIRED)
 find_package(span-lite CONFIG REQUIRED)
 find_package(expected-lite CONFIG REQUIRED)
 
@@ -54,6 +55,7 @@ target_include_directories(
 target_link_libraries(
         zero
         PUBLIC
+        Iconv::Iconv
         nonstd::span-lite
         nonstd::expected-lite
         INTERFACE
