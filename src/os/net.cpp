@@ -70,9 +70,9 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
                 case AF_INET: {
                     IPv4Address address = {};
 
-                    memcpy(address.address, &((sockaddr_in *) addr->Address.lpSockaddr)->sin_addr, 4);
+                    memcpy(address.address.data(), &((sockaddr_in *) addr->Address.lpSockaddr)->sin_addr, 4);
 
-                    if (ConvertLengthToIpv4Mask(addr->OnLinkPrefixLength, (PULONG) address.mask) != NO_ERROR)
+                    if (ConvertLengthToIpv4Mask(addr->OnLinkPrefixLength, (PULONG) address.mask.data()) != NO_ERROR)
                         break;
 
                     addresses.emplace_back(address);
@@ -81,7 +81,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
 
                 case AF_INET6: {
                     IPv6Address address = {};
-                    memcpy(address.address, &((sockaddr_in6 *) addr->Address.lpSockaddr)->sin6_addr, 16);
+                    memcpy(address.address.data(), &((sockaddr_in6 *) addr->Address.lpSockaddr)->sin6_addr, 16);
 
                     addresses.emplace_back(address);
                     break;
@@ -100,7 +100,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
         item.name = std::move(*name);
         item.addresses = std::move(addresses);
 
-        memcpy(item.mac, adapter->PhysicalAddress, 6);
+        memcpy(item.mac.data(), adapter->PhysicalAddress, 6);
 
         interfaces.push_back(std::move(item));
     }
@@ -131,8 +131,8 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
             case AF_INET: {
                 IPv4Address address = {};
 
-                memcpy(address.address, &((sockaddr_in *) p->ifa_addr)->sin_addr, 4);
-                memcpy(address.mask, &((sockaddr_in *) p->ifa_netmask)->sin_addr, 4);
+                memcpy(address.address.data(), &((sockaddr_in *) p->ifa_addr)->sin_addr, 4);
+                memcpy(address.mask.data(), &((sockaddr_in *) p->ifa_netmask)->sin_addr, 4);
 
                 interfaceTable[p->ifa_name].addresses.emplace_back(address);
                 break;
@@ -140,7 +140,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
 
             case AF_INET6: {
                 IPv6Address address = {};
-                memcpy(address.address, &((sockaddr_in6 *) p->ifa_addr)->sin6_addr, 16);
+                memcpy(address.address.data(), &((sockaddr_in6 *) p->ifa_addr)->sin6_addr, 16);
 
                 interfaceTable[p->ifa_name].addresses.emplace_back(address);
                 break;
@@ -152,7 +152,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
                 if (address->sll_halen != 6)
                     break;
 
-                memcpy(interfaceTable[p->ifa_name].mac, address->sll_addr, 6);
+                memcpy(interfaceTable[p->ifa_name].mac.data(), address->sll_addr, 6);
                 break;
             }
 
@@ -189,7 +189,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
         if (ioctl(fd, SIOCGIFHWADDR, &request) < 0)
             continue;
 
-        memcpy(interface.mac, request.ifr_hwaddr.sa_data, 6);
+        memcpy(interface.mac.data(), request.ifr_hwaddr.sa_data, 6);
     }
 
     close(fd);

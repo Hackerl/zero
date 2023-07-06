@@ -1,6 +1,7 @@
 #ifndef ZERO_NET_H
 #define ZERO_NET_H
 
+#include <array>
 #include <string>
 #include <vector>
 #include <variant>
@@ -9,17 +10,17 @@
 
 namespace zero::os::net {
     struct IPv4Address {
-        std::byte address[4];
-        std::byte mask[4];
+        std::array<std::byte, 4> address;
+        std::array<std::byte, 4> mask;
     };
 
     struct IPv6Address {
-        std::byte address[16];
+        std::array<std::byte, 16> address;
     };
 
     struct Interface {
         std::string name;
-        std::byte mac[6];
+        std::array<std::byte, 6> mac;
         std::vector<std::variant<IPv4Address, IPv6Address>> addresses;
     };
 
