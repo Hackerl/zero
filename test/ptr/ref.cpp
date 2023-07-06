@@ -89,4 +89,27 @@ TEST_CASE("smart pointer using intrusive reference counting", "[ref]") {
         REQUIRE(b1.useCount() == 0);
         REQUIRE(b.useCount() == 1);
     }
+
+    SECTION("comparison") {
+        zero::ptr::RefPtr<A> a = b;
+
+        REQUIRE(a == b);
+        REQUIRE(!(a != b));
+        REQUIRE(!(a < b));
+        REQUIRE(a >= b);
+        REQUIRE(!(a > b));
+        REQUIRE(a <= b);
+        REQUIRE(!(a == nullptr));
+        REQUIRE(!(nullptr == a));
+        REQUIRE(a != nullptr);
+        REQUIRE(nullptr != a);
+        REQUIRE(!(a < nullptr));
+        REQUIRE(nullptr < a);
+        REQUIRE(a >= nullptr);
+        REQUIRE(!(nullptr >= a));
+        REQUIRE(a > nullptr);
+        REQUIRE(!(nullptr > a));
+        REQUIRE(!(a <= nullptr));
+        REQUIRE(nullptr <= a);
+    }
 }
