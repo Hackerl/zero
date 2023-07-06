@@ -876,6 +876,28 @@ namespace zero::async::promise {
             repeat<Result>(loop, std::move(func));
         });
     }
+
+    template<typename F>
+    std::shared_ptr<Promise<void>> doWhile(F &&func) {
+        return loop<void>([f = std::forward<F>(func)](const auto &loop) {
+            f()->then([=]() {
+                P_CONTINUE(loop);
+            }, [=](const zero::async::promise::Reason &reason) {
+                P_BREAK_E(loop, reason);
+            });
+        });
+    }
+
+    template<typename Result>
+    std::shared_ptr<Promise<Result>> rethrow(
+            const std::shared_ptr<Promise<Result>> &promise,
+            int code,
+            const std::string &message
+    ) {
+        return promise->fail([=, message = message](const Reason &reason) mutable -> nonstd::expected<void, Reason> {
+            return nonstd::make_unexpected(Reason{code, std::move(message), std::make_shared<Reason>(reason)});
+        });
+    }
 }
 
 #endif //ZERO_PROMISE_H

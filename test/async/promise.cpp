@@ -228,4 +228,33 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             REQUIRE(result == 10);
         });
     }
+
+    SECTION("promise::doWhile") {
+        std::shared_ptr<int> i = std::make_shared<int>(0);
+
+        zero::async::promise::doWhile([=]() {
+            *i += 1;
+
+            if (*i >= 10)
+                return zero::async::promise::reject<void>({-1});
+
+            return zero::async::promise::resolve<void>();
+        })->fail([=](const zero::async::promise::Reason &reason) {
+            REQUIRE(reason.code == -1);
+            REQUIRE(*i == 10);
+        });
+    }
+
+    SECTION("promise::rethrow") {
+        zero::async::promise::rethrow(
+                zero::async::promise::reject<void>({-1, "first error"}),
+                -2,
+                "second error"
+        )->fail([](const zero::async::promise::Reason &reason) {
+            REQUIRE(reason.code == -2);
+            REQUIRE(reason.message == "second error");
+            REQUIRE(reason.previous->code == -1);
+            REQUIRE(reason.previous->message == "first error");
+        });
+    }
 }
