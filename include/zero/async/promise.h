@@ -16,6 +16,13 @@
 #define P_BREAK_V(p, ...)   p->resolve(__VA_ARGS__)
 #define P_BREAK_E(p, ...)   p->reject(__VA_ARGS__)
 
+#define P_RETHROW(code, message)                                                                                \
+[=](const zero::async::promise::Reason &reason) -> nonstd::expected<void, zero::async::promise::Reason> {       \
+    return nonstd::make_unexpected(                                                                             \
+        zero::async::promise::Reason{code, message, std::make_shared<zero::async::promise::Reason>(reason)}     \
+    );                                                                                                          \
+}
+
 namespace zero::async::promise {
     struct Reason;
 
@@ -885,17 +892,6 @@ namespace zero::async::promise {
             }, [=](const zero::async::promise::Reason &reason) {
                 P_BREAK_E(loop, reason);
             });
-        });
-    }
-
-    template<typename Result>
-    std::shared_ptr<Promise<Result>> rethrow(
-            const std::shared_ptr<Promise<Result>> &promise,
-            int code,
-            const std::string &message
-    ) {
-        return promise->fail([=, message = message](const Reason &reason) mutable -> nonstd::expected<void, Reason> {
-            return nonstd::make_unexpected(Reason{code, std::move(message), std::make_shared<Reason>(reason)});
         });
     }
 }

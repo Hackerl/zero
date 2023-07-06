@@ -246,10 +246,8 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
     }
 
     SECTION("promise::rethrow") {
-        zero::async::promise::rethrow(
-                zero::async::promise::reject<void>({-1, "first error"}),
-                -2,
-                "second error"
+        zero::async::promise::reject<void>({-1, "first error"})->fail(
+                P_RETHROW(-2, "second error")
         )->fail([](const zero::async::promise::Reason &reason) {
             REQUIRE(reason.code == -2);
             REQUIRE(reason.message == "second error");
