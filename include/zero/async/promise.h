@@ -17,7 +17,7 @@
 #define P_BREAK_E(loop, ...)    loop->reject(__VA_ARGS__)
 
 #define PF_RETHROW(code, message)                                                                               \
-[=](const zero::async::promise::Reason &reason) -> nonstd::expected<void, zero::async::promise::Reason> {       \
+[=](const zero::async::promise::Reason &reason) {                                                               \
     return nonstd::make_unexpected(                                                                             \
         zero::async::promise::Reason{code, message, std::make_shared<zero::async::promise::Reason>(reason)}     \
     );                                                                                                          \
@@ -107,20 +107,15 @@ namespace zero::async::promise {
     template<typename T, typename ReturnType, typename... Args>
     struct promise_callback_traits<ReturnType(T::*)(Args...)> {
         typedef std::function<ReturnType(Args...)> type;
-        typedef promise_result_t<ReturnType> result;
     };
 
     template<typename T, typename ReturnType, typename... Args>
     struct promise_callback_traits<ReturnType(T::*)(Args...) const> {
         typedef std::function<ReturnType(Args...)> type;
-        typedef promise_result_t<ReturnType> result;
     };
 
     template<typename T>
     using promise_callback_t = typename promise_callback_traits<T>::type;
-
-    template<typename T>
-    using promise_callback_result_t = typename promise_callback_traits<T>::result;
 
     enum State {
         PENDING,
@@ -181,7 +176,7 @@ namespace zero::async::promise {
         }
 
     public:
-        template<typename Next, typename ...Args, typename NextResult = promise_result_t<Next>>
+        template<typename Next, typename ...Args, typename NextResult = std::conditional_t<std::is_same_v<Next, nonstd::unexpected_type<Reason>>, Result, promise_result_t<Next>>>
         std::shared_ptr<Promise<NextResult>>
         then(std::function<Next(Args...)> &&onFulfilled, std::function<Next(const Reason &)> &&onRejected) {
             auto p = std::make_shared<Promise<NextResult>>();
@@ -219,6 +214,8 @@ namespace zero::async::promise {
                                 } else {
                                     p->reject(std::move(next.error()));
                                 }
+                            } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
+                                p->reject(std::move(next.value()));
                             } else {
                                 p->resolve(std::move(next));
                             }
@@ -251,6 +248,8 @@ namespace zero::async::promise {
                                 } else {
                                     p->reject(std::move(next.error()));
                                 }
+                            } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
+                                p->reject(std::move(next.value()));
                             } else {
                                 p->resolve(std::move(next));
                             }
@@ -296,6 +295,8 @@ namespace zero::async::promise {
                             } else {
                                 p->reject(std::move(next.error()));
                             }
+                        } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
+                            p->reject(std::move(next.value()));
                         } else {
                             p->resolve(std::move(next));
                         }
@@ -363,12 +364,12 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-        std::shared_ptr<Promise<promise_callback_result_t<F>>> then(F &&onFulfilled) {
+        auto then(F &&onFulfilled) {
             return then(promise_callback_t<F>{std::forward<F>(onFulfilled)}, {});
         }
 
         template<typename F, typename R>
-        std::shared_ptr<Promise<promise_callback_result_t<F>>> then(F &&onFulfilled, R &&onRejected) {
+        auto then(F &&onFulfilled, R &&onRejected) {
             return then(
                     promise_callback_t<F>{std::forward<F>(onFulfilled)},
                     promise_callback_t<R>{std::forward<R>(onRejected)}
@@ -376,7 +377,7 @@ namespace zero::async::promise {
         }
 
         template<typename R>
-        std::shared_ptr<Promise<promise_callback_result_t<R>>> fail(R &&onRejected) {
+        auto fail(R &&onRejected) {
             return then(
                     std::function<std::invoke_result_t<R, Reason>(Result)>{},
                     promise_callback_t<R>{std::forward<R>(onRejected)}
@@ -450,7 +451,7 @@ namespace zero::async::promise {
         }
 
     public:
-        template<typename Next, typename NextResult = promise_result_t<Next>>
+        template<typename Next, typename NextResult = std::conditional_t<std::is_same_v<Next, nonstd::unexpected_type<Reason>>, void, promise_result_t<Next>>>
         std::shared_ptr<Promise<NextResult>>
         then(std::function<Next()> &&onFulfilled, std::function<Next(const Reason &)> &&onRejected) {
             auto p = std::make_shared<Promise<NextResult>>();
@@ -482,6 +483,8 @@ namespace zero::async::promise {
                             } else {
                                 p->reject(std::move(next.error()));
                             }
+                        } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
+                            p->reject(std::move(next.value()));
                         } else {
                             p->resolve(std::move(next));
                         }
@@ -526,6 +529,8 @@ namespace zero::async::promise {
                             } else {
                                 p->reject(std::move(next.error()));
                             }
+                        } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
+                            p->reject(std::move(next.value()));
                         } else {
                             p->resolve(std::move(next));
                         }
@@ -593,12 +598,12 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-        std::shared_ptr<Promise<promise_callback_result_t<F>>> then(F &&onFulfilled) {
+        auto then(F &&onFulfilled) {
             return then(promise_callback_t<F>{std::forward<F>(onFulfilled)}, {});
         }
 
         template<typename F, typename R>
-        std::shared_ptr<Promise<promise_callback_result_t<F>>> then(F &&onFulfilled, R &&onRejected) {
+        auto then(F &&onFulfilled, R &&onRejected) {
             return then(
                     promise_callback_t<F>{std::forward<F>(onFulfilled)},
                     promise_callback_t<R>{std::forward<R>(onRejected)}
@@ -606,7 +611,7 @@ namespace zero::async::promise {
         }
 
         template<typename R>
-        std::shared_ptr<Promise<promise_callback_result_t<R>>> fail(R &&onRejected) {
+        auto fail(R &&onRejected) {
             return then({}, promise_callback_t<R>{std::forward<R>(onRejected)});
         }
 
