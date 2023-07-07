@@ -247,8 +247,20 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
 
     SECTION("promise::rethrow") {
         zero::async::promise::reject<void>({-1, "first error"})->fail(
-                P_RETHROW(-2, "second error")
+                PF_RETHROW(-2, "second error")
         )->fail([](const zero::async::promise::Reason &reason) {
+            REQUIRE(reason.code == -2);
+            REQUIRE(reason.message == "second error");
+            REQUIRE(reason.previous->code == -1);
+            REQUIRE(reason.previous->message == "first error");
+        });
+
+        zero::async::promise::loop<int>([=](const auto &loop) {
+            zero::async::promise::reject<void>({-1, "first error"})->then(
+                    PF_LOOP_CONTINUE(loop),
+                    PF_LOOP_RETHROW(loop, -2, "second error")
+            );
+        })->fail([](const zero::async::promise::Reason &reason) {
             REQUIRE(reason.code == -2);
             REQUIRE(reason.message == "second error");
             REQUIRE(reason.previous->code == -1);

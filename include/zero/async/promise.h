@@ -11,16 +11,31 @@
 #include <functional>
 #include <nonstd/expected.hpp>
 
-#define P_CONTINUE(p)       p->reject({})
-#define P_BREAK(p)          p->resolve()
-#define P_BREAK_V(p, ...)   p->resolve(__VA_ARGS__)
-#define P_BREAK_E(p, ...)   p->reject(__VA_ARGS__)
+#define P_CONTINUE(loop)        loop->reject({})
+#define P_BREAK(loop)           loop->resolve()
+#define P_BREAK_V(loop, ...)    loop->resolve(__VA_ARGS__)
+#define P_BREAK_E(loop, ...)    loop->reject(__VA_ARGS__)
 
-#define P_RETHROW(code, message)                                                                                \
+#define PF_RETHROW(code, message)                                                                               \
 [=](const zero::async::promise::Reason &reason) -> nonstd::expected<void, zero::async::promise::Reason> {       \
     return nonstd::make_unexpected(                                                                             \
         zero::async::promise::Reason{code, message, std::make_shared<zero::async::promise::Reason>(reason)}     \
     );                                                                                                          \
+}
+
+#define PF_LOOP_CONTINUE(loop)                                                                                  \
+[=]() {                                                                                                         \
+    P_CONTINUE(loop);                                                                                           \
+}
+
+#define PF_LOOP_THROW(loop)                                                                                     \
+[=](const zero::async::promise::Reason &reason) {                                                               \
+    P_BREAK_E(loop, reason);                                                                                    \
+}
+
+#define PF_LOOP_RETHROW(loop, code, message)                                                                    \
+[=](const zero::async::promise::Reason &reason) {                                                               \
+    P_BREAK_E(loop, {code, message, std::make_shared<zero::async::promise::Reason>(reason)});                   \
 }
 
 namespace zero::async::promise {
@@ -887,11 +902,10 @@ namespace zero::async::promise {
     template<typename F>
     std::shared_ptr<Promise<void>> doWhile(F &&func) {
         return loop<void>([f = std::forward<F>(func)](const auto &loop) {
-            f()->then([=]() {
-                P_CONTINUE(loop);
-            }, [=](const zero::async::promise::Reason &reason) {
-                P_BREAK_E(loop, reason);
-            });
+            f()->then(
+                    PF_LOOP_CONTINUE(loop),
+                    PF_LOOP_THROW(loop)
+            );
         });
     }
 }
