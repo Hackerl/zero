@@ -120,3 +120,133 @@ zero::LogResult zero::FileProvider::write(const LogMessage &message) {
 
     return SUCCEEDED;
 }
+
+zero::Logger::Logger() : mExit(false) {
+
+}
+
+zero::Logger::~Logger() {
+    mExit = true;
+    mEvent.notify();
+
+    if (mThread.joinable())
+        mThread.join();
+}
+
+void zero::Logger::consume() {
+    while (true) {
+        std::optional<size_t> index = mBuffer.acquire();
+
+        if (!index) {
+            if (mExit)
+                break;
+
+            std::list<std::chrono::milliseconds> durations;
+
+            {
+                std::lock_guard<std::mutex> guard(mMutex);
+                std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
+
+                auto it = mConfigs.begin();
+
+                while (it != mConfigs.end()) {
+                    if (!it->flushDeadline) {
+                        it++;
+                        continue;
+                    }
+
+                    if (it->flushDeadline <= now) {
+                        if (!it->provider->flush()) {
+                            it = mConfigs.erase(it);
+                            continue;
+                        }
+
+                        it++->flushDeadline.reset();
+                        continue;
+                    }
+
+                    durations.push_back(
+                            std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    *it->flushDeadline - now
+                            )
+                    );
+
+                    it++;
+                }
+            }
+
+            if (durations.empty()) {
+                mEvent.wait();
+                continue;
+            }
+
+            mEvent.wait(*std::min_element(durations.begin(), durations.end()));
+            continue;
+        }
+
+        LogMessage message = std::move(mBuffer[*index]);
+        mBuffer.release(*index);
+
+        std::lock_guard<std::mutex> guard(mMutex);
+        std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
+
+        auto it = mConfigs.begin();
+
+        while (it != mConfigs.end()) {
+            if (message.level > mLogLevel.value_or(it->level)) {
+                if (it->flushDeadline && it->flushDeadline <= now) {
+                    if (!it->provider->flush()) {
+                        it = mConfigs.erase(it);
+                        continue;
+                    }
+
+                    it->flushDeadline.reset();
+                }
+
+                it++;
+                continue;
+            }
+
+            LogResult result = it->provider->write(message);
+
+            if (result == FAILED || (result == ROTATED && !it->provider->rotate())) {
+                it = mConfigs.erase(it);
+                continue;
+            }
+
+            it++->flushDeadline = now + it->flushInterval;
+        }
+    }
+}
+
+void zero::Logger::addProvider(
+        zero::LogLevel level,
+        std::unique_ptr<ILogProvider> provider,
+        std::chrono::milliseconds interval
+) {
+    std::call_once(mOnceFlag, [=]() {
+        const char *env = getenv("ZERO_LOG_LEVEL");
+
+        if (env) {
+            std::optional<int> level = strings::toNumber<int>(env);
+
+            if (level && *level >= ERROR_LEVEL && *level <= DEBUG_LEVEL)
+                mLogLevel = (LogLevel) *level;
+        }
+
+        mThread = std::thread(&Logger::consume, this);
+    });
+
+    if (!provider->init())
+        return;
+
+    std::lock_guard<std::mutex> guard(mMutex);
+
+    mConfigs.push_back(
+            {
+                    level,
+                    std::move(provider),
+                    interval
+            }
+    );
+}

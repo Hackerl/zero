@@ -101,104 +101,18 @@ namespace zero {
         };
 
     public:
-        Logger() : mExit(false) {
-
-        }
-
-        ~Logger() {
-            mExit = true;
-            mEvent.notify();
-
-            if (mThread.joinable())
-                mThread.join();
-        }
+        Logger();
+        ~Logger();
 
     private:
-        void consume() {
-            while (true) {
-                std::optional<size_t> index = mBuffer.acquire();
+        void consume();
 
-                if (!index) {
-                    if (mExit)
-                        break;
-
-                    std::list<std::chrono::milliseconds> durations;
-
-                    {
-                        std::lock_guard<std::mutex> guard(mMutex);
-                        std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
-
-                        auto it = mConfigs.begin();
-
-                        while (it != mConfigs.end()) {
-                            if (!it->flushDeadline) {
-                                it++;
-                                continue;
-                            }
-
-                            if (it->flushDeadline <= now) {
-                                if (!it->provider->flush()) {
-                                    it = mConfigs.erase(it);
-                                    continue;
-                                }
-
-                                it++->flushDeadline.reset();
-                                continue;
-                            }
-
-                            durations.push_back(
-                                    std::chrono::duration_cast<std::chrono::milliseconds>(
-                                            *it->flushDeadline - now
-                                    )
-                            );
-
-                            it++;
-                        }
-                    }
-
-                    if (durations.empty()) {
-                        mEvent.wait();
-                        continue;
-                    }
-
-                    mEvent.wait(*std::min_element(durations.begin(), durations.end()));
-                    continue;
-                }
-
-                LogMessage message = std::move(mBuffer[*index]);
-                mBuffer.release(*index);
-
-                std::lock_guard<std::mutex> guard(mMutex);
-                std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
-
-                auto it = mConfigs.begin();
-
-                while (it != mConfigs.end()) {
-                    if (message.level > it->level) {
-                        if (it->flushDeadline && it->flushDeadline <= now) {
-                            if (!it->provider->flush()) {
-                                it = mConfigs.erase(it);
-                                continue;
-                            }
-
-                            it->flushDeadline.reset();
-                        }
-
-                        it++;
-                        continue;
-                    }
-
-                    LogResult result = it->provider->write(message);
-
-                    if (result == FAILED || (result == ROTATED && !it->provider->rotate())) {
-                        it = mConfigs.erase(it);
-                        continue;
-                    }
-
-                    it++->flushDeadline = now + it->flushInterval;
-                }
-            }
-        }
+    public:
+        void addProvider(
+                LogLevel level,
+                std::unique_ptr<ILogProvider> provider,
+                std::chrono::milliseconds interval = std::chrono::seconds{5}
+        );
 
     public:
         template<typename... Args>
@@ -230,30 +144,6 @@ namespace zero {
             mEvent.notify();
         }
 
-    public:
-        void addProvider(
-                LogLevel level,
-                std::unique_ptr<ILogProvider> provider,
-                std::chrono::milliseconds interval = std::chrono::seconds{5}
-        ) {
-            std::call_once(mOnceFlag, [=]() {
-                mThread = std::thread(&Logger::consume, this);
-            });
-
-            if (!provider->init())
-                return;
-
-            std::lock_guard<std::mutex> guard(mMutex);
-
-            mConfigs.push_back(
-                    {
-                            level,
-                            std::move(provider),
-                            interval
-                    }
-            );
-        }
-
     private:
         std::mutex mMutex;
         std::thread mThread;
@@ -261,6 +151,7 @@ namespace zero {
         std::atomic<bool> mExit;
         std::once_flag mOnceFlag;
         std::list<Config> mConfigs;
+        std::optional<LogLevel> mLogLevel;
         atomic::CircularBuffer<LogMessage, 1024> mBuffer;
     };
 
