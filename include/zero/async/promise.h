@@ -18,9 +18,7 @@
 
 #define PF_RETHROW(code, message)                                                                               \
 [=](const zero::async::promise::Reason &reason) {                                                               \
-    return nonstd::make_unexpected(                                                                             \
-        zero::async::promise::Reason{code, message, std::make_shared<zero::async::promise::Reason>(reason)}     \
-    );                                                                                                          \
+    return zero::async::promise::Reason{code, message, std::make_shared<zero::async::promise::Reason>(reason)}; \
 }
 
 #define PF_LOOP_CONTINUE(loop)                                                                                  \
@@ -176,7 +174,7 @@ namespace zero::async::promise {
         }
 
     public:
-        template<typename Next, typename ...Args, typename NextResult = std::conditional_t<std::is_same_v<Next, nonstd::unexpected_type<Reason>>, Result, promise_result_t<Next>>>
+        template<typename Next, typename ...Args, typename NextResult = std::conditional_t<std::is_same_v<Next, Reason>, Result, promise_result_t<Next>>>
         std::shared_ptr<Promise<NextResult>>
         then(std::function<Next(Args...)> &&onFulfilled, std::function<Next(const Reason &)> &&onRejected) {
             auto p = std::make_shared<Promise<NextResult>>();
@@ -214,8 +212,8 @@ namespace zero::async::promise {
                                 } else {
                                     p->reject(std::move(next.error()));
                                 }
-                            } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
-                                p->reject(std::move(next.value()));
+                            } else if constexpr (std::is_same_v<Next, Reason>) {
+                                p->reject(std::move(next));
                             } else {
                                 p->resolve(std::move(next));
                             }
@@ -248,8 +246,8 @@ namespace zero::async::promise {
                                 } else {
                                     p->reject(std::move(next.error()));
                                 }
-                            } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
-                                p->reject(std::move(next.value()));
+                            } else if constexpr (std::is_same_v<Next, Reason>) {
+                                p->reject(std::move(next));
                             } else {
                                 p->resolve(std::move(next));
                             }
@@ -295,8 +293,8 @@ namespace zero::async::promise {
                             } else {
                                 p->reject(std::move(next.error()));
                             }
-                        } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
-                            p->reject(std::move(next.value()));
+                        } else if constexpr (std::is_same_v<Next, Reason>) {
+                            p->reject(std::move(next));
                         } else {
                             p->resolve(std::move(next));
                         }
@@ -451,7 +449,7 @@ namespace zero::async::promise {
         }
 
     public:
-        template<typename Next, typename NextResult = std::conditional_t<std::is_same_v<Next, nonstd::unexpected_type<Reason>>, void, promise_result_t<Next>>>
+        template<typename Next, typename NextResult = std::conditional_t<std::is_same_v<Next, Reason>, void, promise_result_t<Next>>>
         std::shared_ptr<Promise<NextResult>>
         then(std::function<Next()> &&onFulfilled, std::function<Next(const Reason &)> &&onRejected) {
             auto p = std::make_shared<Promise<NextResult>>();
@@ -483,8 +481,8 @@ namespace zero::async::promise {
                             } else {
                                 p->reject(std::move(next.error()));
                             }
-                        } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
-                            p->reject(std::move(next.value()));
+                        } else if constexpr (std::is_same_v<Next, Reason>) {
+                            p->reject(std::move(next));
                         } else {
                             p->resolve(std::move(next));
                         }
@@ -529,8 +527,8 @@ namespace zero::async::promise {
                             } else {
                                 p->reject(std::move(next.error()));
                             }
-                        } else if constexpr (std::is_same_v<Next, nonstd::unexpected_type<Reason>>) {
-                            p->reject(std::move(next.value()));
+                        } else if constexpr (std::is_same_v<Next, Reason>) {
+                            p->reject(std::move(next));
                         } else {
                             p->resolve(std::move(next));
                         }
