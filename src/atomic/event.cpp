@@ -8,6 +8,12 @@
 #include <syscall.h>
 #include <cerrno>
 #include <climits>
+#elif __APPLE__
+#define ULF_WAKE_ALL 0x00000100
+#define UL_COMPARE_AND_WAIT 1
+
+extern "C" int __ulock_wait(uint32_t operation, void *addr, uint64_t value, uint32_t timeout);
+extern "C" int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value);
 #endif
 
 zero::atomic::Event::Event() : mState() {
@@ -27,7 +33,7 @@ zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
     nonstd::expected<void, zero::atomic::Event::Error> result;
 
     while (true) {
-        int expected = 1;
+        Value expected = 1;
 
         if (mState.compare_exchange_strong(expected, 0))
             break;
@@ -60,6 +66,18 @@ zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
             result = nonstd::make_unexpected(errno == ETIMEDOUT ? TIMEOUT : UNEXPECTED);
             break;
         }
+#elif __APPLE__
+        if (__ulock_wait(
+                UL_COMPARE_AND_WAIT,
+                &mState,
+                0,
+                !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
+        ) < 0) {
+            result = nonstd::make_unexpected(errno == ETIMEDOUT ? TIMEOUT : UNEXPECTED);
+            break;
+        }
+#else
+#error "unsupported platform"
 #endif
     }
 
@@ -67,7 +85,7 @@ zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
 }
 
 void zero::atomic::Event::notify() {
-    int expected = 0;
+    Value expected = 0;
 
     if (mState.compare_exchange_strong(expected, 1)) {
 #ifdef ZERO_LEGACY_NT
@@ -76,12 +94,16 @@ void zero::atomic::Event::notify() {
         WakeByAddressSingle(&mState);
 #elif __linux__
         syscall(SYS_futex, &mState, FUTEX_WAKE, 1, nullptr, nullptr, 0);
+#elif __APPLE__
+        __ulock_wake(UL_COMPARE_AND_WAIT, &mState, 0);
+#else
+#error "unsupported platform"
 #endif
     }
 }
 
 void zero::atomic::Event::broadcast() {
-    int expected = 0;
+    Value expected = 0;
 
     if (mState.compare_exchange_strong(expected, 1)) {
 #ifdef ZERO_LEGACY_NT
@@ -90,6 +112,10 @@ void zero::atomic::Event::broadcast() {
         WakeByAddressAll(&mState);
 #elif __linux__
         syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
+#elif __APPLE__
+        __ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, &mState, 0);
+#else
+#error "unsupported platform"
 #endif
     }
 }

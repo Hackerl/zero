@@ -12,6 +12,11 @@
 
 namespace zero::atomic {
     class Event {
+#ifdef __APPLE__
+        using Value = uint64_t;
+#else
+        using Value = int;
+#endif
     public:
         enum Error {
             TIMEOUT,
@@ -35,7 +40,7 @@ namespace zero::atomic {
 #ifdef ZERO_LEGACY_NT
         HANDLE mEvent;
 #endif
-        std::atomic<int> mState;
+        std::atomic<Value> mState;
     };
 }
 

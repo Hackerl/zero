@@ -3,7 +3,7 @@
 #include <zero/filesystem/path.h>
 #include <set>
 
-#ifdef __linux__
+#ifndef _WIN32
 #include <unistd.h>
 #endif
 

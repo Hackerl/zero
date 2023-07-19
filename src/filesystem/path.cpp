@@ -2,6 +2,9 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#elif __APPLE__
+#include <mach-o/dyld.h>
+#include <sys/param.h>
 #endif
 
 std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {
@@ -21,6 +24,16 @@ std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {
         return std::nullopt;
 
     return path;
+#elif __APPLE__
+    char buffer[MAXPATHLEN];
+    uint32_t size = sizeof(buffer);
+
+    if (_NSGetExecutablePath(buffer, &size) < 0)
+        return std::nullopt;
+
+    return buffer;
+#else
+#error "unsupported platform"
 #endif
 }
 

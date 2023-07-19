@@ -20,6 +20,13 @@
 #include <dlfcn.h>
 #endif
 #endif
+#elif __APPLE__
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+#include <net/if_dl.h>
+#include <algorithm>
+#include <cstring>
+#include <map>
 #endif
 
 std::string zero::os::net::stringify(nonstd::span<const std::byte, 4> ip) {
@@ -106,7 +113,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
     }
 
     return interfaces;
-#elif __linux__
+#elif __linux__ || __APPLE__
 #if __ANDROID__ && __ANDROID_API__ < 24
     static auto getifaddrs = (int (*)(ifaddrs **)) dlsym(RTLD_DEFAULT, "getifaddrs");
     static auto freeifaddrs = (void (*)(ifaddrs *)) dlsym(RTLD_DEFAULT, "freeifaddrs");
@@ -146,6 +153,17 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
                 break;
             }
 
+#ifdef __APPLE__
+            case AF_LINK: {
+                auto address = (sockaddr_dl *) p->ifa_addr;
+
+                if (address->sdl_alen != 6)
+                    break;
+
+                memcpy(interfaceTable[p->ifa_name].mac.data(), LLADDR(address), 6);
+                break;
+            }
+#else
             case AF_PACKET: {
                 auto address = (sockaddr_ll *) p->ifa_addr;
 
@@ -155,6 +173,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
                 memcpy(interfaceTable[p->ifa_name].mac.data(), address->sll_addr, 6);
                 break;
             }
+#endif
 
             default:
                 break;
@@ -196,5 +215,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
 #endif
 
     return interfaces;
+#else
+#error "unsupported platform"
 #endif
 }

@@ -7,6 +7,9 @@
 #elif __linux__
 #include <unistd.h>
 #include <climits>
+#elif __APPLE__
+#include <unistd.h>
+#include <sys/param.h>
 #endif
 
 std::optional<std::string> zero::os::hostname() {
@@ -25,6 +28,15 @@ std::optional<std::string> zero::os::hostname() {
         return std::nullopt;
 
     return name;
+#elif __APPLE__
+    char name[MAXHOSTNAMELEN] = {};
+
+    if (gethostname(name, sizeof(name)) < 0)
+        return std::nullopt;
+
+    return name;
+#else
+#error "unsupported platform"
 #endif
 }
 
@@ -53,5 +65,14 @@ std::optional<std::string> zero::os::username() {
 
     return name;
 #endif
+#elif __APPLE__
+    char name[MAXLOGNAME + 1] = {};
+
+    if (getlogin_r(name, sizeof(name)) != 0)
+        return std::nullopt;
+
+    return name;
+#else
+#error "unsupported platform"
 #endif
 }
