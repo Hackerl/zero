@@ -3,43 +3,14 @@
 
 #include <any>
 #include <list>
-#include <array>
-#include <tuple>
 #include <string>
 #include <memory>
 #include <stdexcept>
-#include <functional>
 #include <nonstd/expected.hpp>
-
-#define P_CONTINUE(loop)        loop->reject({})
-#define P_BREAK(loop)           loop->resolve()
-#define P_BREAK_V(loop, ...)    loop->resolve(__VA_ARGS__)
-#define P_BREAK_E(loop, ...)    loop->reject(__VA_ARGS__)
-
-#define PF_RETHROW(code, message)                                                                               \
-[=](const zero::async::promise::Reason &reason) {                                                               \
-    return zero::async::promise::Reason{code, message, std::make_shared<zero::async::promise::Reason>(reason)}; \
-}
-
-#define PF_LOOP_CONTINUE(loop)                                                                                  \
-[=]() {                                                                                                         \
-    P_CONTINUE(loop);                                                                                           \
-}
-
-#define PF_LOOP_THROW(loop)                                                                                     \
-[=](const zero::async::promise::Reason &reason) {                                                               \
-    P_BREAK_E(loop, reason);                                                                                    \
-}
-
-#define PF_LOOP_RETHROW(loop, code, message)                                                                    \
-[=](const zero::async::promise::Reason &reason) {                                                               \
-    P_BREAK_E(loop, {code, message, std::make_shared<zero::async::promise::Reason>(reason)});                   \
-}
+#include <zero/detail/type_traits.h>
 
 namespace zero::async::promise {
-    struct Reason;
-
-    template<typename Result>
+    template<typename T, typename E>
     class Promise;
 
     template<typename T>
@@ -47,73 +18,47 @@ namespace zero::async::promise {
         typedef T type;
     };
 
-    template<typename Result>
-    struct promise_result<std::shared_ptr<Promise<Result>>> {
-        typedef Result type;
+    template<typename T, typename E>
+    struct promise_result<Promise<T, E>> {
+        typedef T type;
     };
 
-    template<typename Result>
-    struct promise_result<nonstd::expected<Result, Reason>> {
-        typedef Result type;
+    template<typename T, typename E>
+    struct promise_result<nonstd::expected<T, E>> {
+        typedef T type;
     };
 
     template<typename T>
     using promise_result_t = typename promise_result<T>::type;
 
-    template<typename>
-    struct is_promise : std::false_type {
-
+    template<typename T>
+    struct promise_reason {
+        typedef T type;
     };
 
-    template<typename Result>
-    struct is_promise<std::shared_ptr<Promise<Result>>> : std::true_type {
+    template<typename T, typename E>
+    struct promise_reason<Promise<T, E>> {
+        typedef E type;
+    };
 
+    template<typename T, typename E>
+    struct promise_reason<nonstd::expected<T, E>> {
+        typedef E type;
     };
 
     template<typename T>
-    inline constexpr bool is_promise_v = is_promise<T>::value;
-
-    template<typename, typename>
-    struct is_applicable : std::false_type {
-
-    };
-
-    template<typename F, typename ...Ts>
-    struct is_applicable<F, std::tuple<Ts...>> {
-        static constexpr bool value = std::is_invocable_v<F, Ts...>;
-    };
-
-    template<typename F, typename T1, typename T2>
-    struct is_applicable<F, std::pair<T1, T2>> {
-        static constexpr bool value = std::is_invocable_v<F, T1, T2>;
-    };
-
-    template<typename F, typename T, size_t N>
-    struct is_applicable<F, std::array<T, N>>
-            : is_applicable<F, decltype(std::tuple_cat(std::declval<std::array<T, N>>()))> {
-
-    };
-
-    template<typename F, typename T>
-    inline constexpr bool is_applicable_v = is_applicable<F, T>::value;
-
-    template<typename T>
-    struct promise_callback_traits : public promise_callback_traits<decltype(&T::operator())> {
-
-    };
-
-    template<typename T, typename ReturnType, typename... Args>
-    struct promise_callback_traits<ReturnType(T::*)(Args...)> {
-        typedef std::function<ReturnType(Args...)> type;
-    };
-
-    template<typename T, typename ReturnType, typename... Args>
-    struct promise_callback_traits<ReturnType(T::*)(Args...) const> {
-        typedef std::function<ReturnType(Args...)> type;
+    struct promise_reason<nonstd::unexpected_type<T>> {
+        typedef T type;
     };
 
     template<typename T>
-    using promise_callback_t = typename promise_callback_traits<T>::type;
+    using promise_reason_t = typename promise_reason<T>::type;
+
+    template<typename T>
+    inline constexpr bool is_promise_v = false;
+
+    template<typename T, typename E>
+    inline constexpr bool is_promise_v<Promise<T, E>> = true;
 
     enum State {
         PENDING,
@@ -121,202 +66,131 @@ namespace zero::async::promise {
         REJECTED
     };
 
-    struct Reason {
-        int code{};
-        std::string message;
-        std::shared_ptr<Reason> previous;
+    template<typename T, typename E>
+    struct Storage {
+        State status{PENDING};
+        nonstd::expected<T, E> result;
+        std::list<std::pair<std::function<void()>, std::function<void()>>> triggers;
     };
 
-    template<typename Result>
-    class Promise : public std::enable_shared_from_this<Promise<Result>> {
+    template<typename T, typename E>
+    class Promise {
     public:
-        template<typename F>
-        void start(F &&func) {
-            func(this->shared_from_this());
+        Promise() : mStorage(std::make_shared<Storage<T, E>>()) {
+
         }
 
     public:
-        template<typename T>
-        void resolve(T &&result) {
-            if (mStatus != PENDING)
+        template<typename ...Ts>
+        void resolve(Ts &&...args) {
+            if (mStorage->status != PENDING)
                 return;
 
-            mStatus = FULFILLED;
-            mResult = std::forward<T>(result);
+            mStorage->status = FULFILLED;
+            mStorage->result = nonstd::expected<T, E>(std::forward<Ts>(args)...);
 
-            for (const auto &trigger: mTriggers) {
+            for (const auto &trigger: mStorage->triggers) {
                 trigger.first();
             }
         }
 
-        void reject(Reason &&reason) {
-            if (mStatus != PENDING)
+        template<typename ...Ts>
+        void reject(Ts &&...args) {
+            if (mStorage->status != PENDING)
                 return;
 
-            mStatus = REJECTED;
-            mReason = std::move(reason);
+            mStorage->status = REJECTED;
+            mStorage->result = nonstd::make_unexpected(std::forward<Ts>(args)...);
 
-            for (const auto &trigger: mTriggers) {
-                trigger.second();
-            }
-        }
-
-        void reject(const Reason &reason) {
-            if (mStatus != PENDING)
-                return;
-
-            mStatus = REJECTED;
-            mReason = reason;
-
-            for (const auto &trigger: mTriggers) {
+            for (const auto &trigger: mStorage->triggers) {
                 trigger.second();
             }
         }
 
     public:
-        template<typename Next, typename ...Args, typename NextResult = std::conditional_t<std::is_same_v<Next, Reason>, Result, promise_result_t<Next>>>
-        std::shared_ptr<Promise<NextResult>>
-        then(std::function<Next(Args...)> &&onFulfilled, std::function<Next(const Reason &)> &&onRejected) {
-            auto p = std::make_shared<Promise<NextResult>>();
+        template<
+                typename F,
+                typename Next = detail::callable_result_t<F>,
+                typename NextResult = std::conditional_t<
+                        detail::is_specialization<Next, nonstd::unexpected_type>,
+                        T,
+                        promise_result_t<Next>
+                >,
+                typename NextReason = std::conditional_t<
+                        detail::is_specialization<Next, nonstd::unexpected_type>,
+                        promise_reason_t<Next>,
+                        E
+                >
+        >
+        Promise<NextResult, NextReason> then(F &&f) {
+            Promise<NextResult, NextReason> promise;
 
-            auto onFulfilledTrigger = [=, onFulfilled = std::move(onFulfilled)]() {
-                if (!onFulfilled) {
-                    if constexpr (std::is_same_v<Result, NextResult>) {
-                        p->resolve(mResult);
-                        return;
-                    } else {
-                        throw std::logic_error("mismatched result type");
-                    }
-                }
-
+            auto onFulfilledTrigger = [=, f = std::forward<F>(f), result = &mStorage->result]() mutable {
                 if constexpr (std::is_same_v<Next, void>) {
-                    if constexpr (is_applicable_v<Next(Args...), Result>) {
-                        std::apply(onFulfilled, mResult);
+                    if constexpr (std::is_same_v<T, void>) {
+                        f();
+                    } else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                        std::apply(f, result->value());
                     } else {
-                        onFulfilled(mResult);
+                        f(result->value());
                     }
 
-                    p->resolve();
+                    promise.resolve();
                 } else {
-                    if constexpr (is_applicable_v<Next(Args...), Result>) {
-                        Next next = std::apply(onFulfilled, mResult);
-
-                        if constexpr (!is_promise_v<Next>) {
-                            if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
-                                if (next) {
-                                    if constexpr (std::is_same_v<NextResult, void>) {
-                                        p->resolve();
-                                    } else {
-                                        p->resolve(std::move(next.value()));
-                                    }
-                                } else {
-                                    p->reject(std::move(next.error()));
-                                }
-                            } else if constexpr (std::is_same_v<Next, Reason>) {
-                                p->reject(std::move(next));
-                            } else {
-                                p->resolve(std::move(next));
-                            }
+                    Next next = [=]() {
+                        if constexpr (std::is_same_v<T, void>) {
+                            return f();
+                        } else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                            return std::apply(f, result->value());
                         } else {
-                            if constexpr (std::is_same_v<NextResult, void>) {
-                                next->then([=]() {
-                                    p->resolve();
-                                }, [=](const Reason &reason) {
-                                    p->reject(reason);
-                                });
-                            } else {
-                                next->then([=](const NextResult &result) {
-                                    p->resolve(result);
-                                }, [=](const Reason &reason) {
-                                    p->reject(reason);
-                                });
-                            }
+                            return f(result->value());
                         }
-                    } else {
-                        Next next = onFulfilled(mResult);
-
-                        if constexpr (!is_promise_v<Next>) {
-                            if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
-                                if (next) {
-                                    if constexpr (std::is_same_v<NextResult, void>) {
-                                        p->resolve();
-                                    } else {
-                                        p->resolve(std::move(next.value()));
-                                    }
-                                } else {
-                                    p->reject(std::move(next.error()));
-                                }
-                            } else if constexpr (std::is_same_v<Next, Reason>) {
-                                p->reject(std::move(next));
-                            } else {
-                                p->resolve(std::move(next));
-                            }
-                        } else {
-                            if constexpr (std::is_same_v<NextResult, void>) {
-                                next->then([=]() {
-                                    p->resolve();
-                                }, [=](const Reason &reason) {
-                                    p->reject(reason);
-                                });
-                            } else {
-                                next->then([=](const NextResult &result) {
-                                    p->resolve(result);
-                                }, [=](const Reason &reason) {
-                                    p->reject(reason);
-                                });
-                            }
-                        }
-                    }
-                }
-            };
-
-            auto onRejectedTrigger = [=, onRejected = std::move(onRejected)]() {
-                if (!onRejected) {
-                    p->reject(mReason);
-                    return;
-                }
-
-                if constexpr (std::is_same_v<Next, void>) {
-                    onRejected(mReason);
-                    p->resolve();
-                } else {
-                    Next next = onRejected(mReason);
+                    }();
 
                     if constexpr (!is_promise_v<Next>) {
-                        if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
+                        if constexpr (detail::is_specialization<Next, nonstd::expected>) {
+                            static_assert(std::is_same_v<promise_reason_t<Next>, E>);
+
                             if (next) {
                                 if constexpr (std::is_same_v<NextResult, void>) {
-                                    p->resolve();
+                                    promise.resolve();
                                 } else {
-                                    p->resolve(std::move(next.value()));
+                                    promise.resolve(std::move(next.value()));
                                 }
                             } else {
-                                p->reject(std::move(next.error()));
+                                promise.reject(std::move(next.error()));
                             }
-                        } else if constexpr (std::is_same_v<Next, Reason>) {
-                            p->reject(std::move(next));
+                        } else if constexpr (detail::is_specialization<Next, nonstd::unexpected_type>) {
+                            promise.reject(std::move(next.error()));
                         } else {
-                            p->resolve(std::move(next));
+                            promise.resolve(std::move(next));
                         }
                     } else {
+                        static_assert(std::is_same_v<promise_reason_t<Next>, E>);
+
                         if constexpr (std::is_same_v<NextResult, void>) {
-                            next->then([=]() {
-                                p->resolve();
-                            }, [=](const Reason &reason) {
-                                p->reject(reason);
+                            next.then([=]() mutable {
+                                promise.resolve();
+                            }, [=](const E &reason) mutable {
+                                promise.reject(reason);
                             });
                         } else {
-                            next->then([=](const NextResult &result) {
-                                p->resolve(result);
-                            }, [=](const Reason &reason) {
-                                p->reject(reason);
+                            next.then([=](const NextResult &result) mutable {
+                                promise.resolve(result);
+                            }, [=](const E &reason) mutable {
+                                promise.reject(reason);
                             });
                         }
                     }
                 }
             };
 
-            switch (mStatus) {
+            auto onRejectedTrigger = [=, result = &mStorage->result]() mutable {
+                static_assert(std::is_same_v<NextReason, E>);
+                promise.reject(result->error());
+            };
+
+            switch (mStorage->status) {
                 case FULFILLED:
                     onFulfilledTrigger();
                     break;
@@ -326,26 +200,96 @@ namespace zero::async::promise {
                     break;
 
                 case PENDING:
-                    mTriggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+                    mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
             }
 
-            return p;
+            return promise;
         }
 
-        std::shared_ptr<Promise<Result>> finally(const std::function<void()> &onFinally) {
-            auto p = std::make_shared<Promise<Result>>();
+        template<
+                typename F,
+                typename Next = detail::callable_result_t<F>,
+                typename NextResult = std::conditional_t<
+                        detail::is_specialization<Next, nonstd::unexpected_type>,
+                        T,
+                        promise_result_t<Next>
+                >,
+                typename NextReason = std::conditional_t<
+                        detail::is_specialization<Next, nonstd::unexpected_type>,
+                        promise_reason_t<Next>,
+                        E
+                >
+        >
+        Promise<NextResult, NextReason> fail(F &&f) {
+            Promise<NextResult, NextReason> promise;
 
-            auto onFulfilledTrigger = [=]() {
-                onFinally();
-                p->resolve(mResult);
+            auto onFulfilledTrigger = [=, result = &mStorage->result]() mutable {
+                static_assert(std::is_same_v<NextResult, T>);
+
+                if constexpr (std::is_same_v<T, void>) {
+                    promise.resolve();
+                } else {
+                    promise.resolve(result->value());
+                }
             };
 
-            auto onRejectedTrigger = [=]() {
-                onFinally();
-                p->reject(mReason);
+            auto onRejectedTrigger = [=, f = std::forward<F>(f), result = &mStorage->result]() mutable {
+                if constexpr (std::is_same_v<Next, void>) {
+                    if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                        std::apply(f, result->error());
+                    } else {
+                        f(result->error());
+                    }
+
+                    promise.resolve();
+                } else {
+                    Next next = [=]() {
+                        if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                            return std::apply(f, result->result.error());
+                        } else {
+                            return f(result->error());
+                        }
+                    }();
+
+                    if constexpr (!is_promise_v<Next>) {
+                        if constexpr (detail::is_specialization<Next, nonstd::expected>) {
+                            static_assert(std::is_same_v<promise_reason_t<Next>, E>);
+
+                            if (next) {
+                                if constexpr (std::is_same_v<NextResult, void>) {
+                                    promise.resolve();
+                                } else {
+                                    promise.resolve(std::move(next.value()));
+                                }
+                            } else {
+                                promise.reject(std::move(next.error()));
+                            }
+                        } else if constexpr (detail::is_specialization<Next, nonstd::unexpected_type>) {
+                            promise.reject(std::move(next.value()));
+                        } else {
+                            promise.resolve(std::move(next));
+                        }
+                    } else {
+                        static_assert(std::is_same_v<promise_reason_t<Next>, E>);
+
+                        if constexpr (std::is_same_v<NextResult, void>) {
+                            next->then([=]() mutable {
+                                promise.resolve();
+                            }, [=](const E &reason) mutable {
+                                promise.reject(reason);
+                            });
+                        } else {
+                            next->then([=](const NextResult &result) mutable {
+                                promise.resolve(result);
+                            }, [=](const E &reason) mutable {
+                                promise.reject(reason);
+                            });
+                        }
+                    }
+                }
             };
 
-            switch (mStatus) {
+            switch (mStorage->status) {
                 case FULFILLED:
                     onFulfilledTrigger();
                     break;
@@ -355,326 +299,76 @@ namespace zero::async::promise {
                     break;
 
                 case PENDING:
-                    mTriggers.push_back({std::move(onFulfilledTrigger), std::move(onRejectedTrigger)});
+                    mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
             }
 
-            return p;
+            return promise;
         }
 
         template<typename F>
-        auto then(F &&onFulfilled) {
-            return then(promise_callback_t<F>{std::forward<F>(onFulfilled)}, {});
+        Promise<T, E> finally(F &&f) {
+            Promise<T, E> promise;
+
+            auto onFulfilledTrigger = [=, result = &mStorage->result]() mutable {
+                f();
+
+                if constexpr (std::is_same_v<T, void>) {
+                    promise.resolve();
+                } else {
+                    promise.resolve(result->value());
+                }
+            };
+
+            auto onRejectedTrigger = [=, result = &mStorage->result]() mutable {
+                f();
+                promise.reject(result->error());
+            };
+
+            switch (mStorage->status) {
+                case FULFILLED:
+                    onFulfilledTrigger();
+                    break;
+
+                case REJECTED:
+                    onRejectedTrigger();
+                    break;
+
+                case PENDING:
+                    mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+            }
+
+            return promise;
         }
 
-        template<typename F, typename R>
-        auto then(F &&onFulfilled, R &&onRejected) {
-            return then(
-                    promise_callback_t<F>{std::forward<F>(onFulfilled)},
-                    promise_callback_t<R>{std::forward<R>(onRejected)}
-            );
-        }
-
-        template<typename R>
-        auto fail(R &&onRejected) {
-            return then(
-                    std::function<std::invoke_result_t<R, Reason>(Result)>{},
-                    promise_callback_t<R>{std::forward<R>(onRejected)}
-            );
+        template<typename F1, typename F2>
+        auto then(F1 &&f1, F2 &&f2) {
+            return then(std::forward<F1>(f1)).fail(std::forward<F2>(f2));
         }
 
     public:
         [[nodiscard]] State status() const {
-            return mStatus;
+            return mStorage->status;
         }
 
-        [[nodiscard]] Result value() const {
-            return mResult;
+        [[nodiscard]] T value() const {
+            return mStorage->result.value();
         }
 
-        [[nodiscard]] Reason reason() const {
-            return mReason;
+        [[nodiscard]] E reason() const {
+            return mStorage->result.error();
         }
 
     private:
-        Result mResult;
-        Reason mReason;
-
-    private:
-        State mStatus{PENDING};
-        std::list<std::pair<std::function<void()>, std::function<void()>>> mTriggers;
+        std::shared_ptr<Storage<T, E>> mStorage;
     };
-
-    template<>
-    class Promise<void> : public std::enable_shared_from_this<Promise<void>> {
-    public:
-        template<typename F>
-        void start(F &&func) {
-            func(shared_from_this());
-        }
-
-    public:
-        void resolve() {
-            if (mStatus != PENDING)
-                return;
-
-            mStatus = FULFILLED;
-
-            for (const auto &trigger: mTriggers) {
-                trigger.first();
-            }
-        }
-
-        void reject(Reason &&reason) {
-            if (mStatus != PENDING)
-                return;
-
-            mStatus = REJECTED;
-            mReason = std::move(reason);
-
-            for (const auto &trigger: mTriggers) {
-                trigger.second();
-            }
-        }
-
-        void reject(const Reason &reason) {
-            if (mStatus != PENDING)
-                return;
-
-            mStatus = REJECTED;
-            mReason = reason;
-
-            for (const auto &trigger: mTriggers) {
-                trigger.second();
-            }
-        }
-
-    public:
-        template<typename Next, typename NextResult = std::conditional_t<std::is_same_v<Next, Reason>, void, promise_result_t<Next>>>
-        std::shared_ptr<Promise<NextResult>>
-        then(std::function<Next()> &&onFulfilled, std::function<Next(const Reason &)> &&onRejected) {
-            auto p = std::make_shared<Promise<NextResult>>();
-
-            auto onFulfilledTrigger = [=, onFulfilled = std::move(onFulfilled)]() {
-                if (!onFulfilled) {
-                    if constexpr (std::is_same_v<NextResult, void>) {
-                        p->resolve();
-                        return;
-                    } else {
-                        throw std::logic_error("mismatched result type");
-                    }
-                }
-
-                if constexpr (std::is_same_v<Next, void>) {
-                    onFulfilled();
-                    p->resolve();
-                } else {
-                    Next next = onFulfilled();
-
-                    if constexpr (!is_promise_v<Next>) {
-                        if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
-                            if (next) {
-                                if constexpr (std::is_same_v<NextResult, void>) {
-                                    p->resolve();
-                                } else {
-                                    p->resolve(std::move(next.value()));
-                                }
-                            } else {
-                                p->reject(std::move(next.error()));
-                            }
-                        } else if constexpr (std::is_same_v<Next, Reason>) {
-                            p->reject(std::move(next));
-                        } else {
-                            p->resolve(std::move(next));
-                        }
-                    } else {
-                        if constexpr (std::is_same_v<NextResult, void>) {
-                            next->then([=]() {
-                                p->resolve();
-                            }, [=](const Reason &reason) {
-                                p->reject(reason);
-                            });
-                        } else {
-                            next->then([=](const NextResult &result) {
-                                p->resolve(result);
-                            }, [=](const Reason &reason) {
-                                p->reject(reason);
-                            });
-                        }
-                    }
-                }
-            };
-
-            auto onRejectedTrigger = [=, onRejected = std::move(onRejected)]() {
-                if (!onRejected) {
-                    p->reject(mReason);
-                    return;
-                }
-
-                if constexpr (std::is_same_v<Next, void>) {
-                    onRejected(mReason);
-                    p->resolve();
-                } else {
-                    Next next = onRejected(mReason);
-
-                    if constexpr (!is_promise_v<Next>) {
-                        if constexpr (std::is_same_v<Next, nonstd::expected<NextResult, Reason>>) {
-                            if (next) {
-                                if constexpr (std::is_same_v<NextResult, void>) {
-                                    p->resolve();
-                                } else {
-                                    p->resolve(std::move(next.value()));
-                                }
-                            } else {
-                                p->reject(std::move(next.error()));
-                            }
-                        } else if constexpr (std::is_same_v<Next, Reason>) {
-                            p->reject(std::move(next));
-                        } else {
-                            p->resolve(std::move(next));
-                        }
-                    } else {
-                        if constexpr (std::is_same_v<NextResult, void>) {
-                            next->then([=]() {
-                                p->resolve();
-                            }, [=](const Reason &reason) {
-                                p->reject(reason);
-                            });
-                        } else {
-                            next->then([=](const NextResult &result) {
-                                p->resolve(result);
-                            }, [=](const Reason &reason) {
-                                p->reject(reason);
-                            });
-                        }
-                    }
-                }
-            };
-
-            switch (mStatus) {
-                case FULFILLED:
-                    onFulfilledTrigger();
-                    break;
-
-                case REJECTED:
-                    onRejectedTrigger();
-                    break;
-
-                case PENDING:
-                    mTriggers.push_back({std::move(onFulfilledTrigger), std::move(onRejectedTrigger)});
-            }
-
-            return p;
-        }
-
-        std::shared_ptr<Promise<void>> finally(const std::function<void()> &onFinally) {
-            auto p = std::make_shared<Promise<void>>();
-
-            auto onFulfilledTrigger = [=]() {
-                onFinally();
-                p->resolve();
-            };
-
-            auto onRejectedTrigger = [=]() {
-                onFinally();
-                p->reject(mReason);
-            };
-
-            switch (mStatus) {
-                case FULFILLED:
-                    onFulfilledTrigger();
-                    break;
-
-                case REJECTED:
-                    onRejectedTrigger();
-                    break;
-
-                case PENDING:
-                    mTriggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
-            }
-
-            return p;
-        }
-
-        template<typename F>
-        auto then(F &&onFulfilled) {
-            return then(promise_callback_t<F>{std::forward<F>(onFulfilled)}, {});
-        }
-
-        template<typename F, typename R>
-        auto then(F &&onFulfilled, R &&onRejected) {
-            return then(
-                    promise_callback_t<F>{std::forward<F>(onFulfilled)},
-                    promise_callback_t<R>{std::forward<R>(onRejected)}
-            );
-        }
-
-        template<typename R>
-        auto fail(R &&onRejected) {
-            return then({}, promise_callback_t<R>{std::forward<R>(onRejected)});
-        }
-
-    public:
-        [[nodiscard]] State status() const {
-            return mStatus;
-        }
-
-        [[nodiscard]] Reason reason() const {
-            return mReason;
-        }
-
-    private:
-        Reason mReason;
-
-    private:
-        State mStatus{PENDING};
-        std::list<std::pair<std::function<void()>, std::function<void()>>> mTriggers;
-    };
-
-    template<typename Result, typename F>
-    std::shared_ptr<Promise<Result>> chain(F &&func) {
-        auto p = std::make_shared<Promise<Result>>();
-        p->start(std::forward<F>(func));
-
-        return p;
-    }
-
-    template<typename Result>
-    std::shared_ptr<Promise<Result>> reject(Reason &&reason) {
-        auto p = std::make_shared<Promise<Result>>();
-        p->reject(std::move(reason));
-
-        return p;
-    }
-
-    template<typename Result>
-    std::shared_ptr<Promise<Result>> reject(const Reason &reason) {
-        auto p = std::make_shared<Promise<Result>>();
-        p->reject(reason);
-
-        return p;
-    }
-
-    template<typename Result, typename... Ts>
-    std::shared_ptr<Promise<Result>> resolve(Ts &&... args) {
-        auto p = std::make_shared<Promise<Result>>();
-        p->resolve(std::forward<Ts>(args)...);
-
-        return p;
-    }
-
-    template<typename...Ts>
-    using first_element_t = std::tuple_element_t<0, std::tuple<Ts...>>;
-
-    template<typename T, typename...Ts>
-    inline constexpr bool is_elements_same_v = (std::is_same_v<T, Ts> && ...);
 
     template<typename...Ts>
     using promises_result_t = std::conditional_t<
-            is_elements_same_v<first_element_t<Ts...>, Ts...>,
+            detail::is_elements_same_v<detail::first_element_t<Ts...>, Ts...>,
             std::conditional_t<
-                    std::is_same_v<first_element_t<Ts...>, void>,
+                    std::is_same_v<detail::first_element_t<Ts...>, void>,
                     void,
-                    std::array<first_element_t<Ts...>, sizeof...(Ts)>
+                    std::array<detail::first_element_t<Ts...>, sizeof...(Ts)>
             >,
             decltype(std::tuple_cat(
                     std::declval<
@@ -704,212 +398,195 @@ namespace zero::async::promise {
             (std::is_same_v<Ts, void> ? 0 : 1)...
     >;
 
-    template<size_t...Index, typename ...Results>
-    std::shared_ptr<Promise<promises_result_t<Results...>>>
-    all(std::index_sequence<Index...>, const std::shared_ptr<Promise<Results>> &... promises) {
-        auto remain = std::make_shared<size_t>(sizeof...(promises));
-        auto p = std::make_shared<Promise<promises_result_t<Results...>>>();
+    template<typename T, typename E, typename F>
+    Promise<T, E> chain(F &&f) {
+        Promise<T, E> promise;
+        f(promise);
+        return promise;
+    }
 
-        if constexpr (std::is_same_v<promises_result_t<Results...>, void>) {
-            ([=]() {
-                promises->then([=]() {
+    template<typename T = void, typename E>
+    Promise<T, E> reject(E &&reason) {
+        Promise<T, E> promise;
+        promise.reject(std::forward<E>(reason));
+        return promise;
+    }
+
+    template<typename E>
+    Promise<void, E> resolve() {
+        Promise<void, E> promise;
+        promise.resolve();
+        return promise;
+    }
+
+    template<typename E, typename T>
+    Promise<T, E> resolve(T &&result) {
+        Promise<T, E> promise;
+        promise.resolve(std::forward<T>(result));
+        return promise;
+    }
+
+    template<typename ...Ts, typename E>
+    Promise<promises_result_t<Ts...>, E> all(Promise<Ts, E> &...promises) {
+        Promise<promises_result_t<Ts...>, E> promise;
+        std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(promises));
+
+#ifdef _MSC_VER
+        [&, &...promises = promises]<size_t...Is>(std::index_sequence<Is...>) {
+#else
+        [&]<size_t...Is>(std::index_sequence<Is...>) {
+#endif
+            if constexpr (std::is_same_v<promises_result_t<Ts...>, void>) {
+                ([&]() mutable {
+                    promises.then([=]() mutable {
+                        if (--(*remain) > 0)
+                            return;
+
+                        promise.resolve();
+                    }, [=](const E &reason) mutable {
+                        promise.reject(reason);
+                    });
+                }(), ...);
+            } else {
+                auto results = std::make_shared<promises_result_t<Ts...>>();
+
+                ([&]() {
+                    if constexpr (std::is_same_v<Ts, void>) {
+                        promises.then([=]() mutable {
+                            if (--(*remain) > 0)
+                                return;
+
+                            promise.resolve(std::move(*results));
+                        }, [=](const E &reason) mutable {
+                            promise.reject(reason);
+                        });
+                    } else {
+                        promises.then([=](const Ts &result) mutable {
+                            std::get<Is>(*results) = result;
+
+                            if (--(*remain) > 0)
+                                return;
+
+                            promise.resolve(std::move(*results));
+                        }, [=](const E &reason) mutable {
+                            promise.reject(reason);
+                        });
+                    }
+                }(), ...);
+            }
+        }(promises_result_index_sequence_for<Ts...>{});
+
+        return promise;
+    }
+
+    template<typename ...Ts>
+    auto all(Ts &&...promises) {
+        return all(promises...);
+    }
+
+    template<typename ...Ts, typename E>
+    Promise<std::tuple<Promise<Ts, E>...>, E> allSettled(Promise<Ts, E> &...promises) {
+        Promise<std::tuple<Promise<Ts, E>...>, E> promise;
+        std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
+        std::shared_ptr<std::tuple<Promise<Ts, E>...>> results = std::make_shared<std::tuple<Promise<Ts, E>...>>();
+
+#ifdef _MSC_VER
+        [&, &...promises = promises]<size_t...Is>(std::index_sequence<Is...>) {
+#else
+        [&]<size_t...Is>(std::index_sequence<Is...>) {
+#endif
+            ([&]() {
+                promises.finally([=]() mutable {
+                    std::get<Is>(*results) = promises;
+
                     if (--(*remain) > 0)
                         return;
 
-                    p->resolve();
-                }, [=](const Reason &reason) {
-                    p->reject(reason);
+                    promise.resolve(std::move(*results));
                 });
             }(), ...);
-        } else {
-            auto results = std::make_shared<promises_result_t<Results...>>();
+        }(std::index_sequence_for<Ts...>{});
 
-            ([=]() {
-                if constexpr (std::is_same_v<Results, void>) {
-                    promises->then([=]() {
-                        if (--(*remain) > 0)
-                            return;
-
-                        p->resolve(std::move(*results));
-                    }, [=](const Reason &reason) {
-                        p->reject(reason);
-                    });
-                } else {
-                    promises->then([=](const Results &result) {
-                        std::get<Index>(*results) = result;
-
-                        if (--(*remain) > 0)
-                            return;
-
-                        p->resolve(std::move(*results));
-                    }, [=](const Reason &reason) {
-                        p->reject(reason);
-                    });
-                }
-            }(), ...);
-        }
-
-        return p;
+        return promise;
     }
 
-    template<typename ...Results>
-    std::shared_ptr<Promise<promises_result_t<Results...>>> all(const std::shared_ptr<Promise<Results>> &... promises) {
-        return all(promises_result_index_sequence_for<Results...>{}, promises...);
+    template<typename ...Ts>
+    auto allSettled(Ts &&...promises) {
+        return allSettled(promises...);
     }
 
-    template<size_t... Index, typename ...Results>
-    std::shared_ptr<Promise<std::tuple<std::shared_ptr<Promise<Results>>...>>>
-    allSettled(std::index_sequence<Index...>, const std::shared_ptr<Promise<Results>> &... promises) {
-        auto remain = std::make_shared<size_t>(sizeof...(Results));
-        auto results = std::make_shared<std::tuple<std::shared_ptr<Promise<Results>>...>>();
-        auto p = std::make_shared<Promise<std::tuple<std::shared_ptr<Promise<Results>>...>>>();
+    template<
+            typename ...Ts,
+            typename E,
+            typename T = detail::first_element_t<Ts...>,
+            bool Same = detail::is_elements_same_v<T, Ts...>
+    >
+    Promise<std::conditional_t<Same, T, std::any>, std::list<E>> any(Promise<Ts, E> ...promises) {
+        std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
+        std::shared_ptr<std::list<E>> reasons = std::make_shared<std::list<E>>();
+        Promise<std::conditional_t<Same, T, std::any>, std::list<E>> promise;
 
-        ([=]() {
-            promises->finally([=]() {
-                std::get<Index>(*results) = promises;
-
-                if (--(*remain) > 0)
-                    return;
-
-                p->resolve(std::move(*results));
-            });
-        }(), ...);
-
-        return p;
-    }
-
-    template<typename ...Results>
-    std::shared_ptr<Promise<std::tuple<std::shared_ptr<Promise<Results>>...>>>
-    allSettled(const std::shared_ptr<Promise<Results>> &... promises) {
-        return allSettled(std::index_sequence_for<Results...>{}, promises...);
-    }
-
-    template<typename ...Results, typename T = first_element_t<Results...>, bool Same = is_elements_same_v<T, Results...>>
-    std::shared_ptr<Promise<std::conditional_t<Same, T, std::any>>>
-    any(const std::shared_ptr<Promise<Results>> &... promises) {
-        auto remain = std::make_shared<size_t>(sizeof...(Results));
-        auto tail = std::make_shared<Reason>();
-        auto p = std::make_shared<Promise<std::conditional_t<Same, T, std::any>>>();
-
-        ([=]() {
-            if constexpr (std::is_same_v<Results, void>) {
-                promises->then([=]() {
+        ([&]() {
+            if constexpr (std::is_same_v<Ts, void>) {
+                promises.then([=]() mutable {
                     if constexpr (Same)
-                        p->resolve();
+                        promise.resolve();
                     else
-                        p->resolve(std::any{});
-                }, [=](const Reason &reason) {
-                    Reason last = reason;
-
-                    if (*remain != sizeof...(Results))
-                        last.previous = std::make_shared<Reason>(*tail);
-
-                    *tail = last;
+                        promise.resolve(std::any{});
+                }, [=](const E &reason) mutable {
+                    reasons->push_front(reason);
 
                     if (--(*remain) > 0)
                         return;
 
-                    p->reject(std::move(*tail));
+                    promise.reject(std::move(*reasons));
                 });
             } else {
-                promises->then([=](const Results &result) {
-                    p->resolve(result);
-                }, [=](const Reason &reason) {
-                    Reason last = reason;
-
-                    if (*remain != sizeof...(Results))
-                        last.previous = std::make_shared<Reason>(*tail);
-
-                    *tail = last;
+                promises.then([=](const Ts &result) mutable {
+                    promise.resolve(result);
+                }, [=](const E &reason) mutable {
+                    reasons->push_front(reason);
 
                     if (--(*remain) > 0)
                         return;
 
-                    p->reject(std::move(*tail));
+                    promise.reject(std::move(*reasons));
                 });
             }
         }(), ...);
 
-        return p;
+        return promise;
     }
 
-    template<typename ...Results, typename T = first_element_t<Results...>, bool Same = is_elements_same_v<T, Results...>>
-    std::shared_ptr<Promise<std::conditional_t<Same, T, std::any>>>
-    race(const std::shared_ptr<Promise<Results>> &... promises) {
-        auto p = std::make_shared<Promise<std::conditional_t<Same, T, std::any>>>();
+    template<
+            typename ...Ts,
+            typename E,
+            typename T = detail::first_element_t<Ts...>,
+            bool Same = detail::is_elements_same_v<T, Ts...>
+    >
+    Promise<std::conditional_t<Same, T, std::any>, E> race(Promise<Ts, E> ...promises) {
+        Promise<std::conditional_t<Same, T, std::any>, E> promise;
 
-        ([=]() {
-            if constexpr (std::is_same_v<Results, void>) {
-                promises->then([=]() {
+        ([&]() {
+            if constexpr (std::is_same_v<Ts, void>) {
+                promises.then([=]() mutable {
                     if constexpr (Same)
-                        p->resolve();
+                        promise.resolve();
                     else
-                        p->resolve(std::any{});
-                }, [=](const Reason &reason) {
-                    p->reject(reason);
+                        promise.resolve(std::any{});
+                }, [=](const E &reason) mutable {
+                    promise.reject(reason);
                 });
             } else {
-                promises->then([=](const Results &result) {
-                    p->resolve(result);
-                }, [=](const Reason &reason) {
-                    p->reject(reason);
+                promises.then([=](const Ts &result) mutable {
+                    promise.resolve(result);
+                }, [=](const E &reason) mutable {
+                    promise.reject(reason);
                 });
             }
         }(), ...);
 
-        return p;
-    }
-
-    template<typename Result, typename F>
-    void repeat(
-            const std::shared_ptr<Promise<Result>> &loop,
-            F &&func
-    ) {
-        std::shared_ptr<Promise<Result>> p = chain<Result>(func);
-
-        while (p->status() == REJECTED && p->reason().code == 0 && p->reason().message.empty())
-            p = chain<Result>(func);
-
-        if constexpr (std::is_same_v<Result, void>) {
-            p->then([=]() {
-                loop->resolve();
-            }, [=, func = std::forward<F>(func)](const Reason &reason) mutable {
-                if (reason.code == 0 && reason.message.empty()) {
-                    repeat(loop, std::move(func));
-                    return;
-                }
-
-                loop->reject(reason);
-            });
-        } else {
-            p->then([=](const Result &result) {
-                loop->resolve(result);
-            }, [=, func = std::forward<F>(func)](const Reason &reason) mutable {
-                if (reason.code == 0 && reason.message.empty()) {
-                    repeat(loop, std::move(func));
-                    return;
-                }
-
-                loop->reject(reason);
-            });
-        }
-    }
-
-    template<typename Result, typename F>
-    std::shared_ptr<Promise<Result>> loop(F &&func) {
-        return chain<Result>([func = std::forward<F>(func)](const auto &loop) mutable {
-            repeat<Result>(loop, std::move(func));
-        });
-    }
-
-    template<typename F>
-    std::shared_ptr<Promise<void>> doWhile(F &&func) {
-        return loop<void>([f = std::forward<F>(func)](const auto &loop) {
-            f()->then(
-                    PF_LOOP_CONTINUE(loop),
-                    PF_LOOP_THROW(loop)
-            );
-        });
+        return promise;
     }
 }
 

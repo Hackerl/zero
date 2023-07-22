@@ -13,7 +13,7 @@ constexpr auto DECODE_MAP = std::array{
         41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 255, 255, 255, 255, 255
 };
 
-std::string zero::encoding::base64::encode(nonstd::span<const std::byte> buffer) {
+std::string zero::encoding::base64::encode(std::span<const std::byte> buffer) {
     size_t length = buffer.size();
     size_t missing = (length + 2) / 3 * 3 - length;
     size_t size = (length + missing) * 4 / 3;

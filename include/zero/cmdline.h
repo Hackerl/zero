@@ -3,11 +3,10 @@
 
 #include "strings/strings.h"
 #include "filesystem/path.h"
-#include <list>
+#include "detail/type_traits.h"
 #include <algorithm>
 #include <iostream>
 #include <cstring>
-#include <functional>
 #include <iomanip>
 #include <any>
 
@@ -16,19 +15,6 @@
 #endif
 
 namespace zero {
-    template<typename>
-    struct is_vector : std::false_type {
-
-    };
-
-    template<typename T, typename A>
-    struct is_vector<std::vector<T, A>> : std::true_type {
-
-    };
-
-    template<typename T>
-    inline constexpr bool is_vector_v = is_vector<T>::value;
-
     template<typename T>
     std::optional<T> convert(std::string_view str);
 
@@ -43,7 +29,7 @@ namespace zero {
             return *value;
         } else if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, std::filesystem::path>) {
             return T{str};
-        } else if constexpr (is_vector_v<T>) {
+        } else if constexpr (detail::Vector<T>) {
             T value;
 
             for (const auto &token: strings::split(str, ",")) {
@@ -72,7 +58,7 @@ namespace zero {
             return "string";
         } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return "path";
-        } else if constexpr (is_vector_v<T>) {
+        } else if constexpr (detail::Vector<T>) {
             return strings::format("%s[]", getType<typename T::value_type>().c_str());
         } else {
 #if _CPPRTTI || __GXX_RTTI
@@ -131,25 +117,23 @@ namespace zero {
     public:
         template<typename T>
         void add(const char *name, const char *desc) {
-            mPositionals.push_back({name, desc, std::any{}, {getType<T>(), parseValue<T>}});
+            mPositionals.emplace_back(name, desc, std::any{}, TypeInfo{getType<T>(), parseValue<T>});
         }
 
         void addOptional(const char *name, char shortName, const char *desc) {
-            mOptionals.push_back({name, shortName, desc, false});
+            mOptionals.emplace_back(name, shortName, desc, false);
         }
 
         template<typename T>
         void addOptional(const char *name, char shortName, const char *desc, std::optional<T> def = std::nullopt) {
-            mOptionals.push_back(
-                    {
-                            name,
-                            shortName,
-                            desc,
-                            def ? std::any{*def} : std::any{},
-                            TypeInfo{
-                                    getType<T>(),
-                                    parseValue<T>
-                            }
+            mOptionals.emplace_back(
+                    name,
+                    shortName,
+                    desc,
+                    def ? std::any{*def} : std::any{},
+                    TypeInfo{
+                            getType<T>(),
+                            parseValue<T>
                     }
             );
         }
@@ -204,7 +188,7 @@ namespace zero {
             auto it = mPositionals.begin();
 
             for (int i = 1; i < argc; i++) {
-                if (!strings::startsWith(argv[i], "-")) {
+                if (*argv[i] != '-') {
                     if (it == mPositionals.end()) {
                         mRest.emplace_back(argv[i]);
                         continue;
@@ -321,7 +305,7 @@ namespace zero {
             );
 
             std::cout << "usage: "
-                      << filesystem::getApplicationPath()->filename().u8string()
+                      << filesystem::getApplicationPath()->filename().string()
                       << " [options] " << strings::join(positionals, " ")
                       << " ... "
                       << (mFooter.empty() ? "extra" : mFooter)

@@ -2,7 +2,6 @@
 
 include(CMakeFindDependencyMacro)
 
-find_dependency(span-lite)
 find_dependency(expected-lite)
 find_dependency(Iconv)
 

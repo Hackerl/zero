@@ -7,8 +7,7 @@
     {
       "name": "libiconv",
       "platform": "windows | android"
-    },
-    "span-lite"
+    }
   ],
   "default-features": [
     "tests"

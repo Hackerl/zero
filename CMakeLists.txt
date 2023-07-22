@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.17)
 project(zero)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 option(ZERO_DISABLE_TESTS "disable unit test" OFF)
 option(ZERO_DISABLE_LOG "disable log module" OFF)
@@ -18,7 +18,6 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 find_package(Iconv REQUIRED)
-find_package(span-lite CONFIG REQUIRED)
 find_package(expected-lite CONFIG REQUIRED)
 
 add_library(
@@ -56,7 +55,6 @@ target_link_libraries(
         zero
         PUBLIC
         Iconv::Iconv
-        nonstd::span-lite
         nonstd::expected-lite
         INTERFACE
         $<$<PLATFORM_ID:Windows>:Ws2_32>

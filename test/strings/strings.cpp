@@ -2,47 +2,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
-TEST_CASE("string contains the specified substring in a case insensitive way", "[strings]") {
-    REQUIRE(zero::strings::containsIgnoreCase("", "") == true);
-    REQUIRE(zero::strings::containsIgnoreCase("AbCd", "") == true);
-    REQUIRE(zero::strings::containsIgnoreCase("", "AbCd") == false);
-    REQUIRE(zero::strings::containsIgnoreCase("AbCd", "abc") == true);
-    REQUIRE(zero::strings::containsIgnoreCase("AbCd", "abd") == false);
-    REQUIRE(zero::strings::containsIgnoreCase("AbCd", "a") == true);
-    REQUIRE(zero::strings::containsIgnoreCase("AbCd", "aBcD") == true);
-    REQUIRE(zero::strings::containsIgnoreCase("AbCd", "aBcDE") == false);
-
-    BENCHMARK("zero::strings::containsIgnoreCase") {
-        return zero::strings::containsIgnoreCase("AbCd", "aBcD");
-    };
-}
-
-TEST_CASE("string starts with the specified value", "[strings]") {
-    REQUIRE(zero::strings::startsWith("", "") == true);
-    REQUIRE(zero::strings::startsWith("AbCd", "") == true);
-    REQUIRE(zero::strings::startsWith("", "AbCd") == false);
-    REQUIRE(zero::strings::startsWith("AbCd", "abc") == false);
-    REQUIRE(zero::strings::startsWith("AbCd", "Ab") == true);
-    REQUIRE(zero::strings::startsWith("AbCd", "AbCd") == true);
-
-    BENCHMARK("zero::strings::startsWith") {
-        return zero::strings::startsWith("AbCd", "AbCd");
-    };
-}
-
-TEST_CASE("string ends with the specified value", "[strings]") {
-    REQUIRE(zero::strings::endsWith("", "") == true);
-    REQUIRE(zero::strings::endsWith("AbCd", "") == true);
-    REQUIRE(zero::strings::endsWith("", "AbCd") == false);
-    REQUIRE(zero::strings::endsWith("AbCd", "BcD") == false);
-    REQUIRE(zero::strings::endsWith("AbCd", "bCd") == true);
-    REQUIRE(zero::strings::endsWith("AbCd", "Cd") == true);
-
-    BENCHMARK("zero::strings::endsWith") {
-        return zero::strings::endsWith("AbCd", "Cd");
-    };
-}
-
 TEST_CASE("remove any leading and trailing spaces of string", "[strings]") {
     REQUIRE(zero::strings::trim("").empty());
     REQUIRE(zero::strings::trim(" \t\n \n\t").empty());
@@ -79,19 +38,6 @@ TEST_CASE("remove any trailing spaces of string", "[strings]") {
 
     BENCHMARK("zero::strings::rtrim") {
         return zero::strings::rtrim(" \n \t Ab Cd \n\t ") ;
-    };
-}
-
-TEST_CASE("trim extra spaces between words", "[strings]") {
-    REQUIRE(zero::strings::trimExtraSpace("").empty());
-    REQUIRE(zero::strings::trimExtraSpace(" \t\n \n\t") == " ");
-    REQUIRE(zero::strings::trimExtraSpace(" Ab \t\nCd ") == " Ab Cd ");
-    REQUIRE(zero::strings::trimExtraSpace("\n \t A\n bCd \n\t") == "\nA\nbCd ");
-    REQUIRE(zero::strings::trimExtraSpace(" \n \t Ab Cd \n\t ") == " Ab Cd ");
-    REQUIRE(zero::strings::trimExtraSpace(" A b C d ") == " A b C d ");
-
-    BENCHMARK("zero::strings::trimExtraSpace") {
-        return zero::strings::trimExtraSpace(" \n \t Ab Cd \n\t ");
     };
 }
 
@@ -235,7 +181,7 @@ TEST_CASE("convert a wide-character string to a multibyte string", "[encode]") {
          "1234567890123456789012345678901234567890123456789012345678901234567890"
     );
 
-    BENCHMARK("zero::strings::format") {
+    BENCHMARK("zero::strings::encode") {
         return zero::strings::encode(L"1234567890");
     };
 }
@@ -287,7 +233,7 @@ TEST_CASE("convert a multibyte string to a wide-character string", "[decode]") {
          "1234567890123456789012345678901234567890123456789012345678901234567890"
     );
 
-    BENCHMARK("zero::strings::format") {
+    BENCHMARK("zero::strings::decode") {
         return zero::strings::decode("1234567890");
     };
 }

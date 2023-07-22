@@ -10,17 +10,12 @@
 #include <stdexcept>
 
 namespace zero::strings {
-    bool containsIgnoreCase(std::string_view str, std::string_view substr);
-    bool startsWith(std::string_view str, std::string_view prefix);
-    bool endsWith(std::string_view str, std::string_view suffix);
+    std::string trim(std::string_view str);
+    std::string ltrim(std::string_view str);
+    std::string rtrim(std::string_view str);
 
-    std::string trim(const std::string &str);
-    std::string ltrim(std::string str);
-    std::string rtrim(std::string str);
-    std::string trimExtraSpace(std::string str);
-
-    std::string tolower(std::string str);
-    std::string toupper(std::string str);
+    std::string tolower(std::string_view str);
+    std::string toupper(std::string_view str);
 
     std::vector<std::string> split(std::string_view str, int limit = 0);
     std::vector<std::string> split(std::string_view str, std::string_view delimiter, int limit = 0);

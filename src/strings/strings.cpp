@@ -1,103 +1,58 @@
 #include <zero/strings/strings.h>
+#include <ranges>
 #include <algorithm>
 #include <iconv.h>
 
-bool zero::strings::containsIgnoreCase(std::string_view str, std::string_view substr) {
-    if (substr.empty())
-        return true;
+std::string zero::strings::trim(std::string_view str) {
+    auto v = str
+             | std::views::drop_while(isspace)
+             | std::views::reverse
+             | std::views::drop_while(isspace)
+             | std::views::reverse;
 
-    return std::search(
-            str.begin(), str.end(),
-            substr.begin(), substr.end(),
-            [](char ch1, char ch2) {
-                return ::toupper(ch1) == ::toupper(ch2);
-            }
-    ) != str.end();
+    return {v.begin(), v.end()};
 }
 
-bool zero::strings::startsWith(std::string_view str, std::string_view prefix) {
-    if (str.length() < prefix.length())
-        return false;
+std::string zero::strings::ltrim(std::string_view str) {
+    auto v = str
+             | std::views::drop_while(isspace);
 
-    return str.compare(0, prefix.length(), prefix) == 0;
+    return {v.begin(), v.end()};
 }
 
-bool zero::strings::endsWith(std::string_view str, std::string_view suffix) {
-    if (str.length() < suffix.length())
-        return false;
+std::string zero::strings::rtrim(std::string_view str) {
+    auto v = str
+             | std::views::reverse
+             | std::views::drop_while(isspace)
+             | std::views::reverse;
 
-    return str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0;
+    return {v.begin(), v.end()};
 }
 
-std::string zero::strings::trim(const std::string &str) {
-    return rtrim(ltrim(str));
+std::string zero::strings::tolower(std::string_view str) {
+    auto v = str
+             | std::views::transform(::tolower);
+
+    return {v.begin(), v.end()};
 }
 
-std::string zero::strings::ltrim(std::string str) {
-    str.erase(
-            str.begin(),
-            std::find_if(
-                    str.begin(),
-                    str.end(),
-                    [](char ch) {
-                        return !std::isspace(ch);
-                    }
-            )
-    );
+std::string zero::strings::toupper(std::string_view str) {
+    auto v = str
+             | std::views::transform(::toupper);
 
-    return str;
-}
-
-std::string zero::strings::rtrim(std::string str) {
-    str.erase(
-            std::find_if(
-                    str.rbegin(),
-                    str.rend(),
-                    [](char ch) {
-                        return !std::isspace(ch);
-                    }
-            ).base(),
-            str.end()
-    );
-
-    return str;
-}
-
-std::string zero::strings::trimExtraSpace(std::string str) {
-    str.erase(
-            std::unique(
-                    str.begin(),
-                    str.end(),
-                    [](char ch1, char ch2) {
-                        return std::isspace(ch1) && std::isspace(ch2);
-                    }
-            ),
-            str.end()
-    );
-
-    return str;
-}
-
-std::string zero::strings::tolower(std::string str) {
-    std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-    return str;
-}
-
-std::string zero::strings::toupper(std::string str) {
-    std::transform(str.begin(), str.end(), str.begin(), ::toupper);
-    return str;
+    return {v.begin(), v.end()};
 }
 
 std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
     std::vector<std::string> tokens;
 
-    auto prev = std::find_if(str.begin(), str.end(), [](char ch) { return !std::isspace(ch); });
+    auto prev = std::find_if(str.begin(), str.end(), isspace);
 
     while (true) {
         if (prev == str.end())
             break;
 
-        auto it = std::find_if(prev, str.end(), [](char ch) { return std::isspace(ch); });
+        auto it = std::find_if(prev, str.end(), isspace);
 
         if (it == str.end()) {
             tokens.emplace_back(prev, str.end());
@@ -105,7 +60,7 @@ std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
         }
 
         tokens.emplace_back(prev, it);
-        prev = std::find_if(it, str.end(), [](char ch) { return !std::isspace(ch); });
+        prev = std::find_if(it, str.end(), isspace);
 
         if (!--limit) {
             if (prev == str.end())

@@ -52,7 +52,7 @@ std::optional<std::string> zero::os::nt::process::Process::name() const {
     if (!path)
         return std::nullopt;
 
-    return path->filename().u8string();
+    return path->filename().string();
 }
 
 std::optional<std::filesystem::path> zero::os::nt::process::Process::image() const {
@@ -132,7 +132,7 @@ std::optional<std::vector<std::string>> zero::os::nt::process::Process::cmdline(
             break;
         }
 
-        cmdline->push_back(*arg);
+        cmdline->push_back(std::move(*arg));
     }
 
     LocalFree(args);
