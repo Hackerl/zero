@@ -8,6 +8,7 @@ add_executable(
         atomic/event.cpp
         atomic/circular_buffer.cpp
         async/promise.cpp
+        async/coroutine.cpp
         encoding/hex.cpp
         encoding/base64.cpp
         strings/strings.cpp

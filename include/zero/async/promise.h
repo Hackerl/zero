@@ -92,6 +92,8 @@ namespace zero::async::promise {
             for (const auto &trigger: mStorage->triggers) {
                 trigger.first();
             }
+
+            mStorage->triggers.clear();
         }
 
         template<typename ...Ts>
@@ -105,24 +107,17 @@ namespace zero::async::promise {
             for (const auto &trigger: mStorage->triggers) {
                 trigger.second();
             }
+
+            mStorage->triggers.clear();
         }
 
     public:
-        template<
-                typename F,
-                typename Next = detail::callable_result_t<F>,
-                typename NextResult = std::conditional_t<
-                        detail::is_specialization<Next, nonstd::unexpected_type>,
-                        T,
-                        promise_result_t<Next>
-                >,
-                typename NextReason = std::conditional_t<
-                        detail::is_specialization<Next, nonstd::unexpected_type>,
-                        promise_reason_t<Next>,
-                        E
-                >
-        >
-        Promise<NextResult, NextReason> then(F &&f) {
+        template<typename F>
+        auto then(F &&f) {
+            using Next = detail::callable_result_t<F>;
+            using NextResult = std::conditional_t<detail::is_specialization<Next, nonstd::unexpected_type>, T, promise_result_t<Next>>;
+            using NextReason = std::conditional_t<detail::is_specialization<Next, nonstd::unexpected_type>, promise_reason_t<Next>, E>;
+
             Promise<NextResult, NextReason> promise;
 
             auto onFulfilledTrigger = [=, f = std::forward<F>(f), result = &mStorage->result]() mutable {
@@ -206,21 +201,12 @@ namespace zero::async::promise {
             return promise;
         }
 
-        template<
-                typename F,
-                typename Next = detail::callable_result_t<F>,
-                typename NextResult = std::conditional_t<
-                        detail::is_specialization<Next, nonstd::unexpected_type>,
-                        T,
-                        promise_result_t<Next>
-                >,
-                typename NextReason = std::conditional_t<
-                        detail::is_specialization<Next, nonstd::unexpected_type>,
-                        promise_reason_t<Next>,
-                        E
-                >
-        >
-        Promise<NextResult, NextReason> fail(F &&f) {
+        template<typename F>
+        auto fail(F &&f) {
+            using Next = detail::callable_result_t<F>;
+            using NextResult = std::conditional_t<detail::is_specialization<Next, nonstd::unexpected_type>, T, promise_result_t<Next>>;
+            using NextReason = std::conditional_t<detail::is_specialization<Next, nonstd::unexpected_type>, promise_reason_t<Next>, E>;
+
             Promise<NextResult, NextReason> promise;
 
             auto onFulfilledTrigger = [=, result = &mStorage->result]() mutable {
@@ -405,21 +391,23 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename T = void, typename E>
+    template<typename T, typename E>
     Promise<T, E> reject(E &&reason) {
         Promise<T, E> promise;
         promise.reject(std::forward<E>(reason));
         return promise;
     }
 
-    template<typename E>
-    Promise<void, E> resolve() {
-        Promise<void, E> promise;
+    template<typename T, typename E>
+    requires std::is_same_v<T, void>
+    Promise<T, E> resolve() {
+        Promise<T, E> promise;
         promise.resolve();
         return promise;
     }
 
-    template<typename E, typename T>
+    template<typename T, typename E>
+    requires (!std::is_same_v<T, void>)
     Promise<T, E> resolve(T &&result) {
         Promise<T, E> promise;
         promise.resolve(std::forward<T>(result));
@@ -486,28 +474,21 @@ namespace zero::async::promise {
 
     template<typename ...Ts, typename E>
     Promise<std::tuple<Promise<Ts, E>...>, E> allSettled(Promise<Ts, E> &...promises) {
-        Promise<std::tuple<Promise<Ts, E>...>, E> promise;
+        Promise<void, E> promise;
         std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
-        std::shared_ptr<std::tuple<Promise<Ts, E>...>> results = std::make_shared<std::tuple<Promise<Ts, E>...>>();
 
-#ifdef _MSC_VER
-        [&, &...promises = promises]<size_t...Is>(std::index_sequence<Is...>) {
-#else
-        [&]<size_t...Is>(std::index_sequence<Is...>) {
-#endif
-            ([&]() {
-                promises.finally([=]() mutable {
-                    std::get<Is>(*results) = promises;
+        ([&]() {
+            promises.finally([=]() mutable {
+                if (--(*remain) > 0)
+                    return;
 
-                    if (--(*remain) > 0)
-                        return;
+                promise.resolve();
+            });
+        }(), ...);
 
-                    promise.resolve(std::move(*results));
-                });
-            }(), ...);
-        }(std::index_sequence_for<Ts...>{});
-
-        return promise;
+        return promise.then([=]() {
+            return std::tuple{promises...};
+        });
     }
 
     template<typename ...Ts>
@@ -515,13 +496,11 @@ namespace zero::async::promise {
         return allSettled(promises...);
     }
 
-    template<
-            typename ...Ts,
-            typename E,
-            typename T = detail::first_element_t<Ts...>,
-            bool Same = detail::is_elements_same_v<T, Ts...>
-    >
-    Promise<std::conditional_t<Same, T, std::any>, std::list<E>> any(Promise<Ts, E> ...promises) {
+    template<typename ...Ts, typename E>
+    auto any(Promise<Ts, E> &...promises) {
+        using T = detail::first_element_t<Ts...>;
+        constexpr bool Same = detail::is_elements_same_v<T, Ts...>;
+
         std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
         std::shared_ptr<std::list<E>> reasons = std::make_shared<std::list<E>>();
         Promise<std::conditional_t<Same, T, std::any>, std::list<E>> promise;
@@ -558,13 +537,16 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<
-            typename ...Ts,
-            typename E,
-            typename T = detail::first_element_t<Ts...>,
-            bool Same = detail::is_elements_same_v<T, Ts...>
-    >
-    Promise<std::conditional_t<Same, T, std::any>, E> race(Promise<Ts, E> ...promises) {
+    template<typename ...Ts>
+    auto any(Ts &&...promises) {
+        return any(promises...);
+    }
+
+    template<typename ...Ts,typename E>
+    auto race(Promise<Ts, E> &...promises) {
+        using T = detail::first_element_t<Ts...>;
+        constexpr bool Same = detail::is_elements_same_v<T, Ts...>;
+
         Promise<std::conditional_t<Same, T, std::any>, E> promise;
 
         ([&]() {
@@ -587,6 +569,11 @@ namespace zero::async::promise {
         }(), ...);
 
         return promise;
+    }
+
+    template<typename ...Ts>
+    auto race(Ts &&...promises) {
+        return race(promises...);
     }
 }
 
