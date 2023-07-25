@@ -24,11 +24,11 @@ namespace zero::ptr {
         }
 
     protected:
-        void addRef() {
+        void addRef() const {
             mCount++;
         }
 
-        void release() {
+        void release() const {
             if (--mCount == 0) {
                 delete this;
             }
@@ -39,7 +39,7 @@ namespace zero::ptr {
         }
 
     private:
-        std::atomic<long> mCount;
+        mutable std::atomic<long> mCount;
 
         template<typename T>
         friend class RefPtr;

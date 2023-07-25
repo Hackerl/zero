@@ -28,7 +28,7 @@ TEST_CASE("smart pointer using intrusive reference counting", "[ref]") {
         REQUIRE(a);
         REQUIRE(a.useCount() == 3);
 
-        zero::ptr::RefPtr<A> a1 = std::move(b2);
+        zero::ptr::RefPtr<const A> a1 = std::move(b2);
         REQUIRE(a1);
         REQUIRE(a1.useCount() == 3);
     }
