@@ -2,10 +2,10 @@
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("lock-free circular buffer", "[circular buffer]") {
-    zero::atomic::CircularBuffer<int, 10> buffer;
+    zero::atomic::CircularBuffer<int> buffer(10);
 
     REQUIRE(buffer.empty());
-    REQUIRE(buffer.size() == 0);
+    REQUIRE(buffer.empty());
     REQUIRE(!buffer.full());
 
     SECTION("producer/consumer") {
@@ -24,7 +24,6 @@ TEST_CASE("lock-free circular buffer", "[circular buffer]") {
 
         REQUIRE(index);
         REQUIRE(buffer.empty());
-        REQUIRE(buffer.size() == 0);
         REQUIRE(!buffer.full());
 
         REQUIRE(buffer[*index] == 1);

@@ -152,7 +152,7 @@ namespace zero {
         std::once_flag mOnceFlag;
         std::list<Config> mConfigs;
         std::optional<LogLevel> mLogLevel;
-        atomic::CircularBuffer<LogMessage, 1024> mBuffer;
+        atomic::CircularBuffer<LogMessage> mBuffer;
     };
 
     static inline constexpr std::string_view sourceFilename(std::string_view path) {

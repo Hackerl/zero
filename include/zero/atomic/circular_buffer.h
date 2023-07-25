@@ -3,15 +3,15 @@
 
 #include <cstddef>
 #include <atomic>
+#include <memory>
 #include <optional>
+#include <cassert>
 
 namespace zero::atomic {
-    template<typename T, size_t N>
+    template<typename T>
     class CircularBuffer {
     private:
-        static constexpr auto MODULO = SIZE_MAX / N * N;
-
-        enum State : long {
+        enum State {
             IDLE,
             PUTTING,
             VALID,
@@ -19,8 +19,10 @@ namespace zero::atomic {
         };
 
     public:
-        CircularBuffer() : mHead(0), mTail(0), mState() {
-
+        explicit CircularBuffer(size_t capacity)
+                : mHead(0), mTail(0), mCapacity(capacity), mModulo(SIZE_MAX / capacity * capacity),
+                  mBuffer(std::make_unique<T[]>(capacity)), mState(std::make_unique<std::atomic<State>[]>(capacity)) {
+            assert(mCapacity > 1);
         }
 
     public:
@@ -30,9 +32,9 @@ namespace zero::atomic {
             do {
                 if (full())
                     return std::nullopt;
-            } while (!mTail.compare_exchange_weak(index, (index + 1) % MODULO));
+            } while (!mTail.compare_exchange_weak(index, (index + 1) % mModulo));
 
-            index %= N;
+            index %= mCapacity;
 
             while (true) {
                 State expected = IDLE;
@@ -55,9 +57,9 @@ namespace zero::atomic {
             do {
                 if (empty())
                     return std::nullopt;
-            } while (!mHead.compare_exchange_weak(index, (index + 1) % MODULO));
+            } while (!mHead.compare_exchange_weak(index, (index + 1) % mModulo));
 
-            index %= N;
+            index %= mCapacity;
 
             while (true) {
                 State expected = VALID;
@@ -80,7 +82,11 @@ namespace zero::atomic {
 
     public:
         [[nodiscard]] size_t size() const {
-            return (mTail % N + N - mHead % N) % N;
+            return (mTail % mCapacity + mCapacity - mHead % mCapacity) % mCapacity;
+        }
+
+        [[nodiscard]] size_t capacity() const {
+            return mCapacity;
         }
 
         [[nodiscard]] bool empty() const {
@@ -88,16 +94,16 @@ namespace zero::atomic {
         }
 
         [[nodiscard]] bool full() const {
-            return (mTail + 1) % N == mHead % N;
+            return (mTail + 1) % mCapacity == mHead % mCapacity;
         }
 
     private:
-        T mBuffer[N];
-        std::atomic<State> mState[N];
-
-    private:
+        size_t mModulo;
+        size_t mCapacity;
         std::atomic<size_t> mHead;
         std::atomic<size_t> mTail;
+        std::unique_ptr<T[]> mBuffer;
+        std::unique_ptr<std::atomic<State>[]> mState;
     };
 }
 

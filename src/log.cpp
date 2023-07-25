@@ -7,6 +7,8 @@
 #include <unistd.h>
 #endif
 
+constexpr auto LOGGER_BUFFER_SIZE = 1024;
+
 std::string zero::stringify(const zero::LogMessage &message) {
     return zero::strings::format(
             "%s | %-5s | %20.*s:%-4d] %s\n",
@@ -121,7 +123,7 @@ zero::LogResult zero::FileProvider::write(const LogMessage &message) {
     return SUCCEEDED;
 }
 
-zero::Logger::Logger() : mExit(false) {
+zero::Logger::Logger() : mExit(false), mBuffer(LOGGER_BUFFER_SIZE) {
 
 }
 
