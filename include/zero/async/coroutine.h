@@ -7,7 +7,7 @@
 namespace zero::async::coroutine {
     template<typename T, typename E>
     struct Awaitable {
-        bool await_ready() {
+        [[nodiscard]] bool await_ready() const {
             return promise.status() != promise::PENDING;
         }
 
@@ -17,15 +17,8 @@ namespace zero::async::coroutine {
             });
         }
 
-        nonstd::expected<T, E> await_resume() {
-            if (promise.status() != promise::FULFILLED)
-                return nonstd::make_unexpected(promise.reason());
-
-            if constexpr (std::is_same_v<T, void>) {
-                return {};
-            } else {
-                return promise.value();
-            }
+        const nonstd::expected<T, E> &await_resume() const {
+            return promise.result();
         }
 
         promise::Promise<T, E> promise;
@@ -42,20 +35,11 @@ namespace zero::async::coroutine {
             return promise.status() != promise::PENDING;
         }
 
-        [[nodiscard]] nonstd::expected<T, E> result() {
-            if (promise.status() != promise::FULFILLED) {
-                return nonstd::make_unexpected(promise.reason());
-            }
-
-            if constexpr (std::is_same_v<T, void>) {
-                return {};
-            } else {
-                return promise.value();
-            }
+        [[nodiscard]] const nonstd::expected<T, E> &result() const {
+            return promise.result();
         }
 
-        [[nodiscard]] Awaitable<T, E> operator
-        co_await() const {
+        Awaitable<T, E> operator co_await()  {
             return {promise};
         }
 

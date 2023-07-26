@@ -336,12 +336,16 @@ namespace zero::async::promise {
             return mStorage->status;
         }
 
-        [[nodiscard]] T value() const {
+        [[nodiscard]] std::add_lvalue_reference_t<std::add_const_t<T>> value() const {
             return mStorage->result.value();
         }
 
-        [[nodiscard]] E reason() const {
+        [[nodiscard]] const E &reason() const {
             return mStorage->result.error();
+        }
+
+        [[nodiscard]] const nonstd::expected<T, E> &result() const {
+            return mStorage->result;
         }
 
     private:
