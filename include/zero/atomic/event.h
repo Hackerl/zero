@@ -4,7 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <optional>
-#include <nonstd/expected.hpp>
+#include <tl/expected.hpp>
 
 #ifdef ZERO_LEGACY_NT
 #include <windows.h>
@@ -30,7 +30,7 @@ namespace zero::atomic {
 #endif
 
     public:
-        nonstd::expected<void, Error> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+        tl::expected<void, Error> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
     public:
         void notify();

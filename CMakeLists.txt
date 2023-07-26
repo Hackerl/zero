@@ -18,7 +18,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 find_package(Iconv REQUIRED)
-find_package(expected-lite CONFIG REQUIRED)
+find_package(tl-expected CONFIG REQUIRED)
 
 add_library(
         zero
@@ -55,7 +55,7 @@ target_link_libraries(
         zero
         PUBLIC
         Iconv::Iconv
-        nonstd::expected-lite
+        tl::expected
         INTERFACE
         $<$<PLATFORM_ID:Windows>:Ws2_32>
         $<$<PLATFORM_ID:Windows>:Iphlpapi>

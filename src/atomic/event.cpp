@@ -28,9 +28,9 @@ zero::atomic::Event::~Event() {
 }
 #endif
 
-nonstd::expected<void, zero::atomic::Event::Error>
+tl::expected<void, zero::atomic::Event::Error>
 zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
-    nonstd::expected<void, zero::atomic::Event::Error> result;
+    tl::expected<void, zero::atomic::Event::Error> result;
 
     while (true) {
         Value expected = 1;
@@ -42,12 +42,12 @@ zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
         DWORD rc = WaitForSingleObject(mEvent, timeout ? (DWORD) timeout->count() : INFINITE);
 
         if (rc != WAIT_OBJECT_0) {
-            result = nonstd::make_unexpected(rc == WAIT_TIMEOUT ? TIMEOUT : UNEXPECTED);
+            result = tl::unexpected(rc == WAIT_TIMEOUT ? TIMEOUT : UNEXPECTED);
             break;
         }
 #elif _WIN32
         if (!WaitOnAddress(&mState, &expected, sizeof(int), timeout ? (DWORD) timeout->count() : INFINITE)) {
-            result = nonstd::make_unexpected(GetLastError() == ERROR_TIMEOUT ? TIMEOUT : UNEXPECTED);
+            result = tl::unexpected(GetLastError() == ERROR_TIMEOUT ? TIMEOUT : UNEXPECTED);
             break;
         }
 #elif __linux__
@@ -63,7 +63,7 @@ zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
             if (errno == EAGAIN)
                 continue;
 
-            result = nonstd::make_unexpected(errno == ETIMEDOUT ? TIMEOUT : UNEXPECTED);
+            result = tl::unexpected(errno == ETIMEDOUT ? TIMEOUT : UNEXPECTED);
             break;
         }
 #elif __APPLE__
@@ -73,7 +73,7 @@ zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
                 0,
                 !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
         ) < 0) {
-            result = nonstd::make_unexpected(errno == ETIMEDOUT ? TIMEOUT : UNEXPECTED);
+            result = tl::unexpected(errno == ETIMEDOUT ? TIMEOUT : UNEXPECTED);
             break;
         }
 #else

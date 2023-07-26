@@ -6,7 +6,7 @@
 #include <string>
 #include <memory>
 #include <stdexcept>
-#include <nonstd/expected.hpp>
+#include <tl/expected.hpp>
 #include <zero/detail/type_traits.h>
 
 namespace zero::async::promise {
@@ -24,7 +24,7 @@ namespace zero::async::promise {
     };
 
     template<typename T, typename E>
-    struct promise_result<nonstd::expected<T, E>> {
+    struct promise_result<tl::expected<T, E>> {
         typedef T type;
     };
 
@@ -42,12 +42,12 @@ namespace zero::async::promise {
     };
 
     template<typename T, typename E>
-    struct promise_reason<nonstd::expected<T, E>> {
+    struct promise_reason<tl::expected<T, E>> {
         typedef E type;
     };
 
     template<typename T>
-    struct promise_reason<nonstd::unexpected_type<T>> {
+    struct promise_reason<tl::unexpected<T>> {
         typedef T type;
     };
 
@@ -69,7 +69,7 @@ namespace zero::async::promise {
     template<typename T, typename E>
     struct Storage {
         State status{PENDING};
-        nonstd::expected<T, E> result;
+        tl::expected<T, E> result;
         std::list<std::pair<std::function<void()>, std::function<void()>>> triggers;
     };
 
@@ -87,7 +87,7 @@ namespace zero::async::promise {
                 return;
 
             mStorage->status = FULFILLED;
-            mStorage->result = nonstd::expected<T, E>(std::forward<Ts>(args)...);
+            mStorage->result = tl::expected<T, E>(std::forward<Ts>(args)...);
 
             for (const auto &trigger: mStorage->triggers) {
                 trigger.first();
@@ -102,7 +102,7 @@ namespace zero::async::promise {
                 return;
 
             mStorage->status = REJECTED;
-            mStorage->result = nonstd::make_unexpected(std::forward<Ts>(args)...);
+            mStorage->result = tl::unexpected(std::forward<Ts>(args)...);
 
             for (const auto &trigger: mStorage->triggers) {
                 trigger.second();
@@ -115,14 +115,14 @@ namespace zero::async::promise {
         template<typename F>
         auto then(F &&f) {
             using Next = detail::callable_result_t<F>;
-            using NextResult = std::conditional_t<detail::is_specialization<Next, nonstd::unexpected_type>, T, promise_result_t<Next>>;
-            using NextReason = std::conditional_t<detail::is_specialization<Next, nonstd::unexpected_type>, promise_reason_t<Next>, E>;
+            using NextResult = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, T, promise_result_t<Next>>;
+            using NextReason = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, promise_reason_t<Next>, E>;
 
             Promise<NextResult, NextReason> promise;
 
             auto onFulfilledTrigger = [=, f = std::forward<F>(f), result = &mStorage->result]() mutable {
-                if constexpr (std::is_same_v<Next, void>) {
-                    if constexpr (std::is_same_v<T, void>) {
+                if constexpr (std::is_void_v<Next>) {
+                    if constexpr (std::is_void_v<T>) {
                         f();
                     } else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
                         std::apply(f, result->value());
@@ -133,7 +133,7 @@ namespace zero::async::promise {
                     promise.resolve();
                 } else {
                     Next next = [=]() {
-                        if constexpr (std::is_same_v<T, void>) {
+                        if constexpr (std::is_void_v<T>) {
                             return f();
                         } else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
                             return std::apply(f, result->value());
@@ -143,11 +143,11 @@ namespace zero::async::promise {
                     }();
 
                     if constexpr (!is_promise_v<Next>) {
-                        if constexpr (detail::is_specialization<Next, nonstd::expected>) {
+                        if constexpr (detail::is_specialization<Next, tl::expected>) {
                             static_assert(std::is_same_v<promise_reason_t<Next>, E>);
 
                             if (next) {
-                                if constexpr (std::is_same_v<NextResult, void>) {
+                                if constexpr (std::is_void_v<NextResult>) {
                                     promise.resolve();
                                 } else {
                                     promise.resolve(std::move(next.value()));
@@ -155,7 +155,7 @@ namespace zero::async::promise {
                             } else {
                                 promise.reject(std::move(next.error()));
                             }
-                        } else if constexpr (detail::is_specialization<Next, nonstd::unexpected_type>) {
+                        } else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
                             promise.reject(std::move(next.error()));
                         } else {
                             promise.resolve(std::move(next));
@@ -163,7 +163,7 @@ namespace zero::async::promise {
                     } else {
                         static_assert(std::is_same_v<promise_reason_t<Next>, E>);
 
-                        if constexpr (std::is_same_v<NextResult, void>) {
+                        if constexpr (std::is_void_v<NextResult>) {
                             next.then([=]() mutable {
                                 promise.resolve();
                             }, [=](const E &reason) mutable {
@@ -204,15 +204,15 @@ namespace zero::async::promise {
         template<typename F>
         auto fail(F &&f) {
             using Next = detail::callable_result_t<F>;
-            using NextResult = std::conditional_t<detail::is_specialization<Next, nonstd::unexpected_type>, T, promise_result_t<Next>>;
-            using NextReason = std::conditional_t<detail::is_specialization<Next, nonstd::unexpected_type>, promise_reason_t<Next>, E>;
+            using NextResult = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, T, promise_result_t<Next>>;
+            using NextReason = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, promise_reason_t<Next>, E>;
 
             Promise<NextResult, NextReason> promise;
 
             auto onFulfilledTrigger = [=, result = &mStorage->result]() mutable {
                 static_assert(std::is_same_v<NextResult, T>);
 
-                if constexpr (std::is_same_v<T, void>) {
+                if constexpr (std::is_void_v<T>) {
                     promise.resolve();
                 } else {
                     promise.resolve(result->value());
@@ -220,7 +220,7 @@ namespace zero::async::promise {
             };
 
             auto onRejectedTrigger = [=, f = std::forward<F>(f), result = &mStorage->result]() mutable {
-                if constexpr (std::is_same_v<Next, void>) {
+                if constexpr (std::is_void_v<Next>) {
                     if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
                         std::apply(f, result->error());
                     } else {
@@ -238,11 +238,11 @@ namespace zero::async::promise {
                     }();
 
                     if constexpr (!is_promise_v<Next>) {
-                        if constexpr (detail::is_specialization<Next, nonstd::expected>) {
+                        if constexpr (detail::is_specialization<Next, tl::expected>) {
                             static_assert(std::is_same_v<promise_reason_t<Next>, E>);
 
                             if (next) {
-                                if constexpr (std::is_same_v<NextResult, void>) {
+                                if constexpr (std::is_void_v<NextResult>) {
                                     promise.resolve();
                                 } else {
                                     promise.resolve(std::move(next.value()));
@@ -250,7 +250,7 @@ namespace zero::async::promise {
                             } else {
                                 promise.reject(std::move(next.error()));
                             }
-                        } else if constexpr (detail::is_specialization<Next, nonstd::unexpected_type>) {
+                        } else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
                             promise.reject(std::move(next.value()));
                         } else {
                             promise.resolve(std::move(next));
@@ -258,7 +258,7 @@ namespace zero::async::promise {
                     } else {
                         static_assert(std::is_same_v<promise_reason_t<Next>, E>);
 
-                        if constexpr (std::is_same_v<NextResult, void>) {
+                        if constexpr (std::is_void_v<NextResult>) {
                             next->then([=]() mutable {
                                 promise.resolve();
                             }, [=](const E &reason) mutable {
@@ -298,7 +298,7 @@ namespace zero::async::promise {
             auto onFulfilledTrigger = [=, result = &mStorage->result]() mutable {
                 f();
 
-                if constexpr (std::is_same_v<T, void>) {
+                if constexpr (std::is_void_v<T>) {
                     promise.resolve();
                 } else {
                     promise.resolve(result->value());
@@ -336,6 +336,8 @@ namespace zero::async::promise {
             return mStorage->status;
         }
 
+        template<typename = void>
+        requires (!std::is_void_v<T>)
         [[nodiscard]] std::add_lvalue_reference_t<std::add_const_t<T>> value() const {
             return mStorage->result.value();
         }
@@ -344,7 +346,7 @@ namespace zero::async::promise {
             return mStorage->result.error();
         }
 
-        [[nodiscard]] const nonstd::expected<T, E> &result() const {
+        [[nodiscard]] const tl::expected<T, E> &result() const {
             return mStorage->result;
         }
 
@@ -356,14 +358,14 @@ namespace zero::async::promise {
     using promises_result_t = std::conditional_t<
             detail::is_elements_same_v<detail::first_element_t<Ts...>, Ts...>,
             std::conditional_t<
-                    std::is_same_v<detail::first_element_t<Ts...>, void>,
+                    std::is_void_v<detail::first_element_t<Ts...>>,
                     void,
                     std::array<detail::first_element_t<Ts...>, sizeof...(Ts)>
             >,
             decltype(std::tuple_cat(
                     std::declval<
                             std::conditional_t<
-                                    std::is_same_v<Ts, void>,
+                                    std::is_void_v<Ts>,
                                     std::tuple<>,
                                     std::tuple<Ts>
                             >
@@ -385,7 +387,7 @@ namespace zero::async::promise {
     using promises_result_index_sequence_for = promises_result_index_sequence<
             sizeof...(Ts),
             0,
-            (std::is_same_v<Ts, void> ? 0 : 1)...
+            (std::is_void_v<Ts> ? 0 : 1)...
     >;
 
     template<typename T, typename E, typename F>
@@ -403,7 +405,7 @@ namespace zero::async::promise {
     }
 
     template<typename T, typename E>
-    requires std::is_same_v<T, void>
+    requires std::is_void_v<T>
     Promise<T, E> resolve() {
         Promise<T, E> promise;
         promise.resolve();
@@ -411,7 +413,7 @@ namespace zero::async::promise {
     }
 
     template<typename T, typename E>
-    requires (!std::is_same_v<T, void>)
+    requires (!std::is_void_v<T>)
     Promise<T, E> resolve(T &&result) {
         Promise<T, E> promise;
         promise.resolve(std::forward<T>(result));
@@ -428,7 +430,7 @@ namespace zero::async::promise {
 #else
         [&]<size_t...Is>(std::index_sequence<Is...>) {
 #endif
-            if constexpr (std::is_same_v<promises_result_t<Ts...>, void>) {
+            if constexpr (std::is_void_v<promises_result_t<Ts...>>) {
                 ([&]() mutable {
                     promises.then([=]() mutable {
                         if (--(*remain) > 0)
@@ -443,7 +445,7 @@ namespace zero::async::promise {
                 auto results = std::make_shared<promises_result_t<Ts...>>();
 
                 ([&]() {
-                    if constexpr (std::is_same_v<Ts, void>) {
+                    if constexpr (std::is_void_v<Ts>) {
                         promises.then([=]() mutable {
                             if (--(*remain) > 0)
                                 return;
@@ -510,7 +512,7 @@ namespace zero::async::promise {
         Promise<std::conditional_t<Same, T, std::any>, std::list<E>> promise;
 
         ([&]() {
-            if constexpr (std::is_same_v<Ts, void>) {
+            if constexpr (std::is_void_v<Ts>) {
                 promises.then([=]() mutable {
                     if constexpr (Same)
                         promise.resolve();
@@ -554,7 +556,7 @@ namespace zero::async::promise {
         Promise<std::conditional_t<Same, T, std::any>, E> promise;
 
         ([&]() {
-            if constexpr (std::is_same_v<Ts, void>) {
+            if constexpr (std::is_void_v<Ts>) {
                 promises.then([=]() mutable {
                     if constexpr (Same)
                         promise.resolve();

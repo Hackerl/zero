@@ -17,7 +17,7 @@ namespace zero::async::coroutine {
             });
         }
 
-        const nonstd::expected<T, E> &await_resume() const {
+        const tl::expected<T, E> &await_resume() const {
             return promise.result();
         }
 
@@ -35,7 +35,7 @@ namespace zero::async::coroutine {
             return promise.status() != promise::PENDING;
         }
 
-        [[nodiscard]] const nonstd::expected<T, E> &result() const {
+        [[nodiscard]] const tl::expected<T, E> &result() const {
             return promise.result();
         }
 
@@ -69,19 +69,19 @@ namespace zero::async::coroutine {
         }
 
         template<typename = void>
-        requires (!std::is_same_v<T, void>)
+        requires (!std::is_void_v<T>)
         void return_value(T &&result) {
             promise::Promise<T, E>::resolve(std::forward<T>(result));
         }
 
         template<typename = void>
-        void return_value(const nonstd::expected<T, E> &result) {
+        void return_value(const tl::expected<T, E> &result) {
             if (!result) {
                 promise::Promise<T, E>::reject(result.error());
                 return;
             }
 
-            if constexpr (std::is_same_v<T, void>) {
+            if constexpr (std::is_void_v<T>) {
                 promise::Promise<T, E>::resolve();
             } else {
                 promise::Promise<T, E>::resolve(result.value());
@@ -89,7 +89,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename = void>
-        void return_value(const nonstd::unexpected_type<E> &reason) {
+        void return_value(const tl::unexpected<E> &reason) {
             promise::Promise<T, E>::reject(reason.value());
         }
     };
@@ -120,9 +120,9 @@ namespace zero::async::coroutine {
     template<typename ...Ts, typename E>
     Task<promise::promises_result_t<Ts...>, E> all(Task<Ts, E> &...tasks) {
         using T = promise::promises_result_t<Ts...>;
-        nonstd::expected<T, E> result = co_await promise::all(tasks.promise...);
+        tl::expected<T, E> result = co_await promise::all(tasks.promise...);
 
-        if constexpr (std::is_same_v<T, void> && std::is_same_v<E, std::exception_ptr>) {
+        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
             if (!result)
                 std::rethrow_exception(result.error());
 
@@ -170,9 +170,9 @@ namespace zero::async::coroutine {
             typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
     >
     Task<T, E> race(Task<Ts, E> &...tasks) {
-        nonstd::expected<T, E> result = co_await promise::race(tasks.promise...);
+        tl::expected<T, E> result = co_await promise::race(tasks.promise...);
 
-        if constexpr (std::is_same_v<T, void> && std::is_same_v<E, std::exception_ptr>) {
+        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
             if (!result)
                 std::rethrow_exception(result.error());
 

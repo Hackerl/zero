@@ -39,23 +39,23 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             REQUIRE(result == 10);
         });
 
-        zero::async::promise::resolve<int, int>(1).then([](int result) -> nonstd::expected<int, int> {
+        zero::async::promise::resolve<int, int>(1).then([](int result) -> tl::expected<int, int> {
             if (result == 2)
-                return nonstd::make_unexpected(2);
+                return tl::unexpected(2);
 
             return 2;
         }).then([](int result) {
             REQUIRE(result == 2);
         });
 
-        zero::async::promise::resolve<int, int>(1).then([](int result) -> nonstd::expected<int, int> {
+        zero::async::promise::resolve<int, int>(1).then([](int result) -> tl::expected<int, int> {
             if (result == 1)
-                return nonstd::make_unexpected(-1);
+                return tl::unexpected(-1);
 
             return 2;
         }).fail([](int reason) {
             REQUIRE(reason == -1);
-            return nonstd::make_unexpected(reason);
+            return tl::unexpected(reason);
         });
 
         std::shared_ptr<int> i = std::make_shared<int>(0);
@@ -113,7 +113,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                     zero::async::promise::resolve<int, int>(2)
             ).fail([](int reason) {
                 REQUIRE(reason == -1);
-                return nonstd::make_unexpected(reason);
+                return tl::unexpected(reason);
             });
         }
     }
@@ -175,7 +175,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 REQUIRE(reasons.front() == -3);
                 REQUIRE(reasons.back() == -1);
 
-                return nonstd::make_unexpected(reasons);
+                return tl::unexpected(reasons);
             });
         }
     }
@@ -194,7 +194,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                     zero::async::promise::resolve<int, int>(1)
             ).fail([](int reason) {
                 REQUIRE(reason == -1);
-                return nonstd::make_unexpected(reason);
+                return tl::unexpected(reason);
             });
         }
 
@@ -216,7 +216,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                     zero::async::promise::resolve<long, int>(2L)
             ).fail([](int reason) {
                 REQUIRE(reason == -1);
-                return nonstd::make_unexpected(reason);
+                return tl::unexpected(reason);
             });
         }
     }
