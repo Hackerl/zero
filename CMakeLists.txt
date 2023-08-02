@@ -18,6 +18,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 find_package(Iconv REQUIRED)
+find_package(Threads REQUIRED)
 find_package(tl-expected CONFIG REQUIRED)
 
 add_library(
@@ -57,6 +58,7 @@ target_link_libraries(
         Iconv::Iconv
         tl::expected
         INTERFACE
+        Threads::Threads
         $<$<PLATFORM_ID:Windows>:Ws2_32>
         $<$<PLATFORM_ID:Windows>:Iphlpapi>
         $<$<AND:$<PLATFORM_ID:Windows>,$<NOT:$<BOOL:${ZERO_LEGACY_NT}>>>:Synchronization>

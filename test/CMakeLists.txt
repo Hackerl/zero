@@ -1,4 +1,3 @@
-find_package(Threads REQUIRED)
 find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(
@@ -19,4 +18,4 @@ add_executable(
         $<$<PLATFORM_ID:Linux,Android>:os/procfs.cpp>
 )
 
-target_link_libraries(zero_test PRIVATE zero Catch2::Catch2WithMain Threads::Threads)
+target_link_libraries(zero_test PRIVATE zero Catch2::Catch2WithMain)
