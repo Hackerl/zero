@@ -33,7 +33,7 @@ TEST_CASE("notify event", "[event]") {
                 }
         );
 
-        REQUIRE(event.wait(100ms).error() == zero::atomic::Event::TIMEOUT);
+        REQUIRE(event.wait(100ms).error() == std::errc::timed_out);
         REQUIRE(n == 0);
 
         thread.join();

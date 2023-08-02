@@ -28,9 +28,8 @@ zero::atomic::Event::~Event() {
 }
 #endif
 
-tl::expected<void, zero::atomic::Event::Error>
-zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
-    tl::expected<void, zero::atomic::Event::Error> result;
+tl::expected<void, std::error_code> zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
+    tl::expected<void, std::error_code> result;
 
     while (true) {
         Value expected = 1;
@@ -42,12 +41,17 @@ zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
         DWORD rc = WaitForSingleObject(mEvent, timeout ? (DWORD) timeout->count() : INFINITE);
 
         if (rc != WAIT_OBJECT_0) {
-            result = tl::unexpected(rc == WAIT_TIMEOUT ? TIMEOUT : UNEXPECTED);
+            result = tl::unexpected(
+                    rc == WAIT_TIMEOUT ?
+                    std::make_error_code(std::errc::timed_out) :
+                    std::error_code((int) GetLastError(), std::system_category())
+            );
+
             break;
         }
 #elif _WIN32
         if (!WaitOnAddress(&mState, &expected, sizeof(int), timeout ? (DWORD) timeout->count() : INFINITE)) {
-            result = tl::unexpected(GetLastError() == ERROR_TIMEOUT ? TIMEOUT : UNEXPECTED);
+            result = tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
             break;
         }
 #elif __linux__
@@ -63,7 +67,7 @@ zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
             if (errno == EAGAIN)
                 continue;
 
-            result = tl::unexpected(errno == ETIMEDOUT ? TIMEOUT : UNEXPECTED);
+            result = tl::unexpected(std::error_code(errno, std::system_category()));
             break;
         }
 #elif __APPLE__
@@ -73,7 +77,7 @@ zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
                 0,
                 !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
         ) < 0) {
-            result = tl::unexpected(errno == ETIMEDOUT ? TIMEOUT : UNEXPECTED);
+            result = tl::unexpected(std::error_code(errno, std::system_category()));
             break;
         }
 #else

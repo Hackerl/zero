@@ -18,19 +18,13 @@ namespace zero::atomic {
         using Value = int;
 #endif
     public:
-        enum Error {
-            TIMEOUT,
-            UNEXPECTED
-        };
-
-    public:
         Event();
 #ifdef ZERO_LEGACY_NT
         ~Event();
 #endif
 
     public:
-        tl::expected<void, Error> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+        tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
     public:
         void notify();
