@@ -68,29 +68,35 @@ namespace zero::async::coroutine {
             return {*this};
         }
 
-        template<typename = void>
-        requires (!std::is_void_v<T>)
-        void return_value(T &&result) {
-            promise::Promise<T, E>::resolve(std::forward<T>(result));
+        template<typename U>
+        requires (!std::is_void_v<T> && !detail::is_specialization<std::decay_t<U>, tl::expected>)
+        void return_value(U &&result) {
+            promise::Promise<T, E>::resolve(std::forward<U>(result));
         }
 
-        template<typename = void>
         void return_value(const tl::expected<T, E> &result) {
+            return_value(tl::expected<T, E>{result});
+        }
+
+        void return_value(tl::expected<T, E> &&result) {
             if (!result) {
-                promise::Promise<T, E>::reject(result.error());
+                promise::Promise<T, E>::reject(std::move(result.error()));
                 return;
             }
 
             if constexpr (std::is_void_v<T>) {
                 promise::Promise<T, E>::resolve();
             } else {
-                promise::Promise<T, E>::resolve(result.value());
+                promise::Promise<T, E>::resolve(std::move(result.value()));
             }
         }
 
-        template<typename = void>
         void return_value(const tl::unexpected<E> &reason) {
             promise::Promise<T, E>::reject(reason.value());
+        }
+
+        void return_value(tl::unexpected<E> &&reason) {
+            promise::Promise<T, E>::reject(std::move(reason.value()));
         }
     };
 
