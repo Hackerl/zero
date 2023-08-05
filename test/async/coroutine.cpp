@@ -181,11 +181,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                 auto result = task.result();
                 REQUIRE(result);
 
-                REQUIRE(std::get<0>(result.value()).done());
-                REQUIRE(std::get<0>(result.value()).result().value() == 100);
-
-                REQUIRE(std::get<1>(result.value()).done());
-                REQUIRE(std::get<1>(result.value()).result().value() == 110);
+                REQUIRE(std::get<0>(result.value()).value() == 100);
+                REQUIRE(std::get<1>(result.value()).value() == 110);
             }
 
             SECTION("failure") {
@@ -207,13 +204,10 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                 auto result = task.result();
                 REQUIRE(result);
 
-                REQUIRE(std::get<0>(result.value()).done());
-                REQUIRE(std::get<0>(result.value()).result().value() == 100);
-
-                REQUIRE(std::get<1>(result.value()).done());
+                REQUIRE(std::get<0>(result.value()).value() == 100);
 
                 try {
-                    std::rethrow_exception(std::get<1>(result.value()).result().error());
+                    std::rethrow_exception(std::get<1>(result.value()).error());
                 } catch (const std::runtime_error &error) {
                     REQUIRE(strcmp(error.what(), "1024") == 0);
                 }
@@ -560,11 +554,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                 auto result = task.result();
                 REQUIRE(result);
 
-                REQUIRE(std::get<0>(result.value()).done());
-                REQUIRE(std::get<0>(result.value()).result().value() == 100);
-
-                REQUIRE(std::get<1>(result.value()).done());
-                REQUIRE(std::get<1>(result.value()).result().value() == 110);
+                REQUIRE(std::get<0>(result.value()).value() == 100);
+                REQUIRE(std::get<1>(result.value()).value() == 110);
             }
 
             SECTION("failure") {
@@ -586,11 +577,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                 auto result = task.result();
                 REQUIRE(result);
 
-                REQUIRE(std::get<0>(result.value()).done());
-                REQUIRE(std::get<0>(result.value()).result().value() == 100);
-
-                REQUIRE(std::get<1>(result.value()).done());
-                REQUIRE(std::get<1>(result.value()).result().error() == 1024);
+                REQUIRE(std::get<0>(result.value()).value() == 100);
+                REQUIRE(std::get<1>(result.value()).error() == 1024);
             }
         }
 

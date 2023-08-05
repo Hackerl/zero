@@ -123,15 +123,12 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::reject<void, int>(-1),
                 zero::async::promise::resolve<long, int>(2L)
-        ).then([](const zero::async::promise::Promise<int, int> &p1,
-                   const zero::async::promise::Promise<void, int> &p2,
-                   const zero::async::promise::Promise<long, int> &p3) {
-            REQUIRE(p1.status() == zero::async::promise::FULFILLED);
-            REQUIRE(p1.value() == 1);
-            REQUIRE(p2.status() == zero::async::promise::REJECTED);
-            REQUIRE(p2.reason() == -1);
-            REQUIRE(p3.status() == zero::async::promise::FULFILLED);
-            REQUIRE(p3.value() == 2);
+        ).then([](const tl::expected<int, int> &r1,
+                  const tl::expected<void, int> &r2,
+                  const tl::expected<long, int> &r3) {
+            REQUIRE(r1.value() == 1);
+            REQUIRE(r2.error() == -1);
+            REQUIRE(r3.value() == 2);
         });
     }
 

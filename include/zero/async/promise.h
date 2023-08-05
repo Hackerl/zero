@@ -479,22 +479,32 @@ namespace zero::async::promise {
     }
 
     template<typename ...Ts, typename E>
-    Promise<std::tuple<Promise<Ts, E>...>, E> allSettled(Promise<Ts, E> &...promises) {
-        Promise<void, E> promise;
+    Promise<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Promise<Ts, E> &...promises) {
+        using T = std::tuple<tl::expected<Ts, E>...>;
+
+        Promise<T, E> promise;
+
+        std::shared_ptr<T> results = std::make_shared<T>();
         std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
 
-        ([&]() {
-            promises.finally([=]() mutable {
-                if (--(*remain) > 0)
-                    return;
+#ifdef _MSC_VER
+        [&, &...promises = promises]<size_t...Is>(std::index_sequence<Is...>) {
+#else
+        [&]<size_t...Is>(std::index_sequence<Is...>) {
+#endif
+            ([&]() {
+                promises.finally([=, &result = promises.result()]() mutable {
+                    std::get<Is>(*results) = result;
 
-                promise.resolve();
-            });
-        }(), ...);
+                    if (--(*remain) > 0)
+                        return;
 
-        return promise.then([=]() {
-            return std::tuple{promises...};
-        });
+                    promise.resolve(std::move(*results));
+                });
+            }(), ...);
+        }(std::index_sequence_for<Ts...>{});
+
+        return promise;
     }
 
     template<typename ...Ts>
@@ -507,9 +517,10 @@ namespace zero::async::promise {
         using T = detail::first_element_t<Ts...>;
         constexpr bool Same = detail::is_elements_same_v<T, Ts...>;
 
+        Promise<std::conditional_t<Same, T, std::any>, std::list<E>> promise;
+
         std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
         std::shared_ptr<std::list<E>> reasons = std::make_shared<std::list<E>>();
-        Promise<std::conditional_t<Same, T, std::any>, std::list<E>> promise;
 
         ([&]() {
             if constexpr (std::is_void_v<Ts>) {

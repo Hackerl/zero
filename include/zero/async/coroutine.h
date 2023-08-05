@@ -144,9 +144,8 @@ namespace zero::async::coroutine {
     }
 
     template<typename ...Ts, typename E>
-    Task<std::tuple<Task<Ts, E>...>, E> allSettled(Task<Ts, E> &...tasks) {
-        co_await promise::allSettled(tasks.promise...);
-        co_return std::tuple{tasks...};
+    Task<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Task<Ts, E> &...tasks) {
+        co_return co_await promise::allSettled(tasks.promise...);
     }
 
     template<typename ...Ts>
