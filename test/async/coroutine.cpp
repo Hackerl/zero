@@ -19,7 +19,22 @@ zero::async::coroutine::Task<long> createTaskL(const zero::async::promise::Promi
     co_return result.value() * 10;
 }
 
-zero::async::coroutine::Task<int, int> createTaskWithError(const zero::async::promise::Promise<int, int> *promise) {
+zero::async::coroutine::Task<int> createCancellableTask(zero::async::promise::Promise<int, int> *promise) {
+    tl::expected<int, int> result = co_await zero::async::coroutine::Cancellable{
+            *promise,
+            [=]() -> tl::expected<void, std::error_code> {
+                promise->reject(-1);
+                return {};
+            }
+    };
+
+    if (!result)
+        throw std::runtime_error(std::to_string(result.error()));
+
+    co_return result.value() * 10;
+}
+
+zero::async::coroutine::Task<int, int> createTaskE(const zero::async::promise::Promise<int, int> *promise) {
     tl::expected<int, int> result = co_await *promise;
 
     if (!result)
@@ -28,8 +43,23 @@ zero::async::coroutine::Task<int, int> createTaskWithError(const zero::async::pr
     co_return result.value() * 10;
 }
 
-zero::async::coroutine::Task<long, int> createTaskWithErrorL(const zero::async::promise::Promise<long, int> *promise) {
+zero::async::coroutine::Task<long, int> createTaskEL(const zero::async::promise::Promise<long, int> *promise) {
     tl::expected<long, int> result = co_await *promise;
+
+    if (!result)
+        co_return tl::unexpected(result.error());
+
+    co_return result.value() * 10;
+}
+
+zero::async::coroutine::Task<int, int> createCancellableTaskE(zero::async::promise::Promise<int, int> *promise) {
+    tl::expected<int, int> result = co_await zero::async::coroutine::Cancellable{
+            *promise,
+            [=]() -> tl::expected<void, std::error_code> {
+                promise->reject(-1);
+                return {};
+            }
+    };
 
     if (!result)
         co_return tl::unexpected(result.error());
@@ -65,6 +95,37 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
             } catch (const std::runtime_error &error) {
                 REQUIRE(strcmp(error.what(), "1024") == 0);
             }
+        }
+
+        SECTION("cancel") {
+            zero::async::promise::Promise<int, int> promise;
+            zero::async::coroutine::Task<int, std::exception_ptr> task = createCancellableTask(&promise);
+            REQUIRE(!task.done());
+
+            task.cancel();
+            REQUIRE(task.done());
+
+            tl::expected<int, std::exception_ptr> result = task.result();
+            REQUIRE(!result);
+
+            try {
+                std::rethrow_exception(result.error());
+            } catch (const std::runtime_error &error) {
+                REQUIRE(strcmp(error.what(), "-1") == 0);
+            }
+        }
+
+        SECTION("traceback") {
+            zero::async::promise::Promise<int, int> promise;
+            zero::async::coroutine::Task<int, std::exception_ptr> task = createCancellableTask(&promise);
+            REQUIRE(!task.done());
+
+            auto callstack = task.traceback();
+            REQUIRE(strstr(callstack[0].function_name(), "createCancellableTask"));
+
+            promise.resolve(10);
+            REQUIRE(task.done());
+            REQUIRE(task.traceback().empty());
         }
 
         SECTION("coroutine::all") {
@@ -432,7 +493,7 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
     SECTION("error") {
         SECTION("success") {
             zero::async::promise::Promise<int, int> promise;
-            zero::async::coroutine::Task<int, int> task = createTaskWithError(&promise);
+            zero::async::coroutine::Task<int, int> task = createTaskE(&promise);
             REQUIRE(!task.done());
 
             promise.resolve(10);
@@ -442,12 +503,38 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
 
         SECTION("failure") {
             zero::async::promise::Promise<int, int> promise;
-            zero::async::coroutine::Task<int, int> task = createTaskWithError(&promise);
+            zero::async::coroutine::Task<int, int> task = createTaskE(&promise);
             REQUIRE(!task.done());
 
             promise.reject(1024);
             REQUIRE(task.done());
             REQUIRE(task.result().error() == 1024);
+        }
+
+        SECTION("cancel") {
+            zero::async::promise::Promise<int, int> promise;
+            zero::async::coroutine::Task<int, int> task = createCancellableTaskE(&promise);
+            REQUIRE(!task.done());
+
+            task.cancel();
+            REQUIRE(task.done());
+
+            tl::expected<int, int> result = task.result();
+            REQUIRE(!result);
+            REQUIRE(task.result().error() == -1);
+        }
+
+        SECTION("traceback") {
+            zero::async::promise::Promise<int, int> promise;
+            zero::async::coroutine::Task<int, int> task = createCancellableTaskE(&promise);
+            REQUIRE(!task.done());
+
+            auto callstack = task.traceback();
+            REQUIRE(strstr(callstack[0].function_name(), "createCancellableTaskE"));
+
+            promise.resolve(10);
+            REQUIRE(task.done());
+            REQUIRE(task.traceback().empty());
         }
 
         SECTION("coroutine::all") {
@@ -457,8 +544,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<int, int> promise2;
 
                     zero::async::coroutine::Task<std::array<int, 2>, int> task = zero::async::coroutine::all(
-                            createTaskWithError(&promise1),
-                            createTaskWithError(&promise2)
+                            createTaskE(&promise1),
+                            createTaskE(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -475,8 +562,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<int, int> promise2;
 
                     zero::async::coroutine::Task<std::array<int, 2>, int> task = zero::async::coroutine::all(
-                            createTaskWithError(&promise1),
-                            createTaskWithError(&promise2)
+                            createTaskE(&promise1),
+                            createTaskE(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -498,8 +585,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<long, int> promise2;
 
                     zero::async::coroutine::Task<std::tuple<int, long>, int> task = zero::async::coroutine::all(
-                            createTaskWithError(&promise1),
-                            createTaskWithErrorL(&promise2)
+                            createTaskE(&promise1),
+                            createTaskEL(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -516,8 +603,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<long, int> promise2;
 
                     zero::async::coroutine::Task<std::tuple<int, long>, int> task = zero::async::coroutine::all(
-                            createTaskWithError(&promise1),
-                            createTaskWithErrorL(&promise2)
+                            createTaskE(&promise1),
+                            createTaskEL(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -540,8 +627,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                 zero::async::promise::Promise<int, int> promise2;
 
                 auto task = zero::async::coroutine::allSettled(
-                        createTaskWithError(&promise1),
-                        createTaskWithError(&promise2)
+                        createTaskE(&promise1),
+                        createTaskE(&promise2)
                 );
 
                 REQUIRE(!task.done());
@@ -563,8 +650,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                 zero::async::promise::Promise<int, int> promise2;
 
                 auto task = zero::async::coroutine::allSettled(
-                        createTaskWithError(&promise1),
-                        createTaskWithError(&promise2)
+                        createTaskE(&promise1),
+                        createTaskE(&promise2)
                 );
 
                 REQUIRE(!task.done());
@@ -589,8 +676,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<int, int> promise2;
 
                     zero::async::coroutine::Task<int, std::list<int>> task = zero::async::coroutine::any(
-                            createTaskWithError(&promise1),
-                            createTaskWithError(&promise2)
+                            createTaskE(&promise1),
+                            createTaskE(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -607,8 +694,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<int, int> promise2;
 
                     zero::async::coroutine::Task<int, std::list<int>> task = zero::async::coroutine::any(
-                            createTaskWithError(&promise1),
-                            createTaskWithError(&promise2)
+                            createTaskE(&promise1),
+                            createTaskE(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -631,8 +718,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<long, int> promise2;
 
                     zero::async::coroutine::Task<std::any, std::list<int>> task = zero::async::coroutine::any(
-                            createTaskWithError(&promise1),
-                            createTaskWithErrorL(&promise2)
+                            createTaskE(&promise1),
+                            createTaskEL(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -656,8 +743,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<long, int> promise2;
 
                     zero::async::coroutine::Task<std::any, std::list<int>> task = zero::async::coroutine::any(
-                            createTaskWithError(&promise1),
-                            createTaskWithErrorL(&promise2)
+                            createTaskE(&promise1),
+                            createTaskEL(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -682,8 +769,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<int, int> promise2;
 
                     zero::async::coroutine::Task<int, int> task = zero::async::coroutine::race(
-                            createTaskWithError(&promise1),
-                            createTaskWithError(&promise2)
+                            createTaskE(&promise1),
+                            createTaskE(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -700,8 +787,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<int, int> promise2;
 
                     zero::async::coroutine::Task<int, int> task = zero::async::coroutine::race(
-                            createTaskWithError(&promise1),
-                            createTaskWithError(&promise2)
+                            createTaskE(&promise1),
+                            createTaskE(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -723,8 +810,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<long, int> promise2;
 
                     zero::async::coroutine::Task<std::any, int> task = zero::async::coroutine::race(
-                            createTaskWithError(&promise1),
-                            createTaskWithErrorL(&promise2)
+                            createTaskE(&promise1),
+                            createTaskEL(&promise2)
                     );
 
                     REQUIRE(!task.done());
@@ -748,8 +835,8 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
                     zero::async::promise::Promise<long, int> promise2;
 
                     zero::async::coroutine::Task<std::any, int> task = zero::async::coroutine::race(
-                            createTaskWithError(&promise1),
-                            createTaskWithErrorL(&promise2)
+                            createTaskE(&promise1),
+                            createTaskEL(&promise2)
                     );
 
                     REQUIRE(!task.done());
