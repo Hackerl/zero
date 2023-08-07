@@ -51,22 +51,13 @@ namespace zero::async::coroutine {
         using promise_type = Promise<T, E>;
 
     public:
-        explicit Task(std::coroutine_handle<promise_type> handle) : mHandle(handle) {
+        explicit Task(promise_type promise) : mPromise(std::move(promise)) {
 
-        }
-
-        Task(Task &&rhs) noexcept: mHandle(std::exchange(rhs.mHandle, nullptr)) {
-
-        }
-
-        ~Task() {
-            if (mHandle)
-                mHandle.destroy();
         }
 
     public:
         tl::expected<void, std::error_code> cancel() {
-            std::shared_ptr<Frame> frame = promise().mFrame;
+            std::shared_ptr<Frame> frame = mPromise.mFrame;
 
             while (frame->next)
                 frame = frame->next;
@@ -85,7 +76,7 @@ namespace zero::async::coroutine {
         std::vector<std::source_location> traceback() {
             std::vector<std::source_location> callstack;
 
-            for (auto frame = promise().mFrame; frame; frame = frame->next) {
+            for (auto frame = mPromise.mFrame; frame; frame = frame->next) {
                 if (!frame->location)
                     break;
 
@@ -97,23 +88,23 @@ namespace zero::async::coroutine {
 
     public:
         Promise<T, E> &promise() {
-            return mHandle.promise();
+            return mPromise;
         }
 
-        [[nodiscard]] const Promise<T, E> &promise() const {
-            return mHandle.promise();
+        [[nodiscard]] const promise_type &promise() const {
+            return mPromise;
         }
 
         [[nodiscard]] bool done() const {
-            return mHandle.promise().status() != promise::PENDING;
+            return mPromise.status() != promise::PENDING;
         }
 
         [[nodiscard]] const tl::expected<T, E> &result() const {
-            return mHandle.promise().result();
+            return mPromise.result();
         }
 
     private:
-        std::coroutine_handle<promise_type> mHandle;
+        promise_type mPromise;
     };
 
     template<typename T, typename E>
@@ -128,7 +119,7 @@ namespace zero::async::coroutine {
             return {};
         };
 
-        std::suspend_always final_suspend() noexcept {
+        std::suspend_never final_suspend() noexcept {
             mFrame->next.reset();
             mFrame->location.reset();
             mFrame->cancel = nullptr;
@@ -145,7 +136,7 @@ namespace zero::async::coroutine {
         }
 
         Task<T, E> get_return_object() {
-            return Task<T, E>{std::coroutine_handle<Promise>::from_promise(*this)};
+            return Task<T, E>{*this};
         }
 
         template<typename Result, typename Error>
@@ -237,7 +228,7 @@ namespace zero::async::coroutine {
             return {};
         };
 
-        std::suspend_always final_suspend() noexcept {
+        std::suspend_never final_suspend() noexcept {
             mFrame->next.reset();
             mFrame->location.reset();
             mFrame->cancel = nullptr;
@@ -286,7 +277,7 @@ namespace zero::async::coroutine {
         }
 
         Task<void, std::exception_ptr> get_return_object() {
-            return Task<void, std::exception_ptr>{std::coroutine_handle<Promise>::from_promise(*this)};
+            return Task<void, std::exception_ptr>{*this};
         }
 
         void return_void() {
@@ -318,19 +309,9 @@ namespace zero::async::coroutine {
         }
     }
 
-    template<typename ...Ts, typename E>
-    Task<promise::promises_result_t<Ts...>, E> all(Task<Ts, E> ...tasks) {
-        using T = promise::promises_result_t<Ts...>;
-        tl::expected<T, E> result = co_await promise::all(((promise::Promise<Ts, E>) tasks.promise())...);
-
-        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
-            if (!result)
-                std::rethrow_exception(result.error());
-
-            co_return;
-        } else {
-            co_return result;
-        }
+    template<typename ...Ts>
+    auto all(Ts &&...tasks) {
+        return all(tasks...);
     }
 
     template<typename ...Ts, typename E>
@@ -338,9 +319,9 @@ namespace zero::async::coroutine {
         co_return co_await promise::allSettled(((promise::Promise<Ts, E>) tasks.promise())...);
     }
 
-    template<typename ...Ts, typename E>
-    Task<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Task<Ts, E> ...tasks) {
-        co_return co_await promise::allSettled(((promise::Promise<Ts, E>) tasks.promise())...);
+    template<typename ...Ts>
+    auto allSettled(Ts &&...tasks) {
+        return allSettled(tasks...);
     }
 
     template<
@@ -353,14 +334,9 @@ namespace zero::async::coroutine {
         co_return co_await promise::any(((promise::Promise<Ts, E>) tasks.promise())...);
     }
 
-    template<
-            typename ...Ts,
-            typename E,
-            typename F = detail::first_element_t<Ts...>,
-            typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
-    >
-    Task<T, std::list<E>> any(Task<Ts, E> ...tasks) {
-        co_return co_await promise::any(((promise::Promise<Ts, E>) tasks.promise())...);
+    template<typename ...Ts>
+    auto any(Ts &&...tasks) {
+        return any(tasks...);
     }
 
     template<
@@ -382,23 +358,9 @@ namespace zero::async::coroutine {
         }
     }
 
-    template<
-            typename ...Ts,
-            typename E,
-            typename F = detail::first_element_t<Ts...>,
-            typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
-    >
-    Task<T, E> race(Task<Ts, E> ...tasks) {
-        tl::expected<T, E> result = co_await promise::race(((promise::Promise<Ts, E>) tasks.promise())...);
-
-        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
-            if (!result)
-                std::rethrow_exception(result.error());
-
-            co_return;
-        } else {
-            co_return result;
-        }
+    template<typename ...Ts>
+    auto race(Ts &&...tasks) {
+        return race(tasks...);
     }
 }
 

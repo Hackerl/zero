@@ -89,11 +89,8 @@ namespace zero::async::promise {
             mStorage->status = FULFILLED;
             mStorage->result = tl::expected<T, E>(std::forward<Ts>(args)...);
 
-            for (const auto &trigger: mStorage->triggers) {
+            for (const auto &trigger: std::exchange(mStorage->triggers, {}))
                 trigger.first();
-            }
-
-            mStorage->triggers.clear();
         }
 
         template<typename ...Ts>
@@ -104,11 +101,8 @@ namespace zero::async::promise {
             mStorage->status = REJECTED;
             mStorage->result = tl::unexpected(std::forward<Ts>(args)...);
 
-            for (const auto &trigger: mStorage->triggers) {
+            for (const auto &trigger: std::exchange(mStorage->triggers, {}))
                 trigger.second();
-            }
-
-            mStorage->triggers.clear();
         }
 
     public:
