@@ -414,66 +414,66 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename ...Ts, typename E>
-    Promise<promises_result_t<Ts...>, E> all(Promise<Ts, E> &...promises) {
+    template<size_t...Is, typename ...Ts, typename E>
+    Promise<promises_result_t<Ts...>, E> all(std::index_sequence<Is...>, Promise<Ts, E> &...promises) {
         Promise<promises_result_t<Ts...>, E> promise;
         std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(promises));
 
-#ifdef _MSC_VER
-        [&, &...promises = promises]<size_t...Is>(std::index_sequence<Is...>) {
-#else
-        [&]<size_t...Is>(std::index_sequence<Is...>) {
-#endif
-            if constexpr (std::is_void_v<promises_result_t<Ts...>>) {
-                ([&]() mutable {
+        if constexpr (std::is_void_v<promises_result_t<Ts...>>) {
+            ([&]() mutable {
+                promises.then([=]() mutable {
+                    if (--(*remain) > 0)
+                        return;
+
+                    promise.resolve();
+                }, [=](const E &reason) mutable {
+                    promise.reject(reason);
+                });
+            }(), ...);
+        } else {
+            auto results = std::make_shared<promises_result_t<Ts...>>();
+
+            ([&]() {
+                if constexpr (std::is_void_v<Ts>) {
                     promises.then([=]() mutable {
                         if (--(*remain) > 0)
                             return;
 
-                        promise.resolve();
+                        promise.resolve(std::move(*results));
                     }, [=](const E &reason) mutable {
                         promise.reject(reason);
                     });
-                }(), ...);
-            } else {
-                auto results = std::make_shared<promises_result_t<Ts...>>();
+                } else {
+                    promises.then([=](const Ts &result) mutable {
+                        std::get<Is>(*results) = result;
 
-                ([&]() {
-                    if constexpr (std::is_void_v<Ts>) {
-                        promises.then([=]() mutable {
-                            if (--(*remain) > 0)
-                                return;
+                        if (--(*remain) > 0)
+                            return;
 
-                            promise.resolve(std::move(*results));
-                        }, [=](const E &reason) mutable {
-                            promise.reject(reason);
-                        });
-                    } else {
-                        promises.then([=](const Ts &result) mutable {
-                            std::get<Is>(*results) = result;
-
-                            if (--(*remain) > 0)
-                                return;
-
-                            promise.resolve(std::move(*results));
-                        }, [=](const E &reason) mutable {
-                            promise.reject(reason);
-                        });
-                    }
-                }(), ...);
-            }
-        }(promises_result_index_sequence_for<Ts...>{});
+                        promise.resolve(std::move(*results));
+                    }, [=](const E &reason) mutable {
+                        promise.reject(reason);
+                    });
+                }
+            }(), ...);
+        }
 
         return promise;
     }
 
+    template<typename ...Ts, typename E>
+    Promise<promises_result_t<Ts...>, E> all(Promise<Ts, E> &...promises) {
+        return all(promises_result_index_sequence_for<Ts...>{}, promises...);
+    }
+
     template<typename ...Ts>
+    requires (is_promise_v<std::decay_t<Ts>> && ...)
     auto all(Ts &&...promises) {
         return all(promises...);
     }
 
-    template<typename ...Ts, typename E>
-    Promise<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Promise<Ts, E> &...promises) {
+    template<size_t...Is, typename ...Ts, typename E>
+    Promise<std::tuple<tl::expected<Ts, E>...>, E> allSettled(std::index_sequence<Is...>, Promise<Ts, E> &...promises) {
         using T = std::tuple<tl::expected<Ts, E>...>;
 
         Promise<T, E> promise;
@@ -481,24 +481,23 @@ namespace zero::async::promise {
         std::shared_ptr<T> results = std::make_shared<T>();
         std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
 
-#ifdef _MSC_VER
-        [&, &...promises = promises]<size_t...Is>(std::index_sequence<Is...>) {
-#else
-        [&]<size_t...Is>(std::index_sequence<Is...>) {
-#endif
-            ([&]() {
-                promises.finally([=, &result = promises.result()]() mutable {
-                    std::get<Is>(*results) = result;
+        ([&]() {
+            promises.finally([=, &result = promises.result()]() mutable {
+                std::get<Is>(*results) = result;
 
-                    if (--(*remain) > 0)
-                        return;
+                if (--(*remain) > 0)
+                    return;
 
-                    promise.resolve(std::move(*results));
-                });
-            }(), ...);
-        }(std::index_sequence_for<Ts...>{});
+                promise.resolve(std::move(*results));
+            });
+        }(), ...);
 
         return promise;
+    }
+
+    template<typename ...Ts, typename E>
+    Promise<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Promise<Ts, E> &...promises) {
+        return allSettled(std::index_sequence_for<Ts...>{}, promises...);
     }
 
     template<typename ...Ts>
