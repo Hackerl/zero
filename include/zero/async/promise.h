@@ -69,7 +69,7 @@ namespace zero::async::promise {
     template<typename T, typename E>
     struct Storage {
         State status{PENDING};
-        tl::expected<T, E> result;
+        std::unique_ptr<tl::expected<T, E>> result;
         std::list<std::pair<std::function<void()>, std::function<void()>>> triggers;
     };
 
@@ -87,7 +87,7 @@ namespace zero::async::promise {
                 return;
 
             mStorage->status = FULFILLED;
-            mStorage->result = tl::expected<T, E>(std::forward<Ts>(args)...);
+            mStorage->result = std::make_unique<tl::expected<T, E>>(std::forward<Ts>(args)...);
 
             for (const auto &trigger: std::exchange(mStorage->triggers, {}))
                 trigger.first();
@@ -99,7 +99,7 @@ namespace zero::async::promise {
                 return;
 
             mStorage->status = REJECTED;
-            mStorage->result = tl::unexpected(std::forward<Ts>(args)...);
+            mStorage->result = std::make_unique<tl::expected<T, E>>(tl::unexpected(std::forward<Ts>(args)...));
 
             for (const auto &trigger: std::exchange(mStorage->triggers, {}))
                 trigger.second();
@@ -114,25 +114,25 @@ namespace zero::async::promise {
 
             Promise<NextResult, NextReason> promise;
 
-            auto onFulfilledTrigger = [=, f = std::forward<F>(f), result = &mStorage->result]() mutable {
+            auto onFulfilledTrigger = [=, f = std::forward<F>(f), &result = mStorage->result]() mutable {
                 if constexpr (std::is_void_v<Next>) {
                     if constexpr (std::is_void_v<T>) {
                         f();
                     } else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
-                        std::apply(f, result->value());
+                        std::apply(f, std::as_const(result->value()));
                     } else {
-                        f(result->value());
+                        f(std::as_const(result->value()));
                     }
 
                     promise.resolve();
                 } else {
-                    Next next = [=]() {
+                    Next next = [=, &result]() {
                         if constexpr (std::is_void_v<T>) {
                             return f();
                         } else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
-                            return std::apply(f, result->value());
+                            return std::apply(f, std::as_const(result->value()));
                         } else {
-                            return f(result->value());
+                            return f(std::as_const(result->value()));
                         }
                     }();
 
@@ -174,9 +174,9 @@ namespace zero::async::promise {
                 }
             };
 
-            auto onRejectedTrigger = [=, result = &mStorage->result]() mutable {
+            auto onRejectedTrigger = [=, &result = mStorage->result]() mutable {
                 static_assert(std::is_same_v<NextReason, E>);
-                promise.reject(result->error());
+                promise.reject(std::as_const(result->error()));
             };
 
             switch (mStorage->status) {
@@ -203,31 +203,31 @@ namespace zero::async::promise {
 
             Promise<NextResult, NextReason> promise;
 
-            auto onFulfilledTrigger = [=, result = &mStorage->result]() mutable {
+            auto onFulfilledTrigger = [=, &result = mStorage->result]() mutable {
                 static_assert(std::is_same_v<NextResult, T>);
 
                 if constexpr (std::is_void_v<T>) {
                     promise.resolve();
                 } else {
-                    promise.resolve(result->value());
+                    promise.resolve(std::as_const(result->value()));
                 }
             };
 
-            auto onRejectedTrigger = [=, f = std::forward<F>(f), result = &mStorage->result]() mutable {
+            auto onRejectedTrigger = [=, f = std::forward<F>(f), &result = mStorage->result]() mutable {
                 if constexpr (std::is_void_v<Next>) {
                     if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
-                        std::apply(f, result->error());
+                        std::apply(f, std::as_const(result->error()));
                     } else {
-                        f(result->error());
+                        f(std::as_const(result->error()));
                     }
 
                     promise.resolve();
                 } else {
-                    Next next = [=]() {
+                    Next next = [=, &result]() {
                         if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
-                            return std::apply(f, result->result.error());
+                            return std::apply(f, std::as_const(result->error()));
                         } else {
-                            return f(result->error());
+                            return f(std::as_const(result->error()));
                         }
                     }();
 
@@ -289,19 +289,19 @@ namespace zero::async::promise {
         Promise<T, E> finally(F &&f) {
             Promise<T, E> promise;
 
-            auto onFulfilledTrigger = [=, result = &mStorage->result]() mutable {
+            auto onFulfilledTrigger = [=, &result = mStorage->result]() mutable {
                 f();
 
                 if constexpr (std::is_void_v<T>) {
                     promise.resolve();
                 } else {
-                    promise.resolve(result->value());
+                    promise.resolve(std::as_const(result->value()));
                 }
             };
 
-            auto onRejectedTrigger = [=, result = &mStorage->result]() mutable {
+            auto onRejectedTrigger = [=, &result = mStorage->result]() mutable {
                 f();
-                promise.reject(result->error());
+                promise.reject(std::as_const(result->error()));
             };
 
             switch (mStorage->status) {
@@ -333,19 +333,23 @@ namespace zero::async::promise {
         template<typename = void>
         requires (!std::is_void_v<T>)
         [[nodiscard]] std::add_lvalue_reference_t<std::add_const_t<T>> value() const {
-            return mStorage->result.value();
+            return mStorage->result->value();
         }
 
         [[nodiscard]] const E &reason() const {
-            return mStorage->result.error();
+            return mStorage->result->error();
         }
 
         [[nodiscard]] const tl::expected<T, E> &result() const {
-            return mStorage->result;
+            return *mStorage->result;
         }
 
     private:
         std::shared_ptr<Storage<T, E>> mStorage;
+
+        template<size_t...Is, typename ...Ts, typename Error>
+        friend Promise<std::tuple<tl::expected<Ts, Error>...>, Error>
+        allSettled(std::index_sequence<Is...>, Promise<Ts, Error> &...promises);
     };
 
     template<typename...Ts>
@@ -420,7 +424,7 @@ namespace zero::async::promise {
         std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(promises));
 
         if constexpr (std::is_void_v<promises_result_t<Ts...>>) {
-            ([&]() mutable {
+            ([&]() {
                 promises.then([=]() mutable {
                     if (--(*remain) > 0)
                         return;
@@ -482,8 +486,8 @@ namespace zero::async::promise {
         std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
 
         ([&]() {
-            promises.finally([=, &result = promises.result()]() mutable {
-                std::get<Is>(*results) = result;
+            promises.finally([=, &result = promises.mStorage->result]() mutable {
+                std::get<Is>(*results) = *result;
 
                 if (--(*remain) > 0)
                     return;

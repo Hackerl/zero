@@ -296,10 +296,34 @@ namespace zero::async::coroutine {
 
     template<typename ...Ts, typename E>
     Task<promise::promises_result_t<Ts...>, E> all(Task<Ts, E> &...tasks) {
-        using T = promise::promises_result_t<Ts...>;
-        tl::expected<T, E> result = co_await promise::all(((promise::Promise<Ts, E>) tasks.promise())...);
+        auto result = co_await Cancellable{
+                promise::all(((promise::Promise<Ts, E>) tasks.promise())...),
+                [=]() mutable {
+                    std::optional<tl::expected<void, std::error_code>> result;
 
-        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
+                    ([&]() {
+                        if (result && *result)
+                            return;
+
+                        if (tasks.done())
+                            return;
+
+                        result = tasks.cancel();
+                    }(), ...);
+
+                    return *result;
+                }
+        };
+
+        if (!result)
+            ([&]() {
+                if (tasks.done())
+                    return;
+
+                tasks.cancel();
+            }(), ...);
+
+        if constexpr (std::is_void_v<promise::promises_result_t<Ts...>> && std::is_same_v<E, std::exception_ptr>) {
             if (!result)
                 std::rethrow_exception(result.error());
 
@@ -316,7 +340,24 @@ namespace zero::async::coroutine {
 
     template<typename ...Ts, typename E>
     Task<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Task<Ts, E> &...tasks) {
-        co_return co_await promise::allSettled(((promise::Promise<Ts, E>) tasks.promise())...);
+        co_return co_await Cancellable{
+                promise::allSettled(((promise::Promise<Ts, E>) tasks.promise())...),
+                [=]() mutable {
+                    tl::expected<void, std::error_code> result;
+
+                    ([&]() {
+                        if (!result)
+                            return;
+
+                        if (tasks.done())
+                            return;
+
+                        result = tasks.cancel();
+                    }(), ...);
+
+                    return result;
+                }
+        };
     }
 
     template<typename ...Ts>
@@ -331,7 +372,34 @@ namespace zero::async::coroutine {
             typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
     >
     Task<T, std::list<E>> any(Task<Ts, E> &...tasks) {
-        co_return co_await promise::any(((promise::Promise<Ts, E>) tasks.promise())...);
+        auto result = co_await Cancellable{
+                promise::any(((promise::Promise<Ts, E>) tasks.promise())...),
+                [=]() mutable {
+                    tl::expected<void, std::error_code> result;
+
+                    ([&]() {
+                        if (!result)
+                            return;
+
+                        if (tasks.done())
+                            return;
+
+                        result = tasks.cancel();
+                    }(), ...);
+
+                    return result;
+                }
+        };
+
+        if (result)
+            ([&]() {
+                if (tasks.done())
+                    return;
+
+                tasks.cancel();
+            }(), ...);
+
+        co_return result;
     }
 
     template<typename ...Ts>
@@ -346,7 +414,31 @@ namespace zero::async::coroutine {
             typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
     >
     Task<T, E> race(Task<Ts, E> &...tasks) {
-        tl::expected<T, E> result = co_await promise::race(((promise::Promise<Ts, E>) tasks.promise())...);
+        auto result = co_await Cancellable{
+                promise::race(((promise::Promise<Ts, E>) tasks.promise())...),
+                [=]() mutable {
+                    std::optional<tl::expected<void, std::error_code>> result;
+
+                    ([&]() {
+                        if (result && *result)
+                            return;
+
+                        if (tasks.done())
+                            return;
+
+                        result = tasks.cancel();
+                    }(), ...);
+
+                    return *result;
+                }
+        };
+
+        ([&]() {
+            if (tasks.done())
+                return;
+
+            tasks.cancel();
+        }(), ...);
 
         if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
             if (!result)
