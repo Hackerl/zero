@@ -165,12 +165,12 @@ namespace zero::ptr {
     }
 
     template<typename T>
-    bool operator==(const RefPtr<T> &lhs, nullptr_t) {
+    bool operator==(const RefPtr<T> &lhs, std::nullptr_t) {
         return lhs.get() == nullptr;
     }
 
     template<typename T>
-    auto operator<=>(const RefPtr<T> &lhs, nullptr_t) {
+    auto operator<=>(const RefPtr<T> &lhs, std::nullptr_t) {
         return lhs.get() <=> static_cast<T *>(nullptr);
     }
 
