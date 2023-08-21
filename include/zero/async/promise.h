@@ -344,6 +344,10 @@ namespace zero::async::promise {
             return *mStorage->result;
         }
 
+        tl::expected<T, E> &result() {
+            return *mStorage->result;
+        }
+
     private:
         std::shared_ptr<Storage<T, E>> mStorage;
 

@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <optional>
+#include <system_error>
 #include <tl/expected.hpp>
 
 #ifdef ZERO_LEGACY_NT

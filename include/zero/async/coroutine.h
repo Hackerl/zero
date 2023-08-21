@@ -15,12 +15,22 @@ namespace zero::async::coroutine {
         }
 
         void await_suspend(std::coroutine_handle<> handle) {
-            promise.finally([=]() {
-                handle.resume();
-            });
+            if constexpr (std::is_void_v<T>) {
+                promise.then([=]() {
+                    handle.resume();
+                }, [=](const E &reason) {
+                    handle.resume();
+                });
+            } else {
+                promise.then([=](const T &result) {
+                    handle.resume();
+                }, [=](const E &reason) {
+                    handle.resume();
+                });
+            }
         }
 
-        const tl::expected<T, E> &await_resume() const {
+        tl::expected<T, E> &await_resume() {
             return promise.result();
         }
 
