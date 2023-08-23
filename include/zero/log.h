@@ -104,6 +104,9 @@ namespace zero {
         Logger();
         ~Logger();
 
+    public:
+        bool enabled(LogLevel level);
+
     private:
         void consume();
 
@@ -151,7 +154,8 @@ namespace zero {
         std::atomic<bool> mExit;
         std::once_flag mOnceFlag;
         std::list<Config> mConfigs;
-        std::optional<LogLevel> mLogLevel;
+        std::optional<LogLevel> mMinLogLevel;
+        std::optional<LogLevel> mMaxLogLevel;
         atomic::CircularBuffer<LogMessage> mBuffer;
     };
 
@@ -180,10 +184,10 @@ namespace zero {
 #define LOG_WARNING(message, ...)
 #define LOG_ERROR(message, ...)
 #else
-#define LOG_DEBUG(message, ...)             GLOBAL_LOGGER->log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_INFO(message, ...)              GLOBAL_LOGGER->log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_WARNING(message, ...)           GLOBAL_LOGGER->log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_ERROR(message, ...)             GLOBAL_LOGGER->log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_DEBUG(message, ...)             if (auto logger = GLOBAL_LOGGER; logger->enabled(zero::DEBUG_LEVEL)) logger->log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_INFO(message, ...)              if (auto logger = GLOBAL_LOGGER; logger->enabled(zero::INFO_LEVEL)) logger->log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_WARNING(message, ...)           if (auto logger = GLOBAL_LOGGER; logger->enabled(zero::WARNING_LEVEL)) logger->log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_ERROR(message, ...)             if (auto logger = GLOBAL_LOGGER; logger->enabled(zero::ERROR_LEVEL)) logger->log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
 #endif
 
 #endif //ZERO_LOG_H

@@ -135,6 +135,10 @@ zero::Logger::~Logger() {
         mThread.join();
 }
 
+bool zero::Logger::enabled(zero::LogLevel level) {
+    return mMaxLogLevel && *mMaxLogLevel >= level;
+}
+
 void zero::Logger::consume() {
     while (true) {
         std::optional<size_t> index = mBuffer.acquire();
@@ -195,7 +199,7 @@ void zero::Logger::consume() {
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (message.level > mLogLevel.value_or(it->level)) {
+            if (message.level > (std::max)(it->level, mMinLogLevel.value_or(ERROR_LEVEL))) {
                 if (it->flushDeadline && it->flushDeadline <= now) {
                     if (!it->provider->flush()) {
                         it = mConfigs.erase(it);
@@ -232,8 +236,10 @@ void zero::Logger::addProvider(
         if (env) {
             std::optional<int> level = strings::toNumber<int>(env);
 
-            if (level && *level >= ERROR_LEVEL && *level <= DEBUG_LEVEL)
-                mLogLevel = (LogLevel) *level;
+            if (level && *level >= ERROR_LEVEL && *level <= DEBUG_LEVEL) {
+                mMinLogLevel = (LogLevel) *level;
+                mMaxLogLevel = mMinLogLevel;
+            }
         }
 
         mThread = std::thread(&Logger::consume, this);
@@ -243,6 +249,8 @@ void zero::Logger::addProvider(
         return;
 
     std::lock_guard<std::mutex> guard(mMutex);
+
+    mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(ERROR_LEVEL));
 
     mConfigs.emplace_back(
             level,
