@@ -305,7 +305,7 @@ namespace zero::async::coroutine {
     };
 
     template<typename ...Ts, typename E>
-    Task<promise::promises_result_t<Ts...>, E> all(Task<Ts, E> &...tasks) {
+    Task<promise::promises_result_t<Ts...>, E> all(Task<Ts, E> ...tasks) {
         auto result = co_await Cancellable{
                 promise::all(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
@@ -343,13 +343,8 @@ namespace zero::async::coroutine {
         }
     }
 
-    template<typename ...Ts>
-    auto all(Ts &&...tasks) {
-        return all(tasks...);
-    }
-
     template<typename ...Ts, typename E>
-    Task<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Task<Ts, E> &...tasks) {
+    Task<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Task<Ts, E> ...tasks) {
         co_return co_await Cancellable{
                 promise::allSettled(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
@@ -370,18 +365,13 @@ namespace zero::async::coroutine {
         };
     }
 
-    template<typename ...Ts>
-    auto allSettled(Ts &&...tasks) {
-        return allSettled(tasks...);
-    }
-
     template<
             typename ...Ts,
             typename E,
             typename F = detail::first_element_t<Ts...>,
             typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
     >
-    Task<T, std::list<E>> any(Task<Ts, E> &...tasks) {
+    Task<T, std::list<E>> any(Task<Ts, E> ...tasks) {
         auto result = co_await Cancellable{
                 promise::any(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
@@ -412,18 +402,13 @@ namespace zero::async::coroutine {
         co_return result;
     }
 
-    template<typename ...Ts>
-    auto any(Ts &&...tasks) {
-        return any(tasks...);
-    }
-
     template<
             typename ...Ts,
             typename E,
             typename F = detail::first_element_t<Ts...>,
             typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
     >
-    Task<T, E> race(Task<Ts, E> &...tasks) {
+    Task<T, E> race(Task<Ts, E> ...tasks) {
         auto result = co_await Cancellable{
                 promise::race(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
@@ -458,11 +443,6 @@ namespace zero::async::coroutine {
         } else {
             co_return result;
         }
-    }
-
-    template<typename ...Ts>
-    auto race(Ts &&...tasks) {
-        return race(tasks...);
     }
 }
 
