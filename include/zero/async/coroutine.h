@@ -186,13 +186,26 @@ namespace zero::async::coroutine {
         }
 
         template<typename U>
-        requires (!std::is_void_v<T> && !detail::is_specialization<std::decay_t<U>, tl::expected>)
+        requires (
+                !std::is_void_v<T> &&
+                !detail::is_specialization<std::decay_t<U>, tl::expected> &&
+                !detail::is_specialization<std::decay_t<U>, tl::unexpected>
+        )
         void return_value(U &&result) {
             promise::Promise<T, E>::resolve(std::forward<U>(result));
         }
 
         void return_value(const tl::expected<T, E> &result) {
-            return_value(tl::expected<T, E>{result});
+            if (!result) {
+                promise::Promise<T, E>::reject(result.error());
+                return;
+            }
+
+            if constexpr (std::is_void_v<T>) {
+                promise::Promise<T, E>::resolve();
+            } else {
+                promise::Promise<T, E>::resolve(result.value());
+            }
         }
 
         void return_value(tl::expected<T, E> &&result) {
