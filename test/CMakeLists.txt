@@ -19,3 +19,6 @@ add_executable(
 )
 
 target_link_libraries(zero_test PRIVATE zero Catch2::Catch2WithMain)
+
+include(Catch)
+catch_discover_tests(zero_test)
