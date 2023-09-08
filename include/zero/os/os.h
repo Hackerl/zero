@@ -2,11 +2,12 @@
 #define ZERO_OS_H
 
 #include <string>
-#include <optional>
+#include <system_error>
+#include <tl/expected.hpp>
 
 namespace zero::os {
-    std::optional<std::string> hostname();
-    std::optional<std::string> username();
+    tl::expected<std::string, std::error_code> hostname();
+    tl::expected<std::string, std::error_code> username();
 }
 
 #endif //ZERO_OS_H

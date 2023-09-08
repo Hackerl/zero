@@ -12,27 +12,27 @@
 #include <sys/param.h>
 #endif
 
-std::optional<std::string> zero::os::hostname() {
+tl::expected<std::string, std::error_code> zero::os::hostname() {
 #ifdef _WIN32
     WCHAR name[MAX_COMPUTERNAME_LENGTH + 1] = {};
     DWORD length = ARRAYSIZE(name);
 
     if (!GetComputerNameW(name, &length))
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return zero::strings::encode(name);
 #elif __linux__
     char name[HOST_NAME_MAX + 1] = {};
 
     if (gethostname(name, sizeof(name)) < 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return name;
 #elif __APPLE__
     char name[MAXHOSTNAMELEN] = {};
 
     if (gethostname(name, sizeof(name)) < 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return name;
 #else
@@ -40,13 +40,13 @@ std::optional<std::string> zero::os::hostname() {
 #endif
 }
 
-std::optional<std::string> zero::os::username() {
+tl::expected<std::string, std::error_code> zero::os::username() {
 #ifdef _WIN32
     WCHAR name[UNLEN + 1] = {};
     DWORD length = ARRAYSIZE(name);
 
     if (!GetUserNameW(name, &length))
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return zero::strings::encode(name);
 #elif __linux__
@@ -54,14 +54,14 @@ std::optional<std::string> zero::os::username() {
     char *name = getlogin();
 
     if (!name)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return name;
 #else
     char name[LOGIN_NAME_MAX + 1] = {};
 
     if (getlogin_r(name, sizeof(name)) != 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return name;
 #endif
@@ -69,7 +69,7 @@ std::optional<std::string> zero::os::username() {
     char name[MAXLOGNAME + 1] = {};
 
     if (getlogin_r(name, sizeof(name)) != 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return name;
 #else

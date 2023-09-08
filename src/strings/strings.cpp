@@ -105,13 +105,13 @@ std::vector<std::string> zero::strings::split(std::string_view str, std::string_
     return tokens;
 }
 
-std::optional<std::string> zero::strings::encode(const std::wstring &str, const char *encoding) {
+tl::expected<std::string, std::error_code> zero::strings::encode(const std::wstring &str, const char *encoding) {
     iconv_t cd = iconv_open(encoding, "WCHAR_T");
 
     if (cd == (iconv_t) -1)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
-    std::optional<std::string> output = std::make_optional<std::string>();
+    tl::expected<std::string, std::error_code> output;
 
     char *input = (char *) str.c_str();
     size_t inBytesLeft = str.length() * sizeof(wchar_t);
@@ -123,7 +123,7 @@ std::optional<std::string> zero::strings::encode(const std::wstring &str, const 
         size_t outBytesLeft = sizeof(buffer);
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
-            output.reset();
+            output = tl::unexpected(std::error_code(errno, std::system_category()));
             break;
         }
 
@@ -131,17 +131,16 @@ std::optional<std::string> zero::strings::encode(const std::wstring &str, const 
     }
 
     iconv_close(cd);
-
     return output;
 }
 
-std::optional<std::wstring> zero::strings::decode(const std::string &str, const char *encoding) {
+tl::expected<std::wstring, std::error_code> zero::strings::decode(const std::string &str, const char *encoding) {
     iconv_t cd = iconv_open("WCHAR_T", encoding);
 
     if (cd == (iconv_t) -1)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
-    std::optional<std::wstring> output = std::make_optional<std::wstring>();
+    tl::expected<std::wstring, std::error_code> output;
 
     char *input = (char *) str.c_str();
     size_t inBytesLeft = str.length();
@@ -153,7 +152,7 @@ std::optional<std::wstring> zero::strings::decode(const std::string &str, const 
         size_t outBytesLeft = sizeof(buffer);
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
-            output.reset();
+            output = tl::unexpected(std::error_code(errno, std::system_category()));
             break;
         }
 
@@ -161,6 +160,5 @@ std::optional<std::wstring> zero::strings::decode(const std::string &str, const 
     }
 
     iconv_close(cd);
-
     return output;
 }

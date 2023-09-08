@@ -18,20 +18,22 @@ std::string zero::encoding::hex::encode(std::span<const std::byte> buffer) {
     return encoded;
 }
 
-std::optional<std::vector<std::byte>> zero::encoding::hex::decode(std::string_view encoded) {
+tl::expected<std::vector<std::byte>, std::error_code> zero::encoding::hex::decode(std::string_view encoded) {
     if (encoded.length() % 2)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
-    std::vector<std::byte> buffer;
+    tl::expected<std::vector<std::byte>, std::error_code> result;
 
     for (size_t i = 0; i < encoded.size(); i += 2) {
-        std::optional<unsigned int> number = strings::toNumber<unsigned int>(encoded.substr(i, 2), 16);
+        auto n = strings::toNumber<unsigned int>(encoded.substr(i, 2), 16);
 
-        if (!number)
-            return std::nullopt;
+        if (!n) {
+            result = tl::unexpected(n.error());
+            break;
+        }
 
-        buffer.push_back(std::byte(*number & 0xff));
+        result->push_back(std::byte(*n & 0xff));
     }
 
-    return buffer;
+    return result;
 }

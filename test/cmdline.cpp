@@ -8,11 +8,11 @@ struct Config {
 };
 
 template<>
-std::optional<Config> zero::convert<Config>(std::string_view str) {
-    std::vector<std::string> tokens = zero::strings::split(str, ":");
+tl::expected<Config, std::error_code> zero::fromCommandLine(const std::string &str) {
+    auto tokens = zero::strings::split(str, ":");
 
     if (tokens.size() != 2)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
     return Config{zero::strings::trim(tokens[0]), zero::strings::trim(tokens[1])};
 }
@@ -40,7 +40,7 @@ TEST_CASE("parse command line arguments", "[cmdline]") {
     cmdline.addOptional<int>("count", 'c', "thread count");
     cmdline.addOptional<Config>("config", '\0', "account config");
 
-    cmdline.parse(argv.size(), argv.data());
+    cmdline.from(argv.size(), argv.data());
 
     REQUIRE(cmdline.exist("http"));
     REQUIRE(cmdline.get<std::string>("host") == "localhost");

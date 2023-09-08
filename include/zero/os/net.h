@@ -6,7 +6,8 @@
 #include <string>
 #include <vector>
 #include <variant>
-#include <optional>
+#include <system_error>
+#include <tl/expected.hpp>
 
 namespace zero::os::net {
     struct IPv4Address {
@@ -33,7 +34,7 @@ namespace zero::os::net {
     std::string stringify(const IPv6Address &address);
     std::string stringify(const Address &address);
 
-    std::optional<std::vector<Interface>> interfaces();
+    tl::expected<std::vector<Interface>, std::error_code> interfaces();
 }
 
 #endif //ZERO_NET_H

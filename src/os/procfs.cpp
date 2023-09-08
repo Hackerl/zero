@@ -1,10 +1,10 @@
 #include <zero/os/procfs.h>
 #include <zero/strings/strings.h>
-#include <algorithm>
 #include <dirent.h>
 #include <fcntl.h>
 #include <cstring>
 #include <climits>
+#include <ranges>
 
 constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
@@ -14,9 +14,9 @@ zero::os::procfs::Process::Process(int fd, pid_t pid) : mFD(fd), mPID(pid) {
 
 }
 
-zero::os::procfs::Process::Process(zero::os::procfs::Process &&rhs) noexcept: mFD(-1), mPID(0) {
-    std::swap(mFD, rhs.mFD);
-    std::swap(mPID, rhs.mPID);
+zero::os::procfs::Process::Process(zero::os::procfs::Process &&rhs) noexcept
+        : mFD(std::exchange(rhs.mFD, -1)), mPID(std::exchange(rhs.mPID, 0)) {
+
 }
 
 zero::os::procfs::Process::~Process() {
@@ -26,133 +26,141 @@ zero::os::procfs::Process::~Process() {
     close(mFD);
 }
 
-std::optional<std::string> zero::os::procfs::Process::readFile(const char *filename) const {
+tl::expected<std::string, std::error_code> zero::os::procfs::Process::readFile(const char *filename) const {
     int fd = openat(mFD, filename, O_RDONLY);
 
     if (fd < 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
-    std::optional<std::string> content = std::make_optional<std::string>();
+    tl::expected<std::string, std::error_code> result;
 
     while (true) {
         char buffer[1024];
-
         ssize_t n = read(fd, buffer, sizeof(buffer));
 
         if (n <= 0) {
-            if (n == -1)
-                content.reset();
+            if (n == 0)
+                break;
 
+            result = tl::unexpected(std::error_code(errno, std::system_category()));
             break;
         }
 
-        content->append(buffer, n);
+        result->append(buffer, n);
     }
 
     close(fd);
-
-    return content;
+    return result;
 }
 
 pid_t zero::os::procfs::Process::pid() const {
     return mPID;
 }
 
-std::optional<zero::os::procfs::MemoryMapping> zero::os::procfs::Process::getImageBase(std::string_view path) const {
-    std::optional<std::list<MemoryMapping>> memoryMappings = maps();
+tl::expected<zero::os::procfs::MemoryMapping, std::error_code>
+zero::os::procfs::Process::getImageBase(std::string_view path) const {
+    auto memoryMappings = maps();
 
     if (!memoryMappings)
-        return std::nullopt;
+        return tl::unexpected(memoryMappings.error());
 
-    auto it = std::find_if(memoryMappings->begin(), memoryMappings->end(), [=](const auto &m) {
-        return m.pathname.find(path) != std::string::npos;
-    });
-
-    if (it == memoryMappings->end())
-        return std::nullopt;
-
-    return *it;
-}
-
-std::optional<zero::os::procfs::MemoryMapping> zero::os::procfs::Process::findMapping(uintptr_t address) const {
-    std::optional<std::list<MemoryMapping>> memoryMappings = maps();
-
-    if (!memoryMappings)
-        return std::nullopt;
-
-    auto it = std::find_if(memoryMappings->begin(), memoryMappings->end(), [=](const auto &m) {
-        return m.start <= address && address < m.end;
-    });
-
-    if (it == memoryMappings->end())
-        return std::nullopt;
-
-    return *it;
-}
-
-std::optional<std::filesystem::path> zero::os::procfs::Process::exe() const {
-    char buffer[PATH_MAX + 1] = {};
-
-    if (readlinkat(mFD, "exe", buffer, PATH_MAX) == -1)
-        return std::nullopt;
-
-    return buffer;
-}
-
-std::optional<std::filesystem::path> zero::os::procfs::Process::cwd() const {
-    char buffer[PATH_MAX + 1] = {};
-
-    if (readlinkat(mFD, "cwd", buffer, PATH_MAX) == -1)
-        return std::nullopt;
-
-    return buffer;
-}
-
-std::optional<std::string> zero::os::procfs::Process::comm() const {
-    std::optional<std::string> content = readFile("comm");
-
-    if (!content)
-        return std::nullopt;
-
-    content->pop_back();
-
-    return *content;
-}
-
-std::optional<std::vector<std::string>> zero::os::procfs::Process::cmdline() const {
-    std::optional<std::string> content = readFile("cmdline");
-
-    if (!content)
-        return std::nullopt;
-
-    std::vector<std::string> tokens = strings::split(*content, {"\0", 1});
-    std::vector<std::string> cmdline;
-
-    std::copy_if(
-            tokens.begin(),
-            tokens.end(),
-            std::back_inserter(cmdline),
-            [](const auto &token) {
-                return !token.empty();
+    auto it = std::ranges::find_if(
+            *memoryMappings,
+            [=](const auto &m) {
+                return m.pathname.find(path) != std::string::npos;
             }
     );
 
-    return cmdline;
+    if (it == memoryMappings->end())
+        return tl::unexpected(std::error_code());
+
+    return *it;
 }
 
-std::optional<std::map<std::string, std::string>> zero::os::procfs::Process::environ() const {
-    std::optional<std::string> content = readFile("environ");
+tl::expected<zero::os::procfs::MemoryMapping, std::error_code>
+zero::os::procfs::Process::findMapping(uintptr_t address) const {
+    auto memoryMappings = maps();
+
+    if (!memoryMappings)
+        return tl::unexpected(memoryMappings.error());
+
+    auto it = std::ranges::find_if(
+            *memoryMappings,
+            [=](const auto &m) {
+                return m.start <= address && address < m.end;
+            }
+    );
+
+    if (it == memoryMappings->end())
+        return tl::unexpected(std::error_code());
+
+    return *it;
+}
+
+tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::Process::exe() const {
+    char buffer[PATH_MAX + 1] = {};
+
+    if (readlinkat(mFD, "exe", buffer, PATH_MAX) == -1)
+        return tl::unexpected(std::error_code(errno, std::system_category()));
+
+    return buffer;
+}
+
+tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::Process::cwd() const {
+    char buffer[PATH_MAX + 1] = {};
+
+    if (readlinkat(mFD, "cwd", buffer, PATH_MAX) == -1)
+        return tl::unexpected(std::error_code(errno, std::system_category()));
+
+    return buffer;
+}
+
+tl::expected<std::string, std::error_code> zero::os::procfs::Process::comm() const {
+    auto content = readFile("comm");
 
     if (!content)
-        return std::nullopt;
+        return tl::unexpected(content.error());
 
-    std::vector<std::string> tokens = strings::split(*content, {"\0", 1});
+    if (content->size() < 2)
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+
+    content->pop_back();
+    return *content;
+}
+
+tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::Process::cmdline() const {
+    auto content = readFile("cmdline");
+
+    if (!content)
+        return tl::unexpected(content.error());
+
+    if (content->empty())
+        return {};
+
+    auto tokens = strings::split(*content, {"\0", 1});
+
+    if (tokens.size() < 2)
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+
+    tokens.pop_back();
+    return tokens;
+}
+
+tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::Process::environ() const {
+    auto content = readFile("environ");
+
+    if (!content)
+        return tl::unexpected(content.error());
+
+    auto tokens = strings::split(*content, {"\0", 1});
+
+    if (tokens.empty())
+        return {};
+
+    tokens.pop_back();
     std::map<std::string, std::string> environ;
 
     for (const auto &token: tokens) {
-        if (token.empty())
-            continue;
-
         size_t pos = token.find('=');
 
         if (pos == std::string::npos)
@@ -164,27 +172,27 @@ std::optional<std::map<std::string, std::string>> zero::os::procfs::Process::env
     return environ;
 }
 
-std::optional<zero::os::procfs::Stat> zero::os::procfs::Process::stat() const {
-    std::optional<std::string> content = readFile("stat");
+tl::expected<zero::os::procfs::Stat, std::error_code> zero::os::procfs::Process::stat() const {
+    auto content = readFile("stat");
 
     if (!content)
-        return std::nullopt;
+        return tl::unexpected(content.error());
 
     size_t start = content->find('(');
     size_t end = content->rfind(')');
 
     if (start == std::string::npos || end == std::string::npos)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
-    Stat stat;
+    Stat stat = {};
 
     stat.pid = strings::toNumber<pid_t>(content->substr(0, start - 1)).value_or(-1);
     stat.comm = content->substr(start + 1, end - start - 1);
 
-    std::vector<std::string> tokens = strings::split(content->substr(end + 2), " ");
+    auto tokens = strings::split(content->substr(end + 2), " ");
 
     if (tokens.size() < STAT_BASIC_FIELDS - 2)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
     auto it = tokens.begin();
 
@@ -227,77 +235,77 @@ std::optional<zero::os::procfs::Stat> zero::os::procfs::Process::stat() const {
     if (it == tokens.end())
         return stat;
 
-    stat.exitSignal = strings::toNumber<int>(*it++);
+    stat.exitSignal = *strings::toNumber<int>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.processor = strings::toNumber<int>(*it++);
+    stat.processor = *strings::toNumber<int>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.rtPriority = strings::toNumber<unsigned int>(*it++);
+    stat.rtPriority = *strings::toNumber<unsigned int>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.policy = strings::toNumber<unsigned int>(*it++);
+    stat.policy = *strings::toNumber<unsigned int>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.delayAcctBlkIOTicks = strings::toNumber<unsigned long long>(*it++);
+    stat.delayAcctBlkIOTicks = *strings::toNumber<unsigned long long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.guestTime = strings::toNumber<unsigned long>(*it++);
+    stat.guestTime = *strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.cGuestTime = strings::toNumber<long>(*it++);
+    stat.cGuestTime = *strings::toNumber<long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.startData = strings::toNumber<unsigned long>(*it++);
+    stat.startData = *strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.endData = strings::toNumber<unsigned long>(*it++);
+    stat.endData = *strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.startBrk = strings::toNumber<unsigned long>(*it++);
+    stat.startBrk = *strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.argStart = strings::toNumber<unsigned long>(*it++);
+    stat.argStart = *strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.argEnd = strings::toNumber<unsigned long>(*it++);
+    stat.argEnd = *strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.envStart = strings::toNumber<unsigned long>(*it++);
+    stat.envStart = *strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.envEnd = strings::toNumber<unsigned long>(*it++);
+    stat.envEnd = *strings::toNumber<unsigned long>(*it++);
 
     if (it == tokens.end())
         return stat;
 
-    stat.exitCode = strings::toNumber<int>(*it++);
+    stat.exitCode = *strings::toNumber<int>(*it++);
 
     return stat;
 }
@@ -309,19 +317,19 @@ std::optional<T> statusIntegerField(const std::map<std::string, std::string> &ma
     if (it == map.end())
         return std::nullopt;
 
-    return zero::strings::toNumber<T>(it->second, base);
+    return *zero::strings::toNumber<T>(it->second, base);
 }
 
-std::optional<zero::os::procfs::Status> zero::os::procfs::Process::status() const {
-    std::optional<std::string> content = readFile("status");
+tl::expected<zero::os::procfs::Status, std::error_code> zero::os::procfs::Process::status() const {
+    auto content = readFile("status");
 
     if (!content)
-        return std::nullopt;
+        return tl::unexpected(content.error());
 
     std::map<std::string, std::string> map;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        std::vector<std::string> tokens = strings::split(line, ":");
+        auto tokens = strings::split(line, ":");
 
         if (tokens.size() != 2)
             continue;
@@ -329,7 +337,7 @@ std::optional<zero::os::procfs::Status> zero::os::procfs::Process::status() cons
         map[tokens[0]] = strings::trim(tokens[1]);
     }
 
-    Status status;
+    Status status = {};
 
     status.name = map["Name"];
     status.umask = statusIntegerField<mode_t>(map, "Umask", 8);
@@ -343,7 +351,7 @@ std::optional<zero::os::procfs::Status> zero::os::procfs::Process::status() cons
     std::vector<std::string> tokens = strings::split(map["Uid"]);
 
     if (tokens.size() != 4)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
     for (size_t i = 0; i < 4; i++)
         status.uid[i] = *strings::toNumber<uid_t>(tokens[i]);
@@ -351,7 +359,7 @@ std::optional<zero::os::procfs::Status> zero::os::procfs::Process::status() cons
     tokens = strings::split(map["Gid"]);
 
     if (tokens.size() != 4)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
     for (size_t i = 0; i < 4; i++)
         status.gid[i] = *strings::toNumber<pid_t>(tokens[i]);
@@ -387,7 +395,7 @@ std::optional<zero::os::procfs::Status> zero::os::procfs::Process::status() cons
     tokens = strings::split(map["SigQ"], "/");
 
     if (tokens.size() != 2)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
     status.sigQ[0] = *strings::toNumber<int>(tokens[0]);
     status.sigQ[1] = *strings::toNumber<int>(tokens[1]);
@@ -494,20 +502,20 @@ std::optional<zero::os::procfs::Status> zero::os::procfs::Process::status() cons
     return status;
 }
 
-std::optional<std::list<pid_t>> zero::os::procfs::Process::tasks() const {
+tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::Process::tasks() const {
     int fd = openat(mFD, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 
     if (fd < 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     DIR *dir = fdopendir(fd);
 
     if (!dir) {
         close(fd);
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
     }
 
-    std::optional<std::list<pid_t>> tasks = std::make_optional<std::list<pid_t>>();
+    tl::expected<std::list<pid_t>, std::error_code> result;
 
     while (true) {
         dirent *e = readdir(dir);
@@ -518,28 +526,30 @@ std::optional<std::list<pid_t>> zero::os::procfs::Process::tasks() const {
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
             continue;
 
-        std::optional<pid_t> tid = strings::toNumber<pid_t>(e->d_name);
+        auto tid = strings::toNumber<pid_t>(e->d_name);
 
         if (!tid) {
-            tasks.reset();
+            result = tl::unexpected(tid.error());
             break;
         }
 
-        tasks->push_back(*tid);
+        result->push_back(*tid);
     }
 
     closedir(dir);
-
-    return tasks;
+    return result;
 }
 
-std::optional<std::list<zero::os::procfs::MemoryMapping>> zero::os::procfs::Process::maps() const {
-    std::optional<std::string> content = readFile("maps");
+tl::expected<std::list<zero::os::procfs::MemoryMapping>, std::error_code> zero::os::procfs::Process::maps() const {
+    auto content = readFile("maps");
 
     if (!content)
-        return std::nullopt;
+        return tl::unexpected(content.error());
 
-    std::list<MemoryMapping> memoryMappings;
+    if (content->empty())
+        return {};
+
+    tl::expected<std::list<MemoryMapping>, std::error_code> result;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
         std::vector<std::string> fields = strings::split(line);
@@ -552,15 +562,35 @@ std::optional<std::list<zero::os::procfs::MemoryMapping>> zero::os::procfs::Proc
         if (tokens.size() != 2)
             continue;
 
-        std::optional<uintptr_t> start = strings::toNumber<uintptr_t>(tokens[0], 16);
-        std::optional<uintptr_t> end = strings::toNumber<uintptr_t>(tokens[1], 16);
-        std::optional<off_t> offset = strings::toNumber<off_t>(fields[2], 16);
-        std::optional<ino_t> inode = strings::toNumber<ino_t>(fields[4]);
+        auto start = strings::toNumber<uintptr_t>(tokens[0], 16);
 
-        if (!start || !end || !offset || !inode)
-            return std::nullopt;
+        if (!start) {
+            result = tl::unexpected(start.error());
+            break;
+        }
 
-        MemoryMapping memoryMapping;
+        auto end = strings::toNumber<uintptr_t>(tokens[1], 16);
+
+        if (!end) {
+            result = tl::unexpected(end.error());
+            break;
+        }
+
+        auto offset = strings::toNumber<off_t>(fields[2], 16);
+
+        if (!offset) {
+            result = tl::unexpected(offset.error());
+            break;
+        }
+
+        auto inode = strings::toNumber<ino_t>(fields[4]);
+
+        if (!inode) {
+            result = tl::unexpected(inode.error());
+            break;
+        }
+
+        MemoryMapping memoryMapping = {};
 
         memoryMapping.start = *start;
         memoryMapping.end = *end;
@@ -573,37 +603,34 @@ std::optional<std::list<zero::os::procfs::MemoryMapping>> zero::os::procfs::Proc
 
         std::string permissions = fields[1];
 
-        if (permissions.length() < MAPPING_PERMISSIONS_LENGTH)
-            return std::nullopt;
+        if (permissions.length() < MAPPING_PERMISSIONS_LENGTH) {
+            result = tl::unexpected(make_error_code(std::errc::invalid_argument));
+            break;
+        }
 
         if (permissions.at(0) == 'r')
-            memoryMapping.permissions |= READ;
+            memoryMapping.permissions |= MemoryPermission::READ;
 
         if (permissions.at(1) == 'w')
-            memoryMapping.permissions |= WRITE;
+            memoryMapping.permissions |= MemoryPermission::WRITE;
 
         if (permissions.at(2) == 'x')
-            memoryMapping.permissions |= EXECUTE;
+            memoryMapping.permissions |= MemoryPermission::EXECUTE;
 
         if (permissions.at(3) == 's')
-            memoryMapping.permissions |= SHARED;
+            memoryMapping.permissions |= MemoryPermission::SHARED;
 
         if (permissions.at(3) == 'p')
-            memoryMapping.permissions |= PRIVATE;
+            memoryMapping.permissions |= MemoryPermission::PRIVATE;
 
-        memoryMappings.push_back(std::move(memoryMapping));
+        result->push_back(std::move(memoryMapping));
     }
 
-    return memoryMappings;
+    return result;
 }
 
-std::optional<zero::os::procfs::Process> zero::os::procfs::openProcess(pid_t pid) {
-    std::filesystem::path path = std::filesystem::path("/proc") / std::to_string(pid);
-
-    std::error_code ec;
-
-    if (!std::filesystem::is_directory(path, ec))
-        return std::nullopt;
+tl::expected<zero::os::procfs::Process, std::error_code> zero::os::procfs::openProcess(pid_t pid) {
+    auto path = std::filesystem::path("/proc") / std::to_string(pid);
 
 #ifdef O_PATH
     int fd = open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
@@ -612,7 +639,7 @@ std::optional<zero::os::procfs::Process> zero::os::procfs::openProcess(pid_t pid
 #endif
 
     if (fd < 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return Process{fd, pid};
 }

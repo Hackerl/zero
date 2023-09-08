@@ -21,6 +21,7 @@ add_library(
         zero
         STATIC
         src/log.cpp
+        src/cmdline.cpp
         src/os/os.cpp
         src/os/net.cpp
         src/time/time.cpp

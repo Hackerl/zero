@@ -5,9 +5,10 @@
 #include <vector>
 #include <numeric>
 #include <memory>
-#include <optional>
 #include <charconv>
 #include <stdexcept>
+#include <system_error>
+#include <tl/expected.hpp>
 
 namespace zero::strings {
     std::string trim(std::string_view str);
@@ -20,8 +21,8 @@ namespace zero::strings {
     std::vector<std::string> split(std::string_view str, int limit = 0);
     std::vector<std::string> split(std::string_view str, std::string_view delimiter, int limit = 0);
 
-    std::optional<std::string> encode(const std::wstring &str, const char *encoding = "UTF-8");
-    std::optional<std::wstring> decode(const std::string &str, const char *encoding = "UTF-8");
+    tl::expected<std::string, std::error_code> encode(const std::wstring &str, const char *encoding = "UTF-8");
+    tl::expected<std::wstring, std::error_code> decode(const std::string &str, const char *encoding = "UTF-8");
 
     template<typename T>
     std::string join(const T &containers, const char *delimiter) {
@@ -39,13 +40,13 @@ namespace zero::strings {
     }
 
     template<typename T>
-    std::optional<T> toNumber(std::string_view str, int base = 10) {
+    tl::expected<T, std::error_code> toNumber(std::string_view str, int base = 10) {
         T value;
 
         std::from_chars_result result = std::from_chars(str.data(), str.data() + str.length(), value, base);
 
         if (result.ec != std::errc())
-            return std::nullopt;
+            return tl::unexpected(make_error_code(result.ec));
 
         return value;
     }
@@ -53,7 +54,7 @@ namespace zero::strings {
     template<typename... Args>
     std::string format(const char *fmt, Args... args) {
         size_t length = 4096;
-        std::unique_ptr<char[]> buffer = std::make_unique<char[]>(length);
+        auto buffer = std::make_unique<char[]>(length);
 
         while (true) {
             int n = snprintf(buffer.get(), length, fmt, args...);

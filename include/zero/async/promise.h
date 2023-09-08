@@ -425,7 +425,7 @@ namespace zero::async::promise {
     template<size_t...Is, typename ...Ts, typename E>
     Promise<promises_result_t<Ts...>, E> all(std::index_sequence<Is...>, Promise<Ts, E> &...promises) {
         Promise<promises_result_t<Ts...>, E> promise;
-        std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(promises));
+        auto remain = std::make_shared<size_t>(sizeof...(promises));
 
         if constexpr (std::is_void_v<promises_result_t<Ts...>>) {
             ([&]() {
@@ -486,8 +486,8 @@ namespace zero::async::promise {
 
         Promise<T, E> promise;
 
-        std::shared_ptr<T> results = std::make_shared<T>();
-        std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
+        auto results = std::make_shared<T>();
+        auto remain = std::make_shared<size_t>(sizeof...(Ts));
 
         ([&]() {
             promises.finally([=, &result = promises.mStorage->result]() mutable {
@@ -520,8 +520,8 @@ namespace zero::async::promise {
 
         Promise<std::conditional_t<Same, T, std::any>, std::list<E>> promise;
 
-        std::shared_ptr<size_t> remain = std::make_shared<size_t>(sizeof...(Ts));
-        std::shared_ptr<std::list<E>> reasons = std::make_shared<std::list<E>>();
+        auto remain = std::make_shared<size_t>(sizeof...(Ts));
+        auto reasons = std::make_shared<std::list<E>>();
 
         ([&]() {
             if constexpr (std::is_void_v<Ts>) {

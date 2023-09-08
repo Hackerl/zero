@@ -2,8 +2,9 @@
 #define ZERO_PROCESS_H
 
 #include <windows.h>
-#include <optional>
 #include <filesystem>
+#include <system_error>
+#include <tl/expected.hpp>
 
 namespace zero::os::nt::process {
     class Process {
@@ -14,19 +15,19 @@ namespace zero::os::nt::process {
 
     public:
         [[nodiscard]] DWORD pid() const;
-        [[nodiscard]] std::optional<DWORD> ppid() const;
+        [[nodiscard]] tl::expected<DWORD, std::error_code> ppid() const;
 
     public:
-        [[nodiscard]] std::optional<std::string> name() const;
-        [[nodiscard]] std::optional<std::filesystem::path> image() const;
-        [[nodiscard]] std::optional<std::vector<std::string>> cmdline() const;
+        [[nodiscard]] tl::expected<std::string, std::error_code> name() const;
+        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> image() const;
+        [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
 
     private:
         DWORD mPID;
         HANDLE mHandle;
     };
 
-    std::optional<Process> openProcess(DWORD pid);
+    tl::expected<Process, std::error_code> openProcess(DWORD pid);
 }
 
 #endif //ZERO_PROCESS_H

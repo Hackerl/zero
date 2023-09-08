@@ -28,9 +28,9 @@ DWORD zero::os::nt::process::Process::pid() const {
     return mPID;
 }
 
-std::optional<DWORD> zero::os::nt::process::Process::ppid() const {
+tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() const {
     if (!queryInformationProcess)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::function_not_supported));
 
     PROCESS_BASIC_INFORMATION info = {};
 
@@ -41,33 +41,30 @@ std::optional<DWORD> zero::os::nt::process::Process::ppid() const {
             sizeof(info),
             nullptr
     )))
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return (DWORD) (uintptr_t) info.Reserved3;
 }
 
-std::optional<std::string> zero::os::nt::process::Process::name() const {
-    std::optional<std::filesystem::path> path = image();
-
-    if (!path)
-        return std::nullopt;
-
-    return path->filename().string();
+tl::expected<std::string, std::error_code> zero::os::nt::process::Process::name() const {
+    return image().transform([](const auto &path) {
+        return path.filename().string();
+    });
 }
 
-std::optional<std::filesystem::path> zero::os::nt::process::Process::image() const {
+tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::image() const {
     WCHAR buffer[MAX_PATH] = {};
     DWORD size = ARRAYSIZE(buffer);
 
     if (!QueryFullProcessImageNameW(mHandle, 0, buffer, &size))
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return buffer;
 }
 
-std::optional<std::vector<std::string>> zero::os::nt::process::Process::cmdline() const {
+tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {
     if (!queryInformationProcess)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::function_not_supported));
 
     PROCESS_BASIC_INFORMATION info = {};
 
@@ -78,7 +75,7 @@ std::optional<std::vector<std::string>> zero::os::nt::process::Process::cmdline(
             sizeof(info),
             nullptr
     )))
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     void *ptr = nullptr;
 
@@ -89,7 +86,7 @@ std::optional<std::vector<std::string>> zero::os::nt::process::Process::cmdline(
             sizeof(ptr),
             nullptr
     ))
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     RTL_USER_PROCESS_PARAMETERS parameters = {};
 
@@ -100,12 +97,12 @@ std::optional<std::vector<std::string>> zero::os::nt::process::Process::cmdline(
             sizeof(RTL_USER_PROCESS_PARAMETERS),
             nullptr
     ))
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     if (!parameters.CommandLine.Buffer || parameters.CommandLine.Length == 0)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
-    std::unique_ptr<WCHAR[]> buffer = std::make_unique<WCHAR[]>(parameters.CommandLine.Length / sizeof(WCHAR) + 1);
+    auto buffer = std::make_unique<WCHAR[]>(parameters.CommandLine.Length / sizeof(WCHAR) + 1);
 
     if (!ReadProcessMemory(
             mHandle,
@@ -114,33 +111,32 @@ std::optional<std::vector<std::string>> zero::os::nt::process::Process::cmdline(
             parameters.CommandLine.Length,
             nullptr
     ))
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     int num = 0;
     LPWSTR *args = CommandLineToArgvW(buffer.get(), &num);
 
     if (!args)
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
-    std::optional<std::vector<std::string>> cmdline = std::make_optional<std::vector<std::string>>();
+    tl::expected<std::vector<std::string>, std::error_code> result;
 
     for (int i = 0; i < num; i++) {
-        std::optional<std::string> arg = zero::strings::encode(args[i]);
+        auto arg = zero::strings::encode(args[i]);
 
         if (!arg) {
-            cmdline.reset();
+            result = tl::unexpected(arg.error());
             break;
         }
 
-        cmdline->push_back(std::move(*arg));
+        result->push_back(std::move(*arg));
     }
 
     LocalFree(args);
-
-    return cmdline;
+    return result;
 }
 
-std::optional<zero::os::nt::process::Process> zero::os::nt::process::openProcess(DWORD pid) {
+tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::openProcess(DWORD pid) {
     HANDLE handle = OpenProcess(
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
             false,
@@ -148,7 +144,7 @@ std::optional<zero::os::nt::process::Process> zero::os::nt::process::openProcess
     );
 
     if (!handle)
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return Process{handle, pid};
 }

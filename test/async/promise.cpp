@@ -58,7 +58,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             return tl::unexpected(reason);
         });
 
-        std::shared_ptr<int> i = std::make_shared<int>(0);
+        auto i = std::make_shared<int>(0);
 
         zero::async::promise::resolve<int, int>(1).finally([=]() {
             *i = 1;
@@ -68,7 +68,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
         });
 
         zero::async::promise::chain<std::unique_ptr<char[]>, int>([](auto &p) {
-            std::unique_ptr<char[]> buffer = std::make_unique<char[]>(1024);
+            auto buffer = std::make_unique<char[]>(1024);
 
             buffer[0] = 'h';
             buffer[1] = 'e';

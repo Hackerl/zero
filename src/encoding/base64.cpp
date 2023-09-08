@@ -47,9 +47,9 @@ std::string zero::encoding::base64::encode(std::span<const std::byte> buffer) {
     return encoded;
 }
 
-std::optional<std::vector<std::byte>> zero::encoding::base64::decode(std::string_view encoded) {
+tl::expected<std::vector<std::byte>, std::error_code> zero::encoding::base64::decode(std::string_view encoded) {
     if (encoded.length() % 4)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
     size_t size = encoded.size();
 

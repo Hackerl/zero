@@ -1,12 +1,12 @@
 #ifndef ZERO_PATH_H
 #define ZERO_PATH_H
 
-#include <optional>
 #include <filesystem>
+#include <tl/expected.hpp>
 
 namespace zero::filesystem {
-    std::optional<std::filesystem::path> getApplicationPath();
-    std::optional<std::filesystem::path> getApplicationDirectory();
+    tl::expected<std::filesystem::path, std::error_code> getApplicationPath();
+    tl::expected<std::filesystem::path, std::error_code> getApplicationDirectory();
 }
 
 #endif //ZERO_PATH_H

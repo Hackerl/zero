@@ -1,12 +1,25 @@
 #include <zero/os/nt/process.h>
+#include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("windows process", "[process]") {
-    std::optional<zero::os::nt::process::Process> process = zero::os::nt::process::openProcess(GetCurrentProcessId());
-
+    DWORD pid = GetCurrentProcessId();
+    auto process = zero::os::nt::process::openProcess(pid);
     REQUIRE(process);
-    REQUIRE(process->ppid());
-    REQUIRE(process->name());
-    REQUIRE(process->image());
-    REQUIRE(process->cmdline());
+    REQUIRE(process->pid() == pid);
+
+    auto path = zero::filesystem::getApplicationPath();
+    REQUIRE(path);
+
+    auto name = process->name();
+    REQUIRE(name);
+    REQUIRE(*name == path->filename());
+
+    auto image = process->image();
+    REQUIRE(image);
+    REQUIRE(*image == *path);
+
+    auto cmdline = process->cmdline();
+    REQUIRE(cmdline);
+    REQUIRE(cmdline->at(0).find(path->filename().string()) != std::string::npos);
 }

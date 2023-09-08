@@ -75,25 +75,25 @@ std::string zero::os::net::stringify(const Address &address) {
     return stringify(std::get<1>(address));
 }
 
-std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces() {
+tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::net::interfaces() {
 #ifdef _WIN32
     ULONG length = 0;
 
     if (GetAdaptersAddresses(AF_UNSPEC, 0, nullptr, nullptr, &length) != ERROR_BUFFER_OVERFLOW)
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     if (length == 0)
-        return std::nullopt;
+        return {};
 
-    std::unique_ptr<char[]> buffer = std::make_unique<char[]>(length);
+    auto buffer = std::make_unique<char[]>(length);
 
     if (GetAdaptersAddresses(AF_UNSPEC, 0, nullptr, (PIP_ADAPTER_ADDRESSES) buffer.get(), &length) != ERROR_SUCCESS)
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     std::vector<Interface> interfaces;
 
     for (auto adapter = (PIP_ADAPTER_ADDRESSES) buffer.get(); adapter; adapter = adapter->Next) {
-        std::optional<std::string> name = zero::strings::encode(adapter->FriendlyName);
+        auto name = zero::strings::encode(adapter->FriendlyName);
 
         if (!name)
             continue;
@@ -147,12 +147,12 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
     static auto freeifaddrs = (void (*)(ifaddrs *)) dlsym(RTLD_DEFAULT, "freeifaddrs");
 
     if (!getifaddrs || !freeifaddrs)
-        return std::nullopt;
+        return tl::unexpected(make_error_code(std::errc::function_not_supported));
 #endif
     ifaddrs *addr;
 
     if (getifaddrs(&addr) < 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     std::map<std::string, Interface> interfaceTable;
 
@@ -225,7 +225,7 @@ std::optional<std::vector<zero::os::net::Interface>> zero::os::net::interfaces()
     int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 
     if (fd < 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     for (auto &interface: interfaces) {
         ifreq request = {};

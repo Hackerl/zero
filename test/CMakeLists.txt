@@ -4,6 +4,7 @@ add_executable(
         zero_test
         log.cpp
         cmdline.cpp
+        ptr/ref.cpp
         atomic/event.cpp
         atomic/circular_buffer.cpp
         async/promise.cpp
@@ -12,7 +13,7 @@ add_executable(
         encoding/base64.cpp
         strings/strings.cpp
         cache/lru.cpp
-        ptr/ref.cpp
+        os/os.cpp
         os/net.cpp
         $<$<PLATFORM_ID:Windows>:os/nt/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:os/procfs.cpp>

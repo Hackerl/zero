@@ -7,13 +7,13 @@
 #include <sys/param.h>
 #endif
 
-std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {
+tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplicationPath() {
 #ifdef _WIN32
     WCHAR buffer[MAX_PATH] = {};
     DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
 
     if (length == 0 || length == MAX_PATH)
-        return std::nullopt;
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return buffer;
 #elif __linux__
@@ -21,7 +21,7 @@ std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {
     std::filesystem::path path = std::filesystem::read_symlink("/proc/self/exe", ec);
 
     if (ec)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return path;
 #elif __APPLE__
@@ -29,7 +29,7 @@ std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {
     uint32_t size = sizeof(buffer);
 
     if (_NSGetExecutablePath(buffer, &size) < 0)
-        return std::nullopt;
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return buffer;
 #else
@@ -37,11 +37,8 @@ std::optional<std::filesystem::path> zero::filesystem::getApplicationPath() {
 #endif
 }
 
-std::optional<std::filesystem::path> zero::filesystem::getApplicationDirectory() {
-    std::optional<std::filesystem::path> path = getApplicationPath();
-
-    if (!path)
-        return std::nullopt;
-
-    return path->parent_path();
+tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplicationDirectory() {
+    return getApplicationPath().transform([](const auto &path) {
+        return path.parent_path();
+    });
 }

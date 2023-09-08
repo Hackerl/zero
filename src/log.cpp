@@ -234,7 +234,7 @@ void zero::Logger::addProvider(
         const char *env = getenv("ZERO_LOG_LEVEL");
 
         if (env) {
-            std::optional<int> level = strings::toNumber<int>(env);
+            auto level = strings::toNumber<int>(env);
 
             if (level && *level >= ERROR_LEVEL && *level <= DEBUG_LEVEL) {
                 mMinLogLevel = (LogLevel) *level;

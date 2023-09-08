@@ -5,10 +5,11 @@
 #include <list>
 #include <vector>
 #include <string>
-#include <sys/types.h>
 #include <optional>
 #include <filesystem>
+#include <tl/expected.hpp>
 #include <unistd.h>
+#include <sys/types.h>
 
 namespace zero::os::procfs {
     enum MemoryPermission {
@@ -150,32 +151,32 @@ namespace zero::os::procfs {
         ~Process();
 
     private:
-        [[nodiscard]] std::optional<std::string> readFile(const char *filename) const;
+        [[nodiscard]] tl::expected<std::string, std::error_code> readFile(const char *filename) const;
 
     public:
         [[nodiscard]] pid_t pid() const;
 
     public:
-        [[nodiscard]] std::optional<MemoryMapping> getImageBase(std::string_view path) const;
-        [[nodiscard]] std::optional<MemoryMapping> findMapping(uintptr_t address) const;
+        [[nodiscard]] tl::expected<MemoryMapping, std::error_code> getImageBase(std::string_view path) const;
+        [[nodiscard]] tl::expected<MemoryMapping, std::error_code> findMapping(uintptr_t address) const;
 
     public:
-        [[nodiscard]] std::optional<std::filesystem::path> exe() const;
-        [[nodiscard]] std::optional<std::filesystem::path> cwd() const;
-        [[nodiscard]] std::optional<std::string> comm() const;
-        [[nodiscard]] std::optional<std::vector<std::string>> cmdline() const;
-        [[nodiscard]] std::optional<std::map<std::string, std::string>> environ() const;
-        [[nodiscard]] std::optional<Stat> stat() const;
-        [[nodiscard]] std::optional<Status> status() const;
-        [[nodiscard]] std::optional<std::list<pid_t>> tasks() const;
-        [[nodiscard]] std::optional<std::list<MemoryMapping>> maps() const;
+        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
+        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
+        [[nodiscard]] tl::expected<std::string, std::error_code> comm() const;
+        [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
+        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> environ() const;
+        [[nodiscard]] tl::expected<Stat, std::error_code> stat() const;
+        [[nodiscard]] tl::expected<Status, std::error_code> status() const;
+        [[nodiscard]] tl::expected<std::list<pid_t>, std::error_code> tasks() const;
+        [[nodiscard]] tl::expected<std::list<MemoryMapping>, std::error_code> maps() const;
 
     private:
         int mFD;
         pid_t mPID;
     };
 
-    std::optional<Process> openProcess(pid_t pid);
+    tl::expected<Process, std::error_code> openProcess(pid_t pid);
 }
 
 #endif //ZERO_PROCFS_H
