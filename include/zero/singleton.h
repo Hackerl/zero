@@ -4,9 +4,9 @@
 namespace zero {
     template<typename T>
     struct Singleton {
-        static T *getInstance() {
+        static T &getInstance() {
             static T instance = {};
-            return &instance;
+            return instance;
         }
     };
 }

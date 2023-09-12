@@ -108,7 +108,7 @@ namespace zero::async::coroutine {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
-                co_return co_await f();
+                co_return std::move(co_await std::invoke(std::move(f)));
             } else {
                 co_return std::move(result).and_then(std::move(f));
             }
@@ -123,7 +123,7 @@ namespace zero::async::coroutine {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
-                co_return co_await f();
+                co_return std::move(co_await std::invoke(std::move(f)));
             } else {
                 co_return std::move(result).and_then(std::move(f));
             }
@@ -138,7 +138,7 @@ namespace zero::async::coroutine {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
-                co_return co_await f(std::move(*result));
+                co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
             } else {
                 co_return std::move(result).and_then(std::move(f));
             }
@@ -153,7 +153,7 @@ namespace zero::async::coroutine {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
-                co_return co_await f(std::move(*result));
+                co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
             } else {
                 co_return std::move(result).and_then(std::move(f));
             }
@@ -182,7 +182,7 @@ namespace zero::async::coroutine {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
-                co_return co_await f(std::move(*result));
+                co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
             } else {
                 co_return std::move(result).transform(std::move(f));
             }
@@ -197,7 +197,7 @@ namespace zero::async::coroutine {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
-                co_return co_await f(std::move(*result));
+                co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
             } else {
                 co_return std::move(result).transform(std::move(f));
             }
@@ -211,7 +211,7 @@ namespace zero::async::coroutine {
                 if (result)
                     co_return std::move(*result);
 
-                co_return co_await f(std::move(result.error()));
+                co_return std::move(co_await std::invoke(std::move(f), std::move(result.error())));
             } else {
                 co_return std::move(result).or_else(std::move(f));
             }
@@ -225,7 +225,7 @@ namespace zero::async::coroutine {
                 if (result)
                     co_return std::move(*result);
 
-                co_return co_await f(std::move(result.error()));
+                co_return std::move(co_await std::invoke(std::move(f), std::move(result.error())));
             } else {
                 co_return std::move(result).or_else(std::move(f));
             }

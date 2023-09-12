@@ -170,8 +170,8 @@ namespace zero {
 }
 
 #define GLOBAL_LOGGER                       zero::Singleton<zero::Logger>::getInstance()
-#define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::ConsoleProvider>())
-#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER->addProvider(level, std::make_unique<zero::FileProvider>(name, ## __VA_ARGS__))
+#define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::ConsoleProvider>())
+#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::FileProvider>(name, ## __VA_ARGS__))
 
 #undef LOG_DEBUG
 #undef LOG_INFO
@@ -184,10 +184,10 @@ namespace zero {
 #define LOG_WARNING(message, ...)
 #define LOG_ERROR(message, ...)
 #else
-#define LOG_DEBUG(message, ...)             if (auto logger = GLOBAL_LOGGER; logger->enabled(zero::DEBUG_LEVEL)) logger->log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_INFO(message, ...)              if (auto logger = GLOBAL_LOGGER; logger->enabled(zero::INFO_LEVEL)) logger->log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_WARNING(message, ...)           if (auto logger = GLOBAL_LOGGER; logger->enabled(zero::WARNING_LEVEL)) logger->log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_ERROR(message, ...)             if (auto logger = GLOBAL_LOGGER; logger->enabled(zero::ERROR_LEVEL)) logger->log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_DEBUG(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::DEBUG_LEVEL)) logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_INFO(message, ...)              if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::INFO_LEVEL)) logger.log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_WARNING(message, ...)           if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::WARNING_LEVEL)) logger.log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_ERROR(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::ERROR_LEVEL)) logger.log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
 #endif
 
 #endif //ZERO_LOG_H

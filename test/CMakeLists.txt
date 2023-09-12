@@ -2,6 +2,7 @@ find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(
         zero_test
+        try.cpp
         log.cpp
         cmdline.cpp
         ptr/ref.cpp
