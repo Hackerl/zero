@@ -14,45 +14,45 @@ namespace zero::async::promise {
     class Promise;
 
     template<typename T>
-    struct promise_result {
+    struct promise_next_result {
         typedef T type;
     };
 
     template<typename T, typename E>
-    struct promise_result<Promise<T, E>> {
+    struct promise_next_result<Promise<T, E>> {
         typedef T type;
     };
 
     template<typename T, typename E>
-    struct promise_result<tl::expected<T, E>> {
+    struct promise_next_result<tl::expected<T, E>> {
         typedef T type;
     };
 
     template<typename T>
-    using promise_result_t = typename promise_result<T>::type;
+    using promise_next_result_t = typename promise_next_result<T>::type;
 
     template<typename T>
-    struct promise_reason {
+    struct promise_next_reason {
         typedef T type;
     };
 
     template<typename T, typename E>
-    struct promise_reason<Promise<T, E>> {
+    struct promise_next_reason<Promise<T, E>> {
         typedef E type;
     };
 
     template<typename T, typename E>
-    struct promise_reason<tl::expected<T, E>> {
+    struct promise_next_reason<tl::expected<T, E>> {
         typedef E type;
     };
 
     template<typename T>
-    struct promise_reason<tl::unexpected<T>> {
+    struct promise_next_reason<tl::unexpected<T>> {
         typedef T type;
     };
 
     template<typename T>
-    using promise_reason_t = typename promise_reason<T>::type;
+    using promise_next_reason_t = typename promise_next_reason<T>::type;
 
     template<typename T>
     inline constexpr bool is_promise_v = false;
@@ -75,6 +75,10 @@ namespace zero::async::promise {
 
     template<typename T, typename E>
     class Promise {
+    public:
+        using value_type = T;
+        using error_type = E;
+
     public:
         Promise() : mStorage(std::make_shared<Storage<T, E>>()) {
 
@@ -109,8 +113,8 @@ namespace zero::async::promise {
         template<typename F>
         auto then(F &&f) {
             using Next = detail::callable_result_t<F>;
-            using NextResult = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, T, promise_result_t<Next>>;
-            using NextReason = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, promise_reason_t<Next>, E>;
+            using NextResult = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, T, promise_next_result_t<Next>>;
+            using NextReason = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, promise_next_reason_t<Next>, E>;
 
             Promise<NextResult, NextReason> promise;
 
@@ -138,7 +142,7 @@ namespace zero::async::promise {
 
                     if constexpr (!is_promise_v<Next>) {
                         if constexpr (detail::is_specialization<Next, tl::expected>) {
-                            static_assert(std::is_same_v<promise_reason_t<Next>, E>);
+                            static_assert(std::is_same_v<promise_next_reason_t<Next>, E>);
 
                             if (next) {
                                 if constexpr (std::is_void_v<NextResult>) {
@@ -155,7 +159,7 @@ namespace zero::async::promise {
                             promise.resolve(std::move(next));
                         }
                     } else {
-                        static_assert(std::is_same_v<promise_reason_t<Next>, E>);
+                        static_assert(std::is_same_v<promise_next_reason_t<Next>, E>);
 
                         if constexpr (std::is_void_v<NextResult>) {
                             next.then([=]() mutable {
@@ -198,8 +202,8 @@ namespace zero::async::promise {
         template<typename F>
         auto fail(F &&f) {
             using Next = detail::callable_result_t<F>;
-            using NextResult = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, T, promise_result_t<Next>>;
-            using NextReason = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, promise_reason_t<Next>, E>;
+            using NextResult = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, T, promise_next_result_t<Next>>;
+            using NextReason = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, promise_next_reason_t<Next>, E>;
 
             Promise<NextResult, NextReason> promise;
 
@@ -233,7 +237,7 @@ namespace zero::async::promise {
 
                     if constexpr (!is_promise_v<Next>) {
                         if constexpr (detail::is_specialization<Next, tl::expected>) {
-                            static_assert(std::is_same_v<promise_reason_t<Next>, E>);
+                            static_assert(std::is_same_v<promise_next_reason_t<Next>, E>);
 
                             if (next) {
                                 if constexpr (std::is_void_v<NextResult>) {
@@ -250,7 +254,7 @@ namespace zero::async::promise {
                             promise.resolve(std::move(next));
                         }
                     } else {
-                        static_assert(std::is_same_v<promise_reason_t<Next>, E>);
+                        static_assert(std::is_same_v<promise_next_reason_t<Next>, E>);
 
                         if constexpr (std::is_void_v<NextResult>) {
                             next->then([=]() mutable {

@@ -58,6 +58,8 @@ namespace zero::async::coroutine {
     template<typename T, typename E = std::exception_ptr>
     class Task {
     public:
+        using value_type = T;
+        using error_type = E;
         using promise_type = Promise<T, E>;
 
     public:
@@ -94,6 +96,151 @@ namespace zero::async::coroutine {
             }
 
             return callstack;
+        }
+
+    public:
+        template<typename F>
+        requires std::is_void_v<T>
+        Task<typename std::invoke_result_t<F>::value_type, E> andThen(F f) && {
+            auto result = std::move(co_await *this);
+
+            if constexpr (detail::is_specialization<std::invoke_result_t<F>, Task>) {
+                if (!result)
+                    co_return tl::unexpected(std::move(result.error()));
+
+                co_return co_await f();
+            } else {
+                co_return std::move(result).and_then(std::move(f));
+            }
+        }
+
+        template<typename F>
+        requires std::is_void_v<T>
+        Task<typename std::invoke_result_t<F>::value_type, E> andThen(F f) & {
+            auto result = co_await *this;
+
+            if constexpr (detail::is_specialization<std::invoke_result_t<F>, Task>) {
+                if (!result)
+                    co_return tl::unexpected(std::move(result.error()));
+
+                co_return co_await f();
+            } else {
+                co_return std::move(result).and_then(std::move(f));
+            }
+        }
+
+        template<typename F>
+        requires (!std::is_void_v<T>)
+        Task<typename std::invoke_result_t<F, T>::value_type, E> andThen(F f) && {
+            auto result = std::move(co_await *this);
+
+            if constexpr (detail::is_specialization<std::invoke_result_t<F, T>, Task>) {
+                if (!result)
+                    co_return tl::unexpected(std::move(result.error()));
+
+                co_return co_await f(std::move(*result));
+            } else {
+                co_return std::move(result).and_then(std::move(f));
+            }
+        }
+
+        template<typename F>
+        requires (!std::is_void_v<T>)
+        Task<typename std::invoke_result_t<F, T>::value_type, E> andThen(F f) & {
+            auto result = co_await *this;
+
+            if constexpr (detail::is_specialization<std::invoke_result_t<F, T>, Task>) {
+                if (!result)
+                    co_return tl::unexpected(std::move(result.error()));
+
+                co_return co_await f(std::move(*result));
+            } else {
+                co_return std::move(result).and_then(std::move(f));
+            }
+        }
+
+        template<typename F>
+        requires std::is_void_v<T>
+        Task<std::invoke_result_t<F>, E> transform(F f) && {
+            auto result = std::move(co_await *this);
+            co_return std::move(result).transform(std::move(f));
+        }
+
+        template<typename F>
+        requires std::is_void_v<T>
+        Task<std::invoke_result_t<F>, E> transform(F f) & {
+            auto result = co_await *this;
+            co_return std::move(result).transform(std::move(f));
+        }
+
+        template<typename F>
+        requires (!std::is_void_v<T>)
+        Task<std::invoke_result_t<F, T>, E> transform(F f) && {
+            auto result = std::move(co_await *this);
+
+            if constexpr (detail::is_specialization<std::invoke_result_t<F, T>, Task>) {
+                if (!result)
+                    co_return tl::unexpected(std::move(result.error()));
+
+                co_return co_await f(std::move(*result));
+            } else {
+                co_return std::move(result).transform(std::move(f));
+            }
+        }
+
+        template<typename F>
+        requires (!std::is_void_v<T>)
+        Task<std::invoke_result_t<F, T>, E> transform(F f) & {
+            auto result = co_await *this;
+
+            if constexpr (detail::is_specialization<std::invoke_result_t<F, T>, Task>) {
+                if (!result)
+                    co_return tl::unexpected(std::move(result.error()));
+
+                co_return co_await f(std::move(*result));
+            } else {
+                co_return std::move(result).transform(std::move(f));
+            }
+        }
+
+        template<typename F>
+        Task<T, typename std::invoke_result_t<F, E>::error_type> orElse(F f) && {
+            auto result = std::move(co_await *this);
+
+            if constexpr (detail::is_specialization<std::invoke_result_t<F, E>, Task>) {
+                if (result)
+                    co_return std::move(*result);
+
+                co_return co_await f(std::move(result.error()));
+            } else {
+                co_return std::move(result).or_else(std::move(f));
+            }
+        }
+
+        template<typename F>
+        Task<T, typename std::invoke_result_t<F, E>::error_type> orElse(F f) & {
+            auto result = co_await *this;
+
+            if constexpr (detail::is_specialization<std::invoke_result_t<F, E>, Task>) {
+                if (result)
+                    co_return std::move(*result);
+
+                co_return co_await f(std::move(result.error()));
+            } else {
+                co_return std::move(result).or_else(std::move(f));
+            }
+        }
+
+        template<typename F>
+        Task<T, typename std::invoke_result_t<F, E>> transformError(F f) && {
+            auto result = std::move(co_await *this);
+            co_return std::move(result).transform_error(std::move(f));
+        }
+
+        template<typename F>
+        Task<T, typename std::invoke_result_t<F, E>> transformError(F f) & {
+            auto result = co_await *this;
+            co_return std::move(result).transform_error(std::move(f));
         }
 
     public:

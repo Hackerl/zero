@@ -1103,4 +1103,223 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
             }
         }
     }
+
+    SECTION("monadic operations") {
+        SECTION("and then") {
+            SECTION("normal") {
+                SECTION("success") {
+                    zero::async::promise::Promise<int, int> promise;
+                    auto task = createTaskE(&promise).andThen([](int value) -> tl::expected<int, int> {
+                        return value * 10;
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.resolve(10);
+                    REQUIRE(task.done());
+                    REQUIRE(*task.result() == 1000);
+                }
+
+                SECTION("failure") {
+                    zero::async::promise::Promise<int, int> promise;
+                    auto task = createTaskE(&promise).andThen([](int value) -> tl::expected<int, int> {
+                        return value * 10;
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.reject(1024);
+                    REQUIRE(task.done());
+
+                    auto result = task.result();
+                    REQUIRE(!result);
+                    REQUIRE(result.error() == 1024);
+                }
+
+                SECTION("void") {
+                    zero::async::promise::Promise<int, int> promise;
+                    auto task = createTaskE(&promise).andThen([](int value) -> tl::expected<void, int> {
+                        return {};
+                    }).andThen([]() -> tl::expected<int, int> {
+                        return 1000;
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.resolve(10);
+                    REQUIRE(task.done());
+                    REQUIRE(*task.result() == 1000);
+                }
+            }
+
+            SECTION("coroutine") {
+                SECTION("success") {
+                    zero::async::promise::Promise<int, int> promise;
+                    auto task = createTaskE(&promise).andThen([](int value) -> zero::async::coroutine::Task<int, int> {
+                        co_return value * 10;
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.resolve(10);
+                    REQUIRE(task.done());
+                    REQUIRE(*task.result() == 1000);
+                }
+
+                SECTION("failure") {
+                    zero::async::promise::Promise<int, int> promise;
+                    auto task = createTaskE(&promise).andThen([](int value) -> zero::async::coroutine::Task<int, int> {
+                        co_return value * 10;
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.reject(1024);
+                    REQUIRE(task.done());
+
+                    auto result = task.result();
+                    REQUIRE(!result);
+                    REQUIRE(result.error() == 1024);
+                }
+
+                SECTION("void") {
+                    zero::async::promise::Promise<int, int> promise;
+                    auto task = createTaskE(&promise).andThen([](int value) -> zero::async::coroutine::Task<void, int> {
+                        co_return tl::expected<void, int>{};
+                    }).andThen([]() -> zero::async::coroutine::Task<int, int> {
+                        co_return 1000;
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.resolve(10);
+                    REQUIRE(task.done());
+                    REQUIRE(*task.result() == 1000);
+                }
+            }
+        }
+
+        SECTION("transform") {
+            SECTION("success") {
+                zero::async::promise::Promise<int, int> promise;
+                auto task = createTaskE(&promise).transform([](int value) {
+                    return value * 10;
+                });
+                REQUIRE(!task.done());
+
+                promise.resolve(10);
+                REQUIRE(task.done());
+                REQUIRE(*task.result() == 1000);
+            }
+
+            SECTION("failure") {
+                zero::async::promise::Promise<int, int> promise;
+                auto task = createTaskE(&promise).transform([](int value) {
+                    return value * 10;
+                });
+                REQUIRE(!task.done());
+
+                promise.reject(1024);
+                REQUIRE(task.done());
+
+                auto result = task.result();
+                REQUIRE(!result);
+                REQUIRE(result.error() == 1024);
+            }
+
+            SECTION("void") {
+                zero::async::promise::Promise<int, int> promise;
+                auto task = createTaskE(&promise).transform([](int value) {
+
+                }).transform([]() {
+                    return 1000;
+                });
+                REQUIRE(!task.done());
+
+                promise.resolve(10);
+                REQUIRE(task.done());
+                REQUIRE(*task.result() == 1000);
+            }
+        }
+
+        SECTION("or else") {
+            SECTION("normal") {
+                SECTION("success") {
+                    zero::async::promise::Promise<long, int> promise;
+                    auto task = createTaskEL(&promise).orElse([](int value) -> tl::expected<long, int> {
+                        return value * 10;
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.reject(10);
+                    REQUIRE(task.done());
+                    REQUIRE(*task.result() == 100);
+                }
+
+                SECTION("failure") {
+                    zero::async::promise::Promise<long, int> promise;
+                    auto task = createTaskEL(&promise).orElse([](int value) -> tl::expected<long, int> {
+                        return tl::unexpected(1024);
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.reject(10);
+                    REQUIRE(task.done());
+
+                    auto result = task.result();
+                    REQUIRE(!result);
+                    REQUIRE(result.error() == 1024);
+                }
+            }
+
+            SECTION("coroutine") {
+                SECTION("success") {
+                    zero::async::promise::Promise<long, int> promise;
+                    auto task = createTaskEL(&promise).orElse([](int value) -> zero::async::coroutine::Task<long, int> {
+                        co_return value * 10;
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.reject(10);
+                    REQUIRE(task.done());
+                    REQUIRE(*task.result() == 100);
+                }
+
+                SECTION("failure") {
+                    zero::async::promise::Promise<long, int> promise;
+                    auto task = createTaskEL(&promise).orElse([](int value) -> zero::async::coroutine::Task<long, int> {
+                        co_return tl::unexpected(1024);
+                    });
+                    REQUIRE(!task.done());
+
+                    promise.reject(10);
+                    REQUIRE(task.done());
+
+                    auto result = task.result();
+                    REQUIRE(!result);
+                    REQUIRE(result.error() == 1024);
+                }
+            }
+        }
+
+        SECTION("transform error") {
+            SECTION("success") {
+                zero::async::promise::Promise<long, int> promise;
+                auto task = createTaskEL(&promise).transformError([](int value) {
+                    return value * 10;
+                });
+                REQUIRE(!task.done());
+
+                promise.resolve(10);
+                REQUIRE(task.done());
+                REQUIRE(*task.result() == 100);
+            }
+
+            SECTION("failure") {
+                zero::async::promise::Promise<long, int> promise;
+                auto task = createTaskEL(&promise).transformError([](int value) {
+                    return value * 10;
+                });
+                REQUIRE(!task.done());
+
+                promise.reject(10);
+                REQUIRE(task.done());
+                REQUIRE(task.result().error() == 100);
+            }
+        }
+    }
 }
