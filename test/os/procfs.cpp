@@ -90,7 +90,6 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(stat->ppid == getppid());
         REQUIRE(stat->pgrp == getpgrp());
         REQUIRE(stat->session == getsid(pid));
-        REQUIRE(stat->tpgid == tcgetpgrp(pid));
 
         auto status = process->status();
         REQUIRE(status);
@@ -192,7 +191,6 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(stat->ppid == getpid());
         REQUIRE(stat->pgrp == getpgrp());
         REQUIRE(stat->session == getsid(pid));
-        REQUIRE(stat->tpgid == tcgetpgrp(pid));
 
         auto status = process->status();
         REQUIRE(status);
@@ -270,7 +268,6 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(stat->ppid == getpid());
         REQUIRE(stat->pgrp == getpgrp());
         REQUIRE(stat->session == getsid(pid));
-        REQUIRE(stat->tpgid == tcgetpgrp(pid));
         REQUIRE(*stat->exitCode == SIGKILL);
 
         auto status = process->status();

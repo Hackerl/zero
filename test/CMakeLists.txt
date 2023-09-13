@@ -4,6 +4,7 @@ add_executable(
         zero_test
         try.cpp
         log.cpp
+        defer.cpp
         cmdline.cpp
         ptr/ref.cpp
         atomic/event.cpp

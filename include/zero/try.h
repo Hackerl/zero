@@ -24,34 +24,36 @@
 #else
 #include <optional>
 
-template<typename T>
-struct LastUnexpectedError {
-    static std::optional<T> &getInstance() {
-        thread_local std::optional<T> instance = {};
-        return instance;
-    }
-};
+namespace zero {
+    template<typename T>
+    struct LastUnexpectedError {
+        static std::optional<T> &getInstance() {
+            thread_local std::optional<T> instance = {};
+            return instance;
+        }
+    };
+}
 
-#define TRY(...)                                                                        \
-    [](auto _result) {                                                                  \
-        if (!_result)                                                                   \
-            LastUnexpectedError<std::error_code>::getInstance() = _result.error();      \
-                                                                                        \
-        return _result;                                                                 \
-    }(__VA_ARGS__);                                                                     \
-                                                                                        \
-    if (auto &instance = LastUnexpectedError<std::error_code>::getInstance(); instance) \
+#define TRY(...)                                                                                \
+    [](auto _result) {                                                                          \
+        if (!_result)                                                                           \
+            zero::LastUnexpectedError<std::error_code>::getInstance() = _result.error();        \
+                                                                                                \
+        return _result;                                                                         \
+    }(__VA_ARGS__);                                                                             \
+                                                                                                \
+    if (auto &instance = zero::LastUnexpectedError<std::error_code>::getInstance(); instance)   \
         return tl::unexpected(*std::exchange(instance, std::nullopt))
 
-#define CO_TRY(...)                                                                     \
-    [](auto _result) {                                                                  \
-        if (!_result)                                                                   \
-            LastUnexpectedError<std::error_code>::getInstance() = _result.error();      \
-                                                                                        \
-        return _result;                                                                 \
-    }(__VA_ARGS__);                                                                     \
-                                                                                        \
-    if (auto &instance = LastUnexpectedError<std::error_code>::getInstance(); instance) \
+#define CO_TRY(...)                                                                             \
+    [](auto _result) {                                                                          \
+        if (!_result)                                                                           \
+            zero::LastUnexpectedError<std::error_code>::getInstance() = _result.error();        \
+                                                                                                \
+        return _result;                                                                         \
+    }(__VA_ARGS__);                                                                             \
+                                                                                                \
+    if (auto &instance = zero::LastUnexpectedError<std::error_code>::getInstance(); instance)   \
         co_return tl::unexpected(*std::exchange(instance, std::nullopt))
 #endif
 
