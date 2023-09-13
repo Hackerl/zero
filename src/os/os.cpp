@@ -5,9 +5,12 @@
 #include <Lmcons.h>
 #include <zero/strings/strings.h>
 #elif __linux__
+#include <pwd.h>
 #include <unistd.h>
 #include <climits>
+#include <memory>
 #elif __APPLE__
+#include <pwd.h>
 #include <unistd.h>
 #include <sys/param.h>
 #endif
@@ -49,29 +52,39 @@ tl::expected<std::string, std::error_code> zero::os::username() {
         return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return zero::strings::encode(name);
-#elif __linux__
-#if __ANDROID__ && __ANDROID_API__ < 28
-    char *name = getlogin();
+#elif __linux__ || __APPLE__
+    uid_t uid = geteuid();
+    long max = sysconf(_SC_GETPW_R_SIZE_MAX);
 
-    if (!name)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+    size_t length = max != -1 ? max : 1024;
+    auto buffer = std::make_unique<char[]>(length);
+    tl::expected<std::string, std::error_code> result = tl::unexpected(std::error_code());
 
-    return name;
-#else
-    char name[LOGIN_NAME_MAX + 1] = {};
+    passwd pwd = {};
+    passwd *ptr = nullptr;
 
-    if (getlogin_r(name, sizeof(name)) != 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+    while (true) {
+        int n = getpwuid_r(uid, &pwd, buffer.get(), length, &ptr);
 
-    return name;
-#endif
-#elif __APPLE__
-    char name[MAXLOGNAME + 1] = {};
+        if (n < 0) {
+            if (errno == ERANGE) {
+                length *= 2;
+                buffer = std::make_unique<char[]>(length);
+                continue;
+            }
 
-    if (getlogin_r(name, sizeof(name)) != 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+            result = tl::unexpected(std::error_code(errno, std::system_category()));
+            break;
+        }
 
-    return name;
+        if (!ptr)
+            break;
+
+        result = pwd.pw_name;
+        break;
+    }
+
+    return result;
 #else
 #error "unsupported platform"
 #endif
