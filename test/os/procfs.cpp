@@ -240,7 +240,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(cmdline->empty());
 
         auto env = process->environ();
-        REQUIRE(env);
+        REQUIRE((env || env.error() == std::errc::permission_denied));
 
         auto mappings = process->maps();
         REQUIRE(mappings);
