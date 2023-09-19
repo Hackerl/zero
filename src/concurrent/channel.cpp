@@ -1,12 +1,10 @@
 #include <zero/concurrent/channel.h>
 
 const char *zero::concurrent::Category::name() const noexcept {
-    return "zero::atomic::channel";
+    return "zero::concurrent";
 }
 
 std::string zero::concurrent::Category::message(int value) const {
-    std::string msg;
-
     if (value == CHANNEL_EOF)
         return "channel eof";
 

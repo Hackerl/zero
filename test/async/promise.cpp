@@ -217,4 +217,18 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             });
         }
     }
+
+    SECTION("comparison") {
+        zero::async::promise::Promise<int, int> p1;
+        zero::async::promise::Promise<int, int> p2;
+        auto p3 = p1;
+        auto p4 = p2;
+        REQUIRE(p1 == p3);
+        REQUIRE(p1 != p2);
+        REQUIRE(p2 == p4);
+        REQUIRE(p2 != p3);
+        p4 = p1;
+        REQUIRE(p1 == p4);
+        REQUIRE(p2 != p4);
+    }
 }

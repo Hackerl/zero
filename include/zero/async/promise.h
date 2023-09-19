@@ -352,6 +352,9 @@ namespace zero::async::promise {
             return *mStorage->result;
         }
 
+    public:
+        auto operator<=>(const Promise &) const = default;
+
     private:
         std::shared_ptr<Storage<T, E>> mStorage;
 
