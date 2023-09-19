@@ -9,6 +9,7 @@ add_executable(
         ptr/ref.cpp
         atomic/event.cpp
         atomic/circular_buffer.cpp
+        concurrent/channel.cpp
         async/promise.cpp
         async/coroutine.cpp
         encoding/hex.cpp

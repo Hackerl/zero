@@ -27,6 +27,7 @@ add_library(
         src/time/time.cpp
         src/strings/strings.cpp
         src/atomic/event.cpp
+        src/concurrent/channel.cpp
         src/filesystem/path.cpp
         src/encoding/base64.cpp
         src/encoding/hex.cpp
