@@ -482,7 +482,7 @@ namespace zero::async::promise {
     }
 
     template<typename ...Ts>
-    requires (is_promise_v<std::decay_t<Ts>> && ...)
+    requires (is_promise_v<Ts> && ...)
     auto all(Ts &&...promises) {
         return all(promises...);
     }
