@@ -31,7 +31,7 @@
 #include <map>
 #endif
 
-std::string zero::os::net::stringify(std::span<const std::byte, 4> ip) {
+std::string zero::os::net::stringify(nonstd::span<const std::byte, 4> ip) {
     char address[INET_ADDRSTRLEN] = {};
 
     if (!inet_ntop(AF_INET, ip.data(), address, sizeof(address)))
@@ -40,7 +40,7 @@ std::string zero::os::net::stringify(std::span<const std::byte, 4> ip) {
     return address;
 }
 
-std::string zero::os::net::stringify(std::span<const std::byte, 16> ip) {
+std::string zero::os::net::stringify(nonstd::span<const std::byte, 16> ip) {
     char address[INET6_ADDRSTRLEN] = {};
 
     if (!inet_ntop(AF_INET6, ip.data(), address, sizeof(address)))

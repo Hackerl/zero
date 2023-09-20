@@ -11,16 +11,6 @@
                                                         \
         std::move(_result);                             \
     })
-
-#define CO_TRY(...)                                     \
-    ({                                                  \
-        auto _result = __VA_ARGS__;                     \
-                                                        \
-        if (!_result)                                   \
-            co_return tl::unexpected(_result.error());  \
-                                                        \
-        std::move(_result);                             \
-    })
 #else
 #include <optional>
 
@@ -44,17 +34,6 @@ namespace zero {
                                                                                                 \
     if (auto &instance = zero::LastUnexpectedError<std::error_code>::getInstance(); instance)   \
         return tl::unexpected(*std::exchange(instance, std::nullopt))
-
-#define CO_TRY(...)                                                                             \
-    [](auto _result) {                                                                          \
-        if (!_result)                                                                           \
-            zero::LastUnexpectedError<std::error_code>::getInstance() = _result.error();        \
-                                                                                                \
-        return _result;                                                                         \
-    }(__VA_ARGS__);                                                                             \
-                                                                                                \
-    if (auto &instance = zero::LastUnexpectedError<std::error_code>::getInstance(); instance)   \
-        co_return tl::unexpected(*std::exchange(instance, std::nullopt))
 #endif
 
 #endif //ZERO_TRY_H

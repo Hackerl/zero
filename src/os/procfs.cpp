@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <cstring>
 #include <climits>
-#include <ranges>
 
 constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
@@ -64,8 +63,9 @@ zero::os::procfs::Process::getImageBase(std::string_view path) const {
     if (!memoryMappings)
         return tl::unexpected(memoryMappings.error());
 
-    auto it = std::ranges::find_if(
-            *memoryMappings,
+    auto it = std::find_if(
+            memoryMappings->begin(),
+            memoryMappings->end(),
             [=](const auto &m) {
                 return m.pathname.find(path) != std::string::npos;
             }
@@ -84,8 +84,9 @@ zero::os::procfs::Process::findMapping(uintptr_t address) const {
     if (!memoryMappings)
         return tl::unexpected(memoryMappings.error());
 
-    auto it = std::ranges::find_if(
-            *memoryMappings,
+    auto it = std::find_if(
+            memoryMappings->begin(),
+            memoryMappings->end(),
             [=](const auto &m) {
                 return m.start <= address && address < m.end;
             }

@@ -11,7 +11,6 @@ add_executable(
         atomic/circular_buffer.cpp
         concurrent/channel.cpp
         async/promise.cpp
-        async/coroutine.cpp
         encoding/hex.cpp
         encoding/base64.cpp
         strings/strings.cpp

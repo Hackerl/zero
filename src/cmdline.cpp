@@ -1,14 +1,13 @@
 #include <zero/cmdline.h>
 #include <iostream>
 #include <cstring>
-#include <ranges>
 
 zero::Cmdline::Cmdline() : mOptionals({{"help", '?', "print help message", false}}) {
 
 }
 
 void zero::Cmdline::addOptional(const char *name, char shortName, const char *desc) {
-    mOptionals.emplace_back(name, shortName, desc, false);
+    mOptionals.push_back(Optional{name, shortName, desc, false});
 }
 
 bool zero::Cmdline::exist(const char *name) {
@@ -109,8 +108,9 @@ void zero::Cmdline::parse(int argc, const char *const *argv) {
 }
 
 zero::Optional &zero::Cmdline::find(char shortName) {
-    auto it = std::ranges::find_if(
-            mOptionals,
+    auto it = std::find_if(
+            mOptionals.begin(),
+            mOptionals.end(),
             [=](const auto &optional) {
                 return optional.shortName == shortName;
             }
@@ -123,8 +123,9 @@ zero::Optional &zero::Cmdline::find(char shortName) {
 }
 
 zero::Optional &zero::Cmdline::find(const std::string &name) {
-    auto it = std::ranges::find_if(
-            mOptionals,
+    auto it = std::find_if(
+            mOptionals.begin(),
+            mOptionals.end(),
             [=](const auto &optional) {
                 return optional.name == name;
             }

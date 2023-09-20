@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.17)
 project(zero)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 
 option(ZERO_DISABLE_LOG "disable log module" OFF)
 option(ZERO_LEGACY_NT "compatible with older Windows" OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-set(ZERO_VERSION 1.0.4)
+set(ZERO_VERSION 1.0.0)
 
 include(CTest)
 include(GNUInstallDirs)
@@ -15,6 +15,7 @@ include(CMakePackageConfigHelpers)
 
 find_package(Iconv REQUIRED)
 find_package(Threads REQUIRED)
+find_package(span-lite REQUIRED)
 find_package(tl-expected CONFIG REQUIRED)
 
 add_library(
@@ -55,6 +56,7 @@ target_link_libraries(
         PUBLIC
         Iconv::Iconv
         tl::expected
+        nonstd::span-lite
         INTERFACE
         Threads::Threads
         $<$<PLATFORM_ID:Windows>:Ws2_32>

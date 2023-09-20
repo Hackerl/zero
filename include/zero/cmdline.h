@@ -28,7 +28,7 @@ namespace zero {
             return str;
         } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return std::filesystem::path{str};
-        } else if constexpr (detail::Vector<T>) {
+        } else if constexpr (detail::is_specialization<T, std::vector>) {
             tl::expected<T, std::error_code> value;
 
             for (const auto &token: strings::split(str, ",")) {
@@ -59,7 +59,7 @@ namespace zero {
             return "string";
         } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return "path";
-        } else if constexpr (detail::Vector<T>) {
+        } else if constexpr (detail::is_specialization<T, std::vector>) {
             return strings::format("%s[]", getType<typename T::value_type>().c_str());
         } else {
 #if _CPPRTTI || __GXX_RTTI
@@ -116,20 +116,32 @@ namespace zero {
     public:
         template<typename T>
         void add(const char *name, const char *desc) {
-            mPositionals.emplace_back(name, desc, std::any{}, TypeInfo{getType<T>(), parseValue<T>});
+            mPositionals.push_back(
+                    Positional{
+                            name,
+                            desc,
+                            std::any{},
+                            TypeInfo{
+                                    getType<T>(),
+                                    parseValue<T>
+                            }
+                    }
+            );
         }
 
         template<typename T>
         void addOptional(const char *name, char shortName, const char *desc, std::optional<T> def = std::nullopt) {
-            mOptionals.emplace_back(
-                    name,
-                    shortName,
-                    desc,
-                    def ? std::any{*def} : std::any{},
-                    TypeInfo{
-                            getType<T>(),
-                            parseValue<T>
-                    }
+            mOptionals.push_back(
+                Optional{
+                        name,
+                        shortName,
+                        desc,
+                        def ? std::any{*def} : std::any{},
+                        TypeInfo{
+                                getType<T>(),
+                                parseValue<T>
+                        }
+                }
             );
         }
 
@@ -138,8 +150,9 @@ namespace zero {
     public:
         template<typename T>
         T get(const char *name) {
-            auto it = std::ranges::find_if(
-                    mPositionals,
+            auto it = std::find_if(
+                    mPositionals.begin(),
+                    mPositionals.end(),
                     [=](const auto &positional) {
                         return positional.name == name;
                     }

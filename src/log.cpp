@@ -83,7 +83,7 @@ bool zero::FileProvider::rotate() {
         if (!entry.is_regular_file())
             continue;
 
-        if (!entry.path().filename().string().starts_with(prefix))
+        if (!strings::startsWith(entry.path().filename().string(), prefix))
             continue;
 
         logs.insert(entry);
@@ -230,7 +230,7 @@ void zero::Logger::addProvider(
         std::unique_ptr<ILogProvider> provider,
         std::chrono::milliseconds interval
 ) {
-    std::call_once(mOnceFlag, [=, this]() {
+    std::call_once(mOnceFlag, [=]() {
         const char *env = getenv("ZERO_LOG_LEVEL");
 
         if (env) {
@@ -252,9 +252,11 @@ void zero::Logger::addProvider(
 
     mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(ERROR_LEVEL));
 
-    mConfigs.emplace_back(
-            level,
-            std::move(provider),
-            interval
+    mConfigs.push_back(
+            Config{
+                    level,
+                    std::move(provider),
+                    interval
+            }
     );
 }

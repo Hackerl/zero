@@ -334,8 +334,6 @@ namespace zero::async::promise {
             return mStorage->status;
         }
 
-        template<typename = void>
-        requires (!std::is_void_v<T>)
         [[nodiscard]] std::add_lvalue_reference_t<std::add_const_t<T>> value() const {
             return mStorage->result->value();
         }
@@ -353,7 +351,13 @@ namespace zero::async::promise {
         }
 
     public:
-        auto operator<=>(const Promise &) const = default;
+        bool operator==(const Promise &rhs) const {
+            return mStorage == rhs.mStorage;
+        }
+
+        bool operator!=(const Promise &rhs) const {
+            return mStorage != rhs.mStorage;
+        }
 
     private:
         std::shared_ptr<Storage<T, E>> mStorage;
@@ -413,16 +417,14 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename T, typename E>
-    requires std::is_void_v<T>
+    template<typename T, typename E, std::enable_if_t<std::is_void_v<T>, void *> = nullptr>
     Promise<T, E> resolve() {
         Promise<T, E> promise;
         promise.resolve();
         return promise;
     }
 
-    template<typename T, typename E>
-    requires (!std::is_void_v<T>)
+    template<typename T, typename E, std::enable_if_t<!std::is_void_v<T>, void *> = nullptr>
     Promise<T, E> resolve(T &&result) {
         Promise<T, E> promise;
         promise.resolve(std::forward<T>(result));
@@ -481,8 +483,7 @@ namespace zero::async::promise {
         return all(promises_result_index_sequence_for<Ts...>{}, promises...);
     }
 
-    template<typename ...Ts>
-    requires (is_promise_v<std::decay_t<Ts>> && ...)
+    template<typename ...Ts, std::enable_if_t<(is_promise_v<Ts> && ...), void *> = nullptr>
     auto all(Ts &&...promises) {
         return all(promises...);
     }

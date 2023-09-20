@@ -1,7 +1,6 @@
 #include <zero/os/procfs.h>
 #include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
-#include <ranges>
 #include <thread>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -36,8 +35,9 @@ TEST_CASE("linux procfs", "[procfs]") {
         auto mappings = process->maps();
         REQUIRE(mappings);
 
-        auto it = std::ranges::find_if(
-                *mappings,
+        auto it = std::find_if(
+                mappings->begin(),
+                mappings->end(),
                 [](const zero::os::procfs::MemoryMapping &mapping) {
                     auto address = (uintptr_t) zero::filesystem::getApplicationPath;
                     return address >= mapping.start && address < mapping.end;
@@ -51,8 +51,9 @@ TEST_CASE("linux procfs", "[procfs]") {
 
         REQUIRE(it->permissions == permissions);
 
-        it = std::ranges::find_if(
-                *mappings,
+        it = std::find_if(
+                mappings->begin(),
+                mappings->end(),
                 [](const zero::os::procfs::MemoryMapping &mapping) {
                     auto address = (uintptr_t) &errno;
                     return address >= mapping.start && address < mapping.end;
@@ -137,8 +138,9 @@ TEST_CASE("linux procfs", "[procfs]") {
         auto mappings = process->maps();
         REQUIRE(mappings);
 
-        auto it = std::ranges::find_if(
-                *mappings,
+        auto it = std::find_if(
+                mappings->begin(),
+                mappings->end(),
                 [](const zero::os::procfs::MemoryMapping &mapping) {
                     auto address = (uintptr_t) zero::filesystem::getApplicationPath;
                     return address >= mapping.start && address < mapping.end;
@@ -152,8 +154,9 @@ TEST_CASE("linux procfs", "[procfs]") {
 
         REQUIRE(it->permissions == permissions);
 
-        it = std::ranges::find_if(
-                *mappings,
+        it = std::find_if(
+                mappings->begin(),
+                mappings->end(),
                 [](const zero::os::procfs::MemoryMapping &mapping) {
                     auto address = (uintptr_t) &errno;
                     return address >= mapping.start && address < mapping.end;

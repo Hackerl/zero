@@ -160,8 +160,28 @@ namespace zero::ptr {
     }
 
     template<typename T, typename U>
-    auto operator<=>(const RefPtr<T> &lhs, const RefPtr<U> &rhs) {
-        return lhs.get() <=> rhs.get();
+    bool operator!=(const RefPtr<T> &lhs, const RefPtr<U> &rhs) {
+        return lhs.get() != rhs.get();
+    }
+
+    template<typename T, typename U>
+    bool operator<(const RefPtr<T> &lhs, const RefPtr<U> &rhs) {
+        return lhs.get() < rhs.get();
+    }
+
+    template<typename T, typename U>
+    bool operator>=(const RefPtr<T> &lhs, const RefPtr<U> &rhs) {
+        return lhs.get() >= rhs.get();
+    }
+
+    template<typename T, typename U>
+    bool operator>(const RefPtr<T> &lhs, const RefPtr<U> &rhs) {
+        return lhs.get() > rhs.get();
+    }
+
+    template<typename T, typename U>
+    bool operator<=(const RefPtr<T> &lhs, const RefPtr<U> &rhs) {
+        return lhs.get() <= rhs.get();
     }
 
     template<typename T>
@@ -170,8 +190,58 @@ namespace zero::ptr {
     }
 
     template<typename T>
-    auto operator<=>(const RefPtr<T> &lhs, std::nullptr_t) {
-        return lhs.get() <=> static_cast<T *>(nullptr);
+    bool operator==(std::nullptr_t, const RefPtr<T> &rhs) {
+        return nullptr == rhs.get();
+    }
+
+    template<typename T>
+    bool operator!=(const RefPtr<T> &lhs, std::nullptr_t) {
+        return lhs.get() != nullptr;
+    }
+
+    template<typename T>
+    bool operator!=(std::nullptr_t, const RefPtr<T> &rhs) {
+        return nullptr != rhs.get();
+    }
+
+    template<typename T>
+    bool operator<(const RefPtr<T> &lhs, std::nullptr_t) {
+        return lhs.get() < static_cast<T *>(nullptr);
+    }
+
+    template<typename T>
+    bool operator<(std::nullptr_t, const RefPtr<T> &rhs) {
+        return static_cast<T *>(nullptr) < rhs.get();
+    }
+
+    template<typename T>
+    bool operator>=(const RefPtr<T> &lhs, std::nullptr_t) {
+        return lhs.get() >= static_cast<T *>(nullptr);
+    }
+
+    template<typename T>
+    bool operator>=(std::nullptr_t, const RefPtr<T> &rhs) {
+        return static_cast<T *>(nullptr) >= rhs.get();
+    }
+
+    template<typename T>
+    bool operator>(const RefPtr<T> &lhs, std::nullptr_t) {
+        return lhs.get() > static_cast<T *>(nullptr);
+    }
+
+    template<typename T>
+    bool operator>(std::nullptr_t, const RefPtr<T> &rhs) {
+        return static_cast<T *>(nullptr) > rhs.get();
+    }
+
+    template<typename T>
+    bool operator<=(const RefPtr<T> &lhs, std::nullptr_t) {
+        return lhs.get() <= static_cast<T *>(nullptr);
+    }
+
+    template<typename T>
+    bool operator<=(std::nullptr_t, const RefPtr<T> &rhs) {
+        return static_cast<T *>(nullptr) <= rhs.get();
     }
 
     template<typename T, typename ...Args>

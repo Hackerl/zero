@@ -15,18 +15,6 @@ namespace zero::detail {
     template<template<typename ...> class T, typename ...Args>
     inline constexpr bool is_specialization<T<Args...>, T> = true;
 
-    template<typename T>
-    concept Vector = is_specialization<T, std::vector>;
-
-    template<typename T>
-    concept List = is_specialization<T, std::list>;
-
-    template<typename T>
-    concept Tuple = is_specialization<T, std::tuple>;
-
-    template<typename T>
-    concept Pair = is_specialization<T, std::pair>;
-
     template<typename, typename>
     struct is_applicable : std::false_type {
 
