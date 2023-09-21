@@ -406,10 +406,10 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename T, typename E>
-    Promise<T, E> reject(E &&reason) {
+    template<typename T, typename E, typename U>
+    Promise<T, E> reject(U &&reason) {
         Promise<T, E> promise;
-        promise.reject(std::forward<E>(reason));
+        promise.reject(std::forward<U>(reason));
         return promise;
     }
 
