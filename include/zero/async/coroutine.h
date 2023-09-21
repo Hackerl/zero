@@ -310,6 +310,30 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         Awaitable<Result, Error> await_transform(
+                const Cancellable<Result, Error> &cancellable,
+                const std::source_location location = std::source_location::current()
+        ) {
+            mFrame->next.reset();
+            mFrame->location = location;
+            mFrame->cancel = cancellable.cancel;
+
+            return {cancellable.promise};
+        }
+
+        template<typename Result, typename Error>
+        Awaitable<Result, Error> await_transform(
+                promise::Promise<Result, Error> &&promise,
+                const std::source_location location = std::source_location::current()
+        ) {
+            mFrame->next.reset();
+            mFrame->location = location;
+            mFrame->cancel = nullptr;
+
+            return {std::move(promise)};
+        }
+
+        template<typename Result, typename Error>
+        Awaitable<Result, Error> await_transform(
                 const promise::Promise<Result, Error> &promise,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -318,6 +342,18 @@ namespace zero::async::coroutine {
             mFrame->cancel = nullptr;
 
             return {promise};
+        }
+
+        template<typename Result, typename Error>
+        Awaitable<Result, Error> await_transform(
+                Task<Result, Error> &&task,
+                const std::source_location location = std::source_location::current()
+        ) {
+            mFrame->next = task.promise().mFrame;
+            mFrame->location = location;
+            mFrame->cancel = nullptr;
+
+            return {std::move(task.promise())};
         }
 
         template<typename Result, typename Error>
@@ -412,6 +448,18 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         Awaitable<Result, Error> await_transform(
+                Cancellable<Result, Error> &&cancellable,
+                const std::source_location location = std::source_location::current()
+        ) {
+            mFrame->next.reset();
+            mFrame->location = location;
+            mFrame->cancel = std::move(cancellable.cancel);
+
+            return {std::move(cancellable.promise)};
+        }
+
+        template<typename Result, typename Error>
+        Awaitable<Result, Error> await_transform(
                 const Cancellable<Result, Error> &cancellable,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -419,7 +467,19 @@ namespace zero::async::coroutine {
             mFrame->location = location;
             mFrame->cancel = cancellable.cancel;
 
-            return {std::move(cancellable.promise)};
+            return {cancellable.promise};
+        }
+
+        template<typename Result, typename Error>
+        Awaitable<Result, Error> await_transform(
+                promise::Promise<Result, Error> &&promise,
+                const std::source_location location = std::source_location::current()
+        ) {
+            mFrame->next.reset();
+            mFrame->location = location;
+            mFrame->cancel = nullptr;
+
+            return {std::move(promise)};
         }
 
         template<typename Result, typename Error>
@@ -432,6 +492,18 @@ namespace zero::async::coroutine {
             mFrame->cancel = nullptr;
 
             return {promise};
+        }
+
+        template<typename Result, typename Error>
+        Awaitable<Result, Error> await_transform(
+                Task<Result, Error> &&task,
+                const std::source_location location = std::source_location::current()
+        ) {
+            mFrame->next = task.promise().mFrame;
+            mFrame->location = location;
+            mFrame->cancel = nullptr;
+
+            return {std::move(task.promise())};
         }
 
         template<typename Result, typename Error>
@@ -466,7 +538,7 @@ namespace zero::async::coroutine {
 
     template<typename ...Ts, typename E>
     Task<promise::promises_result_t<Ts...>, E> all(Task<Ts, E> ...tasks) {
-        auto result = co_await Cancellable{
+        auto result = std::move(co_await Cancellable{
                 promise::all(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
                     std::optional<tl::expected<void, std::error_code>> result;
@@ -483,7 +555,7 @@ namespace zero::async::coroutine {
 
                     return *result;
                 }
-        };
+        });
 
         if (!result)
             ([&]() {
@@ -495,17 +567,17 @@ namespace zero::async::coroutine {
 
         if constexpr (std::is_void_v<promise::promises_result_t<Ts...>> && std::is_same_v<E, std::exception_ptr>) {
             if (!result)
-                std::rethrow_exception(result.error());
+                std::rethrow_exception(std::move(result.error()));
 
             co_return;
         } else {
-            co_return result;
+            co_return std::move(result);
         }
     }
 
     template<typename ...Ts, typename E>
     Task<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Task<Ts, E> ...tasks) {
-        co_return co_await Cancellable{
+        co_return std::move(co_await Cancellable{
                 promise::allSettled(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
                     tl::expected<void, std::error_code> result;
@@ -522,7 +594,7 @@ namespace zero::async::coroutine {
 
                     return result;
                 }
-        };
+        });
     }
 
     template<
@@ -532,7 +604,7 @@ namespace zero::async::coroutine {
             typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
     >
     Task<T, std::list<E>> any(Task<Ts, E> ...tasks) {
-        auto result = co_await Cancellable{
+        auto result = std::move(co_await Cancellable{
                 promise::any(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
                     tl::expected<void, std::error_code> result;
@@ -549,7 +621,7 @@ namespace zero::async::coroutine {
 
                     return result;
                 }
-        };
+        });
 
         if (result)
             ([&]() {
@@ -559,7 +631,7 @@ namespace zero::async::coroutine {
                 tasks.cancel();
             }(), ...);
 
-        co_return result;
+        co_return std::move(result);
     }
 
     template<
@@ -569,7 +641,7 @@ namespace zero::async::coroutine {
             typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
     >
     Task<T, E> race(Task<Ts, E> ...tasks) {
-        auto result = co_await Cancellable{
+        auto result = std::move(co_await Cancellable{
                 promise::race(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
                     std::optional<tl::expected<void, std::error_code>> result;
@@ -586,7 +658,7 @@ namespace zero::async::coroutine {
 
                     return *result;
                 }
-        };
+        });
 
         ([&]() {
             if (tasks.done())
@@ -597,11 +669,39 @@ namespace zero::async::coroutine {
 
         if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
             if (!result)
-                std::rethrow_exception(result.error());
+                std::rethrow_exception(std::move(result.error()));
 
             co_return;
         } else {
-            co_return result;
+            co_return std::move(result);
+        }
+    }
+
+    template<typename T, typename E>
+    Task<T, E> from(promise::Promise<T, E> promise) {
+        auto result = std::move(co_await std::move(promise));
+
+        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
+            if (!result)
+                std::rethrow_exception(std::move(result.error()));
+
+            co_return;
+        } else {
+            co_return std::move(result);
+        }
+    }
+
+    template<typename T, typename E>
+    Task<T, E> from(Cancellable<T, E> cancellable) {
+        auto result = std::move(co_await std::move(cancellable));
+
+        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
+            if (!result)
+                std::rethrow_exception(std::move(result.error()));
+
+            co_return;
+        } else {
+            co_return std::move(result);
         }
     }
 }

@@ -158,6 +158,32 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
             REQUIRE(task.traceback().empty());
         }
 
+        SECTION("from promise") {
+            zero::async::promise::Promise<int, std::exception_ptr> promise;
+            auto task = zero::async::coroutine::from(promise);
+            REQUIRE(!task.done());
+
+            promise.resolve(10);
+            REQUIRE(task.done());
+            REQUIRE(*task.result() == 10);
+        }
+
+        SECTION("from cancellable") {
+            zero::async::promise::Promise<int, std::exception_ptr> promise;
+            auto task = zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                promise,
+                [=]() mutable -> tl::expected<void, std::error_code> {
+                    promise.reject(nullptr);
+                    return {};
+                }
+            });
+            REQUIRE(!task.done());
+            task.cancel();
+
+            REQUIRE(task.done());
+            REQUIRE(task.result().error() == nullptr);
+        }
+
         SECTION("coroutine::all") {
             SECTION("same types") {
                 SECTION("success") {
@@ -697,6 +723,32 @@ TEST_CASE("C++20 coroutines", "[coroutine]") {
             promise.resolve(10);
             REQUIRE(task.done());
             REQUIRE(task.traceback().empty());
+        }
+
+        SECTION("from promise") {
+            zero::async::promise::Promise<int, int> promise;
+            auto task = zero::async::coroutine::from(promise);
+            REQUIRE(!task.done());
+
+            promise.resolve(10);
+            REQUIRE(task.done());
+            REQUIRE(*task.result() == 10);
+        }
+
+        SECTION("from cancellable") {
+            zero::async::promise::Promise<int, int> promise;
+            auto task = zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                    promise,
+                    [=]() mutable -> tl::expected<void, std::error_code> {
+                        promise.reject(1024);
+                        return {};
+                    }
+            });
+            REQUIRE(!task.done());
+            task.cancel();
+
+            REQUIRE(task.done());
+            REQUIRE(task.result().error() == 1024);
         }
 
         SECTION("coroutine::all") {
