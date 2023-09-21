@@ -5,13 +5,14 @@
 #include <thread>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/prctl.h>
 
 using namespace std::chrono_literals;
 
 TEST_CASE("linux procfs", "[procfs]") {
     char name[16] = {};
-    pthread_getname_np(pthread_self(), name, sizeof(name));
-    pthread_setname_np(pthread_self(), "(test)");
+    prctl(PR_GET_NAME, name);
+    prctl(PR_SET_NAME, "(test)");
 
     SECTION("self") {
         auto pid = getpid();
@@ -292,5 +293,5 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }
 
-    pthread_setname_np(pthread_self(), name);
+    prctl(PR_SET_NAME, name);
 }

@@ -1,6 +1,5 @@
 #include <zero/strings/strings.h>
 #include <ranges>
-#include <algorithm>
 #include <functional>
 #include <iconv.h>
 
@@ -46,14 +45,13 @@ std::string zero::strings::toupper(std::string_view str) {
 
 std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
     std::vector<std::string> tokens;
-
-    auto prev = std::find_if(str.begin(), str.end(), std::not_fn(isspace));
+    auto prev = std::ranges::find_if(str, std::not_fn(isspace));
 
     while (true) {
         if (prev == str.end())
             break;
 
-        auto it = std::find_if(prev, str.end(), isspace);
+        std::input_iterator auto it = std::ranges::find_if(prev, str.end(), isspace);
 
         if (it == str.end()) {
             tokens.emplace_back(prev, str.end());
@@ -61,7 +59,7 @@ std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
         }
 
         tokens.emplace_back(prev, it);
-        prev = std::find_if(it, str.end(), std::not_fn(isspace));
+        prev = std::ranges::find_if(it, str.end(), std::not_fn(isspace));
 
         if (!--limit) {
             if (prev == str.end())

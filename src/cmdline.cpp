@@ -137,20 +137,15 @@ zero::Optional &zero::Cmdline::find(const std::string &name) {
 }
 
 void zero::Cmdline::help() const {
-    std::list<std::string> positionals;
-
-    std::transform(
-            mPositionals.begin(),
-            mPositionals.end(),
-            std::back_inserter(positionals),
-            [](const auto &p) {
-                return strings::format("%s(%s)", p.name.c_str(), p.typeInfo.type.c_str());
-            }
-    );
-
     std::cout << "usage: "
               << filesystem::getApplicationPath()->filename().string()
-              << " [options] " << strings::join(positionals, " ")
+              << " [options] "
+              << strings::join(
+                      mPositionals | std::views::transform([](const auto &p) {
+                          return strings::format("%s(%s)", p.name.c_str(), p.typeInfo.type.c_str());
+                      }),
+                      " "
+              )
               << " ... "
               << (mFooter.empty() ? "extra" : mFooter)
               << " ..."
