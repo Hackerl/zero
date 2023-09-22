@@ -30,6 +30,49 @@ namespace zero::async::coroutine {
             }
         }
 
+        template<typename = void>
+        requires (!std::is_same_v<E, std::exception_ptr>)
+        tl::expected<T, E> &await_resume() {
+            return promise.result();
+        }
+
+        template<typename = void>
+        requires std::is_same_v<E, std::exception_ptr>
+        std::add_lvalue_reference_t<T> await_resume() {
+            auto &result = promise.result();
+
+            if (!result)
+                std::rethrow_exception(result.error());
+
+            if constexpr (!std::is_void_v<T>)
+                return *result;
+        }
+
+        promise::Promise<T, E> promise;
+    };
+
+    template<typename T, typename E>
+    struct NoExceptAwaitable {
+        [[nodiscard]] bool await_ready() const {
+            return promise.status() != promise::PENDING;
+        }
+
+        void await_suspend(std::coroutine_handle<> handle) {
+            if constexpr (std::is_void_v<T>) {
+                promise.then([=]() {
+                    handle.resume();
+                }, [=](const E &reason) {
+                    handle.resume();
+                });
+            } else {
+                promise.then([=](const T &result) {
+                    handle.resume();
+                }, [=](const E &reason) {
+                    handle.resume();
+                });
+            }
+        }
+
         tl::expected<T, E> &await_resume() {
             return promise.result();
         }
@@ -99,12 +142,12 @@ namespace zero::async::coroutine {
         }
 
     public:
-        template<typename F>
-        requires std::is_void_v<T>
-        Task<typename std::invoke_result_t<F>::value_type, E> andThen(F f) && {
+        template<typename F, typename R = std::invoke_result_t<F>>
+        requires (!std::is_same_v<E, std::exception_ptr> && std::is_void_v<T>)
+        Task<typename R::value_type, E> andThen(F f) && {
             auto result = std::move(co_await *this);
 
-            if constexpr (detail::is_specialization<std::invoke_result_t<F>, Task>) {
+            if constexpr (detail::is_specialization<R, Task>) {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
@@ -114,12 +157,12 @@ namespace zero::async::coroutine {
             }
         }
 
-        template<typename F>
-        requires std::is_void_v<T>
-        Task<typename std::invoke_result_t<F>::value_type, E> andThen(F f) & {
+        template<typename F, typename R = std::invoke_result_t<F>>
+        requires (!std::is_same_v<E, std::exception_ptr> && std::is_void_v<T>)
+        Task<typename R::value_type, E> andThen(F f) & {
             auto result = co_await *this;
 
-            if constexpr (detail::is_specialization<std::invoke_result_t<F>, Task>) {
+            if constexpr (detail::is_specialization<R, Task>) {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
@@ -129,12 +172,12 @@ namespace zero::async::coroutine {
             }
         }
 
-        template<typename F>
-        requires (!std::is_void_v<T>)
-        Task<typename std::invoke_result_t<F, T>::value_type, E> andThen(F f) && {
+        template<typename F, typename R = std::invoke_result_t<F, T>>
+        requires (!std::is_same_v<E, std::exception_ptr> && !std::is_void_v<T>)
+        Task<typename R::value_type, E> andThen(F f) && {
             auto result = std::move(co_await *this);
 
-            if constexpr (detail::is_specialization<std::invoke_result_t<F, T>, Task>) {
+            if constexpr (detail::is_specialization<R, Task>) {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
@@ -144,12 +187,12 @@ namespace zero::async::coroutine {
             }
         }
 
-        template<typename F>
-        requires (!std::is_void_v<T>)
-        Task<typename std::invoke_result_t<F, T>::value_type, E> andThen(F f) & {
+        template<typename F, typename R = std::invoke_result_t<F, T>>
+        requires (!std::is_same_v<E, std::exception_ptr> && !std::is_void_v<T>)
+        Task<typename R::value_type, E> andThen(F f) & {
             auto result = co_await *this;
 
-            if constexpr (detail::is_specialization<std::invoke_result_t<F, T>, Task>) {
+            if constexpr (detail::is_specialization<R, Task>) {
                 if (!result)
                     co_return tl::unexpected(std::move(result.error()));
 
@@ -159,55 +202,130 @@ namespace zero::async::coroutine {
             }
         }
 
-        template<typename F>
-        requires std::is_void_v<T>
-        Task<std::invoke_result_t<F>, E> transform(F f) && {
+        template<typename F, typename R = std::invoke_result_t<F>>
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                std::is_void_v<T> &&
+                !detail::is_specialization<R, Task>
+        )
+        Task<R, E> transform(F f) && {
             auto result = std::move(co_await *this);
             co_return std::move(result).transform(std::move(f));
         }
 
-        template<typename F>
-        requires std::is_void_v<T>
-        Task<std::invoke_result_t<F>, E> transform(F f) & {
+        template<typename F, typename R = std::invoke_result_t<F>>
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                std::is_void_v<T> &&
+                !detail::is_specialization<R, Task>
+        )
+        Task<R, E> transform(F f) & {
             auto result = co_await *this;
             co_return std::move(result).transform(std::move(f));
         }
 
+        template<typename F, typename R = std::invoke_result_t<F>>
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                std::is_void_v<T> &&
+                detail::is_specialization<R, Task> &&
+                std::is_same_v<typename R::error_type, std::exception_ptr>
+        )
+        Task<typename R::value_type, E> transform(F f) && {
+            auto result = std::move(co_await *this);
+
+            if (!result)
+                co_return tl::unexpected(std::move(result.error()));
+
+            co_return std::move(co_await std::invoke(std::move(f)));
+        }
+
+        template<typename F, typename R = std::invoke_result_t<F>>
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                std::is_void_v<T> &&
+                detail::is_specialization<R, Task> &&
+                std::is_same_v<typename R::error_type, std::exception_ptr>
+        )
+        Task<typename R::value_type, E> transform(F f) & {
+            auto result = co_await *this;
+
+            if (!result)
+                co_return tl::unexpected(std::move(result.error()));
+
+            co_return std::move(co_await std::invoke(std::move(f)));
+        }
+
         template<typename F>
-        requires (!std::is_void_v<T>)
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                !std::is_void_v<T> &&
+                !detail::is_specialization<std::invoke_result_t<F, T>, Task>
+        )
         Task<std::invoke_result_t<F, T>, E> transform(F f) && {
             auto result = std::move(co_await *this);
-
-            if constexpr (detail::is_specialization<std::invoke_result_t<F, T>, Task>) {
-                if (!result)
-                    co_return tl::unexpected(std::move(result.error()));
-
-                co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
-            } else {
-                co_return std::move(result).transform(std::move(f));
-            }
+            co_return std::move(result).transform(std::move(f));
         }
 
         template<typename F>
-        requires (!std::is_void_v<T>)
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                !std::is_void_v<T> &&
+                !detail::is_specialization<std::invoke_result_t<F, T>, Task>
+        )
         Task<std::invoke_result_t<F, T>, E> transform(F f) & {
             auto result = co_await *this;
+            co_return std::move(result).transform(std::move(f));
+        }
 
-            if constexpr (detail::is_specialization<std::invoke_result_t<F, T>, Task>) {
-                if (!result)
-                    co_return tl::unexpected(std::move(result.error()));
+        template<typename F, typename R = std::invoke_result_t<F, T>>
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                !std::is_void_v<T> &&
+                detail::is_specialization<R, Task> &&
+                std::is_same_v<typename R::error_type, std::exception_ptr>
+        )
+        Task<typename R::value_type, E> transform(F f) && {
+            auto result = std::move(co_await *this);
 
+            if (!result)
+                co_return tl::unexpected(std::move(result.error()));
+
+            if constexpr (std::is_void_v<typename R::value_type>) {
+                co_await std::invoke(std::move(f), std::move(*result));
+                co_return tl::expected<typename R::value_type, E>{};
+            } else {
                 co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
-            } else {
-                co_return std::move(result).transform(std::move(f));
             }
         }
 
-        template<typename F>
-        Task<T, typename std::invoke_result_t<F, E>::error_type> orElse(F f) && {
+        template<typename F, typename R = std::invoke_result_t<F, T>>
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                !std::is_void_v<T> &&
+                detail::is_specialization<R, Task> &&
+                std::is_same_v<typename R::error_type, std::exception_ptr>
+        )
+        Task<typename R::value_type, E> transform(F f) & {
+            auto result = co_await *this;
+
+            if (!result)
+                co_return tl::unexpected(std::move(result.error()));
+
+            if constexpr (std::is_void_v<typename R::value_type>) {
+                co_await std::invoke(std::move(f), std::move(*result));
+                co_return tl::expected<typename R::value_type, E>{};
+            } else {
+                co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
+            }
+        }
+
+        template<typename F, typename R = std::invoke_result_t<F, E>>
+        requires (!std::is_same_v<E, std::exception_ptr>)
+        Task<T, typename R::error_type> orElse(F f) && {
             auto result = std::move(co_await *this);
 
-            if constexpr (detail::is_specialization<std::invoke_result_t<F, E>, Task>) {
+            if constexpr (detail::is_specialization<R, Task>) {
                 if (result)
                     co_return std::move(*result);
 
@@ -217,11 +335,12 @@ namespace zero::async::coroutine {
             }
         }
 
-        template<typename F>
-        Task<T, typename std::invoke_result_t<F, E>::error_type> orElse(F f) & {
+        template<typename F, typename R = std::invoke_result_t<F, E>>
+        requires (!std::is_same_v<E, std::exception_ptr>)
+        Task<T, typename R::error_type> orElse(F f) & {
             auto result = co_await *this;
 
-            if constexpr (detail::is_specialization<std::invoke_result_t<F, E>, Task>) {
+            if constexpr (detail::is_specialization<R, Task>) {
                 if (result)
                     co_return std::move(*result);
 
@@ -231,16 +350,48 @@ namespace zero::async::coroutine {
             }
         }
 
-        template<typename F>
-        Task<T, typename std::invoke_result_t<F, E>> transformError(F f) && {
+        template<typename F, typename R = std::invoke_result_t<F, E>>
+        requires (!std::is_same_v<E, std::exception_ptr> && !detail::is_specialization<R, Task>)
+        Task<T, R> transformError(F f) && {
             auto result = std::move(co_await *this);
             co_return std::move(result).transform_error(std::move(f));
         }
 
-        template<typename F>
-        Task<T, typename std::invoke_result_t<F, E>> transformError(F f) & {
+        template<typename F, typename R = std::invoke_result_t<F, E>>
+        requires (!std::is_same_v<E, std::exception_ptr> && !detail::is_specialization<R, Task>)
+        Task<T, R> transformError(F f) & {
             auto result = co_await *this;
             co_return std::move(result).transform_error(std::move(f));
+        }
+
+        template<typename F, typename R = std::invoke_result_t<F, E>>
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                detail::is_specialization<R, Task> &&
+                std::is_same_v<typename R::error_type, std::exception_ptr>
+        )
+        Task<T, typename R::value_type> transformError(F f) && {
+            auto result = std::move(co_await *this);
+
+            if (result)
+                co_return std::move(*result);
+
+            co_return tl::unexpected(std::move(co_await std::invoke(std::move(f), std::move(result.error()))));
+        }
+
+        template<typename F, typename R = std::invoke_result_t<F, E>>
+        requires (
+                !std::is_same_v<E, std::exception_ptr> &&
+                detail::is_specialization<R, Task> &&
+                std::is_same_v<typename R::error_type, std::exception_ptr>
+        )
+        Task<T, typename R::value_type> transformError(F f) & {
+            auto result = co_await *this;
+
+            if (result)
+                co_return std::move(*result);
+
+            co_return tl::unexpected(std::move(co_await std::invoke(std::move(f), std::move(result.error()))));
         }
 
     public:
@@ -285,11 +436,10 @@ namespace zero::async::coroutine {
         }
 
         void unhandled_exception() {
-            if constexpr (std::is_same_v<E, std::exception_ptr>) {
+            if constexpr (std::is_same_v<E, std::exception_ptr>)
                 promise::Promise<T, E>::reject(std::current_exception());
-            } else {
+            else
                 std::rethrow_exception(std::current_exception());
-            }
         }
 
         Task<T, E> get_return_object() {
@@ -297,7 +447,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename Result, typename Error>
-        Awaitable<Result, Error> await_transform(
+        NoExceptAwaitable<Result, Error> await_transform(
                 Cancellable<Result, Error> &&cancellable,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -309,7 +459,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename Result, typename Error>
-        Awaitable<Result, Error> await_transform(
+        NoExceptAwaitable<Result, Error> await_transform(
                 const Cancellable<Result, Error> &cancellable,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -321,7 +471,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename Result, typename Error>
-        Awaitable<Result, Error> await_transform(
+        NoExceptAwaitable<Result, Error> await_transform(
                 promise::Promise<Result, Error> &&promise,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -333,7 +483,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename Result, typename Error>
-        Awaitable<Result, Error> await_transform(
+        NoExceptAwaitable<Result, Error> await_transform(
                 const promise::Promise<Result, Error> &promise,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -378,36 +528,42 @@ namespace zero::async::coroutine {
             promise::Promise<T, E>::resolve(std::forward<U>(result));
         }
 
+        template<typename = void>
+        requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(const tl::expected<T, E> &result) {
             if (!result) {
                 promise::Promise<T, E>::reject(result.error());
                 return;
             }
 
-            if constexpr (std::is_void_v<T>) {
+            if constexpr (std::is_void_v<T>)
                 promise::Promise<T, E>::resolve();
-            } else {
+            else
                 promise::Promise<T, E>::resolve(result.value());
-            }
         }
 
+        template<typename = void>
+        requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(tl::expected<T, E> &&result) {
             if (!result) {
                 promise::Promise<T, E>::reject(std::move(result.error()));
                 return;
             }
 
-            if constexpr (std::is_void_v<T>) {
+            if constexpr (std::is_void_v<T>)
                 promise::Promise<T, E>::resolve();
-            } else {
+            else
                 promise::Promise<T, E>::resolve(std::move(result.value()));
-            }
         }
 
+        template<typename = void>
+        requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(const tl::unexpected<E> &reason) {
             promise::Promise<T, E>::reject(reason.value());
         }
 
+        template<typename = void>
+        requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(tl::unexpected<E> &&reason) {
             promise::Promise<T, E>::reject(std::move(reason.value()));
         }
@@ -447,7 +603,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename Result, typename Error>
-        Awaitable<Result, Error> await_transform(
+        NoExceptAwaitable<Result, Error> await_transform(
                 Cancellable<Result, Error> &&cancellable,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -459,7 +615,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename Result, typename Error>
-        Awaitable<Result, Error> await_transform(
+        NoExceptAwaitable<Result, Error> await_transform(
                 const Cancellable<Result, Error> &cancellable,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -471,7 +627,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename Result, typename Error>
-        Awaitable<Result, Error> await_transform(
+        NoExceptAwaitable<Result, Error> await_transform(
                 promise::Promise<Result, Error> &&promise,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -483,7 +639,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename Result, typename Error>
-        Awaitable<Result, Error> await_transform(
+        NoExceptAwaitable<Result, Error> await_transform(
                 const promise::Promise<Result, Error> &promise,
                 const std::source_location location = std::source_location::current()
         ) {
@@ -557,7 +713,7 @@ namespace zero::async::coroutine {
                 }
         });
 
-        if (!result)
+        if (!result) {
             ([&]() {
                 if (tasks.done())
                     return;
@@ -565,19 +721,18 @@ namespace zero::async::coroutine {
                 tasks.cancel();
             }(), ...);
 
-        if constexpr (std::is_void_v<promise::promises_result_t<Ts...>> && std::is_same_v<E, std::exception_ptr>) {
-            if (!result)
-                std::rethrow_exception(std::move(result.error()));
-
-            co_return;
-        } else {
-            co_return std::move(result);
+            if constexpr (std::is_same_v<E, std::exception_ptr>)
+                std::rethrow_exception(result.error());
+            else
+                co_return tl::unexpected(std::move(result.error()));
         }
+
+        co_return std::move(*result);
     }
 
     template<typename ...Ts, typename E>
-    Task<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Task<Ts, E> ...tasks) {
-        co_return std::move(co_await Cancellable{
+    Task<std::tuple<tl::expected<Ts, E>...>> allSettled(Task<Ts, E> ...tasks) {
+        co_return *std::move(co_await Cancellable{
                 promise::allSettled(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
                     tl::expected<void, std::error_code> result;
@@ -667,42 +822,42 @@ namespace zero::async::coroutine {
             tasks.cancel();
         }(), ...);
 
-        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
-            if (!result)
-                std::rethrow_exception(std::move(result.error()));
-
-            co_return;
-        } else {
-            co_return std::move(result);
+        if (!result) {
+            if constexpr (std::is_same_v<E, std::exception_ptr>)
+                std::rethrow_exception(result.error());
+            else
+                co_return tl::unexpected(std::move(result.error()));
         }
+
+        co_return std::move(*result);
     }
 
     template<typename T, typename E>
     Task<T, E> from(promise::Promise<T, E> promise) {
         auto result = std::move(co_await std::move(promise));
 
-        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
-            if (!result)
-                std::rethrow_exception(std::move(result.error()));
-
-            co_return;
-        } else {
-            co_return std::move(result);
+        if (!result) {
+            if constexpr (std::is_same_v<E, std::exception_ptr>)
+                std::rethrow_exception(result.error());
+            else
+                co_return tl::unexpected(std::move(result.error()));
         }
+
+        co_return std::move(*result);
     }
 
     template<typename T, typename E>
     Task<T, E> from(Cancellable<T, E> cancellable) {
         auto result = std::move(co_await std::move(cancellable));
 
-        if constexpr (std::is_void_v<T> && std::is_same_v<E, std::exception_ptr>) {
-            if (!result)
-                std::rethrow_exception(std::move(result.error()));
-
-            co_return;
-        } else {
-            co_return std::move(result);
+        if (!result) {
+            if constexpr (std::is_same_v<E, std::exception_ptr>)
+                std::rethrow_exception(result.error());
+            else
+                co_return tl::unexpected(std::move(result.error()));
         }
+
+        co_return std::move(*result);
     }
 }
 
