@@ -18,17 +18,17 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             REQUIRE(reason == -1);
         });
 
-        zero::async::promise::resolve<std::array<int, 2>, int>({1, 2}).then([](int r1, int r2) {
+        zero::async::promise::resolve<std::array<int, 2>, int>(std::array{1, 2}).then([](int r1, int r2) {
             REQUIRE(r1 == 1);
             REQUIRE(r2 == 2);
         });
 
-        zero::async::promise::resolve<std::pair<int, long>, int>({1, 2L}).then([](int r1, long r2) {
+        zero::async::promise::resolve<std::pair<int, long>, int>(std::pair{1, 2L}).then([](int r1, long r2) {
             REQUIRE(r1 == 1);
             REQUIRE(r2 == 2L);
         });
 
-        zero::async::promise::resolve<std::tuple<int, long>, int>({1, 2L}).then([](int r1, long r2) {
+        zero::async::promise::resolve<std::tuple<int, long>, int>(std::tuple{1, 2L}).then([](int r1, long r2) {
             REQUIRE(r1 == 1);
             REQUIRE(r2 == 2L);
         });

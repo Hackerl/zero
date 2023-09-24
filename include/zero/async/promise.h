@@ -421,11 +421,11 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename T, typename E>
+    template<typename T, typename E, typename U>
     requires (!std::is_void_v<T>)
-    Promise<T, E> resolve(T &&result) {
+    Promise<T, E> resolve(U &&result) {
         Promise<T, E> promise;
-        promise.resolve(std::forward<T>(result));
+        promise.resolve(std::forward<U>(result));
         return promise;
     }
 
