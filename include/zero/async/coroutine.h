@@ -692,8 +692,8 @@ namespace zero::async::coroutine {
         friend class Promise;
     };
 
-    template<typename ...Ts, typename E>
-    Task<promise::promises_result_t<Ts...>, E> all(Task<Ts, E> ...tasks) {
+    template<typename ...Ts, typename E, typename T = promise::promises_result_t<Ts...>>
+    Task<T, E> all(Task<Ts, E> ...tasks) {
         auto result = std::move(co_await Cancellable{
                 promise::all(((promise::Promise<Ts, E>) tasks.promise())...),
                 [=]() mutable {
@@ -720,14 +720,17 @@ namespace zero::async::coroutine {
 
                 tasks.cancel();
             }(), ...);
-
-            if constexpr (std::is_same_v<E, std::exception_ptr>)
-                std::rethrow_exception(result.error());
-            else
-                co_return tl::unexpected(std::move(result.error()));
         }
 
-        co_return std::move(*result);
+        if constexpr (std::is_same_v<E, std::exception_ptr>) {
+            if (!result)
+                std::rethrow_exception(result.error());
+
+            if constexpr (!std::is_void_v<T>)
+                co_return std::move(*result);
+        } else {
+            co_return std::move(result);
+        }
     }
 
     template<typename ...Ts, typename E>
@@ -822,42 +825,45 @@ namespace zero::async::coroutine {
             tasks.cancel();
         }(), ...);
 
-        if (!result) {
-            if constexpr (std::is_same_v<E, std::exception_ptr>)
+        if constexpr (std::is_same_v<E, std::exception_ptr>) {
+            if (!result)
                 std::rethrow_exception(result.error());
-            else
-                co_return tl::unexpected(std::move(result.error()));
-        }
 
-        co_return std::move(*result);
+            if constexpr (!std::is_void_v<T>)
+                co_return std::move(*result);
+        } else {
+            co_return std::move(result);
+        }
     }
 
     template<typename T, typename E>
     Task<T, E> from(promise::Promise<T, E> promise) {
         auto result = std::move(co_await std::move(promise));
 
-        if (!result) {
-            if constexpr (std::is_same_v<E, std::exception_ptr>)
+        if constexpr (std::is_same_v<E, std::exception_ptr>) {
+            if (!result)
                 std::rethrow_exception(result.error());
-            else
-                co_return tl::unexpected(std::move(result.error()));
-        }
 
-        co_return std::move(*result);
+            if constexpr (!std::is_void_v<T>)
+                co_return std::move(*result);
+        } else {
+            co_return std::move(result);
+        }
     }
 
     template<typename T, typename E>
     Task<T, E> from(Cancellable<T, E> cancellable) {
         auto result = std::move(co_await std::move(cancellable));
 
-        if (!result) {
-            if constexpr (std::is_same_v<E, std::exception_ptr>)
+        if constexpr (std::is_same_v<E, std::exception_ptr>) {
+            if (!result)
                 std::rethrow_exception(result.error());
-            else
-                co_return tl::unexpected(std::move(result.error()));
-        }
 
-        co_return std::move(*result);
+            if constexpr (!std::is_void_v<T>)
+                co_return std::move(*result);
+        } else {
+            co_return std::move(result);
+        }
     }
 }
 
