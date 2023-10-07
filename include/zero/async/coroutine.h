@@ -428,10 +428,6 @@ namespace zero::async::coroutine {
         };
 
         std::suspend_never final_suspend() noexcept {
-            mFrame->next.reset();
-            mFrame->location.reset();
-            mFrame->cancel = nullptr;
-
             return {};
         }
 
@@ -525,12 +521,20 @@ namespace zero::async::coroutine {
                 !detail::is_specialization<std::decay_t<U>, tl::unexpected>
         )
         void return_value(U &&result) {
+            mFrame->next.reset();
+            mFrame->location.reset();
+            mFrame->cancel = nullptr;
+
             promise::Promise<T, E>::resolve(std::forward<U>(result));
         }
 
         template<typename = void>
         requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(const tl::expected<T, E> &result) {
+            mFrame->next.reset();
+            mFrame->location.reset();
+            mFrame->cancel = nullptr;
+
             if (!result) {
                 promise::Promise<T, E>::reject(result.error());
                 return;
@@ -545,6 +549,10 @@ namespace zero::async::coroutine {
         template<typename = void>
         requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(tl::expected<T, E> &&result) {
+            mFrame->next.reset();
+            mFrame->location.reset();
+            mFrame->cancel = nullptr;
+
             if (!result) {
                 promise::Promise<T, E>::reject(std::move(result.error()));
                 return;
@@ -559,12 +567,20 @@ namespace zero::async::coroutine {
         template<typename = void>
         requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(const tl::unexpected<E> &reason) {
+            mFrame->next.reset();
+            mFrame->location.reset();
+            mFrame->cancel = nullptr;
+
             promise::Promise<T, E>::reject(reason.value());
         }
 
         template<typename = void>
         requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(tl::unexpected<E> &&reason) {
+            mFrame->next.reset();
+            mFrame->location.reset();
+            mFrame->cancel = nullptr;
+
             promise::Promise<T, E>::reject(std::move(reason.value()));
         }
 
@@ -591,10 +607,6 @@ namespace zero::async::coroutine {
         };
 
         std::suspend_never final_suspend() noexcept {
-            mFrame->next.reset();
-            mFrame->location.reset();
-            mFrame->cancel = nullptr;
-
             return {};
         }
 
@@ -679,6 +691,10 @@ namespace zero::async::coroutine {
         }
 
         void return_void() {
+            mFrame->next.reset();
+            mFrame->location.reset();
+            mFrame->cancel = nullptr;
+
             promise::Promise<void, std::exception_ptr>::resolve();
         }
 
