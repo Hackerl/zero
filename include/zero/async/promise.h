@@ -257,13 +257,13 @@ namespace zero::async::promise {
                         static_assert(std::is_same_v<promise_next_reason_t<Next>, E>);
 
                         if constexpr (std::is_void_v<NextResult>) {
-                            next->then([=]() mutable {
+                            next.then([=]() mutable {
                                 promise.resolve();
                             }, [=](const E &reason) mutable {
                                 promise.reject(reason);
                             });
                         } else {
-                            next->then([=](const NextResult &result) mutable {
+                            next.then([=](const NextResult &result) mutable {
                                 promise.resolve(result);
                             }, [=](const E &reason) mutable {
                                 promise.reject(reason);

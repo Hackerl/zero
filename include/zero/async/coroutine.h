@@ -395,11 +395,11 @@ namespace zero::async::coroutine {
         }
 
     public:
-        Promise<T, E> &promise() {
+        promise::Promise<T, E> &promise() {
             return mPromise;
         }
 
-        [[nodiscard]] const promise_type &promise() const {
+        [[nodiscard]] const promise::Promise<T, E> &promise() const {
             return mPromise;
         }
 
@@ -413,6 +413,9 @@ namespace zero::async::coroutine {
 
     private:
         promise_type mPromise;
+
+        template<typename, typename>
+        friend class Promise;
     };
 
     template<typename T, typename E>
@@ -495,11 +498,11 @@ namespace zero::async::coroutine {
                 Task<Result, Error> &&task,
                 const std::source_location location = std::source_location::current()
         ) {
-            mFrame->next = task.promise().mFrame;
+            mFrame->next = task.mPromise.mFrame;
             mFrame->location = location;
             mFrame->cancel = nullptr;
 
-            return {std::move(task.promise())};
+            return {std::move(task.mPromise)};
         }
 
         template<typename Result, typename Error>
@@ -507,11 +510,11 @@ namespace zero::async::coroutine {
                 const Task<Result, Error> &task,
                 const std::source_location location = std::source_location::current()
         ) {
-            mFrame->next = task.promise().mFrame;
+            mFrame->next = task.mPromise.mFrame;
             mFrame->location = location;
             mFrame->cancel = nullptr;
 
-            return {task.promise()};
+            return {task.mPromise};
         }
 
         template<typename U>
@@ -667,11 +670,11 @@ namespace zero::async::coroutine {
                 Task<Result, Error> &&task,
                 const std::source_location location = std::source_location::current()
         ) {
-            mFrame->next = task.promise().mFrame;
+            mFrame->next = task.mPromise.mFrame;
             mFrame->location = location;
             mFrame->cancel = nullptr;
 
-            return {std::move(task.promise())};
+            return {std::move(task.mPromise)};
         }
 
         template<typename Result, typename Error>
@@ -679,11 +682,11 @@ namespace zero::async::coroutine {
                 const Task<Result, Error> &task,
                 const std::source_location location = std::source_location::current()
         ) {
-            mFrame->next = task.promise().mFrame;
+            mFrame->next = task.mPromise.mFrame;
             mFrame->location = location;
             mFrame->cancel = nullptr;
 
-            return {task.promise()};
+            return {task.mPromise};
         }
 
         Task<void, std::exception_ptr> get_return_object() {
@@ -711,7 +714,7 @@ namespace zero::async::coroutine {
     template<typename ...Ts, typename E, typename T = promise::promises_result_t<Ts...>>
     Task<T, E> all(Task<Ts, E> ...tasks) {
         auto result = std::move(co_await Cancellable{
-                promise::all(((promise::Promise<Ts, E>) tasks.promise())...),
+                promise::all(tasks.promise()...),
                 [=]() mutable {
                     std::optional<tl::expected<void, std::error_code>> result;
 
@@ -752,7 +755,7 @@ namespace zero::async::coroutine {
     template<typename ...Ts, typename E>
     Task<std::tuple<tl::expected<Ts, E>...>> allSettled(Task<Ts, E> ...tasks) {
         co_return *std::move(co_await Cancellable{
-                promise::allSettled(((promise::Promise<Ts, E>) tasks.promise())...),
+                promise::allSettled(tasks.promise()...),
                 [=]() mutable {
                     tl::expected<void, std::error_code> result;
 
@@ -779,7 +782,7 @@ namespace zero::async::coroutine {
     >
     Task<T, std::list<E>> any(Task<Ts, E> ...tasks) {
         auto result = std::move(co_await Cancellable{
-                promise::any(((promise::Promise<Ts, E>) tasks.promise())...),
+                promise::any(tasks.promise()...),
                 [=]() mutable {
                     tl::expected<void, std::error_code> result;
 
@@ -816,7 +819,7 @@ namespace zero::async::coroutine {
     >
     Task<T, E> race(Task<Ts, E> ...tasks) {
         auto result = std::move(co_await Cancellable{
-                promise::race(((promise::Promise<Ts, E>) tasks.promise())...),
+                promise::race(tasks.promise()...),
                 [=]() mutable {
                     std::optional<tl::expected<void, std::error_code>> result;
 
