@@ -79,7 +79,7 @@ bool zero::FileProvider::rotate() {
     std::error_code ec;
     auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
 
-    if (ec != std::errc())
+    if (!ec)
         return false;
 
     auto prefix = strings::format("%s.%d", mName.c_str(), mPID);

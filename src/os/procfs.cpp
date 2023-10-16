@@ -535,6 +535,7 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::Process::tasks
         return tl::unexpected(std::error_code(errno, std::system_category()));
     }
 
+    DEFER(closedir(dir));
     tl::expected<std::list<pid_t>, std::error_code> result;
 
     while (true) {
@@ -556,7 +557,6 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::Process::tasks
         result->push_back(*tid);
     }
 
-    closedir(dir);
     return result;
 }
 

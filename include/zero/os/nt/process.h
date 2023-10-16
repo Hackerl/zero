@@ -7,6 +7,21 @@
 #include <tl/expected.hpp>
 
 namespace zero::os::nt::process {
+    enum Error {
+        API_NOT_AVAILABLE = 1,
+        UNEXPECTED_DATA
+    };
+
+    class ErrorCategory : public std::error_category {
+    public:
+        [[nodiscard]] const char *name() const noexcept override;
+        [[nodiscard]] std::string message(int value) const override;
+        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+    };
+
+    const std::error_category &errorCategory();
+    std::error_code make_error_code(Error e);
+
     class Process {
     public:
         Process(HANDLE handle, DWORD pid);
@@ -28,6 +43,13 @@ namespace zero::os::nt::process {
     };
 
     tl::expected<Process, std::error_code> openProcess(DWORD pid);
+}
+
+namespace std {
+    template<>
+    struct is_error_code_enum<zero::os::nt::process::Error> : public true_type {
+
+    };
 }
 
 #endif //ZERO_PROCESS_H

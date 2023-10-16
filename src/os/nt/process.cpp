@@ -1,6 +1,6 @@
 #include <zero/os/nt/process.h>
 #include <zero/strings/strings.h>
-#include <algorithm>
+#include <zero/defer.h>
 #include <winternl.h>
 
 static auto queryInformationProcess = (decltype(NtQueryInformationProcess) *) GetProcAddress(
@@ -8,13 +8,53 @@ static auto queryInformationProcess = (decltype(NtQueryInformationProcess) *) Ge
         "NtQueryInformationProcess"
 );
 
+const char *zero::os::nt::process::ErrorCategory::name() const noexcept {
+    return "zero::concurrent::channel";
+}
+
+std::string zero::os::nt::process::ErrorCategory::message(int value) const {
+    std::string msg;
+
+    switch (value) {
+        case API_NOT_AVAILABLE:
+            msg = "api not available";
+            break;
+
+        case UNEXPECTED_DATA:
+            msg = "unexpected data";
+            break;
+
+        default:
+            msg = "unknown";
+            break;
+    }
+
+    return msg;
+}
+
+std::error_condition zero::os::nt::process::ErrorCategory::default_error_condition(int value) const noexcept {
+    if (value == API_NOT_AVAILABLE)
+        return std::errc::function_not_supported;
+
+    return error_category::default_error_condition(value);
+}
+
+const std::error_category &zero::os::nt::process::errorCategory() {
+    static ErrorCategory instance;
+    return instance;
+}
+
+std::error_code zero::os::nt::process::make_error_code(Error e) {
+    return {static_cast<int>(e), errorCategory()};
+}
+
 zero::os::nt::process::Process::Process(HANDLE handle, DWORD pid) : mHandle(handle), mPID(pid) {
 
 }
 
-zero::os::nt::process::Process::Process(zero::os::nt::process::Process &&rhs) noexcept: mHandle(nullptr), mPID(0) {
-    std::swap(mHandle, rhs.mHandle);
-    std::swap(mPID, rhs.mPID);
+zero::os::nt::process::Process::Process(zero::os::nt::process::Process &&rhs) noexcept
+        : mHandle(std::exchange(rhs.mHandle, nullptr)), mPID(std::exchange(rhs.mPID, 0)) {
+
 }
 
 zero::os::nt::process::Process::~Process() {
@@ -30,7 +70,7 @@ DWORD zero::os::nt::process::Process::pid() const {
 
 tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() const {
     if (!queryInformationProcess)
-        return tl::unexpected(make_error_code(std::errc::function_not_supported));
+        return tl::unexpected(Error::API_NOT_AVAILABLE);
 
     PROCESS_BASIC_INFORMATION info = {};
 
@@ -64,7 +104,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {
     if (!queryInformationProcess)
-        return tl::unexpected(make_error_code(std::errc::function_not_supported));
+        return tl::unexpected(Error::API_NOT_AVAILABLE);
 
     PROCESS_BASIC_INFORMATION info = {};
 
@@ -100,7 +140,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
         return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     if (!parameters.CommandLine.Buffer || parameters.CommandLine.Length == 0)
-        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     auto buffer = std::make_unique<WCHAR[]>(parameters.CommandLine.Length / sizeof(WCHAR) + 1);
 
@@ -119,6 +159,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
     if (!args)
         return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
+    DEFER(LocalFree(args));
     tl::expected<std::vector<std::string>, std::error_code> result;
 
     for (int i = 0; i < num; i++) {
@@ -132,7 +173,6 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
         result->push_back(std::move(*arg));
     }
 
-    LocalFree(args);
     return result;
 }
 

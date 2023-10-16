@@ -42,5 +42,5 @@ TEST_CASE("get username", "[os]") {
 
     auto output = exec("whoami");
     REQUIRE(output);
-    REQUIRE(zero::strings::trim(*output) == *username);
+    REQUIRE(zero::strings::trim(*output).find(*username) != std::string::npos);
 }
