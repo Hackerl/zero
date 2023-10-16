@@ -7,6 +7,8 @@
 #include <system_error>
 #include <source_location>
 
+#define CO_CANCELLED() (co_await zero::async::coroutine::CheckPoint{})
+
 namespace zero::async::coroutine {
     template<typename T, typename E>
     struct Awaitable {
@@ -87,6 +89,7 @@ namespace zero::async::coroutine {
         std::shared_ptr<Frame> next;
         std::optional<std::source_location> location;
         std::function<tl::expected<void, std::error_code>()> cancel;
+        bool cancelled{};
     };
 
     template<typename T, typename E>
@@ -97,6 +100,10 @@ namespace zero::async::coroutine {
 
     template<typename T, typename E>
     Cancellable(promise::Promise<T, E>, std::function<void()>) -> Cancellable<T, E>;
+
+    struct CheckPoint {
+
+    };
 
     template<typename T, typename E = std::exception_ptr>
     class Task {
@@ -112,10 +119,13 @@ namespace zero::async::coroutine {
 
     public:
         tl::expected<void, std::error_code> cancel() {
-            std::shared_ptr<Frame> frame = mPromise.mFrame;
+            auto frame = mPromise.mFrame;
+            frame->cancelled = true;
 
-            while (frame->next)
+            while (frame->next) {
                 frame = frame->next;
+                frame->cancelled = true;
+            }
 
             if (!frame->cancel)
                 return tl::unexpected(make_error_code(std::errc::operation_not_supported));
@@ -445,6 +455,13 @@ namespace zero::async::coroutine {
             return Task<T, E>{*this};
         }
 
+        Awaitable<bool, std::exception_ptr> await_transform(CheckPoint) {
+            if (!mFrame->cancelled)
+                return {promise::resolve<bool, std::exception_ptr>(false)};
+
+            return {promise::resolve<bool, std::exception_ptr>(true)};
+        }
+
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error> await_transform(
                 Cancellable<Result, Error> &&cancellable,
@@ -615,6 +632,13 @@ namespace zero::async::coroutine {
 
         void unhandled_exception() {
             promise::Promise<void, std::exception_ptr>::reject(std::current_exception());
+        }
+
+        Awaitable<bool, std::exception_ptr> await_transform(CheckPoint) {
+            if (!mFrame->cancelled)
+                return {promise::resolve<bool, std::exception_ptr>(false)};
+
+            return {promise::resolve<bool, std::exception_ptr>(true)};
         }
 
         template<typename Result, typename Error>

@@ -1,9 +1,17 @@
 #include <zero/async/coroutine.h>
-#include <zero/try.h>
 #include <catch2/catch_test_macros.hpp>
 
 zero::async::coroutine::Task<int, std::error_code> half(zero::async::coroutine::Task<int, std::error_code> task) {
-    auto value = CO_TRY(co_await task);
+    auto value = co_await task;
+
+    if (!value) {
+        if (value.error() == std::errc::operation_canceled) {
+            bool cancelled = CO_CANCELLED();
+            REQUIRE(cancelled);
+        }
+
+        co_return tl::unexpected(value.error());
+    }
 
     if (*value % 2)
         co_return tl::unexpected(make_error_code(std::errc::invalid_argument));
@@ -12,7 +20,16 @@ zero::async::coroutine::Task<int, std::error_code> half(zero::async::coroutine::
 }
 
 zero::async::coroutine::Task<long, std::error_code> half(zero::async::coroutine::Task<long, std::error_code> task) {
-    auto value = CO_TRY(co_await task);
+    auto value = co_await task;
+
+    if (!value) {
+        if (value.error() == std::errc::operation_canceled) {
+            bool cancelled = CO_CANCELLED();
+            REQUIRE(cancelled);
+        }
+
+        co_return tl::unexpected(value.error());
+    }
 
     if (*value % 2)
         co_return tl::unexpected(make_error_code(std::errc::invalid_argument));
@@ -22,7 +39,16 @@ zero::async::coroutine::Task<long, std::error_code> half(zero::async::coroutine:
 
 zero::async::coroutine::Task<void, std::error_code>
 requireEven(zero::async::coroutine::Task<int, std::error_code> task) {
-    auto value = CO_TRY(co_await task);
+    auto value = co_await task;
+
+    if (!value) {
+        if (value.error() == std::errc::operation_canceled) {
+            bool cancelled = CO_CANCELLED();
+            REQUIRE(cancelled);
+        }
+
+        co_return tl::unexpected(value.error());
+    }
 
     if (*value % 2)
         co_return tl::unexpected(make_error_code(std::errc::invalid_argument));
