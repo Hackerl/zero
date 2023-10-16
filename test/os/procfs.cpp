@@ -235,23 +235,23 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(*comm == "(test)");
 
         auto cmdline = process->cmdline();
-        REQUIRE(cmdline);
-        REQUIRE(cmdline->empty());
+        REQUIRE(!cmdline);
+        REQUIRE(cmdline.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         auto env = process->environ();
-        REQUIRE((env || env.error() == std::errc::permission_denied));
+        REQUIRE(!env);
 
         auto mappings = process->maps();
-        REQUIRE(mappings);
-        REQUIRE(mappings->empty());
+        REQUIRE(!mappings);
+        REQUIRE(mappings.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         auto mapping = process->findMapping((uintptr_t) &errno);
         REQUIRE(!mapping);
-        REQUIRE(!mapping.error());
+        REQUIRE(mapping.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         mapping = process->getImageBase(path->string());
         REQUIRE(!mapping);
-        REQUIRE(!mapping.error());
+        REQUIRE(mapping.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         auto exe = process->exe();
         REQUIRE(!exe);

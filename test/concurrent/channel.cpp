@@ -11,6 +11,7 @@ TEST_CASE("atomic channel", "[channel]") {
         SECTION("try receive") {
             auto result = channel.tryReceive();
             REQUIRE(!result);
+            REQUIRE(result.error() == zero::concurrent::ChannelError::EMPTY);
             REQUIRE(result.error() == std::errc::operation_would_block);
         }
 
@@ -29,6 +30,7 @@ TEST_CASE("atomic channel", "[channel]") {
 
             result = channel.trySend(4);
             REQUIRE(!result);
+            REQUIRE(result.error() == zero::concurrent::ChannelError::FULL);
             REQUIRE(result.error() == std::errc::operation_would_block);
         }
 
@@ -38,7 +40,7 @@ TEST_CASE("atomic channel", "[channel]") {
                     channel.close();
                     auto result = channel.receive();
                     REQUIRE(!result);
-                    REQUIRE(result.error() == zero::concurrent::Error::CHANNEL_EOF);
+                    REQUIRE(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
                 }
 
                 SECTION("no empty") {
@@ -56,7 +58,7 @@ TEST_CASE("atomic channel", "[channel]") {
 
                     result = channel.receive();
                     REQUIRE(!result);
-                    REQUIRE(result.error() == zero::concurrent::Error::CHANNEL_EOF);
+                    REQUIRE(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
                 }
             }
 
@@ -66,13 +68,14 @@ TEST_CASE("atomic channel", "[channel]") {
                 channel.close();
                 auto result = channel.send(2);
                 REQUIRE(!result);
-                REQUIRE(result.error() == zero::concurrent::Error::CHANNEL_EOF);
+                REQUIRE(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
             }
         }
 
         SECTION("receive timeout") {
             auto result = channel.receive(50ms);
             REQUIRE(!result);
+            REQUIRE(result.error() == zero::concurrent::ChannelError::RECEIVE_TIMEOUT);
             REQUIRE(result.error() == std::errc::timed_out);
         }
 
@@ -91,6 +94,7 @@ TEST_CASE("atomic channel", "[channel]") {
 
             result = channel.send(4, 50ms);
             REQUIRE(!result);
+            REQUIRE(result.error() == zero::concurrent::ChannelError::SEND_TIMEOUT);
             REQUIRE(result.error() == std::errc::timed_out);
         }
     }
@@ -114,7 +118,7 @@ TEST_CASE("atomic channel", "[channel]") {
                 auto result = channel.receive();
 
                 if (!result) {
-                    assert(result.error() == zero::concurrent::Error::CHANNEL_EOF);
+                    assert(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
                     break;
                 }
 

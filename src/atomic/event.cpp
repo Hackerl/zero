@@ -43,7 +43,7 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(std::optional<std:
         if (rc != WAIT_OBJECT_0) {
             result = tl::unexpected(
                     rc == WAIT_TIMEOUT ?
-                    std::make_error_code(std::errc::timed_out) :
+                    make_error_code(std::errc::timed_out) :
                     std::error_code((int) GetLastError(), std::system_category())
             );
 

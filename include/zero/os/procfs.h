@@ -12,6 +12,22 @@
 #include <sys/types.h>
 
 namespace zero::os::procfs {
+    enum Error {
+        NO_SUCH_IMAGE = 1,
+        NO_SUCH_MEMORY_MAPPING,
+        UNEXPECTED_DATA,
+        MAYBE_ZOMBIE_PROCESS
+    };
+
+    class ErrorCategory : public std::error_category {
+    public:
+        [[nodiscard]] const char *name() const noexcept override;
+        [[nodiscard]] std::string message(int value) const override;
+    };
+
+    const std::error_category &errorCategory();
+    std::error_code make_error_code(Error e);
+
     enum MemoryPermission {
         READ = 0x1,
         WRITE = 0x2,
@@ -177,6 +193,13 @@ namespace zero::os::procfs {
     };
 
     tl::expected<Process, std::error_code> openProcess(pid_t pid);
+}
+
+namespace std {
+    template<>
+    struct is_error_code_enum<zero::os::procfs::Error> : public true_type {
+
+    };
 }
 
 #endif //ZERO_PROCFS_H
