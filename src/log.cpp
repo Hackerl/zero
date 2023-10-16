@@ -1,7 +1,8 @@
 #include <zero/log.h>
 #include <zero/time/time.h>
 #include <zero/filesystem/path.h>
-#include <set>
+#include <ranges>
+#include <algorithm>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -75,28 +76,33 @@ bool zero::FileProvider::init() {
 }
 
 bool zero::FileProvider::rotate() {
-    std::string prefix = strings::format("%s.%d", mName.c_str(), mPID);
-    std::set<std::filesystem::path> logs;
     std::error_code ec;
+    auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
 
-    for (const auto &entry: std::filesystem::directory_iterator(mDirectory, ec)) {
-        if (!entry.is_regular_file())
-            continue;
+    if (ec != std::errc())
+        return false;
 
-        if (!entry.path().filename().string().starts_with(prefix))
-            continue;
+    auto prefix = strings::format("%s.%d", mName.c_str(), mPID);
+    auto v = iterator
+             | std::views::filter([](const auto &entry) { return entry.is_regular_file(); })
+             | std::views::transform(&std::filesystem::directory_entry::path)
+             | std::views::filter([&](const auto &path) { return path.filename().string().starts_with(prefix); });
 
-        logs.insert(entry);
-    }
+    std::list<std::filesystem::path> logs;
 
-    size_t size = logs.size();
+    for (const auto &path: v)
+        logs.push_back(path);
 
-    if (size <= mRemain)
-        return init();
+    logs.sort();
 
-    for (auto it = logs.begin(); it != std::prev(logs.end(), mRemain); it++) {
-        std::filesystem::remove(*it, ec);
-    }
+    if (!std::ranges::all_of(
+            logs | std::views::reverse | std::views::drop(mRemain),
+            [](const auto &path) {
+                std::error_code ec;
+                return std::filesystem::remove(path, ec);
+            }
+    ))
+        return false;
 
     return init();
 }
@@ -156,27 +162,17 @@ void zero::Logger::consume() {
                 auto it = mConfigs.begin();
 
                 while (it != mConfigs.end()) {
-                    if (!it->flushDeadline) {
-                        it++;
-                        continue;
-                    }
-
                     if (it->flushDeadline <= now) {
                         if (!it->provider->flush()) {
                             it = mConfigs.erase(it);
                             continue;
                         }
 
-                        it++->flushDeadline.reset();
+                        it++->flushDeadline = now + it->flushInterval;
                         continue;
                     }
 
-                    durations.push_back(
-                            std::chrono::duration_cast<std::chrono::milliseconds>(
-                                    *it->flushDeadline - now
-                            )
-                    );
-
+                    durations.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(it->flushDeadline - now));
                     it++;
                 }
             }
@@ -199,28 +195,26 @@ void zero::Logger::consume() {
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (message.level > (std::max)(it->level, mMinLogLevel.value_or(ERROR_LEVEL))) {
-                if (it->flushDeadline && it->flushDeadline <= now) {
-                    if (!it->provider->flush()) {
-                        it = mConfigs.erase(it);
-                        continue;
-                    }
+            if (message.level <= (std::max)(it->level, mMinLogLevel.value_or(ERROR_LEVEL))) {
+                auto result = it->provider->write(message);
 
-                    it->flushDeadline.reset();
+                if (result == FAILED || (result == ROTATED && !it->provider->rotate())) {
+                    it = mConfigs.erase(it);
+                    continue;
+                }
+            }
+
+            if (it->flushDeadline <= now) {
+                if (!it->provider->flush()) {
+                    it = mConfigs.erase(it);
+                    continue;
                 }
 
-                it++;
+                it++->flushDeadline = now + it->flushInterval;
                 continue;
             }
 
-            LogResult result = it->provider->write(message);
-
-            if (result == FAILED || (result == ROTATED && !it->provider->rotate())) {
-                it = mConfigs.erase(it);
-                continue;
-            }
-
-            it++->flushDeadline = now + it->flushInterval;
+            it++;
         }
     }
 }
@@ -255,6 +249,7 @@ void zero::Logger::addProvider(
     mConfigs.emplace_back(
             level,
             std::move(provider),
-            interval
+            interval,
+            std::chrono::system_clock::now() + interval
     );
 }
