@@ -75,18 +75,25 @@ bool zero::FileProvider::init() {
 }
 
 bool zero::FileProvider::rotate() {
+    std::error_code ec;
+    auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
+
+    if (ec)
+        return false;
+
     std::string prefix = strings::format("%s.%d", mName.c_str(), mPID);
     std::set<std::filesystem::path> logs;
-    std::error_code ec;
 
-    for (const auto &entry: std::filesystem::directory_iterator(mDirectory, ec)) {
+    for (const auto &entry: iterator) {
         if (!entry.is_regular_file())
             continue;
 
-        if (!strings::startsWith(entry.path().filename().string(), prefix))
+        const auto &path = entry.path();
+
+        if (!strings::startsWith(path.filename().string(), prefix))
             continue;
 
-        logs.insert(entry);
+        logs.insert(path);
     }
 
     size_t size = logs.size();
@@ -94,21 +101,27 @@ bool zero::FileProvider::rotate() {
     if (size <= mRemain)
         return init();
 
-    for (auto it = logs.begin(); it != std::prev(logs.end(), mRemain); it++) {
-        std::filesystem::remove(*it, ec);
-    }
+    if (!std::all_of(
+            logs.begin(),
+            std::prev(logs.end(), mRemain),
+            [](const auto &path) {
+                std::error_code ec;
+                return std::filesystem::remove(path, ec);
+            }
+    ))
+        return false;
 
     return init();
 }
 
 bool zero::FileProvider::flush() {
-    return !mStream.flush().bad();
+    return mStream.flush().good();
 }
 
 zero::LogResult zero::FileProvider::write(const LogMessage &message) {
     std::string msg = stringify(message);
 
-    if (mStream.write(msg.c_str(), (std::streamsize) msg.length()).bad())
+    if (!mStream.write(msg.c_str(), (std::streamsize) msg.length()))
         return FAILED;
 
     mPosition += msg.length();
