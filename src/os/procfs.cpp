@@ -1,4 +1,6 @@
 #include <zero/os/procfs.h>
+#include <zero/try.h>
+#include <zero/defer.h>
 #include <zero/strings/strings.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -8,6 +10,47 @@
 constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
+
+const char *zero::os::procfs::ErrorCategory::name() const noexcept {
+    return "zero::os::procfs";
+}
+
+std::string zero::os::procfs::ErrorCategory::message(int value) const {
+    std::string msg;
+
+    switch (value) {
+        case NO_SUCH_IMAGE:
+            msg = "no such image";
+            break;
+
+        case NO_SUCH_MEMORY_MAPPING:
+            msg = "no such memory mapping";
+            break;
+
+        case UNEXPECTED_DATA:
+            msg = "unexpected data";
+            break;
+
+        case MAYBE_ZOMBIE_PROCESS:
+            msg = "maybe zombie process";
+            break;
+
+        default:
+            msg = "unknown";
+            break;
+    }
+
+    return msg;
+}
+
+const std::error_category &zero::os::procfs::errorCategory() {
+    static ErrorCategory instance;
+    return instance;
+}
+
+std::error_code zero::os::procfs::make_error_code(Error e) {
+    return {static_cast<int>(e), errorCategory()};
+}
 
 zero::os::procfs::Process::Process(int fd, pid_t pid) : mFD(fd), mPID(pid) {
 
@@ -31,6 +74,7 @@ tl::expected<std::string, std::error_code> zero::os::procfs::Process::readFile(c
     if (fd < 0)
         return tl::unexpected(std::error_code(errno, std::system_category()));
 
+    DEFER(close(fd));
     tl::expected<std::string, std::error_code> result;
 
     while (true) {
@@ -48,7 +92,6 @@ tl::expected<std::string, std::error_code> zero::os::procfs::Process::readFile(c
         result->append(buffer, n);
     }
 
-    close(fd);
     return result;
 }
 
@@ -58,11 +101,7 @@ pid_t zero::os::procfs::Process::pid() const {
 
 tl::expected<zero::os::procfs::MemoryMapping, std::error_code>
 zero::os::procfs::Process::getImageBase(std::string_view path) const {
-    auto memoryMappings = maps();
-
-    if (!memoryMappings)
-        return tl::unexpected(memoryMappings.error());
-
+    auto memoryMappings = TRY(maps());
     auto it = std::find_if(
             memoryMappings->begin(),
             memoryMappings->end(),
@@ -72,18 +111,14 @@ zero::os::procfs::Process::getImageBase(std::string_view path) const {
     );
 
     if (it == memoryMappings->end())
-        return tl::unexpected(std::error_code());
+        return tl::unexpected(Error::NO_SUCH_IMAGE);
 
     return *it;
 }
 
 tl::expected<zero::os::procfs::MemoryMapping, std::error_code>
 zero::os::procfs::Process::findMapping(uintptr_t address) const {
-    auto memoryMappings = maps();
-
-    if (!memoryMappings)
-        return tl::unexpected(memoryMappings.error());
-
+    auto memoryMappings = TRY(maps());
     auto it = std::find_if(
             memoryMappings->begin(),
             memoryMappings->end(),
@@ -93,7 +128,7 @@ zero::os::procfs::Process::findMapping(uintptr_t address) const {
     );
 
     if (it == memoryMappings->end())
-        return tl::unexpected(std::error_code());
+        return tl::unexpected(Error::NO_SUCH_MEMORY_MAPPING);
 
     return *it;
 }
@@ -117,73 +152,62 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::Process::
 }
 
 tl::expected<std::string, std::error_code> zero::os::procfs::Process::comm() const {
-    auto content = readFile("comm");
-
-    if (!content)
-        return tl::unexpected(content.error());
+    auto content = TRY(readFile("comm"));
 
     if (content->size() < 2)
-        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     content->pop_back();
     return *content;
 }
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::Process::cmdline() const {
-    auto content = readFile("cmdline");
-
-    if (!content)
-        return tl::unexpected(content.error());
+    auto content = TRY(readFile("cmdline"));
 
     if (content->empty())
-        return {};
+        return tl::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
 
     auto tokens = strings::split(*content, {"\0", 1});
 
     if (tokens.size() < 2)
-        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     tokens.pop_back();
     return tokens;
 }
 
 tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::Process::environ() const {
-    auto content = readFile("environ");
+    auto content = TRY(readFile("environ"));
 
-    if (!content)
-        return tl::unexpected(content.error());
+    if (content->empty())
+        return tl::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
 
     auto tokens = strings::split(*content, {"\0", 1});
-
-    if (tokens.empty())
-        return {};
-
     tokens.pop_back();
-    std::map<std::string, std::string> environ;
+
+    tl::expected<std::map<std::string, std::string>, std::error_code> result;
 
     for (const auto &token: tokens) {
         size_t pos = token.find('=');
 
-        if (pos == std::string::npos)
-            continue;
+        if (pos == std::string::npos) {
+            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
+            break;
+        }
 
-        environ[token.substr(0, pos)] = token.substr(pos + 1);
+        result->operator[](token.substr(0, pos)) = token.substr(pos + 1);
     }
 
-    return environ;
+    return result;
 }
 
 tl::expected<zero::os::procfs::Stat, std::error_code> zero::os::procfs::Process::stat() const {
-    auto content = readFile("stat");
-
-    if (!content)
-        return tl::unexpected(content.error());
-
+    auto content = TRY(readFile("stat"));
     size_t start = content->find('(');
     size_t end = content->rfind(')');
 
     if (start == std::string::npos || end == std::string::npos)
-        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     Stat stat = {};
 
@@ -193,7 +217,7 @@ tl::expected<zero::os::procfs::Stat, std::error_code> zero::os::procfs::Process:
     auto tokens = strings::split(content->substr(end + 2), " ");
 
     if (tokens.size() < STAT_BASIC_FIELDS - 2)
-        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     auto it = tokens.begin();
 
@@ -322,18 +346,14 @@ std::optional<T> statusIntegerField(const std::map<std::string, std::string> &ma
 }
 
 tl::expected<zero::os::procfs::Status, std::error_code> zero::os::procfs::Process::status() const {
-    auto content = readFile("status");
-
-    if (!content)
-        return tl::unexpected(content.error());
-
+    auto content = TRY(readFile("status"));
     std::map<std::string, std::string> map;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
         auto tokens = strings::split(line, ":");
 
         if (tokens.size() != 2)
-            continue;
+            return tl::unexpected(Error::UNEXPECTED_DATA);
 
         map[tokens[0]] = strings::trim(tokens[1]);
     }
@@ -352,7 +372,7 @@ tl::expected<zero::os::procfs::Status, std::error_code> zero::os::procfs::Proces
     std::vector<std::string> tokens = strings::split(map["Uid"]);
 
     if (tokens.size() != 4)
-        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     for (size_t i = 0; i < 4; i++)
         status.uid[i] = *strings::toNumber<uid_t>(tokens[i]);
@@ -360,7 +380,7 @@ tl::expected<zero::os::procfs::Status, std::error_code> zero::os::procfs::Proces
     tokens = strings::split(map["Gid"]);
 
     if (tokens.size() != 4)
-        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     for (size_t i = 0; i < 4; i++)
         status.gid[i] = *strings::toNumber<pid_t>(tokens[i]);
@@ -396,7 +416,7 @@ tl::expected<zero::os::procfs::Status, std::error_code> zero::os::procfs::Proces
     tokens = strings::split(map["SigQ"], "/");
 
     if (tokens.size() != 2)
-        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     status.sigQ[0] = *strings::toNumber<int>(tokens[0]);
     status.sigQ[1] = *strings::toNumber<int>(tokens[1]);
@@ -516,6 +536,7 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::Process::tasks
         return tl::unexpected(std::error_code(errno, std::system_category()));
     }
 
+    DEFER(closedir(dir));
     tl::expected<std::list<pid_t>, std::error_code> result;
 
     while (true) {
@@ -537,31 +558,31 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::Process::tasks
         result->push_back(*tid);
     }
 
-    closedir(dir);
     return result;
 }
 
 tl::expected<std::list<zero::os::procfs::MemoryMapping>, std::error_code> zero::os::procfs::Process::maps() const {
-    auto content = readFile("maps");
-
-    if (!content)
-        return tl::unexpected(content.error());
+    auto content = TRY(readFile("maps"));
 
     if (content->empty())
-        return {};
+        return tl::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
 
     tl::expected<std::list<MemoryMapping>, std::error_code> result;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
         std::vector<std::string> fields = strings::split(line);
 
-        if (fields.size() < MAPPING_BASIC_FIELDS)
-            continue;
+        if (fields.size() < MAPPING_BASIC_FIELDS) {
+            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
+            break;
+        }
 
         std::vector<std::string> tokens = strings::split(fields[0], "-");
 
-        if (tokens.size() != 2)
-            continue;
+        if (tokens.size() != 2) {
+            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
+            break;
+        }
 
         auto start = strings::toNumber<uintptr_t>(tokens[0], 16);
 
@@ -602,10 +623,10 @@ tl::expected<std::list<zero::os::procfs::MemoryMapping>, std::error_code> zero::
         if (fields.size() > MAPPING_BASIC_FIELDS)
             memoryMapping.pathname = fields[5];
 
-        std::string permissions = fields[1];
+        auto permissions = fields[1];
 
         if (permissions.length() < MAPPING_PERMISSIONS_LENGTH) {
-            result = tl::unexpected(make_error_code(std::errc::invalid_argument));
+            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 

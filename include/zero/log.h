@@ -97,7 +97,7 @@ namespace zero {
             LogLevel level;
             std::unique_ptr<ILogProvider> provider;
             std::chrono::milliseconds flushInterval;
-            std::optional<std::chrono::time_point<std::chrono::system_clock>> flushDeadline;
+            std::chrono::time_point<std::chrono::system_clock> flushDeadline;
         };
 
     public:
@@ -114,7 +114,7 @@ namespace zero {
         void addProvider(
                 LogLevel level,
                 std::unique_ptr<ILogProvider> provider,
-                std::chrono::milliseconds interval = std::chrono::seconds{5}
+                std::chrono::milliseconds interval = std::chrono::seconds{1}
         );
 
     public:

@@ -4,13 +4,14 @@
 #include <thread>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/prctl.h>
 
 using namespace std::chrono_literals;
 
 TEST_CASE("linux procfs", "[procfs]") {
     char name[16] = {};
-    pthread_getname_np(pthread_self(), name, sizeof(name));
-    pthread_setname_np(pthread_self(), "(test)");
+    prctl(PR_GET_NAME, name);
+    prctl(PR_SET_NAME, "(test)");
 
     SECTION("self") {
         auto pid = getpid();
@@ -237,23 +238,23 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(*comm == "(test)");
 
         auto cmdline = process->cmdline();
-        REQUIRE(cmdline);
-        REQUIRE(cmdline->empty());
+        REQUIRE(!cmdline);
+        REQUIRE(cmdline.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         auto env = process->environ();
-        REQUIRE((env || env.error() == std::errc::permission_denied));
+        REQUIRE(!env);
 
         auto mappings = process->maps();
-        REQUIRE(mappings);
-        REQUIRE(mappings->empty());
+        REQUIRE(!mappings);
+        REQUIRE(mappings.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         auto mapping = process->findMapping((uintptr_t) &errno);
         REQUIRE(!mapping);
-        REQUIRE(!mapping.error());
+        REQUIRE(mapping.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         mapping = process->getImageBase(path->string());
         REQUIRE(!mapping);
-        REQUIRE(!mapping.error());
+        REQUIRE(mapping.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         auto exe = process->exe();
         REQUIRE(!exe);
@@ -295,5 +296,5 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }
 
-    pthread_setname_np(pthread_self(), name);
+    prctl(PR_SET_NAME, name);
 }

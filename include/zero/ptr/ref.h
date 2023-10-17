@@ -68,13 +68,13 @@ namespace zero::ptr {
                 mPtr->addRef();
         }
 
-        RefPtr(RefPtr &&rhs) noexcept: mPtr(nullptr) {
-            std::swap(mPtr, rhs.mPtr);
+        RefPtr(RefPtr &&rhs) noexcept: mPtr(std::exchange(rhs.mPtr, nullptr)) {
+
         }
 
         template<typename U>
-        RefPtr(RefPtr<U> &&rhs) : mPtr(rhs.mPtr) {
-            rhs.mPtr = nullptr;
+        RefPtr(RefPtr<U> &&rhs) : mPtr(std::exchange(rhs.mPtr, nullptr)) {
+
         }
 
         ~RefPtr() {

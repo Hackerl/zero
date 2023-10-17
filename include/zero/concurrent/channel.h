@@ -8,23 +8,28 @@
 #include <zero/atomic/circular_buffer.h>
 
 namespace zero::concurrent {
-    enum Error {
+    enum ChannelError {
         CHANNEL_EOF = 1,
+        SEND_TIMEOUT,
+        RECEIVE_TIMEOUT,
+        EMPTY,
+        FULL
     };
 
-    class Category : public std::error_category {
+    class ChannelErrorCategory : public std::error_category {
     public:
         [[nodiscard]] const char *name() const noexcept override;
         [[nodiscard]] std::string message(int value) const override;
+        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
     };
 
-    const std::error_category &category();
-    std::error_code make_error_code(Error e);
+    const std::error_category &channelErrorCategory();
+    std::error_code make_error_code(ChannelError e);
 }
 
 namespace std {
     template<>
-    struct is_error_code_enum<zero::concurrent::Error> : public true_type {
+    struct is_error_code_enum<zero::concurrent::ChannelError> : public true_type {
 
     };
 }
@@ -46,11 +51,7 @@ namespace zero::concurrent {
             auto index = mBuffer.acquire();
 
             if (!index)
-                return tl::unexpected(
-                        mClosed ?
-                        make_error_code(Error::CHANNEL_EOF) :
-                        make_error_code(std::errc::operation_would_block)
-                );
+                return tl::unexpected(mClosed ? ChannelError::CHANNEL_EOF : ChannelError::EMPTY);
 
             T element = std::move(mBuffer[*index]);
             mBuffer.release(*index);
@@ -62,12 +63,12 @@ namespace zero::concurrent {
         template<typename U>
         tl::expected<void, std::error_code> trySend(U &&element) {
             if (mClosed)
-                return tl::unexpected(Error::CHANNEL_EOF);
+                return tl::unexpected(ChannelError::CHANNEL_EOF);
 
             auto index = mBuffer.reserve();
 
             if (!index)
-                return tl::unexpected(make_error_code(std::errc::operation_would_block));
+                return tl::unexpected(ChannelError::FULL);
 
             mBuffer[*index] = std::forward<U>(element);
             mBuffer.commit(*index);
@@ -86,7 +87,7 @@ namespace zero::concurrent {
                     std::unique_lock<std::mutex> lock(mMutex);
 
                     if (mClosed) {
-                        result = tl::unexpected<std::error_code>(Error::CHANNEL_EOF);
+                        result = tl::unexpected<std::error_code>(ChannelError::CHANNEL_EOF);
                         break;
                     }
 
@@ -101,7 +102,7 @@ namespace zero::concurrent {
                     }
 
                     if (mCVs[RECEIVER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected(make_error_code(std::errc::timed_out));
+                        result = tl::unexpected<std::error_code>(ChannelError::RECEIVE_TIMEOUT);
                         break;
                     }
 
@@ -122,7 +123,7 @@ namespace zero::concurrent {
         tl::expected<void, std::error_code>
         send(U &&element, std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
             if (mClosed)
-                return tl::unexpected(Error::CHANNEL_EOF);
+                return tl::unexpected(ChannelError::CHANNEL_EOF);
 
             tl::expected<void, std::error_code> result;
 
@@ -133,7 +134,7 @@ namespace zero::concurrent {
                     std::unique_lock<std::mutex> lock(mMutex);
 
                     if (mClosed) {
-                        result = tl::unexpected<std::error_code>(Error::CHANNEL_EOF);
+                        result = tl::unexpected<std::error_code>(ChannelError::CHANNEL_EOF);
                         break;
                     }
 
@@ -148,7 +149,7 @@ namespace zero::concurrent {
                     }
 
                     if (mCVs[SENDER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected(make_error_code(std::errc::timed_out));
+                        result = tl::unexpected<std::error_code>(ChannelError::SEND_TIMEOUT);
                         break;
                     }
 

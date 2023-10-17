@@ -257,13 +257,13 @@ namespace zero::async::promise {
                         static_assert(std::is_same_v<promise_next_reason_t<Next>, E>);
 
                         if constexpr (std::is_void_v<NextResult>) {
-                            next->then([=]() mutable {
+                            next.then([=]() mutable {
                                 promise.resolve();
                             }, [=](const E &reason) mutable {
                                 promise.reject(reason);
                             });
                         } else {
-                            next->then([=](const NextResult &result) mutable {
+                            next.then([=](const NextResult &result) mutable {
                                 promise.resolve(result);
                             }, [=](const E &reason) mutable {
                                 promise.reject(reason);
@@ -410,10 +410,10 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename T, typename E>
-    Promise<T, E> reject(E &&reason) {
+    template<typename T, typename E, typename U>
+    Promise<T, E> reject(U &&reason) {
         Promise<T, E> promise;
-        promise.reject(std::forward<E>(reason));
+        promise.reject(std::forward<U>(reason));
         return promise;
     }
 
@@ -424,10 +424,10 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename T, typename E, std::enable_if_t<!std::is_void_v<T>, void *> = nullptr>
-    Promise<T, E> resolve(T &&result) {
+    template<typename T, typename E, typename U, std::enable_if_t<!std::is_void_v<T>, void *> = nullptr>
+    Promise<T, E> resolve(U &&result) {
         Promise<T, E> promise;
-        promise.resolve(std::forward<T>(result));
+        promise.resolve(std::forward<U>(result));
         return promise;
     }
 

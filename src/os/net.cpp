@@ -7,7 +7,6 @@
 #include <iphlpapi.h>
 #include <memory>
 #include <ws2tcpip.h>
-#include <zero/strings/strings.h>
 #elif __linux__
 #include <ifaddrs.h>
 #include <arpa/inet.h>
@@ -18,6 +17,7 @@
 #if __ANDROID__
 #include <unistd.h>
 #include <linux/if.h>
+#include <zero/defer.h>
 #if __ANDROID_API__ < 24
 #include <dlfcn.h>
 #endif
@@ -160,7 +160,8 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
         if (!p->ifa_addr)
             continue;
 
-        interfaceTable[p->ifa_name].name = p->ifa_name;
+        auto &interface = interfaceTable[p->ifa_name];
+        interface.name = p->ifa_name;
 
         switch (p->ifa_addr->sa_family) {
             case AF_INET: {
@@ -169,7 +170,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
                 memcpy(address.ip.data(), &((sockaddr_in *) p->ifa_addr)->sin_addr, 4);
                 memcpy(address.mask.data(), &((sockaddr_in *) p->ifa_netmask)->sin_addr, 4);
 
-                interfaceTable[p->ifa_name].addresses.emplace_back(address);
+                interface.addresses.emplace_back(address);
                 break;
             }
 
@@ -177,7 +178,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
                 IPv6Address address = {};
                 memcpy(address.ip.data(), &((sockaddr_in6 *) p->ifa_addr)->sin6_addr, 16);
 
-                interfaceTable[p->ifa_name].addresses.emplace_back(address);
+                interface.addresses.emplace_back(address);
                 break;
             }
 
@@ -188,7 +189,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
                 if (address->sdl_alen != 6)
                     break;
 
-                memcpy(interfaceTable[p->ifa_name].mac.data(), LLADDR(address), 6);
+                memcpy(interface.mac.data(), LLADDR(address), 6);
                 break;
             }
 #else
@@ -198,7 +199,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
                 if (address->sll_halen != 6)
                     break;
 
-                memcpy(interfaceTable[p->ifa_name].mac.data(), address->sll_addr, 6);
+                memcpy(interface.mac.data(), address->sll_addr, 6);
                 break;
             }
 #endif
@@ -221,11 +222,13 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
             }
     );
 
-#if __ANDROID__
+#ifdef __ANDROID__
     int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 
     if (fd < 0)
         return tl::unexpected(std::error_code(errno, std::system_category()));
+
+    DEFER(close(fd));
 
     for (auto &interface: interfaces) {
         ifreq request = {};
@@ -234,12 +237,10 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
         strncpy(request.ifr_name, interface.name.c_str(), IFNAMSIZ);
 
         if (ioctl(fd, SIOCGIFHWADDR, &request) < 0)
-            continue;
+            return tl::unexpected(std::error_code(errno, std::system_category()));
 
         memcpy(interface.mac.data(), request.ifr_hwaddr.sa_data, 6);
     }
-
-    close(fd);
 #endif
 
     return interfaces;
