@@ -79,7 +79,7 @@ bool zero::FileProvider::rotate() {
     std::error_code ec;
     auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
 
-    if (!ec)
+    if (ec)
         return false;
 
     auto prefix = strings::format("%s.%d", mName.c_str(), mPID);
@@ -108,13 +108,13 @@ bool zero::FileProvider::rotate() {
 }
 
 bool zero::FileProvider::flush() {
-    return !mStream.flush().bad();
+    return mStream.flush().good();
 }
 
 zero::LogResult zero::FileProvider::write(const LogMessage &message) {
     std::string msg = stringify(message);
 
-    if (mStream.write(msg.c_str(), (std::streamsize) msg.length()).bad())
+    if (!mStream.write(msg.c_str(), (std::streamsize) msg.length()))
         return FAILED;
 
     mPosition += msg.length();
