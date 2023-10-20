@@ -1,5 +1,6 @@
 #include <zero/cmdline.h>
 #include <iostream>
+#include <iomanip>
 #include <cstring>
 #include <ranges>
 

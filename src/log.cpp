@@ -49,9 +49,8 @@ zero::FileProvider::FileProvider(
         const std::optional<std::filesystem::path> &directory,
         size_t limit,
         int remain
-) : mName(name), mLimit(limit), mRemain(remain), mPosition(0) {
-    std::error_code ec;
-    mDirectory = directory ? *directory : std::filesystem::temp_directory_path(ec);
+) : mName(name), mLimit(limit), mRemain(remain), mPosition(0),
+    mDirectory(directory.value_or(std::filesystem::temp_directory_path())) {
 #ifndef _WIN32
     mPID = getpid();
 #else
@@ -60,7 +59,7 @@ zero::FileProvider::FileProvider(
 }
 
 bool zero::FileProvider::init() {
-    std::filesystem::path name = strings::format(
+    std::string name = strings::format(
             "%s.%d.%ld.log",
             mName.c_str(),
             mPID,
@@ -147,7 +146,7 @@ bool zero::Logger::enabled(zero::LogLevel level) {
 
 void zero::Logger::consume() {
     while (true) {
-        std::optional<size_t> index = mBuffer.acquire();
+        auto index = mBuffer.acquire();
 
         if (!index) {
             if (mExit)
@@ -157,12 +156,14 @@ void zero::Logger::consume() {
 
             {
                 std::lock_guard<std::mutex> guard(mMutex);
-                std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
 
+                auto now = std::chrono::system_clock::now();
                 auto it = mConfigs.begin();
 
                 while (it != mConfigs.end()) {
-                    if (it->flushDeadline <= now) {
+                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(it->flushDeadline - now);
+
+                    if (duration.count() <= 0) {
                         if (!it->provider->flush()) {
                             it = mConfigs.erase(it);
                             continue;
@@ -172,7 +173,7 @@ void zero::Logger::consume() {
                         continue;
                     }
 
-                    durations.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(it->flushDeadline - now));
+                    durations.push_back(duration);
                     it++;
                 }
             }
@@ -190,8 +191,8 @@ void zero::Logger::consume() {
         mBuffer.release(*index);
 
         std::lock_guard<std::mutex> guard(mMutex);
-        std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
 
+        auto now = std::chrono::system_clock::now();
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
