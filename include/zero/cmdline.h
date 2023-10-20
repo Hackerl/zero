@@ -164,7 +164,7 @@ namespace zero {
         bool exist(const char *name);
 
     public:
-        std::string &footer();
+        void footer(const char *message);
         [[nodiscard]] std::vector<std::string> rest() const;
 
     public:

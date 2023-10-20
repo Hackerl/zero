@@ -40,6 +40,7 @@ TEST_CASE("parse command line arguments", "[cmdline]") {
     cmdline.addOptional<int>("count", 'c', "thread count");
     cmdline.addOptional<Config>("config", '\0', "account config");
 
+    cmdline.footer("footer message");
     cmdline.from(argv.size(), argv.data());
 
     REQUIRE(cmdline.exist("http"));
