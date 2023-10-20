@@ -15,8 +15,8 @@ bool zero::Cmdline::exist(const char *name) {
     return std::any_cast<bool>(find(name).value);
 }
 
-std::string &zero::Cmdline::footer() {
-    return mFooter;
+void zero::Cmdline::footer(const char *message) {
+    mFooter = message;
 }
 
 std::vector<std::string> zero::Cmdline::rest() const {
