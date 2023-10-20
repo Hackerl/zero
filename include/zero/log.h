@@ -123,7 +123,7 @@ namespace zero {
             if (mExit)
                 return;
 
-            std::optional<size_t> index = mBuffer.reserve();
+            auto index = mBuffer.reserve();
 
             if (!index)
                 return;

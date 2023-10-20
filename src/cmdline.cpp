@@ -1,5 +1,6 @@
 #include <zero/cmdline.h>
 #include <iostream>
+#include <iomanip>
 #include <cstring>
 
 zero::Cmdline::Cmdline() : mOptionals({{"help", '?', "print help message", false}}) {
