@@ -25,5 +25,5 @@ TEST_CASE("base64 encoding", "[base64]") {
     result = zero::encoding::base64::decode("aGVsbG8=");
     REQUIRE(result);
     REQUIRE(result->size() == buffer.size());
-    REQUIRE(memcmp(result->data(), buffer.data(), buffer.size()) == 0);
+    REQUIRE(std::equal(result->begin(), result->end(), buffer.begin()));
 }
