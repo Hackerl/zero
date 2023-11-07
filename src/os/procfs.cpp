@@ -650,13 +650,13 @@ tl::expected<std::list<zero::os::procfs::MemoryMapping>, std::error_code> zero::
     return result;
 }
 
-tl::expected<zero::os::procfs::Process, std::error_code> zero::os::procfs::openProcess(pid_t pid) {
+tl::expected<zero::os::procfs::Process, std::error_code> zero::os::procfs::open(pid_t pid) {
     auto path = std::filesystem::path("/proc") / std::to_string(pid);
 
 #ifdef O_PATH
-    int fd = open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
+    int fd = ::open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
 #else
-    int fd = open(path.string().c_str(), O_DIRECTORY | O_CLOEXEC);
+    int fd = ::open(path.string().c_str(), O_DIRECTORY | O_CLOEXEC);
 #endif
 
     if (fd < 0)

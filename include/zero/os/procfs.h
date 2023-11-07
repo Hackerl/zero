@@ -192,7 +192,7 @@ namespace zero::os::procfs {
         pid_t mPID;
     };
 
-    tl::expected<Process, std::error_code> openProcess(pid_t pid);
+    tl::expected<Process, std::error_code> open(pid_t pid);
 }
 
 namespace std {

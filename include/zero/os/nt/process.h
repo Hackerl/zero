@@ -1,5 +1,5 @@
-#ifndef ZERO_PROCESS_H
-#define ZERO_PROCESS_H
+#ifndef ZERO_NT_PROCESS_H
+#define ZERO_NT_PROCESS_H
 
 #include <windows.h>
 #include <filesystem>
@@ -42,7 +42,7 @@ namespace zero::os::nt::process {
         HANDLE mHandle;
     };
 
-    tl::expected<Process, std::error_code> openProcess(DWORD pid);
+    tl::expected<Process, std::error_code> open(DWORD pid);
 }
 
 namespace std {
@@ -52,4 +52,4 @@ namespace std {
     };
 }
 
-#endif //ZERO_PROCESS_H
+#endif //ZERO_NT_PROCESS_H

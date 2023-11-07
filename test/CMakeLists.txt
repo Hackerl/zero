@@ -20,6 +20,7 @@ add_executable(
         os/os.cpp
         os/net.cpp
         $<$<PLATFORM_ID:Windows>:os/nt/process.cpp>
+        $<$<PLATFORM_ID:Darwin>:os/darwin/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:os/procfs.cpp>
 )
 

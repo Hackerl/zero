@@ -4,7 +4,7 @@
 
 TEST_CASE("windows process", "[process]") {
     DWORD pid = GetCurrentProcessId();
-    auto process = zero::os::nt::process::openProcess(pid);
+    auto process = zero::os::nt::process::open(pid);
     REQUIRE(process);
     REQUIRE(process->pid() == pid);
 

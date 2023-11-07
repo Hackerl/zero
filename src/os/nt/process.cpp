@@ -9,7 +9,7 @@ static auto queryInformationProcess = (decltype(NtQueryInformationProcess) *) Ge
 );
 
 const char *zero::os::nt::process::ErrorCategory::name() const noexcept {
-    return "zero::concurrent::channel";
+    return "zero::os::nt::process";
 }
 
 std::string zero::os::nt::process::ErrorCategory::message(int value) const {
@@ -176,7 +176,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
     return result;
 }
 
-tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::openProcess(DWORD pid) {
+tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::open(DWORD pid) {
     HANDLE handle = OpenProcess(
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
             false,

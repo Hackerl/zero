@@ -16,7 +16,7 @@ TEST_CASE("linux procfs", "[procfs]") {
 
     SECTION("self") {
         auto pid = getpid();
-        auto process = zero::os::procfs::openProcess(pid);
+        auto process = zero::os::procfs::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
@@ -117,7 +117,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(pid > 0);
         std::this_thread::sleep_for(100ms);
 
-        auto process = zero::os::procfs::openProcess(pid);
+        auto process = zero::os::procfs::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
@@ -223,7 +223,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         kill(pid, SIGKILL);
         std::this_thread::sleep_for(100ms);
 
-        auto process = zero::os::procfs::openProcess(pid);
+        auto process = zero::os::procfs::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
@@ -288,7 +288,7 @@ TEST_CASE("linux procfs", "[procfs]") {
     }
 
     SECTION("no such process") {
-        auto process = zero::os::procfs::openProcess(99999);
+        auto process = zero::os::procfs::open(99999);
         REQUIRE(!process);
         REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }
