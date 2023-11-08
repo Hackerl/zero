@@ -15,11 +15,24 @@ TEST_CASE("windows process", "[process]") {
     REQUIRE(name);
     REQUIRE(*name == path->filename());
 
-    auto image = process->image();
-    REQUIRE(image);
-    REQUIRE(*image == *path);
+    auto exe = process->exe();
+    REQUIRE(exe);
+    REQUIRE(*exe == *path);
 
     auto cmdline = process->cmdline();
     REQUIRE(cmdline);
     REQUIRE(cmdline->at(0).find(path->filename().string()) != std::string::npos);
+
+    auto cwd = process->cwd();
+    REQUIRE(cwd);
+    REQUIRE(*cwd == std::filesystem::current_path());
+
+    auto env = process->env();
+    REQUIRE(env);
+
+    auto memory = process->memory();
+    REQUIRE(memory);
+
+    auto cpu = process->cpu();
+    REQUIRE(cpu);
 }

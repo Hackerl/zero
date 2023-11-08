@@ -175,7 +175,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::Proces
     return tokens;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::Process::environ() const {
+tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::Process::env() const {
     auto content = TRY(readFile("environ"));
 
     if (content->empty())

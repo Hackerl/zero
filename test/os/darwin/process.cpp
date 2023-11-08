@@ -31,7 +31,7 @@ TEST_CASE("darwin process", "[process]") {
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        auto env = process->environ();
+        auto env = process->env();
         REQUIRE(env);
 
         auto exe = process->exe();
@@ -75,7 +75,7 @@ TEST_CASE("darwin process", "[process]") {
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        auto env = process->environ();
+        auto env = process->env();
         REQUIRE(env);
 
         auto exe = process->exe();
@@ -118,7 +118,7 @@ TEST_CASE("darwin process", "[process]") {
         REQUIRE(!cmdline);
         REQUIRE(cmdline.error() == std::errc::invalid_argument);
 
-        auto env = process->environ();
+        auto env = process->env();
         REQUIRE(!env);
         REQUIRE(env.error() == std::errc::invalid_argument);
 

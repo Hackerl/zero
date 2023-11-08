@@ -112,7 +112,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::proces
     return tokens;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darwin::process::Process::environ() const {
+tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darwin::process::Process::env() const {
     auto arguments = TRY(this->arguments());
 
     if (arguments->size() < sizeof(int))

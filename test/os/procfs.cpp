@@ -31,7 +31,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        auto env = process->environ();
+        auto env = process->env();
         REQUIRE(env);
 
         auto mappings = process->maps();
@@ -132,7 +132,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        auto env = process->environ();
+        auto env = process->env();
         REQUIRE(env);
 
         auto mappings = process->maps();
@@ -238,7 +238,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(!cmdline);
         REQUIRE(cmdline.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
-        auto env = process->environ();
+        auto env = process->env();
         REQUIRE(!env);
 
         auto mappings = process->maps();

@@ -181,7 +181,7 @@ namespace zero::os::procfs {
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
         [[nodiscard]] tl::expected<std::string, std::error_code> comm() const;
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
-        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> environ() const;
+        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
         [[nodiscard]] tl::expected<Stat, std::error_code> stat() const;
         [[nodiscard]] tl::expected<Status, std::error_code> status() const;
         [[nodiscard]] tl::expected<std::list<pid_t>, std::error_code> tasks() const;

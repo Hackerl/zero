@@ -1,6 +1,7 @@
 #ifndef ZERO_NT_PROCESS_H
 #define ZERO_NT_PROCESS_H
 
+#include <map>
 #include <windows.h>
 #include <filesystem>
 #include <system_error>
@@ -22,6 +23,16 @@ namespace zero::os::nt::process {
     const std::error_category &errorCategory();
     std::error_code make_error_code(Error e);
 
+    struct CPUStat {
+        double user;
+        double system;
+    };
+
+    struct MemoryStat {
+        uint64_t rss;
+        uint64_t vms;
+    };
+
     class Process {
     public:
         Process(HANDLE handle, DWORD pid);
@@ -34,8 +45,17 @@ namespace zero::os::nt::process {
 
     public:
         [[nodiscard]] tl::expected<std::string, std::error_code> name() const;
-        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> image() const;
+        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
+        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
+        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
+
+    public:
+        [[nodiscard]] tl::expected<CPUStat, std::error_code> cpu() const;
+        [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
+
+    private:
+        [[nodiscard]] tl::expected<uintptr_t, std::error_code> parameters() const;
 
     private:
         DWORD mPID;
