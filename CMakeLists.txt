@@ -15,6 +15,7 @@ include(CMakePackageConfigHelpers)
 
 find_package(Iconv REQUIRED)
 find_package(Threads REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 find_package(tl-expected CONFIG REQUIRED)
 
 add_library(
@@ -25,7 +26,6 @@ add_library(
         src/os/os.cpp
         src/os/net.cpp
         src/os/process.cpp
-        src/time/time.cpp
         src/strings/strings.cpp
         src/atomic/event.cpp
         src/concurrent/channel.cpp
@@ -56,6 +56,7 @@ target_link_libraries(
         zero
         PUBLIC
         Iconv::Iconv
+        fmt::fmt
         tl::expected
         INTERFACE
         Threads::Threads

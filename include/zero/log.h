@@ -3,7 +3,6 @@
 
 #include "interface.h"
 #include "singleton.h"
-#include "strings/strings.h"
 #include "atomic/event.h"
 #include "atomic/circular_buffer.h"
 #include <thread>
@@ -11,11 +10,14 @@
 #include <list>
 #include <mutex>
 #include <tuple>
+#include <array>
 #include <cstring>
 #include <filesystem>
+#include <fmt/format.h>
+#include <fmt/chrono.h>
 
 namespace zero {
-    constexpr const char *LOG_TAGS[] = {"ERROR", "WARN", "INFO", "DEBUG"};
+    constexpr auto LOG_TAGS = std::array{"ERROR", "WARN", "INFO", "DEBUG"};
 
     enum LogLevel {
         ERROR_LEVEL,
@@ -37,8 +39,6 @@ namespace zero {
         std::chrono::time_point<std::chrono::system_clock> timestamp;
         std::string content;
     };
-
-    std::string stringify(const LogMessage &message);
 
     class ILogProvider : public Interface {
     public:
@@ -119,7 +119,7 @@ namespace zero {
 
     public:
         template<typename... Args>
-        void log(LogLevel level, std::string_view filename, int line, const char *format, Args... args) {
+        void log(LogLevel level, std::string_view filename, int line, std::string content) {
             if (mExit)
                 return;
 
@@ -128,20 +128,13 @@ namespace zero {
             if (!index)
                 return;
 
-            auto &message = mBuffer[*index];
-
-            message = {
+            mBuffer[*index] = {
                     level,
                     line,
                     filename,
-                    std::chrono::system_clock::now()
+                    std::chrono::system_clock::now(),
+                    std::move(content)
             };
-
-            if constexpr (sizeof...(Args) > 0) {
-                message.content = strings::format(format, args...);
-            } else {
-                message.content = format;
-            }
 
             mBuffer.commit(*index);
             mEvent.notify();
@@ -169,6 +162,27 @@ namespace zero {
     }
 }
 
+template<typename Char>
+struct fmt::formatter<zero::LogMessage, Char> {
+    template<typename ParseContext>
+    constexpr ParseContext::iterator parse(ParseContext &ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FmtContext>
+    FmtContext::iterator format(const zero::LogMessage &message, FmtContext &ctx) const {
+        return fmt::format_to(
+                ctx.out(),
+                "{} | {:<5} | {:>20}:{:<4}] {}",
+                message.timestamp,
+                zero::LOG_TAGS[message.level],
+                message.filename,
+                message.line,
+                message.content
+        );
+    }
+};
+
 #define GLOBAL_LOGGER                       zero::Singleton<zero::Logger>::getInstance()
 #define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::ConsoleProvider>())
 #define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::FileProvider>(name, ## __VA_ARGS__))
@@ -184,10 +198,10 @@ namespace zero {
 #define LOG_WARNING(message, ...)
 #define LOG_ERROR(message, ...)
 #else
-#define LOG_DEBUG(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::DEBUG_LEVEL)) logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_INFO(message, ...)              if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::INFO_LEVEL)) logger.log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_WARNING(message, ...)           if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::WARNING_LEVEL)) logger.log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_ERROR(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::ERROR_LEVEL)) logger.log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_DEBUG(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::DEBUG_LEVEL)) logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_INFO(message, ...)              if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::INFO_LEVEL)) logger.log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_WARNING(message, ...)           if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::WARNING_LEVEL)) logger.log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_ERROR(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::ERROR_LEVEL)) logger.log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 #endif
 
 #endif //ZERO_LOG_H

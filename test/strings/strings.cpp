@@ -97,17 +97,6 @@ TEST_CASE("split string to vector by whitespace", "[strings]") {
     };
 }
 
-TEST_CASE("concatenates the given elements with the delimiter", "[strings]") {
-    REQUIRE(zero::strings::join(std::vector<std::string>{}, "").empty());
-    REQUIRE(zero::strings::join(std::vector<std::string>{}, " ").empty());
-    REQUIRE(zero::strings::join(std::vector<std::string>{"a", "b", "c", "d", "e", "f", "g"}, "") == "abcdefg");
-    REQUIRE(zero::strings::join(std::vector<std::string>{"a", "b", "c", "d", "e", "f", "g"}, " ") == "a b c d e f g");
-
-    BENCHMARK("zero::strings::join") {
-        return zero::strings::join(std::vector<std::string>{"a", "b", "c", "d", "e", "f", "g"}, " ");
-    };
-}
-
 TEST_CASE("convert string to integer", "[strings]") {
     REQUIRE(!zero::strings::toNumber<int>(""));
     REQUIRE(!zero::strings::toNumber<int>("", 16));
@@ -121,16 +110,6 @@ TEST_CASE("convert string to integer", "[strings]") {
 
     BENCHMARK("zero::strings::toNumber") {
         return zero::strings::toNumber<int>("aBcDeF19", 16);
-    };
-}
-
-TEST_CASE("format args according to the format string", "[strings]") {
-    REQUIRE(zero::strings::format("%s", "").empty());
-    REQUIRE(zero::strings::format("%d", 1) == "1");
-    REQUIRE(zero::strings::format("%d %s", 1, "abc") == "1 abc");
-
-    BENCHMARK("zero::strings::format") {
-        return zero::strings::format("%d %s", 1, "abc");
     };
 }
 

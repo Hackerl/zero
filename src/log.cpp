@@ -1,5 +1,5 @@
 #include <zero/log.h>
-#include <zero/time/time.h>
+#include <zero/strings/strings.h>
 #include <zero/filesystem/path.h>
 #include <ranges>
 #include <algorithm>
@@ -9,18 +9,6 @@
 #endif
 
 constexpr auto LOGGER_BUFFER_SIZE = 1024;
-
-std::string zero::stringify(const zero::LogMessage &message) {
-    return zero::strings::format(
-            "%s | %-5s | %20.*s:%-4d] %s\n",
-            zero::time::stringify(message.timestamp).c_str(),
-            zero::LOG_TAGS[message.level],
-            (int) message.filename.size(),
-            message.filename.data(),
-            message.line,
-            message.content.c_str()
-    );
-}
 
 bool zero::ConsoleProvider::init() {
     return stderr != nullptr;
@@ -35,7 +23,7 @@ bool zero::ConsoleProvider::flush() {
 }
 
 zero::LogResult zero::ConsoleProvider::write(const LogMessage &message) {
-    std::string msg = stringify(message);
+    auto msg = fmt::format("{}\n", message);
     size_t length = msg.length();
 
     if (fwrite(msg.data(), 1, length, stderr) != length)
@@ -59,9 +47,9 @@ zero::FileProvider::FileProvider(
 }
 
 bool zero::FileProvider::init() {
-    std::string name = strings::format(
-            "%s.%d.%ld.log",
-            mName.c_str(),
+    auto name = fmt::format(
+            "{}.{}.{}.log",
+            mName,
             mPID,
             std::time(nullptr)
     );
@@ -81,7 +69,7 @@ bool zero::FileProvider::rotate() {
     if (ec)
         return false;
 
-    auto prefix = strings::format("%s.%d", mName.c_str(), mPID);
+    auto prefix = fmt::format("%s.%d", mName, mPID);
     auto v = iterator
              | std::views::filter([](const auto &entry) { return entry.is_regular_file(); })
              | std::views::transform(&std::filesystem::directory_entry::path)
@@ -111,7 +99,7 @@ bool zero::FileProvider::flush() {
 }
 
 zero::LogResult zero::FileProvider::write(const LogMessage &message) {
-    std::string msg = stringify(message);
+    auto msg = fmt::format("{}\n", message);
 
     if (!mStream.write(msg.c_str(), (std::streamsize) msg.length()))
         return FAILED;

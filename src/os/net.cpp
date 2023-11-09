@@ -49,32 +49,6 @@ std::string zero::os::net::stringify(std::span<const std::byte, 16> ip) {
     return address;
 }
 
-std::string zero::os::net::stringify(const IPv4Address &address) {
-    int mask = 0;
-
-    for (auto b: address.mask) {
-        while (std::to_integer<int>(b)) {
-            if (std::to_integer<int>(b & std::byte{1}))
-                mask++;
-
-            b >>= 1;
-        }
-    }
-
-    return strings::format("%s/%s", stringify(address.ip).c_str(), std::to_string(mask).c_str());
-}
-
-std::string zero::os::net::stringify(const IPv6Address &address) {
-    return stringify(address.ip);
-}
-
-std::string zero::os::net::stringify(const Address &address) {
-    if (address.index() == 0)
-        return stringify(std::get<0>(address));
-
-    return stringify(std::get<1>(address));
-}
-
 tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::net::interfaces() {
 #ifdef _WIN32
     ULONG length = 0;
@@ -103,7 +77,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
         for (PIP_ADAPTER_UNICAST_ADDRESS addr = adapter->FirstUnicastAddress; addr; addr = addr->Next) {
             switch (addr->Address.lpSockaddr->sa_family) {
                 case AF_INET: {
-                    IPv4Address address = {};
+                    IfAddress4 address = {};
 
                     memcpy(address.ip.data(), &((sockaddr_in *) addr->Address.lpSockaddr)->sin_addr, 4);
 
@@ -115,7 +89,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
                 }
 
                 case AF_INET6: {
-                    IPv6Address address = {};
+                    IfAddress6 address = {};
                     memcpy(address.ip.data(), &((sockaddr_in6 *) addr->Address.lpSockaddr)->sin6_addr, 16);
 
                     addresses.emplace_back(address);
@@ -165,7 +139,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
 
         switch (p->ifa_addr->sa_family) {
             case AF_INET: {
-                IPv4Address address = {};
+                IfAddress4 address = {};
 
                 memcpy(address.ip.data(), &((sockaddr_in *) p->ifa_addr)->sin_addr, 4);
                 memcpy(address.mask.data(), &((sockaddr_in *) p->ifa_netmask)->sin_addr, 4);
@@ -175,7 +149,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
             }
 
             case AF_INET6: {
-                IPv6Address address = {};
+                IfAddress6 address = {};
                 memcpy(address.ip.data(), &((sockaddr_in6 *) p->ifa_addr)->sin6_addr, 16);
 
                 interface.addresses.emplace_back(address);

@@ -1,8 +1,8 @@
 #include <zero/cmdline.h>
 #include <iostream>
-#include <iomanip>
 #include <cstring>
 #include <ranges>
+#include <fmt/std.h>
 
 zero::Cmdline::Cmdline() : mOptionals({{"help", '?', "print help message", false}}) {
 
@@ -37,7 +37,7 @@ void zero::Cmdline::from(int argc, const char *const *argv) {
             auto value = it->typeInfo.parse(argv[i]);
 
             if (!value)
-                throw std::runtime_error(strings::format("invalid positional argument[%s]", argv[i]));
+                throw std::runtime_error(fmt::format("invalid positional argument[{}]", argv[i]));
 
             it++->value = *value;
             continue;
@@ -52,12 +52,12 @@ void zero::Cmdline::from(int argc, const char *const *argv) {
             }
 
             if (!argv[i + 1])
-                throw std::runtime_error(strings::format("invalid optional argument[%s]", argv[i]));
+                throw std::runtime_error(fmt::format("invalid optional argument[{}]", argv[i]));
 
             auto value = optional.typeInfo->parse(argv[++i]);
 
             if (!value)
-                throw std::runtime_error(strings::format("invalid optional argument[%s]", argv[i]));
+                throw std::runtime_error(fmt::format("invalid optional argument[{}]", argv[i]));
 
             optional.value = *value;
             continue;
@@ -79,12 +79,12 @@ void zero::Cmdline::from(int argc, const char *const *argv) {
         }
 
         if (!p)
-            throw std::runtime_error(strings::format("optional argument requires value[%s]", argv[i]));
+            throw std::runtime_error(fmt::format("optional argument requires value[{}]", argv[i]));
 
         auto value = optional.typeInfo->parse(p + 1);
 
         if (!value)
-            throw std::runtime_error(strings::format("invalid optional argument[%s]", argv[i]));
+            throw std::runtime_error(fmt::format("invalid optional argument[{}]", argv[i]));
 
         optional.value = *value;
     }
@@ -95,15 +95,14 @@ void zero::Cmdline::from(int argc, const char *const *argv) {
     }
 
     if (it != mPositionals.end())
-        throw std::runtime_error(strings::format("positional arguments not enough[%s]", it->name.c_str()));
+        throw std::runtime_error(fmt::format("positional arguments not enough[{}]", it->name));
 }
 
 void zero::Cmdline::parse(int argc, const char *const *argv) {
     try {
         from(argc, argv);
     } catch (const std::runtime_error &e) {
-        std::cout << "error:" << std::endl;
-        std::cout << '\t' << e.what() << std::endl;
+        fmt::print(stderr, "error:\n\t{}\n", e.what());
         help();
         exit(EXIT_FAILURE);
     }
@@ -118,7 +117,7 @@ zero::Optional &zero::Cmdline::find(char shortName) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error(strings::format("optional argument not exists[-%c]", shortName));
+        throw std::runtime_error(fmt::format("optional argument not exists[-{}]", shortName));
 
     return *it;
 }
@@ -132,54 +131,51 @@ zero::Optional &zero::Cmdline::find(const std::string &name) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error(strings::format("optional argument not exists[--%s]", name.c_str()));
+        throw std::runtime_error(fmt::format("optional argument not exists[--{}]", name));
 
     return *it;
 }
 
 void zero::Cmdline::help() const {
-    std::cout << "usage: "
-              << filesystem::getApplicationPath()->filename().string()
-              << " [options] "
-              << strings::join(
-                      mPositionals | std::views::transform([](const auto &p) {
-                          return strings::format("%s(%s)", p.name.c_str(), p.typeInfo.type.c_str());
-                      }),
-                      " "
-              )
-              << " ... "
-              << (mFooter.empty() ? "extra" : mFooter)
-              << " ..."
-              << std::endl;
+    fmt::print(
+            stderr,
+            "usage: {} [options] {} ... {} ...\n",
+            filesystem::getApplicationPath()->filename(),
+            fmt::join(
+                    mPositionals | std::views::transform([](const auto &p) {
+                        return fmt::format("{}({})", p.name, p.typeInfo.type);
+                    }),
+                    " "
+            ),
+            mFooter.value_or("extra")
+    );
 
-    std::cout << "positional:" << std::endl;
+    fmt::print(stderr, "positional:\n");
 
-    for (const auto &positional: mPositionals) {
-        std::cout << '\t'
-                  << std::left << std::setw(20) << positional.name
-                  << positional.desc
-                  << '('
-                  << positional.typeInfo.type
-                  << ')'
-                  << std::endl;
-    }
+    for (const auto &p: mPositionals)
+        fmt::print(stderr, "\t{:<30} {}({})\n", p.name, p.desc, p.typeInfo.type);
 
-    std::cout << "optional:" << std::endl;
+    fmt::print(stderr, "optional:\n");
 
-    for (const auto &optional: mOptionals) {
-        std::cout << '\t';
-
-        if (optional.shortName) {
-            std::cout << '-' << optional.shortName << ", --";
-        } else {
-            std::cout << "    --";
+    for (const auto &p: mOptionals) {
+        if (!p.shortName) {
+            fmt::print(
+                    stderr,
+                    "\t    --{:<24} {}{}\n",
+                    p.name,
+                    p.desc,
+                    p.typeInfo ? fmt::format("({})", p.typeInfo->type) : ""
+            );
+            continue;
         }
 
-        std::cout << std::left << std::setw(14) << optional.name << optional.desc;
-
-        if (optional.typeInfo)
-            std::cout << '(' << optional.typeInfo->type << ')';
-
-        std::cout << std::endl;
+        fmt::print(
+                stderr,
+                "\t-{}, --{:<24} {}{}\n",
+                p.shortName,
+                p.name,
+                p.desc,
+                p.typeInfo ? fmt::format("({})", p.typeInfo->type) : ""
+        );
     }
 }

@@ -4,8 +4,9 @@
 #include "strings/strings.h"
 #include "filesystem/path.h"
 #include "detail/type_traits.h"
-#include <optional>
 #include <any>
+#include <optional>
+#include <fmt/format.h>
 
 #ifdef __GNUC__
 #include <cxxabi.h>
@@ -60,7 +61,7 @@ namespace zero {
         } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return "path";
         } else if constexpr (detail::Vector<T>) {
-            return strings::format("%s[]", getType<typename T::value_type>().c_str());
+            return fmt::format("{}[]", getType<typename T::value_type>());
         } else {
 #if _CPPRTTI || __GXX_RTTI
 #ifdef _MSC_VER
@@ -146,7 +147,7 @@ namespace zero {
             );
 
             if (it == mPositionals.end())
-                throw std::runtime_error(strings::format("positional argument not found[%s]", name));
+                throw std::runtime_error(fmt::format("positional argument not found[{}]", name));
 
             return std::any_cast<T>(it->value);
         }
@@ -179,8 +180,8 @@ namespace zero {
         void help() const;
 
     private:
-        std::string mFooter;
         std::vector<std::string> mRest;
+        std::optional<std::string> mFooter;
 
     private:
         std::list<Optional> mOptionals;

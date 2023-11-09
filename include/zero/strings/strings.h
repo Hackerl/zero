@@ -25,21 +25,6 @@ namespace zero::strings {
     tl::expected<std::wstring, std::error_code> decode(const std::string &str, const char *encoding = "UTF-8");
 
     template<typename T>
-    std::string join(const T &containers, const char *delimiter) {
-        if (containers.empty())
-            return "";
-
-        return std::accumulate(
-                std::next(containers.begin()),
-                containers.end(),
-                containers.front(),
-                [=](auto result, const auto &value) {
-                    return result + delimiter + value;
-                }
-        );
-    }
-
-    template<typename T>
     tl::expected<T, std::error_code> toNumber(std::string_view str, int base = 10) {
         T value;
 
@@ -49,29 +34,6 @@ namespace zero::strings {
             return tl::unexpected(make_error_code(result.ec));
 
         return value;
-    }
-
-    template<typename... Args>
-    std::string format(const char *fmt, Args... args) {
-        size_t length = 4096;
-        auto buffer = std::make_unique<char[]>(length);
-
-        while (true) {
-            int n = snprintf(buffer.get(), length, fmt, args...);
-
-            if (n < 0)
-                throw std::invalid_argument("format string error");
-
-            if (n >= length) {
-                length = n + 1;
-                buffer = std::make_unique<char[]>(length);
-                continue;
-            }
-
-            break;
-        }
-
-        return buffer.get();
     }
 }
 

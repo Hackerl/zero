@@ -1,5 +1,6 @@
 #include <zero/os/net.h>
 #include <catch2/catch_test_macros.hpp>
+#include <fmt/std.h>
 
 TEST_CASE("stringify IP address", "[net]") {
     std::array<std::byte, 4> ipv4 = {};
@@ -37,19 +38,22 @@ TEST_CASE("stringify IP address", "[net]") {
     ipv4 = {std::byte{192}, std::byte{168}, std::byte{10}, std::byte{1}};
     std::array<std::byte, 4> mask = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
 
-    REQUIRE(zero::os::net::stringify(zero::os::net::IPv4Address{ipv4, mask}) == "192.168.10.1/32");
+    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/32");
 
     mask = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{0}};
-    REQUIRE(zero::os::net::stringify(zero::os::net::IPv4Address{ipv4, mask}) == "192.168.10.1/24");
+    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/24");
 
     mask = {std::byte{255}, std::byte{255}, std::byte{240}, std::byte{0}};
-    REQUIRE(zero::os::net::stringify(zero::os::net::IPv4Address{ipv4, mask}) == "192.168.10.1/20");
+    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/20");
 
     mask = {std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}};
-    REQUIRE(zero::os::net::stringify(zero::os::net::IPv4Address{ipv4, mask}) == "192.168.10.1/0");
+    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/0");
 
-    zero::os::net::Address address = zero::os::net::IPv4Address{ipv4, mask};
-    REQUIRE(zero::os::net::stringify(address) == "192.168.10.1/0");
+    zero::os::net::Address address = zero::os::net::IfAddress4{ipv4, mask};
+    REQUIRE(fmt::to_string(address) == "variant(192.168.10.1/0)");
+
+    address = zero::os::net::IfAddress6{ipv6};
+    REQUIRE(fmt::to_string(address) == "variant(fdbd:dc02:ff:1:9::8d)");
 }
 
 TEST_CASE("fetch network interface", "[net]") {
