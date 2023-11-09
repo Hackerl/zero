@@ -24,6 +24,7 @@ add_library(
         src/cmdline.cpp
         src/os/os.cpp
         src/os/net.cpp
+        src/os/process.cpp
         src/time/time.cpp
         src/strings/strings.cpp
         src/atomic/event.cpp

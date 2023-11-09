@@ -100,6 +100,11 @@ pid_t zero::os::procfs::Process::pid() const {
     return mPID;
 }
 
+tl::expected<pid_t, std::error_code> zero::os::procfs::Process::ppid() const {
+    auto stat = TRY(this->stat());
+    return stat->ppid;
+}
+
 tl::expected<zero::os::procfs::MemoryMapping, std::error_code>
 zero::os::procfs::Process::getImageBase(std::string_view path) const {
     auto memoryMappings = TRY(maps());
@@ -334,6 +339,32 @@ tl::expected<zero::os::procfs::Stat, std::error_code> zero::os::procfs::Process:
     return stat;
 }
 
+tl::expected<zero::os::procfs::StatM, std::error_code> zero::os::procfs::Process::statM() const {
+    auto content = TRY(readFile("statm"));
+    auto tokens = strings::split(*content, " ");
+
+    if (tokens.size() != 7)
+        return tl::unexpected(Error::UNEXPECTED_DATA);
+
+    auto size = TRY(strings::toNumber<uint64_t>(tokens[0]));
+    auto resident = TRY(strings::toNumber<uint64_t>(tokens[1]));
+    auto shared = TRY(strings::toNumber<uint64_t>(tokens[2]));
+    auto text = TRY(strings::toNumber<uint64_t>(tokens[3]));
+    auto library = TRY(strings::toNumber<uint64_t>(tokens[4]));
+    auto data = TRY(strings::toNumber<uint64_t>(tokens[5]));
+    auto dirty = TRY(strings::toNumber<uint64_t>(tokens[6]));
+
+    return StatM{
+            *size,
+            *resident,
+            *shared,
+            *text,
+            *library,
+            *data,
+            *dirty
+    };
+}
+
 template<typename T>
 std::optional<T> statusIntegerField(const std::map<std::string, std::string> &map, const char *key, int base = 10) {
     auto it = map.find(key);
@@ -368,7 +399,7 @@ tl::expected<zero::os::procfs::Status, std::error_code> zero::os::procfs::Proces
     status.ppid = *strings::toNumber<pid_t>(map["PPid"]);
     status.tracerPID = *strings::toNumber<pid_t>(map["TracerPid"]);
 
-    std::vector<std::string> tokens = strings::split(map["Uid"]);
+    auto tokens = strings::split(map["Uid"]);
 
     if (tokens.size() != 4)
         return tl::unexpected(Error::UNEXPECTED_DATA);
@@ -569,14 +600,14 @@ tl::expected<std::list<zero::os::procfs::MemoryMapping>, std::error_code> zero::
     tl::expected<std::list<MemoryMapping>, std::error_code> result;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        std::vector<std::string> fields = strings::split(line);
+        auto fields = strings::split(line);
 
         if (fields.size() < MAPPING_BASIC_FIELDS) {
             result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 
-        std::vector<std::string> tokens = strings::split(fields[0], "-");
+        auto tokens = strings::split(fields[0], "-");
 
         if (tokens.size() != 2) {
             result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
@@ -648,6 +679,77 @@ tl::expected<std::list<zero::os::procfs::MemoryMapping>, std::error_code> zero::
     }
 
     return result;
+}
+
+tl::expected<zero::os::procfs::CPUStat, std::error_code> zero::os::procfs::Process::cpu() const {
+    long result = sysconf(_SC_CLK_TCK);
+
+    if (result < 0)
+        return tl::unexpected(std::error_code(errno, std::system_category()));
+
+    auto stat = TRY(this->stat());
+    auto ticks = double(result);
+
+    CPUStat cpuStat = {
+            double(stat->uTime) / ticks,
+            double(stat->sTime) / ticks
+    };
+
+    if (stat->delayAcctBlkIOTicks)
+        cpuStat.ioWait = double(*stat->delayAcctBlkIOTicks) / ticks;
+
+    return cpuStat;
+}
+
+tl::expected<zero::os::procfs::MemoryStat, std::error_code> zero::os::procfs::Process::memory() const {
+    long result = sysconf(_SC_PAGE_SIZE);
+
+    if (result < 0)
+        return tl::unexpected(std::error_code(errno, std::system_category()));
+
+    auto statM = TRY(this->statM());
+    auto pageSize = (uint64_t) result;
+
+    return MemoryStat{
+            statM->resident * pageSize,
+            statM->size * pageSize
+    };
+}
+
+tl::expected<zero::os::procfs::IOStat, std::error_code> zero::os::procfs::Process::io() const {
+    auto content = TRY(readFile("io"));
+    std::map<std::string, std::string> map;
+
+    for (const auto &line: strings::split(strings::trim(*content), "\n")) {
+        auto tokens = strings::split(line, ":");
+
+        if (tokens.size() != 2)
+            return tl::unexpected(Error::UNEXPECTED_DATA);
+
+        map[tokens[0]] = strings::trim(tokens[1]);
+    }
+
+    auto readCharacters = TRY(strings::toNumber<unsigned long long>(map["rchar"]));
+    auto writeCharacters = TRY(strings::toNumber<unsigned long long>(map["wchar"]));
+    auto readSyscall = TRY(strings::toNumber<unsigned long long>(map["syscr"]));
+    auto writeSyscall = TRY(strings::toNumber<unsigned long long>(map["syscw"]));
+    auto readBytes = TRY(strings::toNumber<unsigned long long>(map["read_bytes"]));
+    auto writeBytes = TRY(strings::toNumber<unsigned long long>(map["write_bytes"]));
+    auto cancelledWriteBytes = TRY(strings::toNumber<unsigned long long>(map["cancelled_write_bytes"]));
+
+    return IOStat{
+            *readCharacters,
+            *writeCharacters,
+            *readSyscall,
+            *writeSyscall,
+            *readBytes,
+            *writeBytes,
+            *cancelledWriteBytes
+    };
+}
+
+tl::expected<zero::os::procfs::Process, std::error_code> zero::os::procfs::self() {
+    return open(getpid());
 }
 
 tl::expected<zero::os::procfs::Process, std::error_code> zero::os::procfs::open(pid_t pid) {

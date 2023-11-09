@@ -30,6 +30,11 @@ namespace zero::os::darwin::process {
         uint64_t swap;
     };
 
+    struct IOStat {
+        uint64_t readBytes;
+        uint64_t writeBytes;
+    };
+
     class Process {
     public:
         explicit Process(pid_t pid);
@@ -49,6 +54,7 @@ namespace zero::os::darwin::process {
     public:
         [[nodiscard]] tl::expected<CPUStat, std::error_code> cpu() const;
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
+        [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
     private:
         [[nodiscard]] tl::expected<std::vector<char>, std::error_code> arguments() const;
@@ -57,6 +63,7 @@ namespace zero::os::darwin::process {
         pid_t mPID;
     };
 
+    tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);
 }
 

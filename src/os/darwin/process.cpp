@@ -4,6 +4,7 @@
 #include <mach/mach_time.h>
 #include <sys/sysctl.h>
 #include <libproc.h>
+#include <unistd.h>
 #include <csignal>
 
 const char *zero::os::darwin::process::ErrorCategory::name() const noexcept {
@@ -206,8 +207,8 @@ tl::expected<zero::os::darwin::process::CPUStat, std::error_code> zero::os::darw
     double scale = double(tb.numer) / double(tb.denom);
 
     return CPUStat{
-            .user = double(info.pti_total_user) * scale / 1e9,
-            .system = double(info.pti_total_system) * scale / 1e9
+            double(info.pti_total_user) * scale / 1e9,
+            double(info.pti_total_system) * scale / 1e9
     };
 }
 
@@ -219,10 +220,27 @@ zero::os::darwin::process::Process::memory() const {
         return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return MemoryStat{
-            .rss = info.pti_resident_size,
-            .vms = info.pti_virtual_size,
-            .swap = (uint64_t) info.pti_pageins
+            info.pti_resident_size,
+            info.pti_virtual_size,
+            (uint64_t) info.pti_pageins
     };
+}
+
+tl::expected<zero::os::darwin::process::IOStat, std::error_code>
+zero::os::darwin::process::Process::io() const {
+    rusage_info_v2 info = {};
+
+    if (proc_pid_rusage(mPID, RUSAGE_INFO_V2, (rusage_info_t *) &info) < 0)
+        return tl::unexpected(std::error_code(errno, std::system_category()));
+
+    return IOStat{
+            info.ri_diskio_bytesread,
+            info.ri_diskio_byteswritten
+    };
+}
+
+tl::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darwin::process::self() {
+    return open(getpid());
 }
 
 tl::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darwin::process::open(pid_t pid) {

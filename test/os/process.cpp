@@ -1,11 +1,10 @@
-#include <zero/os/nt/process.h>
+#include <zero/os/process.h>
 #include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("windows process", "[process]") {
-    auto process = zero::os::nt::process::self();
+TEST_CASE("process", "[process]") {
+    auto process = zero::os::process::self();
     REQUIRE(process);
-    REQUIRE(process->pid() == GetCurrentProcessId());
 
     auto path = zero::filesystem::getApplicationPath();
     REQUIRE(path);

@@ -11,7 +11,7 @@ using namespace std::chrono_literals;
 TEST_CASE("darwin process", "[process]") {
     SECTION("self") {
         auto pid = getpid();
-        auto process = zero::os::darwin::process::open(pid);
+        auto process = zero::os::darwin::process::self();
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
         REQUIRE(process->ppid() == getppid());
@@ -47,6 +47,9 @@ TEST_CASE("darwin process", "[process]") {
 
         auto cpu = process->cpu();
         REQUIRE(cpu);
+
+        auto io = process->io();
+        REQUIRE(io);
     }
 
     SECTION("child") {
@@ -85,6 +88,15 @@ TEST_CASE("darwin process", "[process]") {
         auto cwd = process->cwd();
         REQUIRE(cwd);
         REQUIRE(*cwd == std::filesystem::current_path());
+
+        auto memory = process->memory();
+        REQUIRE(memory);
+
+        auto cpu = process->cpu();
+        REQUIRE(cpu);
+
+        auto io = process->io();
+        REQUIRE(io);
 
         kill(pid, SIGKILL);
         waitpid(pid, nullptr, 0);

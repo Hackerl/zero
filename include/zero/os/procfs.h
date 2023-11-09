@@ -46,6 +46,16 @@ namespace zero::os::procfs {
         std::string pathname;
     };
 
+    struct StatM {
+        uint64_t size;
+        uint64_t resident;
+        uint64_t shared;
+        uint64_t text;
+        uint64_t library;
+        uint64_t data;
+        uint64_t dirty;
+    };
+
     struct Stat {
         pid_t pid;
         std::string comm;
@@ -160,6 +170,27 @@ namespace zero::os::procfs {
         std::optional<bool> thpEnabled;
     };
 
+    struct CPUStat {
+        double user{};
+        double system{};
+        std::optional<double> ioWait;
+    };
+
+    struct MemoryStat {
+        uint64_t rss;
+        uint64_t vms;
+    };
+
+    struct IOStat {
+        unsigned long long readCharacters;
+        unsigned long long writeCharacters;
+        unsigned long long readSyscall;
+        unsigned long long writeSyscall;
+        unsigned long long readBytes;
+        unsigned long long writeBytes;
+        unsigned long long cancelledWriteBytes;
+    };
+
     class Process {
     public:
         Process(int fd, pid_t pid);
@@ -171,6 +202,7 @@ namespace zero::os::procfs {
 
     public:
         [[nodiscard]] pid_t pid() const;
+        [[nodiscard]] tl::expected<pid_t, std::error_code> ppid() const;
 
     public:
         [[nodiscard]] tl::expected<MemoryMapping, std::error_code> getImageBase(std::string_view path) const;
@@ -182,16 +214,25 @@ namespace zero::os::procfs {
         [[nodiscard]] tl::expected<std::string, std::error_code> comm() const;
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
         [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
+
+    public:
         [[nodiscard]] tl::expected<Stat, std::error_code> stat() const;
+        [[nodiscard]] tl::expected<StatM, std::error_code> statM() const;
         [[nodiscard]] tl::expected<Status, std::error_code> status() const;
         [[nodiscard]] tl::expected<std::list<pid_t>, std::error_code> tasks() const;
         [[nodiscard]] tl::expected<std::list<MemoryMapping>, std::error_code> maps() const;
+
+    public:
+        [[nodiscard]] tl::expected<CPUStat, std::error_code> cpu() const;
+        [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
+        [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
     private:
         int mFD;
         pid_t mPID;
     };
 
+    tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);
 }
 

@@ -267,8 +267,8 @@ tl::expected<zero::os::nt::process::CPUStat, std::error_code> zero::os::nt::proc
         return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return CPUStat{
-            .user = double(user.dwHighDateTime) * 429.4967296 + double(user.dwLowDateTime) * 1e-7,
-            .system = double(kernel.dwHighDateTime) * 429.4967296 + double(kernel.dwLowDateTime) * 1e-7,
+            double(user.dwHighDateTime) * 429.4967296 + double(user.dwLowDateTime) * 1e-7,
+            double(kernel.dwHighDateTime) * 429.4967296 + double(kernel.dwLowDateTime) * 1e-7,
     };
 }
 
@@ -279,8 +279,22 @@ tl::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::p
         return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return MemoryStat{
-            .rss = counters.WorkingSetSize,
-            .vms = counters.PagefileUsage
+            counters.WorkingSetSize,
+            counters.PagefileUsage
+    };
+}
+
+tl::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::process::Process::io() const {
+    IO_COUNTERS counters;
+
+    if (!GetProcessIoCounters(mHandle, &counters))
+        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+
+    return IOStat{
+            counters.ReadOperationCount,
+            counters.ReadTransferCount,
+            counters.WriteOperationCount,
+            counters.WriteTransferCount
     };
 }
 
@@ -311,6 +325,10 @@ tl::expected<uintptr_t, std::error_code> zero::os::nt::process::Process::paramet
         return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return ptr;
+}
+
+tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {
+    return Process{GetCurrentProcess(), GetCurrentProcessId()};
 }
 
 tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::open(DWORD pid) {

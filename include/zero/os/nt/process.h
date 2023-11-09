@@ -33,6 +33,13 @@ namespace zero::os::nt::process {
         uint64_t vms;
     };
 
+    struct IOStat {
+        uint64_t readCount;
+        uint64_t readBytes;
+        uint64_t writeCount;
+        uint64_t writeBytes;
+    };
+
     class Process {
     public:
         Process(HANDLE handle, DWORD pid);
@@ -53,6 +60,7 @@ namespace zero::os::nt::process {
     public:
         [[nodiscard]] tl::expected<CPUStat, std::error_code> cpu() const;
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
+        [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
     private:
         [[nodiscard]] tl::expected<uintptr_t, std::error_code> parameters() const;
@@ -62,6 +70,7 @@ namespace zero::os::nt::process {
         HANDLE mHandle;
     };
 
+    tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(DWORD pid);
 }
 

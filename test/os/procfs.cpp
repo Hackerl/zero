@@ -16,7 +16,7 @@ TEST_CASE("linux procfs", "[procfs]") {
 
     SECTION("self") {
         auto pid = getpid();
-        auto process = zero::os::procfs::open(pid);
+        auto process = zero::os::procfs::self();
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
@@ -104,6 +104,15 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(tasks);
         REQUIRE(tasks->size() == 1);
         REQUIRE(tasks->front() == pid);
+
+        auto memory = process->memory();
+        REQUIRE(memory);
+
+        auto cpu = process->cpu();
+        REQUIRE(cpu);
+
+        auto io = process->io();
+        REQUIRE(io);
     }
 
     SECTION("child") {
@@ -205,6 +214,15 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(tasks);
         REQUIRE(tasks->size() == 1);
         REQUIRE(tasks->front() == pid);
+
+        auto memory = process->memory();
+        REQUIRE(memory);
+
+        auto cpu = process->cpu();
+        REQUIRE(cpu);
+
+        auto io = process->io();
+        REQUIRE(io);
 
         kill(pid, SIGKILL);
         waitpid(pid, nullptr, 0);
