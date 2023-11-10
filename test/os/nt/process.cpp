@@ -3,6 +3,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("windows process", "[process]") {
+    auto ids = zero::os::nt::process::all();
+    REQUIRE(ids);
+
     auto process = zero::os::nt::process::self();
     REQUIRE(process);
     REQUIRE(process->pid() == GetCurrentProcessId());

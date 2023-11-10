@@ -47,6 +47,9 @@ namespace zero::os::nt::process {
         ~Process();
 
     public:
+        [[nodiscard]] HANDLE handle() const;
+
+    public:
         [[nodiscard]] DWORD pid() const;
         [[nodiscard]] tl::expected<DWORD, std::error_code> ppid() const;
 
@@ -72,6 +75,7 @@ namespace zero::os::nt::process {
 
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(DWORD pid);
+    tl::expected<std::list<DWORD>, std::error_code> all();
 }
 
 namespace std {

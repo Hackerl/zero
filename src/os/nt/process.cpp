@@ -77,6 +77,10 @@ zero::os::nt::process::Process::~Process() {
     CloseHandle(mHandle);
 }
 
+HANDLE zero::os::nt::process::Process::handle() const {
+    return mHandle;
+}
+
 DWORD zero::os::nt::process::Process::pid() const {
     return mPID;
 }
@@ -342,4 +346,30 @@ tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::proc
         return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
 
     return Process{handle, pid};
+}
+
+tl::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
+    size_t size = 4096;
+    auto buffer = std::make_unique<DWORD[]>(size);
+
+    tl::expected<std::list<DWORD>, std::error_code> result;
+
+    while (true) {
+        DWORD needed;
+
+        if (!EnumProcesses(buffer.get(), size * sizeof(DWORD), &needed)) {
+            result = tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+            break;
+        }
+
+        if (needed / sizeof(DWORD) == size) {
+            size *= 2;
+            buffer = std::make_unique<DWORD[]>(size);
+        }
+
+        result->assign(buffer.get(), buffer.get() + needed / sizeof(DWORD));
+        break;
+    }
+
+    return result;
 }

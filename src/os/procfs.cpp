@@ -766,3 +766,26 @@ tl::expected<zero::os::procfs::Process, std::error_code> zero::os::procfs::open(
 
     return Process{fd, pid};
 }
+
+tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::all() {
+    std::error_code ec;
+    auto iterator = std::filesystem::directory_iterator("/proc", ec);
+
+    if (ec)
+        return tl::unexpected(ec);
+
+    auto v = iterator
+             | std::views::filter([](const auto &entry) { return entry.is_directory(); })
+             | std::views::transform([](const auto &entry) {
+        return strings::toNumber<pid_t>(entry.path().filename().string());
+    })
+             | std::views::filter([](const auto &result) { return result.has_value(); })
+             | std::views::transform([](const auto &result) { return *result; });
+
+    std::list<pid_t> ids;
+
+    for (const auto &pid: v)
+        ids.push_back(pid);
+
+    return ids;
+}

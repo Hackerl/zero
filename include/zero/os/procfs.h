@@ -234,6 +234,7 @@ namespace zero::os::procfs {
 
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);
+    tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
 namespace std {

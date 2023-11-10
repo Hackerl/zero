@@ -9,6 +9,11 @@
 using namespace std::chrono_literals;
 
 TEST_CASE("darwin process", "[process]") {
+    SECTION("all") {
+        auto ids = zero::os::darwin::process::all();
+        REQUIRE(ids);
+    }
+
     SECTION("self") {
         auto pid = getpid();
         auto process = zero::os::darwin::process::self();

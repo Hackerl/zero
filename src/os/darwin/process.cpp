@@ -249,3 +249,29 @@ tl::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darw
 
     return Process{pid};
 }
+
+tl::expected<std::list<pid_t>, std::error_code> zero::os::darwin::process::all() {
+    size_t size = 4096;
+    auto buffer = std::make_unique<pid_t[]>(size);
+
+    tl::expected<std::list<pid_t>, std::error_code> result;
+
+    while (true) {
+        int n = proc_listallpids(buffer.get(), (int) (size * sizeof(pid_t)));
+
+        if (n == -1) {
+            result = tl::unexpected(std::error_code(errno, std::system_category()));
+            break;
+        }
+
+        if (n == size) {
+            size *= 2;
+            buffer = std::make_unique<pid_t[]>(size);
+        }
+
+        result->assign(buffer.get(), buffer.get() + n);
+        break;
+    }
+
+    return result;
+}

@@ -3,6 +3,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("process", "[process]") {
+    auto ids = zero::os::process::all();
+    REQUIRE(ids);
+
     auto process = zero::os::process::self();
     REQUIRE(process);
 

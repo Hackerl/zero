@@ -14,6 +14,11 @@ TEST_CASE("linux procfs", "[procfs]") {
     prctl(PR_GET_NAME, name);
     prctl(PR_SET_NAME, "(test)");
 
+    SECTION("all") {
+        auto ids = zero::os::procfs::all();
+        REQUIRE(ids);
+    }
+
     SECTION("self") {
         auto pid = getpid();
         auto process = zero::os::procfs::self();

@@ -61,6 +61,7 @@ namespace zero::os::process {
 
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(ID pid);
+    tl::expected<std::list<ID>, std::error_code> all();
 }
 
 #endif //ZERO_PROCESS_H

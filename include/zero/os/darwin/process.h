@@ -2,6 +2,7 @@
 #define ZERO_DARWIN_PROCESS_H
 
 #include <map>
+#include <list>
 #include <filesystem>
 #include <tl/expected.hpp>
 
@@ -65,6 +66,7 @@ namespace zero::os::darwin::process {
 
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);
+    tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
 namespace std {
