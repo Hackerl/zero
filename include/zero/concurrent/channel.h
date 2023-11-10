@@ -180,6 +180,27 @@ namespace zero::concurrent {
             trigger<RECEIVER>();
         }
 
+    public:
+        [[nodiscard]] size_t size() const {
+            return mBuffer.size();
+        }
+
+        [[nodiscard]] size_t capacity() const {
+            return mBuffer.capacity();
+        }
+
+        [[nodiscard]] bool empty() const {
+            return mBuffer.empty();
+        }
+
+        [[nodiscard]] bool full() const {
+            return mBuffer.full();
+        }
+
+        [[nodiscard]] bool closed() const {
+            return mClosed;
+        }
+
     private:
         template<int Index>
         void trigger() {

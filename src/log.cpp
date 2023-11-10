@@ -116,13 +116,12 @@ zero::LogResult zero::FileProvider::write(const LogMessage &message) {
     return SUCCEEDED;
 }
 
-zero::Logger::Logger() : mExit(false), mBuffer(LOGGER_BUFFER_SIZE) {
+zero::Logger::Logger() : mChannel(LOGGER_BUFFER_SIZE) {
 
 }
 
 zero::Logger::~Logger() {
-    mExit = true;
-    mEvent.notify();
+    mChannel.close();
 
     if (mThread.joinable())
         mThread.join();
@@ -134,10 +133,10 @@ bool zero::Logger::enabled(zero::LogLevel level) {
 
 void zero::Logger::consume() {
     while (true) {
-        auto index = mBuffer.acquire();
+        auto message = mChannel.tryReceive();
 
-        if (!index) {
-            if (mExit)
+        if (!message) {
+            if (message.error() == concurrent::ChannelError::CHANNEL_EOF)
                 break;
 
             std::list<std::chrono::milliseconds> durations;
@@ -166,17 +165,14 @@ void zero::Logger::consume() {
                 }
             }
 
-            if (durations.empty()) {
-                mEvent.wait();
+            if (durations.empty())
+                message = mChannel.receive();
+            else
+                message = mChannel.receive(*std::min_element(durations.begin(), durations.end()));
+
+            if (!message)
                 continue;
-            }
-
-            mEvent.wait(*std::min_element(durations.begin(), durations.end()));
-            continue;
         }
-
-        LogMessage message = std::move(mBuffer[*index]);
-        mBuffer.release(*index);
 
         std::lock_guard<std::mutex> guard(mMutex);
 
@@ -184,8 +180,8 @@ void zero::Logger::consume() {
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (message.level <= (std::max)(it->level, mMinLogLevel.value_or(ERROR_LEVEL))) {
-                auto result = it->provider->write(message);
+            if (message->level <= (std::max)(it->level, mMinLogLevel.value_or(ERROR_LEVEL))) {
+                auto result = it->provider->write(*message);
 
                 if (result == FAILED || (result == ROTATED && !it->provider->rotate())) {
                     it = mConfigs.erase(it);
@@ -217,12 +213,26 @@ void zero::Logger::addProvider(
         const char *env = getenv("ZERO_LOG_LEVEL");
 
         if (env) {
-            auto level = strings::toNumber<int>(env);
+            strings::toNumber<int>(env).transform([&](int level) {
+                if (level < ERROR_LEVEL || level > DEBUG_LEVEL)
+                    return;
 
-            if (level && *level >= ERROR_LEVEL && *level <= DEBUG_LEVEL) {
-                mMinLogLevel = (LogLevel) *level;
+                mMinLogLevel = (LogLevel) level;
                 mMaxLogLevel = mMinLogLevel;
-            }
+            });
+        }
+
+        env = getenv("ZERO_LOG_TIMEOUT");
+
+        if (env) {
+            strings::toNumber<int>(env).transform([&](int timeout) {
+                if (timeout <= 0) {
+                    mTimeout.reset();
+                    return;
+                }
+
+                mTimeout = std::chrono::milliseconds{timeout};
+            });
         }
 
         mThread = std::thread(&Logger::consume, this);

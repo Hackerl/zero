@@ -3,8 +3,7 @@
 
 #include "interface.h"
 #include "singleton.h"
-#include "atomic/event.h"
-#include "atomic/circular_buffer.h"
+#include "concurrent/channel.h"
 #include <thread>
 #include <fstream>
 #include <list>
@@ -120,36 +119,27 @@ namespace zero {
     public:
         template<typename... Args>
         void log(LogLevel level, std::string_view filename, int line, std::string content) {
-            if (mExit)
-                return;
-
-            auto index = mBuffer.reserve();
-
-            if (!index)
-                return;
-
-            mBuffer[*index] = {
-                    level,
-                    line,
-                    filename,
-                    std::chrono::system_clock::now(),
-                    std::move(content)
-            };
-
-            mBuffer.commit(*index);
-            mEvent.notify();
+            mChannel.send(
+                    LogMessage{
+                            level,
+                            line,
+                            filename,
+                            std::chrono::system_clock::now(),
+                            std::move(content)
+                    },
+                    mTimeout
+            );
         }
 
     private:
         std::mutex mMutex;
         std::thread mThread;
-        atomic::Event mEvent;
-        std::atomic<bool> mExit;
         std::once_flag mOnceFlag;
         std::list<Config> mConfigs;
         std::optional<LogLevel> mMinLogLevel;
         std::optional<LogLevel> mMaxLogLevel;
-        atomic::CircularBuffer<LogMessage> mBuffer;
+        std::optional<std::chrono::milliseconds> mTimeout;
+        concurrent::Channel<LogMessage> mChannel;
     };
 
     static inline constexpr std::string_view sourceFilename(std::string_view path) {
