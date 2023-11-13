@@ -1,6 +1,6 @@
 {
   "name": "zero",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "builtin-baseline": "69efe9cc2df0015f0bb2d37d55acde4a75c9a25b",
   "dependencies": [
     "fmt",
