@@ -42,7 +42,7 @@ namespace zero::detail {
         static constexpr bool value = std::is_invocable_v<F, T1, T2>;
     };
 
-    template<typename F, typename T, size_t N>
+    template<typename F, typename T, std::size_t N>
     struct is_applicable<F, std::array<T, N>>
             : is_applicable<F, decltype(std::tuple_cat(std::declval<std::array<T, N>>()))> {
 
@@ -52,22 +52,22 @@ namespace zero::detail {
     inline constexpr bool is_applicable_v = is_applicable<F, T>::value;
 
     template<typename T>
-    struct callable_traits : public callable_traits<decltype(&T::operator())> {
+    struct callable_traits : callable_traits<decltype(&T::operator())> {
 
     };
 
     template<typename T, typename ReturnType, typename... Args>
     struct callable_traits<ReturnType(T::*)(Args...)> {
-        typedef ReturnType result;
-        typedef std::tuple<Args...> arguments;
-        typedef std::function<ReturnType(Args...)> type;
+        using result = ReturnType;
+        using arguments = std::tuple<Args...>;
+        using type = std::function<ReturnType(Args...)>;
     };
 
     template<typename T, typename ReturnType, typename... Args>
     struct callable_traits<ReturnType(T::*)(Args...) const> {
-        typedef ReturnType result;
-        typedef std::tuple<Args...> arguments;
-        typedef std::function<ReturnType(Args...)> type;
+        using result = ReturnType;
+        using arguments = std::tuple<Args...>;
+        using type = std::function<ReturnType(Args...)>;
     };
 
     template<typename T>

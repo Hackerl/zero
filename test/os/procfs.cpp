@@ -14,39 +14,41 @@ TEST_CASE("linux procfs", "[procfs]") {
     prctl(PR_GET_NAME, name);
     prctl(PR_SET_NAME, "(test)");
 
+    const auto variable = reinterpret_cast<std::uintptr_t>(stdout);
+    const auto function = reinterpret_cast<std::uintptr_t>(zero::filesystem::getApplicationPath);
+
     SECTION("all") {
-        auto ids = zero::os::procfs::all();
+        const auto ids = zero::os::procfs::all();
         REQUIRE(ids);
     }
 
     SECTION("self") {
-        auto pid = getpid();
-        auto process = zero::os::procfs::self();
+        const auto pid = getpid();
+        const auto process = zero::os::procfs::self();
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::getApplicationPath();
         REQUIRE(path);
 
-        auto comm = process->comm();
+        const auto comm = process->comm();
         REQUIRE(comm);
         REQUIRE(*comm == "(test)");
 
-        auto cmdline = process->cmdline();
+        const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        auto env = process->env();
+        const auto env = process->env();
         REQUIRE(env);
 
-        auto mappings = process->maps();
+        const auto mappings = process->maps();
         REQUIRE(mappings);
 
         auto it = std::ranges::find_if(
                 *mappings,
-                [](const zero::os::procfs::MemoryMapping &mapping) {
-                    auto address = (uintptr_t) zero::filesystem::getApplicationPath;
-                    return address >= mapping.start && address < mapping.end;
+                [=](const zero::os::procfs::MemoryMapping &mapping) {
+                    return function >= mapping.start && function < mapping.end;
                 }
         );
         REQUIRE(it != mappings->end());
@@ -59,9 +61,8 @@ TEST_CASE("linux procfs", "[procfs]") {
 
         it = std::ranges::find_if(
                 *mappings,
-                [](const zero::os::procfs::MemoryMapping &mapping) {
-                    auto address = (uintptr_t) &errno;
-                    return address >= mapping.start && address < mapping.end;
+                [=](const zero::os::procfs::MemoryMapping &mapping) {
+                    return variable >= mapping.start && variable < mapping.end;
                 }
         );
         REQUIRE(it != mappings->end());
@@ -72,7 +73,7 @@ TEST_CASE("linux procfs", "[procfs]") {
 
         REQUIRE(it->permissions == permissions);
 
-        auto mapping = process->findMapping((uintptr_t) &errno);
+        auto mapping = process->findMapping(variable);
         REQUIRE(mapping);
         REQUIRE(mapping->permissions == permissions);
 
@@ -80,15 +81,15 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(mapping);
         REQUIRE(mapping->permissions & zero::os::procfs::MemoryPermission::READ);
 
-        auto exe = process->exe();
+        const auto exe = process->exe();
         REQUIRE(exe);
         REQUIRE(*exe == *path);
 
-        auto cwd = process->cwd();
+        const auto cwd = process->cwd();
         REQUIRE(cwd);
         REQUIRE(*cwd == std::filesystem::current_path());
 
-        auto stat = process->stat();
+        const auto stat = process->stat();
         REQUIRE(stat);
         REQUIRE(stat->pid == pid);
         REQUIRE(stat->comm == "(test)");
@@ -97,7 +98,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(stat->pgrp == getpgrp());
         REQUIRE(stat->session == getsid(pid));
 
-        auto status = process->status();
+        const auto status = process->status();
         REQUIRE(status);
         REQUIRE(status->name == "(test)");
         REQUIRE(status->state == "R (running)");
@@ -105,23 +106,23 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(status->pid == pid);
         REQUIRE(status->ppid == getppid());
 
-        auto tasks = process->tasks();
+        const auto tasks = process->tasks();
         REQUIRE(tasks);
         REQUIRE(tasks->size() == 1);
         REQUIRE(tasks->front() == pid);
 
-        auto memory = process->memory();
+        const auto memory = process->memory();
         REQUIRE(memory);
 
-        auto cpu = process->cpu();
+        const auto cpu = process->cpu();
         REQUIRE(cpu);
 
-        auto io = process->io();
+        const auto io = process->io();
         REQUIRE(io);
     }
 
     SECTION("child") {
-        pid_t pid = fork();
+        const pid_t pid = fork();
 
         if (pid == 0) {
             pause();
@@ -131,32 +132,31 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(pid > 0);
         std::this_thread::sleep_for(100ms);
 
-        auto process = zero::os::procfs::open(pid);
+        const auto process = zero::os::procfs::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::getApplicationPath();
         REQUIRE(path);
 
-        auto comm = process->comm();
+        const auto comm = process->comm();
         REQUIRE(comm);
         REQUIRE(*comm == "(test)");
 
-        auto cmdline = process->cmdline();
+        const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        auto env = process->env();
+        const auto env = process->env();
         REQUIRE(env);
 
-        auto mappings = process->maps();
+        const auto mappings = process->maps();
         REQUIRE(mappings);
 
         auto it = std::ranges::find_if(
                 *mappings,
-                [](const zero::os::procfs::MemoryMapping &mapping) {
-                    auto address = (uintptr_t) zero::filesystem::getApplicationPath;
-                    return address >= mapping.start && address < mapping.end;
+                [=](const zero::os::procfs::MemoryMapping &mapping) {
+                    return function >= mapping.start && function < mapping.end;
                 }
         );
         REQUIRE(it != mappings->end());
@@ -169,9 +169,8 @@ TEST_CASE("linux procfs", "[procfs]") {
 
         it = std::ranges::find_if(
                 *mappings,
-                [](const zero::os::procfs::MemoryMapping &mapping) {
-                    auto address = (uintptr_t) &errno;
-                    return address >= mapping.start && address < mapping.end;
+                [=](const zero::os::procfs::MemoryMapping &mapping) {
+                    return variable >= mapping.start && variable < mapping.end;
                 }
         );
         REQUIRE(it != mappings->end());
@@ -182,7 +181,7 @@ TEST_CASE("linux procfs", "[procfs]") {
 
         REQUIRE(it->permissions == permissions);
 
-        auto mapping = process->findMapping((uintptr_t) &errno);
+        auto mapping = process->findMapping(variable);
         REQUIRE(mapping);
         REQUIRE(mapping->permissions == permissions);
 
@@ -190,15 +189,15 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(mapping);
         REQUIRE(mapping->permissions & zero::os::procfs::MemoryPermission::READ);
 
-        auto exe = process->exe();
+        const auto exe = process->exe();
         REQUIRE(exe);
         REQUIRE(*exe == *path);
 
-        auto cwd = process->cwd();
+        const auto cwd = process->cwd();
         REQUIRE(cwd);
         REQUIRE(*cwd == std::filesystem::current_path());
 
-        auto stat = process->stat();
+        const auto stat = process->stat();
         REQUIRE(stat);
         REQUIRE(stat->pid == pid);
         REQUIRE(stat->comm == "(test)");
@@ -207,7 +206,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(stat->pgrp == getpgrp());
         REQUIRE(stat->session == getsid(pid));
 
-        auto status = process->status();
+        const auto status = process->status();
         REQUIRE(status);
         REQUIRE(status->name == "(test)");
         REQUIRE(status->state == "S (sleeping)");
@@ -215,18 +214,18 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(status->pid == pid);
         REQUIRE(status->ppid == getpid());
 
-        auto tasks = process->tasks();
+        const auto tasks = process->tasks();
         REQUIRE(tasks);
         REQUIRE(tasks->size() == 1);
         REQUIRE(tasks->front() == pid);
 
-        auto memory = process->memory();
+        const auto memory = process->memory();
         REQUIRE(memory);
 
-        auto cpu = process->cpu();
+        const auto cpu = process->cpu();
         REQUIRE(cpu);
 
-        auto io = process->io();
+        const auto io = process->io();
         REQUIRE(io);
 
         kill(pid, SIGKILL);
@@ -234,7 +233,7 @@ TEST_CASE("linux procfs", "[procfs]") {
     }
 
     SECTION("zombie") {
-        pid_t pid = fork();
+        const pid_t pid = fork();
 
         if (pid == 0) {
             pause();
@@ -246,29 +245,29 @@ TEST_CASE("linux procfs", "[procfs]") {
         kill(pid, SIGKILL);
         std::this_thread::sleep_for(100ms);
 
-        auto process = zero::os::procfs::open(pid);
+        const auto process = zero::os::procfs::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::getApplicationPath();
         REQUIRE(path);
 
-        auto comm = process->comm();
+        const auto comm = process->comm();
         REQUIRE(comm);
         REQUIRE(*comm == "(test)");
 
-        auto cmdline = process->cmdline();
+        const auto cmdline = process->cmdline();
         REQUIRE(!cmdline);
         REQUIRE(cmdline.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
-        auto env = process->env();
+        const auto env = process->env();
         REQUIRE(!env);
 
-        auto mappings = process->maps();
+        const auto mappings = process->maps();
         REQUIRE(!mappings);
         REQUIRE(mappings.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
-        auto mapping = process->findMapping((uintptr_t) &errno);
+        auto mapping = process->findMapping(function);
         REQUIRE(!mapping);
         REQUIRE(mapping.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
@@ -276,15 +275,15 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(!mapping);
         REQUIRE(mapping.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
-        auto exe = process->exe();
+        const auto exe = process->exe();
         REQUIRE(!exe);
         REQUIRE(exe.error() == std::errc::no_such_file_or_directory);
 
-        auto cwd = process->cwd();
+        const auto cwd = process->cwd();
         REQUIRE(!cwd);
         REQUIRE(cwd.error() == std::errc::no_such_file_or_directory);
 
-        auto stat = process->stat();
+        const auto stat = process->stat();
         REQUIRE(stat);
         REQUIRE(stat->pid == pid);
         REQUIRE(stat->comm == "(test)");
@@ -294,7 +293,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(stat->session == getsid(pid));
         REQUIRE(*stat->exitCode == SIGKILL);
 
-        auto status = process->status();
+        const auto status = process->status();
         REQUIRE(status);
         REQUIRE(status->name == "(test)");
         REQUIRE(status->state == "Z (zombie)");
@@ -302,7 +301,7 @@ TEST_CASE("linux procfs", "[procfs]") {
         REQUIRE(status->pid == pid);
         REQUIRE(status->ppid == getpid());
 
-        auto tasks = process->tasks();
+        const auto tasks = process->tasks();
         REQUIRE(tasks);
         REQUIRE(tasks->size() == 1);
         REQUIRE(tasks->front() == pid);
@@ -311,7 +310,7 @@ TEST_CASE("linux procfs", "[procfs]") {
     }
 
     SECTION("no such process") {
-        auto process = zero::os::procfs::open(99999);
+        const auto process = zero::os::procfs::open(99999);
         REQUIRE(!process);
         REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }

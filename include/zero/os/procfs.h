@@ -8,7 +8,6 @@
 #include <optional>
 #include <filesystem>
 #include <tl/expected.hpp>
-#include <unistd.h>
 #include <sys/types.h>
 
 namespace zero::os::procfs {
@@ -19,7 +18,7 @@ namespace zero::os::procfs {
         MAYBE_ZOMBIE_PROCESS
     };
 
-    class ErrorCategory : public std::error_category {
+    class ErrorCategory final : public std::error_category {
     public:
         [[nodiscard]] const char *name() const noexcept override;
         [[nodiscard]] std::string message(int value) const override;
@@ -37,8 +36,8 @@ namespace zero::os::procfs {
     };
 
     struct MemoryMapping {
-        uintptr_t start;
-        uintptr_t end;
+        std::uintptr_t start;
+        std::uintptr_t end;
         int permissions;
         off_t offset;
         std::string device;
@@ -47,13 +46,13 @@ namespace zero::os::procfs {
     };
 
     struct StatM {
-        uint64_t size;
-        uint64_t resident;
-        uint64_t shared;
-        uint64_t text;
-        uint64_t library;
-        uint64_t data;
-        uint64_t dirty;
+        std::uint64_t size;
+        std::uint64_t resident;
+        std::uint64_t shared;
+        std::uint64_t text;
+        std::uint64_t library;
+        std::uint64_t data;
+        std::uint64_t dirty;
     };
 
     struct Stat {
@@ -177,8 +176,8 @@ namespace zero::os::procfs {
     };
 
     struct MemoryStat {
-        uint64_t rss;
-        uint64_t vms;
+        std::uint64_t rss;
+        std::uint64_t vms;
     };
 
     struct IOStat {
@@ -204,25 +203,21 @@ namespace zero::os::procfs {
         [[nodiscard]] pid_t pid() const;
         [[nodiscard]] tl::expected<pid_t, std::error_code> ppid() const;
 
-    public:
         [[nodiscard]] tl::expected<MemoryMapping, std::error_code> getImageBase(std::string_view path) const;
-        [[nodiscard]] tl::expected<MemoryMapping, std::error_code> findMapping(uintptr_t address) const;
+        [[nodiscard]] tl::expected<MemoryMapping, std::error_code> findMapping(std::uintptr_t address) const;
 
-    public:
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
         [[nodiscard]] tl::expected<std::string, std::error_code> comm() const;
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
         [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
 
-    public:
         [[nodiscard]] tl::expected<Stat, std::error_code> stat() const;
         [[nodiscard]] tl::expected<StatM, std::error_code> statM() const;
         [[nodiscard]] tl::expected<Status, std::error_code> status() const;
         [[nodiscard]] tl::expected<std::list<pid_t>, std::error_code> tasks() const;
         [[nodiscard]] tl::expected<std::list<MemoryMapping>, std::error_code> maps() const;
 
-    public:
         [[nodiscard]] tl::expected<CPUStat, std::error_code> cpu() const;
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
@@ -237,11 +232,9 @@ namespace zero::os::procfs {
     tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
-namespace std {
-    template<>
-    struct is_error_code_enum<zero::os::procfs::Error> : public true_type {
+template<>
+struct std::is_error_code_enum<zero::os::procfs::Error> : std::true_type {
 
-    };
-}
+};
 
 #endif //ZERO_PROCFS_H

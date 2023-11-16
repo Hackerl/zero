@@ -16,17 +16,17 @@ namespace zero::async::coroutine {
             return promise.status() != promise::PENDING;
         }
 
-        void await_suspend(std::coroutine_handle<> handle) {
+        void await_suspend(const std::coroutine_handle<> handle) {
             if constexpr (std::is_void_v<T>) {
-                promise.then([=]() {
+                promise.then([=] {
                     handle.resume();
-                }, [=](const E &reason) {
+                }, [=](const E &) {
                     handle.resume();
                 });
             } else {
-                promise.then([=](const T &result) {
+                promise.then([=](const T &) {
                     handle.resume();
-                }, [=](const E &reason) {
+                }, [=](const E &) {
                     handle.resume();
                 });
             }
@@ -48,6 +48,8 @@ namespace zero::async::coroutine {
 
             if constexpr (!std::is_void_v<T>)
                 return *result;
+            else
+                return;
         }
 
         promise::Promise<T, E> promise;
@@ -59,17 +61,17 @@ namespace zero::async::coroutine {
             return promise.status() != promise::PENDING;
         }
 
-        void await_suspend(std::coroutine_handle<> handle) {
+        void await_suspend(const std::coroutine_handle<> handle) {
             if constexpr (std::is_void_v<T>) {
-                promise.then([=]() {
+                promise.then([=] {
                     handle.resume();
-                }, [=](const E &reason) {
+                }, [=](const E &) {
                     handle.resume();
                 });
             } else {
-                promise.then([=](const T &result) {
+                promise.then([=](const T &) {
                     handle.resume();
-                }, [=](const E &reason) {
+                }, [=](const E &) {
                     handle.resume();
                 });
             }
@@ -112,12 +114,10 @@ namespace zero::async::coroutine {
         using error_type = E;
         using promise_type = Promise<T, E>;
 
-    public:
         explicit Task(promise_type promise) : mPromise(std::move(promise)) {
 
         }
 
-    public:
         tl::expected<void, std::error_code> cancel() {
             auto frame = mPromise.mFrame;
             frame->cancelled = true;
@@ -130,7 +130,7 @@ namespace zero::async::coroutine {
             if (!frame->cancel)
                 return tl::unexpected(make_error_code(std::errc::operation_not_supported));
 
-            auto result = std::exchange(frame->cancel, nullptr)();
+            const auto result = std::exchange(frame->cancel, nullptr)();
 
             if (!result)
                 return tl::unexpected(result.error());
@@ -138,10 +138,10 @@ namespace zero::async::coroutine {
             return {};
         }
 
-        std::vector<std::source_location> traceback() {
+        [[nodiscard]] std::vector<std::source_location> traceback() const {
             std::vector<std::source_location> callstack;
 
-            for (auto frame = mPromise.mFrame; frame; frame = frame->next) {
+            for (auto frame = std::as_const(mPromise.mFrame); frame; frame = frame->next) {
                 if (!frame->location)
                     break;
 
@@ -151,7 +151,6 @@ namespace zero::async::coroutine {
             return callstack;
         }
 
-    public:
         template<typename F, typename R = std::invoke_result_t<F>>
         requires (!std::is_same_v<E, std::exception_ptr> && std::is_void_v<T>)
         Task<typename R::value_type, E> andThen(F f) && {
@@ -404,7 +403,6 @@ namespace zero::async::coroutine {
             co_return tl::unexpected(std::move(co_await std::invoke(std::move(f), std::move(result.error()))));
         }
 
-    public:
         promise::Promise<T, E> &promise() {
             return mPromise;
         }
@@ -435,10 +433,9 @@ namespace zero::async::coroutine {
 
         }
 
-    public:
         std::suspend_never initial_suspend() {
             return {};
-        };
+        }
 
         std::suspend_never final_suspend() noexcept {
             return {};
@@ -455,7 +452,7 @@ namespace zero::async::coroutine {
             return Task<T, E>{*this};
         }
 
-        Awaitable<bool, std::exception_ptr> await_transform(CheckPoint) {
+        [[nodiscard]] Awaitable<bool, std::exception_ptr> await_transform(CheckPoint) const {
             if (!mFrame->cancelled)
                 return {promise::resolve<bool, std::exception_ptr>(false)};
 
@@ -621,10 +618,9 @@ namespace zero::async::coroutine {
 
         }
 
-    public:
         std::suspend_never initial_suspend() {
             return {};
-        };
+        }
 
         std::suspend_never final_suspend() noexcept {
             return {};
@@ -634,7 +630,7 @@ namespace zero::async::coroutine {
             promise::Promise<void, std::exception_ptr>::reject(std::current_exception());
         }
 
-        Awaitable<bool, std::exception_ptr> await_transform(CheckPoint) {
+        [[nodiscard]] Awaitable<bool, std::exception_ptr> await_transform(CheckPoint) const {
             if (!mFrame->cancelled)
                 return {promise::resolve<bool, std::exception_ptr>(false)};
 
@@ -713,8 +709,8 @@ namespace zero::async::coroutine {
             return {task.mPromise};
         }
 
-        Task<void, std::exception_ptr> get_return_object() {
-            return Task<void, std::exception_ptr>{*this};
+        [[nodiscard]] Task<void> get_return_object() const {
+            return Task{*this};
         }
 
         void return_void() {
@@ -740,24 +736,24 @@ namespace zero::async::coroutine {
         auto result = std::move(co_await Cancellable{
                 promise::all(tasks.promise()...),
                 [=]() mutable {
-                    std::optional<tl::expected<void, std::error_code>> result;
+                    std::optional<tl::expected<void, std::error_code>> res;
 
-                    ([&]() {
-                        if (result && *result)
+                    ([&] {
+                        if (res && *res)
                             return;
 
                         if (tasks.done())
                             return;
 
-                        result = tasks.cancel();
+                        res = tasks.cancel();
                     }(), ...);
 
-                    return *result;
+                    return *res;
                 }
         });
 
         if (!result) {
-            ([&]() {
+            ([&] {
                 if (tasks.done())
                     return;
 
@@ -781,19 +777,19 @@ namespace zero::async::coroutine {
         co_return *std::move(co_await Cancellable{
                 promise::allSettled(tasks.promise()...),
                 [=]() mutable {
-                    tl::expected<void, std::error_code> result;
+                    tl::expected<void, std::error_code> res;
 
-                    ([&]() {
-                        if (!result)
+                    ([&] {
+                        if (!res)
                             return;
 
                         if (tasks.done())
                             return;
 
-                        result = tasks.cancel();
+                        res = tasks.cancel();
                     }(), ...);
 
-                    return result;
+                    return res;
                 }
         });
     }
@@ -808,24 +804,24 @@ namespace zero::async::coroutine {
         auto result = std::move(co_await Cancellable{
                 promise::any(tasks.promise()...),
                 [=]() mutable {
-                    tl::expected<void, std::error_code> result;
+                    tl::expected<void, std::error_code> res;
 
-                    ([&]() {
-                        if (!result)
+                    ([&] {
+                        if (!res)
                             return;
 
                         if (tasks.done())
                             return;
 
-                        result = tasks.cancel();
+                        res = tasks.cancel();
                     }(), ...);
 
-                    return result;
+                    return res;
                 }
         });
 
         if (result)
-            ([&]() {
+            ([&] {
                 if (tasks.done())
                     return;
 
@@ -845,23 +841,23 @@ namespace zero::async::coroutine {
         auto result = std::move(co_await Cancellable{
                 promise::race(tasks.promise()...),
                 [=]() mutable {
-                    std::optional<tl::expected<void, std::error_code>> result;
+                    std::optional<tl::expected<void, std::error_code>> res;
 
-                    ([&]() {
-                        if (result && *result)
+                    ([&] {
+                        if (res && *res)
                             return;
 
                         if (tasks.done())
                             return;
 
-                        result = tasks.cancel();
+                        res = tasks.cancel();
                     }(), ...);
 
-                    return *result;
+                    return *res;
                 }
         });
 
-        ([&]() {
+        ([&] {
             if (tasks.done())
                 return;
 

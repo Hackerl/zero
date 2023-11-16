@@ -7,7 +7,7 @@ constexpr auto HEX_MAP = std::array{
         '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
 };
 
-std::string zero::encoding::hex::encode(std::span<const std::byte> buffer) {
+std::string zero::encoding::hex::encode(const std::span<const std::byte> buffer) {
     std::string encoded;
 
     for (const auto &byte: buffer) {
@@ -18,13 +18,13 @@ std::string zero::encoding::hex::encode(std::span<const std::byte> buffer) {
     return encoded;
 }
 
-tl::expected<std::vector<std::byte>, std::error_code> zero::encoding::hex::decode(std::string_view encoded) {
+tl::expected<std::vector<std::byte>, std::error_code> zero::encoding::hex::decode(const std::string_view encoded) {
     if (encoded.length() % 2)
         return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
     tl::expected<std::vector<std::byte>, std::error_code> result;
 
-    for (size_t i = 0; i < encoded.size(); i += 2) {
+    for (std::size_t i = 0; i < encoded.size(); i += 2) {
         auto n = strings::toNumber<unsigned int>(encoded.substr(i, 2), 16);
 
         if (!n) {
@@ -32,7 +32,7 @@ tl::expected<std::vector<std::byte>, std::error_code> zero::encoding::hex::decod
             break;
         }
 
-        result->push_back(std::byte(*n & 0xff));
+        result->push_back(static_cast<std::byte>(*n & 0xff));
     }
 
     return result;

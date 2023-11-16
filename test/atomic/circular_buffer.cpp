@@ -9,7 +9,7 @@ TEST_CASE("lock-free circular buffer", "[circular buffer]") {
     REQUIRE(!buffer.full());
 
     SECTION("producer/consumer") {
-        std::optional<size_t> index = buffer.reserve();
+        auto index = buffer.reserve();
 
         REQUIRE(index);
         REQUIRE(!buffer.empty());
@@ -17,7 +17,6 @@ TEST_CASE("lock-free circular buffer", "[circular buffer]") {
         REQUIRE(!buffer.full());
 
         buffer[*index] = 1;
-
         buffer.commit(*index);
 
         index = buffer.acquire();
@@ -32,8 +31,8 @@ TEST_CASE("lock-free circular buffer", "[circular buffer]") {
     }
 
     SECTION("full buffer") {
-        for (size_t i = 0; i < 9; i++) {
-            std::optional<size_t> index = buffer.reserve();
+        for (std::size_t i = 0; i < 9; i++) {
+            const auto index = buffer.reserve();
             REQUIRE(index);
 
             buffer[*index] = 1;

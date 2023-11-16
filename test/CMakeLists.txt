@@ -6,7 +6,6 @@ add_executable(
         log.cpp
         defer.cpp
         cmdline.cpp
-        ptr/ref.cpp
         atomic/event.cpp
         atomic/circular_buffer.cpp
         concurrent/channel.cpp

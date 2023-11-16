@@ -10,15 +10,14 @@
 tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplicationPath() {
 #ifdef _WIN32
     WCHAR buffer[MAX_PATH] = {};
-    DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
 
-    if (length == 0 || length == MAX_PATH)
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+    if (const DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH); length == 0 || length == MAX_PATH)
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return buffer;
 #elif __linux__
     std::error_code ec;
-    std::filesystem::path path = std::filesystem::read_symlink("/proc/self/exe", ec);
+    auto path = std::filesystem::read_symlink("/proc/self/exe", ec);
 
     if (ec)
         return tl::unexpected(ec);
@@ -26,7 +25,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplic
     return path;
 #elif __APPLE__
     char buffer[MAXPATHLEN];
-    uint32_t size = sizeof(buffer);
+    std::uint32_t size = sizeof(buffer);
 
     if (_NSGetExecutablePath(buffer, &size) < 0)
         return tl::unexpected(std::error_code(errno, std::system_category()));

@@ -3,9 +3,7 @@
 
 #include <any>
 #include <list>
-#include <string>
 #include <memory>
-#include <stdexcept>
 #include <tl/expected.hpp>
 #include <zero/detail/type_traits.h>
 
@@ -15,17 +13,17 @@ namespace zero::async::promise {
 
     template<typename T>
     struct promise_next_result {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T, typename E>
     struct promise_next_result<Promise<T, E>> {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T, typename E>
     struct promise_next_result<tl::expected<T, E>> {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T>
@@ -33,22 +31,22 @@ namespace zero::async::promise {
 
     template<typename T>
     struct promise_next_reason {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T, typename E>
     struct promise_next_reason<Promise<T, E>> {
-        typedef E type;
+        using type = E;
     };
 
     template<typename T, typename E>
     struct promise_next_reason<tl::expected<T, E>> {
-        typedef E type;
+        using type = E;
     };
 
     template<typename T>
     struct promise_next_reason<tl::unexpected<T>> {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T>
@@ -79,12 +77,10 @@ namespace zero::async::promise {
         using value_type = T;
         using error_type = E;
 
-    public:
         Promise() : mStorage(std::make_shared<Storage<T, E>>()) {
 
         }
 
-    public:
         template<typename ...Ts>
         void resolve(Ts &&...args) {
             if (mStorage->status != PENDING)
@@ -109,7 +105,6 @@ namespace zero::async::promise {
                 trigger.second();
         }
 
-    public:
         template<typename F>
         auto then(F &&f) {
             using Next = detail::callable_result_t<F>;
@@ -130,7 +125,7 @@ namespace zero::async::promise {
 
                     promise.resolve();
                 } else {
-                    Next next = [=, &result]() {
+                    Next next = [=, &result] {
                         if constexpr (std::is_void_v<T>) {
                             return f();
                         } else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
@@ -168,8 +163,8 @@ namespace zero::async::promise {
                                 promise.reject(reason);
                             });
                         } else {
-                            next.then([=](const NextResult &result) mutable {
-                                promise.resolve(result);
+                            next.then([=](const NextResult &nextResult) mutable {
+                                promise.resolve(nextResult);
                             }, [=](const E &reason) mutable {
                                 promise.reject(reason);
                             });
@@ -194,6 +189,10 @@ namespace zero::async::promise {
 
                 case PENDING:
                     mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+                    break;
+
+                default:
+                    std::abort();
             }
 
             return promise;
@@ -227,7 +226,7 @@ namespace zero::async::promise {
 
                     promise.resolve();
                 } else {
-                    Next next = [=, &result]() {
+                    Next next = [=, &result] {
                         if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
                             return std::apply(f, std::as_const(result->error()));
                         } else {
@@ -263,8 +262,8 @@ namespace zero::async::promise {
                                 promise.reject(reason);
                             });
                         } else {
-                            next.then([=](const NextResult &result) mutable {
-                                promise.resolve(result);
+                            next.then([=](const NextResult &nextResult) mutable {
+                                promise.resolve(nextResult);
                             }, [=](const E &reason) mutable {
                                 promise.reject(reason);
                             });
@@ -284,14 +283,18 @@ namespace zero::async::promise {
 
                 case PENDING:
                     mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+                    break;
+
+                default:
+                    std::abort();
             }
 
             return promise;
         }
 
         template<typename F>
-        Promise<T, E> finally(F &&f) {
-            Promise<T, E> promise;
+        Promise finally(F &&f) {
+            Promise promise;
 
             auto onFulfilledTrigger = [=, &result = mStorage->result]() mutable {
                 f();
@@ -319,6 +322,10 @@ namespace zero::async::promise {
 
                 case PENDING:
                     mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+                    break;
+
+                default:
+                    std::abort();
             }
 
             return promise;
@@ -329,7 +336,6 @@ namespace zero::async::promise {
             return then(std::forward<F1>(f1)).fail(std::forward<F2>(f2));
         }
 
-    public:
         [[nodiscard]] State status() const {
             return mStorage->status;
         }
@@ -352,13 +358,12 @@ namespace zero::async::promise {
             return *mStorage->result;
         }
 
-    public:
         auto operator<=>(const Promise &) const = default;
 
     private:
         std::shared_ptr<Storage<T, E>> mStorage;
 
-        template<size_t...Is, typename ...Ts, typename Error>
+        template<std::size_t...Is, typename ...Ts, typename Error>
         friend Promise<std::tuple<tl::expected<Ts, Error>...>, Error>
         allSettled(std::index_sequence<Is...>, Promise<Ts, Error> &...promises);
     };
@@ -382,12 +387,12 @@ namespace zero::async::promise {
             )
     >;
 
-    template<size_t Count, size_t Index, size_t N, size_t... Is>
+    template<std::size_t Count, std::size_t Index, std::size_t N, std::size_t... Is>
     struct promises_result_index_sequence : promises_result_index_sequence<Count - 1, Index + N, Is..., Index> {
 
     };
 
-    template<size_t Index, size_t N, size_t... Is>
+    template<std::size_t Index, std::size_t N, std::size_t... Is>
     struct promises_result_index_sequence<0, Index, N, Is...> : std::index_sequence<N, Is...> {
 
     };
@@ -396,7 +401,7 @@ namespace zero::async::promise {
     using promises_result_index_sequence_for = promises_result_index_sequence<
             sizeof...(Ts),
             0,
-            (std::is_void_v<Ts> ? 0 : 1)...
+            std::is_void_v<Ts> ? 0 : 1 ...
     >;
 
     template<typename T, typename E, typename F>
@@ -429,15 +434,15 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<size_t...Is, typename ...Ts, typename E>
+    template<std::size_t...Is, typename ...Ts, typename E>
     Promise<promises_result_t<Ts...>, E> all(std::index_sequence<Is...>, Promise<Ts, E> &...promises) {
         Promise<promises_result_t<Ts...>, E> promise;
-        auto remain = std::make_shared<size_t>(sizeof...(promises));
+        const auto remain = std::make_shared<std::size_t>(sizeof...(promises));
 
         if constexpr (std::is_void_v<promises_result_t<Ts...>>) {
-            ([&]() {
+            ([&] {
                 promises.then([=]() mutable {
-                    if (--(*remain) > 0)
+                    if (--*remain > 0)
                         return;
 
                     promise.resolve();
@@ -446,12 +451,12 @@ namespace zero::async::promise {
                 });
             }(), ...);
         } else {
-            auto results = std::make_shared<promises_result_t<Ts...>>();
+            const auto results = std::make_shared<promises_result_t<Ts...>>();
 
-            ([&]() {
+            ([&] {
                 if constexpr (std::is_void_v<Ts>) {
                     promises.then([=]() mutable {
-                        if (--(*remain) > 0)
+                        if (--*remain > 0)
                             return;
 
                         promise.resolve(std::move(*results));
@@ -462,7 +467,7 @@ namespace zero::async::promise {
                     promises.then([=](const Ts &result) mutable {
                         std::get<Is>(*results) = result;
 
-                        if (--(*remain) > 0)
+                        if (--*remain > 0)
                             return;
 
                         promise.resolve(std::move(*results));
@@ -487,20 +492,20 @@ namespace zero::async::promise {
         return all(promises...);
     }
 
-    template<size_t...Is, typename ...Ts, typename E>
+    template<std::size_t...Is, typename ...Ts, typename E>
     Promise<std::tuple<tl::expected<Ts, E>...>, E> allSettled(std::index_sequence<Is...>, Promise<Ts, E> &...promises) {
         using T = std::tuple<tl::expected<Ts, E>...>;
 
         Promise<T, E> promise;
 
-        auto results = std::make_shared<T>();
-        auto remain = std::make_shared<size_t>(sizeof...(Ts));
+        const auto results = std::make_shared<T>();
+        const auto remain = std::make_shared<std::size_t>(sizeof...(Ts));
 
-        ([&]() {
+        ([&] {
             promises.finally([=, &result = promises.mStorage->result]() mutable {
                 std::get<Is>(*results) = *result;
 
-                if (--(*remain) > 0)
+                if (--*remain > 0)
                     return;
 
                 promise.resolve(std::move(*results));
@@ -527,10 +532,10 @@ namespace zero::async::promise {
 
         Promise<std::conditional_t<Same, T, std::any>, std::list<E>> promise;
 
-        auto remain = std::make_shared<size_t>(sizeof...(Ts));
-        auto reasons = std::make_shared<std::list<E>>();
+        const auto remain = std::make_shared<std::size_t>(sizeof...(Ts));
+        const auto reasons = std::make_shared<std::list<E>>();
 
-        ([&]() {
+        ([&] {
             if constexpr (std::is_void_v<Ts>) {
                 promises.then([=]() mutable {
                     if constexpr (Same)
@@ -540,7 +545,7 @@ namespace zero::async::promise {
                 }, [=](const E &reason) mutable {
                     reasons->push_front(reason);
 
-                    if (--(*remain) > 0)
+                    if (--*remain > 0)
                         return;
 
                     promise.reject(std::move(*reasons));
@@ -551,7 +556,7 @@ namespace zero::async::promise {
                 }, [=](const E &reason) mutable {
                     reasons->push_front(reason);
 
-                    if (--(*remain) > 0)
+                    if (--*remain > 0)
                         return;
 
                     promise.reject(std::move(*reasons));
@@ -574,7 +579,7 @@ namespace zero::async::promise {
 
         Promise<std::conditional_t<Same, T, std::any>, E> promise;
 
-        ([&]() {
+        ([&] {
             if constexpr (std::is_void_v<Ts>) {
                 promises.then([=]() mutable {
                     if constexpr (Same)

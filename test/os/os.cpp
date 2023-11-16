@@ -28,19 +28,19 @@ tl::expected<std::string, std::error_code> exec(const std::string &cmd) {
 }
 
 TEST_CASE("get hostname", "[os]") {
-    auto hostname = zero::os::hostname();
+    const auto hostname = zero::os::hostname();
     REQUIRE(hostname);
 
-    auto output = exec("hostname");
+    const auto output = exec("hostname");
     REQUIRE(output);
     REQUIRE(zero::strings::trim(*output) == *hostname);
 }
 
 TEST_CASE("get username", "[os]") {
-    auto username = zero::os::username();
+    const auto username = zero::os::username();
     REQUIRE(username);
 
-    auto output = exec("whoami");
+    const auto output = exec("whoami");
     REQUIRE(output);
     REQUIRE(zero::strings::trim(*output).find(*username) != std::string::npos);
 }

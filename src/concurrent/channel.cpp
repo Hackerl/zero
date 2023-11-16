@@ -4,7 +4,7 @@ const char *zero::concurrent::ChannelErrorCategory::name() const noexcept {
     return "zero::concurrent::channel";
 }
 
-std::string zero::concurrent::ChannelErrorCategory::message(int value) const {
+std::string zero::concurrent::ChannelErrorCategory::message(const int value) const {
     std::string msg;
 
     switch (value) {
@@ -36,7 +36,7 @@ std::string zero::concurrent::ChannelErrorCategory::message(int value) const {
     return msg;
 }
 
-std::error_condition zero::concurrent::ChannelErrorCategory::default_error_condition(int value) const noexcept {
+std::error_condition zero::concurrent::ChannelErrorCategory::default_error_condition(const int value) const noexcept {
     std::error_condition condition;
 
     switch (value) {
@@ -63,6 +63,6 @@ const std::error_category &zero::concurrent::channelErrorCategory() {
     return instance;
 }
 
-std::error_code zero::concurrent::make_error_code(ChannelError e) {
+std::error_code zero::concurrent::make_error_code(const ChannelError e) {
     return {static_cast<int>(e), channelErrorCategory()};
 }

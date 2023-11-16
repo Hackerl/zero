@@ -14,38 +14,36 @@
 
 namespace zero {
     template<typename T>
-    tl::expected<T, std::error_code> fromCommandLine(const std::string &str);
+    tl::expected<T, std::error_code> scan(std::string_view input) = delete;
 
     template<typename T>
-    tl::expected<std::any, std::error_code> parseValue(const std::string &str) {
+    tl::expected<std::any, std::error_code> parseValue(const std::string_view input) {
         if constexpr (std::is_arithmetic_v<T>) {
-            auto value = strings::toNumber<T>(str);
+            const auto value = strings::toNumber<T>(input);
 
             if (!value)
                 return tl::unexpected(value.error());
 
             return *value;
         } else if constexpr (std::is_same_v<T, std::string>) {
-            return str;
+            return std::string{input};
         } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
-            return std::filesystem::path{str};
+            return std::filesystem::path{input};
         } else if constexpr (detail::Vector<T>) {
-            tl::expected<T, std::error_code> value;
+            T v;
 
-            for (const auto &token: strings::split(str, ",")) {
-                auto v = parseValue<typename T::value_type>(strings::trim(token));
+            for (const auto &token: strings::split(input, ",")) {
+                auto value = parseValue<typename T::value_type>(strings::trim(token));
 
-                if (!v) {
-                    value = tl::unexpected(v.error());
-                    break;
-                }
+                if (!value)
+                    return tl::unexpected(value.error());
 
-                value->emplace_back(std::any_cast<typename T::value_type>(std::move(*v)));
+                v.emplace_back(std::any_cast<typename T::value_type>(std::move(*value)));
             }
 
-            return *value;
+            return v;
         } else {
-            auto value = fromCommandLine<T>(str);
+            auto value = scan<T>(input);
 
             if (!value)
                 return tl::unexpected(value.error());
@@ -92,7 +90,7 @@ namespace zero {
 
     struct TypeInfo {
         std::string type;
-        std::function<tl::expected<std::any, std::error_code>(const std::string &)> parse;
+        std::function<tl::expected<std::any, std::error_code>(std::string_view)> parse;
     };
 
     struct Optional {
@@ -113,6 +111,13 @@ namespace zero {
     class Cmdline {
     public:
         Cmdline();
+
+    private:
+        Optional &find(char shortName);
+        Optional &find(std::string_view name);
+        [[nodiscard]] const Optional &find(std::string_view name) const;
+
+        void help() const;
 
     public:
         template<typename T>
@@ -136,10 +141,9 @@ namespace zero {
 
         void addOptional(const char *name, char shortName, const char *desc);
 
-    public:
         template<typename T>
-        T get(const char *name) {
-            auto it = std::ranges::find_if(
+        T get(const char *name) const {
+            const auto it = std::ranges::find_if(
                     mPositionals,
                     [=](const auto &positional) {
                         return positional.name == name;
@@ -153,37 +157,25 @@ namespace zero {
         }
 
         template<typename T>
-        std::optional<T> getOptional(const char *name) {
-            const auto &optional = find(name);
+        std::optional<T> getOptional(const char *name) const {
+            const auto &value = find(name).value;
 
-            if (!optional.value.has_value())
+            if (!value.has_value())
                 return std::nullopt;
 
-            return std::any_cast<T>(optional.value);
+            return std::any_cast<T>(value);
         }
 
-        bool exist(const char *name);
-
-    public:
-        void footer(const char *message);
+        [[nodiscard]] bool exist(const char *name) const;
         [[nodiscard]] std::vector<std::string> rest() const;
 
-    public:
+        void footer(const char *message);
         void from(int argc, const char *const argv[]);
         void parse(int argc, const char *const argv[]);
 
     private:
-        Optional &find(char shortName);
-        Optional &find(const std::string &name);
-
-    private:
-        void help() const;
-
-    private:
         std::vector<std::string> mRest;
         std::optional<std::string> mFooter;
-
-    private:
         std::list<Optional> mOptionals;
         std::list<Positional> mPositionals;
     };

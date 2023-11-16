@@ -16,16 +16,15 @@ constexpr auto ENVIRONMENT_OFFSET = 0x48;
 constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x0290;
 #endif
 
-static auto queryInformationProcess = (decltype(NtQueryInformationProcess) *) GetProcAddress(
-        GetModuleHandleA("ntdll"),
-        "NtQueryInformationProcess"
+static const auto queryInformationProcess = reinterpret_cast<decltype(NtQueryInformationProcess) *>(
+    GetProcAddress(GetModuleHandleA("ntdll"), "NtQueryInformationProcess")
 );
 
 const char *zero::os::nt::process::ErrorCategory::name() const noexcept {
     return "zero::os::nt::process";
 }
 
-std::string zero::os::nt::process::ErrorCategory::message(int value) const {
+std::string zero::os::nt::process::ErrorCategory::message(const int value) const {
     std::string msg;
 
     switch (value) {
@@ -45,7 +44,7 @@ std::string zero::os::nt::process::ErrorCategory::message(int value) const {
     return msg;
 }
 
-std::error_condition zero::os::nt::process::ErrorCategory::default_error_condition(int value) const noexcept {
+std::error_condition zero::os::nt::process::ErrorCategory::default_error_condition(const int value) const noexcept {
     if (value == API_NOT_AVAILABLE)
         return std::errc::function_not_supported;
 
@@ -57,16 +56,16 @@ const std::error_category &zero::os::nt::process::errorCategory() {
     return instance;
 }
 
-std::error_code zero::os::nt::process::make_error_code(Error e) {
+std::error_code zero::os::nt::process::make_error_code(const Error e) {
     return {static_cast<int>(e), errorCategory()};
 }
 
-zero::os::nt::process::Process::Process(HANDLE handle, DWORD pid) : mHandle(handle), mPID(pid) {
+zero::os::nt::process::Process::Process(const HANDLE handle, const DWORD pid) : mHandle(handle), mPID(pid) {
 
 }
 
-zero::os::nt::process::Process::Process(zero::os::nt::process::Process &&rhs) noexcept
-        : mHandle(std::exchange(rhs.mHandle, nullptr)), mPID(std::exchange(rhs.mPID, 0)) {
+zero::os::nt::process::Process::Process(Process &&rhs) noexcept
+        : mHandle(std::exchange(rhs.mHandle, nullptr)), mPID(std::exchange(rhs.mPID, -1)) {
 
 }
 
@@ -75,6 +74,35 @@ zero::os::nt::process::Process::~Process() {
         return;
 
     CloseHandle(mHandle);
+}
+
+tl::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::parameters() const {
+    if (!queryInformationProcess)
+        return tl::unexpected(API_NOT_AVAILABLE);
+
+    PROCESS_BASIC_INFORMATION info = {};
+
+    if (!NT_SUCCESS(queryInformationProcess(
+            mHandle,
+            ProcessBasicInformation,
+            &info,
+            sizeof(info),
+            nullptr
+    )))
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+    std::uintptr_t ptr;
+
+    if (!ReadProcessMemory(
+            mHandle,
+            &info.PebBaseAddress->ProcessParameters,
+            &ptr,
+            sizeof(ptr),
+            nullptr
+    ))
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+    return ptr;
 }
 
 HANDLE zero::os::nt::process::Process::handle() const {
@@ -87,7 +115,7 @@ DWORD zero::os::nt::process::Process::pid() const {
 
 tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() const {
     if (!queryInformationProcess)
-        return tl::unexpected(Error::API_NOT_AVAILABLE);
+        return tl::unexpected(API_NOT_AVAILABLE);
 
     PROCESS_BASIC_INFORMATION info = {};
 
@@ -98,9 +126,9 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() cons
             sizeof(info),
             nullptr
     )))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-    return (DWORD) (uintptr_t) info.Reserved3;
+    return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
 }
 
 tl::expected<std::string, std::error_code> zero::os::nt::process::Process::name() const {
@@ -110,22 +138,22 @@ tl::expected<std::string, std::error_code> zero::os::nt::process::Process::name(
 }
 
 tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::cwd() const {
-    auto ptr = TRY(parameters());
+    const auto ptr = TRY(parameters());
     UNICODE_STRING str;
 
     if (!ReadProcessMemory(
             mHandle,
-            (LPCVOID) (*ptr + CURRENT_DIRECTORY_OFFSET),
+            reinterpret_cast<LPCVOID>(*ptr + CURRENT_DIRECTORY_OFFSET),
             &str,
             sizeof(UNICODE_STRING),
             nullptr
     ))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     if (!str.Buffer || str.Length == 0)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected(UNEXPECTED_DATA);
 
-    auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
+    const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
     if (!ReadProcessMemory(
             mHandle,
@@ -134,10 +162,10 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
             str.Length,
             nullptr
     ))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     std::error_code ec;
-    auto path = std::filesystem::canonical(buffer.get());
+    auto path = std::filesystem::canonical(buffer.get(), ec);
 
     if (ec)
         return tl::unexpected(ec);
@@ -150,28 +178,28 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
     DWORD size = ARRAYSIZE(buffer);
 
     if (!QueryFullProcessImageNameW(mHandle, 0, buffer, &size))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return buffer;
 }
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {
-    auto ptr = TRY(parameters());
+    const auto ptr = TRY(parameters());
     UNICODE_STRING str;
 
     if (!ReadProcessMemory(
             mHandle,
-            (LPCVOID) (*ptr + offsetof(RTL_USER_PROCESS_PARAMETERS, CommandLine)),
+            reinterpret_cast<LPCVOID>(*ptr + offsetof(RTL_USER_PROCESS_PARAMETERS, CommandLine)),
             &str,
             sizeof(UNICODE_STRING),
             nullptr
     ))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     if (!str.Buffer || str.Length == 0)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected(UNEXPECTED_DATA);
 
-    auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
+    const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
     if (!ReadProcessMemory(
             mHandle,
@@ -180,13 +208,13 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
             str.Length,
             nullptr
     ))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     int num = 0;
     LPWSTR *args = CommandLineToArgvW(buffer.get(), &num);
 
     if (!args)
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     DEFER(LocalFree(args));
     tl::expected<std::vector<std::string>, std::error_code> result;
@@ -206,30 +234,30 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
 }
 
 tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::process::Process::env() const {
-    auto ptr = TRY(parameters());
+    const auto ptr = TRY(parameters());
     PVOID env;
 
     if (!ReadProcessMemory(
             mHandle,
-            (LPCVOID) (*ptr + ENVIRONMENT_OFFSET),
+            reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_OFFSET),
             &env,
             sizeof(PVOID),
             nullptr
     ))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     ULONG size;
 
     if (!ReadProcessMemory(
             mHandle,
-            (LPCVOID) (*ptr + ENVIRONMENT_SIZE_OFFSET),
+            reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_SIZE_OFFSET),
             &size,
             sizeof(ULONG),
             nullptr
     ))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-    auto buffer = std::make_unique<WCHAR[]>(size / sizeof(WCHAR));
+    const auto buffer = std::make_unique<WCHAR[]>(size / sizeof(WCHAR));
 
     if (!ReadProcessMemory(
             mHandle,
@@ -238,9 +266,9 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
             size,
             nullptr
     ))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-    auto str = TRY(strings::encode({buffer.get(), size / sizeof(WCHAR)}));
+    const auto str = TRY(strings::encode({buffer.get(), size / sizeof(WCHAR)}));
 
     tl::expected<std::map<std::string, std::string>, std::error_code> result;
 
@@ -248,10 +276,10 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
         if (token.empty())
             break;
 
-        size_t pos = token.find('=');
+        const size_t pos = token.find('=');
 
         if (pos == std::string::npos) {
-            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
+            result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
             break;
         }
 
@@ -268,11 +296,11 @@ tl::expected<zero::os::nt::process::CPUStat, std::error_code> zero::os::nt::proc
     FILETIME create, exit, kernel, user;
 
     if (!GetProcessTimes(mHandle, &create, &exit, &kernel, &user))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return CPUStat{
-            double(user.dwHighDateTime) * 429.4967296 + double(user.dwLowDateTime) * 1e-7,
-            double(kernel.dwHighDateTime) * 429.4967296 + double(kernel.dwLowDateTime) * 1e-7,
+            static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
+            static_cast<double>(kernel.dwHighDateTime) * 429.4967296 + static_cast<double>(kernel.dwLowDateTime) * 1e-7,
     };
 }
 
@@ -280,7 +308,7 @@ tl::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::p
     PROCESS_MEMORY_COUNTERS counters;
 
     if (!GetProcessMemoryInfo(mHandle, &counters, sizeof(counters)))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return MemoryStat{
             counters.WorkingSetSize,
@@ -292,7 +320,7 @@ tl::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::proce
     IO_COUNTERS counters;
 
     if (!GetProcessIoCounters(mHandle, &counters))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return IOStat{
             counters.ReadOperationCount,
@@ -302,54 +330,25 @@ tl::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::proce
     };
 }
 
-tl::expected<uintptr_t, std::error_code> zero::os::nt::process::Process::parameters() const {
-    if (!queryInformationProcess)
-        return tl::unexpected(Error::API_NOT_AVAILABLE);
-
-    PROCESS_BASIC_INFORMATION info = {};
-
-    if (!NT_SUCCESS(queryInformationProcess(
-            mHandle,
-            ProcessBasicInformation,
-            &info,
-            sizeof(info),
-            nullptr
-    )))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
-
-    uintptr_t ptr;
-
-    if (!ReadProcessMemory(
-            mHandle,
-            &info.PebBaseAddress->ProcessParameters,
-            &ptr,
-            sizeof(ptr),
-            nullptr
-    ))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
-
-    return ptr;
-}
-
 tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {
     return Process{GetCurrentProcess(), GetCurrentProcessId()};
 }
 
-tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::open(DWORD pid) {
-    HANDLE handle = OpenProcess(
+tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::open(const DWORD pid) {
+    const HANDLE handle = OpenProcess(
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
             false,
             pid
     );
 
     if (!handle)
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return Process{handle, pid};
 }
 
 tl::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
-    size_t size = 4096;
+    std::size_t size = 4096;
     auto buffer = std::make_unique<DWORD[]>(size);
 
     tl::expected<std::list<DWORD>, std::error_code> result;
@@ -358,7 +357,7 @@ tl::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
         DWORD needed;
 
         if (!EnumProcesses(buffer.get(), size * sizeof(DWORD), &needed)) {
-            result = tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+            result = tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
             break;
         }
 

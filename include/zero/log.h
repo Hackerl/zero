@@ -2,15 +2,12 @@
 #define ZERO_LOG_H
 
 #include "interface.h"
-#include "singleton.h"
 #include "concurrent/channel.h"
 #include <thread>
 #include <fstream>
 #include <list>
 #include <mutex>
-#include <tuple>
 #include <array>
-#include <cstring>
 #include <filesystem>
 #include <fmt/format.h>
 #include <fmt/chrono.h>
@@ -44,54 +41,43 @@ namespace zero {
         virtual bool init() = 0;
         virtual bool rotate() = 0;
         virtual bool flush() = 0;
-
-    public:
         virtual LogResult write(const LogMessage &message) = 0;
     };
 
-    class ConsoleProvider : public ILogProvider {
+    class ConsoleProvider final : public ILogProvider {
     public:
         bool init() override;
         bool rotate() override;
         bool flush() override;
-
-    public:
         LogResult write(const LogMessage &message) override;
     };
 
-    class FileProvider : public ILogProvider {
+    class FileProvider final : public ILogProvider {
     public:
         explicit FileProvider(
                 const char *name,
                 const std::optional<std::filesystem::path> &directory = std::nullopt,
-                size_t limit = 10 * 1024 * 1024,
+                std::size_t limit = 10 * 1024 * 1024,
                 int remain = 10
         );
 
-    public:
         bool init() override;
         bool rotate() override;
         bool flush() override;
 
-    public:
         LogResult write(const LogMessage &message) override;
-
-    private:
-        std::string mName;
-        std::filesystem::path mDirectory;
 
     private:
         int mPID;
         int mRemain;
-        size_t mLimit;
-        size_t mPosition;
-
-    private:
+        std::size_t mLimit;
+        std::size_t mPosition;
         std::ofstream mStream;
+        std::string mName;
+        std::filesystem::path mDirectory;
     };
 
     class Logger {
-    private:
         struct Config {
             LogLevel level;
             std::unique_ptr<ILogProvider> provider;
@@ -103,22 +89,19 @@ namespace zero {
         Logger();
         ~Logger();
 
-    public:
-        bool enabled(LogLevel level);
-
     private:
         void consume();
 
     public:
+        [[nodiscard]] bool enabled(LogLevel level) const;
+
         void addProvider(
                 LogLevel level,
                 std::unique_ptr<ILogProvider> provider,
                 std::chrono::milliseconds interval = std::chrono::seconds{1}
         );
 
-    public:
-        template<typename... Args>
-        void log(LogLevel level, std::string_view filename, int line, std::string content) {
+        void log(const LogLevel level, const std::string_view filename, const int line, std::string content) {
             mChannel.send(
                     LogMessage{
                             level,
@@ -142,8 +125,8 @@ namespace zero {
         concurrent::Channel<LogMessage> mChannel;
     };
 
-    static inline constexpr std::string_view sourceFilename(std::string_view path) {
-        size_t pos = path.find_last_of("/\\");
+    static constexpr std::string_view sourceFilename(const std::string_view path) {
+        const auto pos = path.find_last_of("/\\");
 
         if (pos == std::string_view::npos)
             return path;
@@ -155,12 +138,12 @@ namespace zero {
 template<typename Char>
 struct fmt::formatter<zero::LogMessage, Char> {
     template<typename ParseContext>
-    constexpr ParseContext::iterator parse(ParseContext &ctx) {
+    static constexpr auto parse(ParseContext &ctx) {
         return ctx.begin();
     }
 
     template<typename FmtContext>
-    FmtContext::iterator format(const zero::LogMessage &message, FmtContext &ctx) const {
+    auto format(const zero::LogMessage &message, FmtContext &ctx) const {
         return fmt::format_to(
                 ctx.out(),
                 "{} | {:<5} | {:>20}:{:<4}] {}",

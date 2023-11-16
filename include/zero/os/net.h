@@ -37,12 +37,12 @@ namespace zero::os::net {
 template<typename Char>
 struct fmt::formatter<zero::os::net::IfAddress4, Char> {
     template<typename ParseContext>
-    constexpr ParseContext::iterator parse(ParseContext &ctx) {
+    static constexpr auto parse(ParseContext &ctx) {
         return ctx.begin();
     }
 
     template<typename FmtContext>
-    FmtContext::iterator format(const zero::os::net::IfAddress4 &address, FmtContext &ctx) const {
+    auto format(const zero::os::net::IfAddress4 &address, FmtContext &ctx) const {
         int mask = 0;
 
         for (auto b: address.mask) {
@@ -61,12 +61,12 @@ struct fmt::formatter<zero::os::net::IfAddress4, Char> {
 template<typename Char>
 struct fmt::formatter<zero::os::net::IfAddress6, Char> {
     template<typename ParseContext>
-    constexpr ParseContext::iterator parse(ParseContext &ctx) {
+    static constexpr auto parse(ParseContext &ctx) {
         return ctx.begin();
     }
 
     template<typename FmtContext>
-    FmtContext::iterator format(const zero::os::net::IfAddress6 &address, FmtContext &ctx) const {
+    static auto format(const zero::os::net::IfAddress6 &address, FmtContext &ctx) {
         return std::ranges::copy(zero::os::net::stringify(address.ip), ctx.out()).out;
     }
 };

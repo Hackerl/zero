@@ -11,7 +11,7 @@ namespace zero::os::darwin::process {
         UNEXPECTED_DATA = 1
     };
 
-    class ErrorCategory : public std::error_category {
+    class ErrorCategory final : public std::error_category {
     public:
         [[nodiscard]] const char *name() const noexcept override;
         [[nodiscard]] std::string message(int value) const override;
@@ -26,25 +26,28 @@ namespace zero::os::darwin::process {
     };
 
     struct MemoryStat {
-        uint64_t rss;
-        uint64_t vms;
-        uint64_t swap;
+        std::uint64_t rss;
+        std::uint64_t vms;
+        std::uint64_t swap;
     };
 
     struct IOStat {
-        uint64_t readBytes;
-        uint64_t writeBytes;
+        std::uint64_t readBytes;
+        std::uint64_t writeBytes;
     };
 
     class Process {
     public:
         explicit Process(pid_t pid);
+        Process(Process &&rhs) noexcept;
+
+    private:
+        [[nodiscard]] tl::expected<std::vector<char>, std::error_code> arguments() const;
 
     public:
         [[nodiscard]] pid_t pid() const;
         [[nodiscard]] tl::expected<pid_t, std::error_code> ppid() const;
 
-    public:
         [[nodiscard]] tl::expected<std::string, std::error_code> comm() const;
         [[nodiscard]] tl::expected<std::string, std::error_code> name() const;
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
@@ -52,13 +55,9 @@ namespace zero::os::darwin::process {
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
         [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
 
-    public:
         [[nodiscard]] tl::expected<CPUStat, std::error_code> cpu() const;
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
-
-    private:
-        [[nodiscard]] tl::expected<std::vector<char>, std::error_code> arguments() const;
 
     private:
         pid_t mPID;
@@ -69,11 +68,9 @@ namespace zero::os::darwin::process {
     tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
-namespace std {
-    template<>
-    struct is_error_code_enum<zero::os::darwin::process::Error> : public true_type {
+template<>
+struct std::is_error_code_enum<zero::os::darwin::process::Error> : std::true_type {
 
-    };
-}
+};
 
 #endif //ZERO_DARWIN_PROCESS_H

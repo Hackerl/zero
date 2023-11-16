@@ -3,7 +3,7 @@
 #include <array>
 
 TEST_CASE("hex encoding", "[base64]") {
-    std::array<std::byte, 5> buffer = {
+    constexpr std::array buffer = {
             std::byte{'h'},
             std::byte{'e'},
             std::byte{'l'},

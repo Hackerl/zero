@@ -1,6 +1,7 @@
 #ifndef ZERO_CIRCULAR_BUFFER_H
 #define ZERO_CIRCULAR_BUFFER_H
 
+#include <limits>
 #include <cstddef>
 #include <atomic>
 #include <memory>
@@ -10,7 +11,6 @@
 namespace zero::atomic {
     template<typename T>
     class CircularBuffer {
-    private:
         enum State {
             IDLE,
             PUTTING,
@@ -19,15 +19,15 @@ namespace zero::atomic {
         };
 
     public:
-        explicit CircularBuffer(size_t capacity)
-                : mHead(0), mTail(0), mCapacity(capacity), mModulo(SIZE_MAX / capacity * capacity),
+        explicit CircularBuffer(const std::size_t capacity)
+                : mHead(0), mTail(0), mCapacity(capacity),
+                  mModulo(std::numeric_limits<std::size_t>::max() / capacity * capacity),
                   mBuffer(std::make_unique<T[]>(capacity)), mState(std::make_unique<std::atomic<State>[]>(capacity)) {
             assert(mCapacity > 1);
         }
 
-    public:
-        std::optional<size_t> reserve() {
-            size_t index = mTail;
+        std::optional<std::size_t> reserve() {
+            std::size_t index = mTail;
 
             do {
                 if (full())
@@ -37,22 +37,19 @@ namespace zero::atomic {
             index %= mCapacity;
 
             while (true) {
-                State expected = IDLE;
-
-                if (mState[index].compare_exchange_weak(expected, PUTTING))
+                if (State expected = IDLE; mState[index].compare_exchange_weak(expected, PUTTING))
                     break;
             }
 
             return index;
         }
 
-        void commit(size_t index) {
+        void commit(std::size_t index) {
             mState[index] = VALID;
         }
 
-    public:
-        std::optional<size_t> acquire() {
-            size_t index = mHead;
+        std::optional<std::size_t> acquire() {
+            std::size_t index = mHead;
 
             do {
                 if (empty())
@@ -62,30 +59,26 @@ namespace zero::atomic {
             index %= mCapacity;
 
             while (true) {
-                State expected = VALID;
-
-                if (mState[index].compare_exchange_weak(expected, TAKING))
+                if (State expected = VALID; mState[index].compare_exchange_weak(expected, TAKING))
                     break;
             }
 
             return index;
         }
 
-        void release(size_t index) {
+        void release(std::size_t index) {
             mState[index] = IDLE;
         }
 
-    public:
-        T &operator[](size_t index) {
+        T &operator[](std::size_t index) {
             return mBuffer[index];
         }
 
-    public:
-        [[nodiscard]] size_t size() const {
+        [[nodiscard]] std::size_t size() const {
             return (mTail % mCapacity + mCapacity - mHead % mCapacity) % mCapacity;
         }
 
-        [[nodiscard]] size_t capacity() const {
+        [[nodiscard]] std::size_t capacity() const {
             return mCapacity;
         }
 
@@ -98,10 +91,10 @@ namespace zero::atomic {
         }
 
     private:
-        size_t mModulo;
-        size_t mCapacity;
-        std::atomic<size_t> mHead;
-        std::atomic<size_t> mTail;
+        std::size_t mModulo;
+        std::size_t mCapacity;
+        std::atomic<std::size_t> mHead;
+        std::atomic<std::size_t> mTail;
         std::unique_ptr<T[]> mBuffer;
         std::unique_ptr<std::atomic<State>[]> mState;
     };

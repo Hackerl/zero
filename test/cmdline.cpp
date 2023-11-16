@@ -8,17 +8,17 @@ struct Config {
 };
 
 template<>
-tl::expected<Config, std::error_code> zero::fromCommandLine(const std::string &str) {
-    auto tokens = zero::strings::split(str, ":");
+tl::expected<Config, std::error_code> zero::scan(const std::string_view input) {
+    const auto tokens = strings::split(input, ":");
 
     if (tokens.size() != 2)
         return tl::unexpected(make_error_code(std::errc::invalid_argument));
 
-    return Config{zero::strings::trim(tokens[0]), zero::strings::trim(tokens[1])};
+    return Config{strings::trim(tokens[0]), strings::trim(tokens[1])};
 }
 
 TEST_CASE("parse command line arguments", "[cmdline]") {
-    std::array<const char *, 8> argv = {
+    constexpr std::array argv = {
             "cmdline",
             "--output=/tmp/out",
             "-c",
@@ -26,13 +26,13 @@ TEST_CASE("parse command line arguments", "[cmdline]") {
             "--http",
             "--config=root:123456",
             "localhost",
-            "8080"
+            "8080, 8090, 9090",
     };
 
     zero::Cmdline cmdline;
 
     cmdline.add<std::string>("host", "remote host");
-    cmdline.add<short>("port", "remote port");
+    cmdline.add<std::vector<short>>("ports", "remote ports");
 
     cmdline.addOptional("http", '\0', "http protocol");
     cmdline.addOptional<std::filesystem::path>("output", '\0', "output path");
@@ -45,12 +45,12 @@ TEST_CASE("parse command line arguments", "[cmdline]") {
 
     REQUIRE(cmdline.exist("http"));
     REQUIRE(cmdline.get<std::string>("host") == "localhost");
-    REQUIRE(cmdline.get<short>("port") == 8080);
+    REQUIRE(cmdline.get<std::vector<short>>("ports") == std::vector<short>{8080, 8090, 9090});
     REQUIRE(*cmdline.getOptional<std::filesystem::path>("output") == "/tmp/out");
     REQUIRE(!cmdline.getOptional<std::string>("decompress"));
     REQUIRE(*cmdline.getOptional<int>("count") == 6);
 
-    std::optional<Config> config = cmdline.getOptional<Config>("config");
+    const auto config = cmdline.getOptional<Config>("config");
 
     REQUIRE(config);
     REQUIRE(config->username == "root");

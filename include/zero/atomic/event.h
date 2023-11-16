@@ -14,7 +14,7 @@
 namespace zero::atomic {
     class Event {
 #ifdef __APPLE__
-        using Value = uint64_t;
+        using Value = std::uint64_t;
 #else
         using Value = int;
 #endif
@@ -24,10 +24,8 @@ namespace zero::atomic {
         ~Event();
 #endif
 
-    public:
         tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
-    public:
         void notify();
         void broadcast();
 

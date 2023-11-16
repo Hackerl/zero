@@ -2,11 +2,11 @@
 #include <zero/async/coroutine.h>
 #include <catch2/catch_test_macros.hpp>
 
-tl::expected<std::unique_ptr<int>, std::error_code> func1(int value) {
+tl::expected<std::unique_ptr<int>, std::error_code> func1(const int value) {
     return std::make_unique<int>(value * 2);
 }
 
-tl::expected<std::unique_ptr<int>, std::error_code> func2(int value) {
+tl::expected<std::unique_ptr<int>, std::error_code> func2(const int value) {
     return std::make_unique<int>(value * 4);
 }
 
@@ -18,19 +18,19 @@ tl::expected<std::unique_ptr<int>, std::error_code> func4(int) {
     return tl::unexpected(make_error_code(std::errc::timed_out));
 }
 
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func5(int value) {
+zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func5(const int value) {
     co_return std::make_unique<int>(value * 2);
 }
 
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func6(int value) {
+zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func6(const int value) {
     co_return std::make_unique<int>(value * 4);
 }
 
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func7(int value) {
+zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func7(int) {
     co_return tl::unexpected(make_error_code(std::errc::operation_canceled));
 }
 
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func8(int value) {
+zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func8(int) {
     co_return tl::unexpected(make_error_code(std::errc::timed_out));
 }
 

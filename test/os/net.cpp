@@ -14,7 +14,7 @@ TEST_CASE("stringify IP address", "[net]") {
 
     REQUIRE(zero::os::net::stringify(std::array<std::byte, 16>{}) == "::");
 
-    std::array<std::byte, 16> ipv6 = {
+    constexpr std::array ipv6 = {
             std::byte{253},
             std::byte{189},
             std::byte{220},
@@ -36,7 +36,7 @@ TEST_CASE("stringify IP address", "[net]") {
     REQUIRE(zero::os::net::stringify(ipv6) == "fdbd:dc02:ff:1:9::8d");
 
     ipv4 = {std::byte{192}, std::byte{168}, std::byte{10}, std::byte{1}};
-    std::array<std::byte, 4> mask = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
+    std::array mask = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
 
     REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/32");
 

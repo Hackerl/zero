@@ -10,13 +10,17 @@ zero::os::process::Process::Process(ProcessImpl impl) : mImpl(std::move(impl)) {
 }
 
 zero::os::process::ID zero::os::process::Process::pid() const {
-    return (ID) mImpl.pid();
+#ifdef _WIN32
+    return static_cast<ID>(mImpl.pid());
+#else
+    return mImpl.pid();
+#endif
 }
 
 tl::expected<zero::os::process::ID, std::error_code> zero::os::process::Process::ppid() const {
 #ifdef _WIN32
-    return mImpl.ppid().transform([](DWORD pid) {
-        return (ID) pid;
+    return mImpl.ppid().transform([](const auto pid) {
+        return static_cast<DWORD>(pid);
     });
 #else
     return mImpl.ppid();
@@ -48,7 +52,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
 }
 
 tl::expected<zero::os::process::CPUStat, std::error_code> zero::os::process::Process::cpu() const {
-    auto cpu = TRY(mImpl.cpu());
+    const auto cpu = TRY(mImpl.cpu());
     return CPUStat{
             cpu->user,
             cpu->system
@@ -56,7 +60,7 @@ tl::expected<zero::os::process::CPUStat, std::error_code> zero::os::process::Pro
 }
 
 tl::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::Process::memory() const {
-    auto memory = TRY(mImpl.memory());
+    const auto memory = TRY(mImpl.memory());
     return MemoryStat{
             memory->rss,
             memory->vms
@@ -64,7 +68,7 @@ tl::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::
 }
 
 tl::expected<zero::os::process::IOStat, std::error_code> zero::os::process::Process::io() const {
-    auto io = TRY(mImpl.io());
+    const auto io = TRY(mImpl.io());
     return IOStat{
             io->readBytes,
             io->writeBytes
@@ -85,7 +89,7 @@ tl::expected<zero::os::process::Process, std::error_code> zero::os::process::sel
 
 tl::expected<zero::os::process::Process, std::error_code> zero::os::process::open(ID pid) {
 #ifdef _WIN32
-    auto impl = TRY(nt::process::open((DWORD) pid));
+    auto impl = TRY(nt::process::open(static_cast<DWORD>(pid)));
 #elif __APPLE__
     auto impl = TRY(darwin::process::open(pid));
 #elif __linux__
@@ -98,8 +102,8 @@ tl::expected<zero::os::process::Process, std::error_code> zero::os::process::ope
 tl::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::process::all() {
 #ifdef _WIN32
     return nt::process::all().transform([](const auto &ids) {
-        auto v = ids | std::views::transform([](DWORD pid) {
-            return (ID) pid;
+        auto v = ids | std::views::transform([](const auto pid) {
+            return static_cast<ID>(pid);
         });
 
         return std::list<ID>{v.begin(), v.end()};

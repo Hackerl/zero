@@ -2,13 +2,11 @@
 #include <catch2/catch_test_macros.hpp>
 
 zero::async::coroutine::Task<int, std::error_code> half(zero::async::coroutine::Task<int, std::error_code> task) {
-    auto value = co_await task;
+    const auto value = co_await task;
 
     if (!value) {
-        if (value.error() == std::errc::operation_canceled) {
-            bool cancelled = CO_CANCELLED();
-            REQUIRE(cancelled);
-        }
+        if (value.error() == std::errc::operation_canceled)
+            REQUIRE(CO_CANCELLED());
 
         co_return tl::unexpected(value.error());
     }
@@ -20,13 +18,11 @@ zero::async::coroutine::Task<int, std::error_code> half(zero::async::coroutine::
 }
 
 zero::async::coroutine::Task<long, std::error_code> half(zero::async::coroutine::Task<long, std::error_code> task) {
-    auto value = co_await task;
+    const auto value = co_await task;
 
     if (!value) {
-        if (value.error() == std::errc::operation_canceled) {
-            bool cancelled = CO_CANCELLED();
-            REQUIRE(cancelled);
-        }
+        if (value.error() == std::errc::operation_canceled)
+            REQUIRE(CO_CANCELLED());
 
         co_return tl::unexpected(value.error());
     }
@@ -39,13 +35,11 @@ zero::async::coroutine::Task<long, std::error_code> half(zero::async::coroutine:
 
 zero::async::coroutine::Task<void, std::error_code>
 requireEven(zero::async::coroutine::Task<int, std::error_code> task) {
-    auto value = co_await task;
+    const auto value = co_await task;
 
     if (!value) {
-        if (value.error() == std::errc::operation_canceled) {
-            bool cancelled = CO_CANCELLED();
-            REQUIRE(cancelled);
-        }
+        if (value.error() == std::errc::operation_canceled)
+            REQUIRE(CO_CANCELLED());
 
         co_return tl::unexpected(value.error());
     }
@@ -59,46 +53,46 @@ requireEven(zero::async::coroutine::Task<int, std::error_code> task) {
 TEST_CASE("C++20 coroutines with error", "[coroutine]") {
     SECTION("success") {
         zero::async::promise::Promise<int, std::error_code> promise;
-        auto task = half(zero::async::coroutine::from(promise));
+        const auto task = half(zero::async::coroutine::from(promise));
         REQUIRE(!task.done());
 
         promise.resolve(10);
         REQUIRE(task.done());
 
-        auto result = task.result();
+        const auto &result = task.result();
         REQUIRE(result);
         REQUIRE(*result == 5);
     }
 
     SECTION("failure") {
         zero::async::promise::Promise<int, std::error_code> promise;
-        auto task = half(zero::async::coroutine::from(promise));
+        const auto task = half(zero::async::coroutine::from(promise));
         REQUIRE(!task.done());
 
         promise.resolve(9);
         REQUIRE(task.done());
 
-        auto result = task.result();
+        const auto &result = task.result();
         REQUIRE(!result);
         REQUIRE(result.error() == std::errc::invalid_argument);
     }
 
     SECTION("throw") {
         zero::async::promise::Promise<int, std::error_code> promise;
-        auto task = half(zero::async::coroutine::from(promise));
+        const auto task = half(zero::async::coroutine::from(promise));
         REQUIRE(!task.done());
 
         promise.reject(make_error_code(std::errc::owner_dead));
         REQUIRE(task.done());
 
-        auto result = task.result();
+        const auto &result = task.result();
         REQUIRE(!result);
         REQUIRE(result.error() == std::errc::owner_dead);
     }
 
     SECTION("cancel") {
         zero::async::promise::Promise<int, std::error_code> promise;
-        auto task = half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+        auto task = half(from(zero::async::coroutine::Cancellable{
                 promise,
                 [=]() mutable -> tl::expected<void, std::error_code> {
                     promise.reject(make_error_code(std::errc::operation_canceled));
@@ -110,17 +104,17 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
         task.cancel();
         REQUIRE(task.done());
 
-        auto result = task.result();
+        const auto &result = task.result();
         REQUIRE(!result);
         REQUIRE(result.error() == std::errc::operation_canceled);
     }
 
     SECTION("traceback") {
         zero::async::promise::Promise<int, std::error_code> promise;
-        auto task = half(zero::async::coroutine::from(promise));
+        const auto task = half(zero::async::coroutine::from(promise));
         REQUIRE(!task.done());
 
-        auto callstack = task.traceback();
+        const auto callstack = task.traceback();
         REQUIRE(!callstack.empty());
         REQUIRE(strstr(callstack[0].function_name(), "half"));
 
@@ -128,7 +122,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
         REQUIRE(task.done());
         REQUIRE(task.traceback().empty());
 
-        auto result = task.result();
+        const auto &result = task.result();
         REQUIRE(result);
         REQUIRE(*result == 5);
     }
@@ -139,7 +133,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<int, std::error_code> promise1;
                 zero::async::promise::Promise<int, std::error_code> promise2;
 
-                auto task = zero::async::coroutine::all(
+                const auto task = all(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2))
                 );
@@ -149,7 +143,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise2.resolve(100);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(result);
                 REQUIRE(result == std::array{5, 50});
             }
@@ -158,7 +152,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<int, std::error_code> promise1;
                 zero::async::promise::Promise<int, std::error_code> promise2;
 
-                auto task = zero::async::coroutine::all(
+                const auto task = all(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2))
                 );
@@ -168,7 +162,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise2.resolve(99);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
                 REQUIRE(result.error() == std::errc::invalid_argument);
             }
@@ -177,7 +171,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<int, std::error_code> promise1;
                 zero::async::promise::Promise<int, std::error_code> promise2;
 
-                auto task = zero::async::coroutine::all(
+                const auto task = all(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2))
                 );
@@ -187,7 +181,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise2.reject(make_error_code(std::errc::owner_dead));
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
                 REQUIRE(result.error() == std::errc::owner_dead);
             }
@@ -198,15 +192,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<int, std::error_code> promise1;
                         zero::async::promise::Promise<int, std::error_code> promise2;
 
-                        auto task = zero::async::coroutine::all(
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                        auto task = all(
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise1,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise1.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise2,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise2.reject(make_error_code(std::errc::operation_canceled));
@@ -217,11 +211,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         REQUIRE(!task.done());
 
                         promise1.resolve(10);
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(res);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(!result);
                         REQUIRE(result.error() == std::errc::operation_canceled);
                     }
@@ -230,21 +224,21 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<int, std::error_code> promise1;
                         zero::async::promise::Promise<int, std::error_code> promise2;
 
-                        auto task = zero::async::coroutine::all(
+                        auto task = all(
                                 half(zero::async::coroutine::from(promise1)),
                                 half(zero::async::coroutine::from(promise2))
                         );
                         REQUIRE(!task.done());
 
                         promise1.resolve(10);
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(!res);
                         REQUIRE(res.error() == std::errc::operation_not_supported);
 
                         promise2.resolve(100);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(result);
                         REQUIRE(result == std::array{5, 50});
                     }
@@ -255,15 +249,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<int, std::error_code> promise1;
                         zero::async::promise::Promise<int, std::error_code> promise2;
 
-                        auto task = zero::async::coroutine::all(
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                        auto task = all(
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise1,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise1.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise2,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise2.reject(make_error_code(std::errc::operation_canceled));
@@ -273,11 +267,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         );
                         REQUIRE(!task.done());
 
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(res);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(!result);
                         REQUIRE(result.error() == std::errc::operation_canceled);
                     }
@@ -286,13 +280,13 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<int, std::error_code> promise1;
                         zero::async::promise::Promise<int, std::error_code> promise2;
 
-                        auto task = zero::async::coroutine::all(
+                        auto task = all(
                                 half(zero::async::coroutine::from(promise1)),
                                 half(zero::async::coroutine::from(promise2))
                         );
                         REQUIRE(!task.done());
 
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(!res);
                         REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -300,7 +294,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         promise2.resolve(100);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(result);
                         REQUIRE(result == std::array{5, 50});
                     }
@@ -314,7 +308,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<long, std::error_code> promise2;
                 zero::async::promise::Promise<int, std::error_code> promise3;
 
-                auto task = zero::async::coroutine::all(
+                const auto task = all(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2)),
                         requireEven(zero::async::coroutine::from(promise3))
@@ -326,7 +320,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise3.resolve(200);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(result);
                 REQUIRE(result == std::tuple{5, 50});
             }
@@ -336,7 +330,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<long, std::error_code> promise2;
                 zero::async::promise::Promise<int, std::error_code> promise3;
 
-                auto task = zero::async::coroutine::all(
+                const auto task = all(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2)),
                         requireEven(zero::async::coroutine::from(promise3))
@@ -348,7 +342,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise3.resolve(99);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
                 REQUIRE(result.error() == std::errc::invalid_argument);
             }
@@ -358,7 +352,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<long, std::error_code> promise2;
                 zero::async::promise::Promise<int, std::error_code> promise3;
 
-                auto task = zero::async::coroutine::all(
+                const auto task = all(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2)),
                         requireEven(zero::async::coroutine::from(promise3))
@@ -370,7 +364,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise3.reject(make_error_code(std::errc::owner_dead));
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
                 REQUIRE(result.error() == std::errc::owner_dead);
             }
@@ -382,22 +376,22 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<long, std::error_code> promise2;
                         zero::async::promise::Promise<int, std::error_code> promise3;
 
-                        auto task = zero::async::coroutine::all(
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                        auto task = all(
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise1,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise1.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise2,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise2.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                requireEven(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                requireEven(from(zero::async::coroutine::Cancellable{
                                         promise3,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise3.reject(make_error_code(std::errc::operation_canceled));
@@ -409,11 +403,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
 
                         promise1.resolve(10);
                         promise2.resolve(100);
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(res);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(!result);
                         REQUIRE(result.error() == std::errc::operation_canceled);
                     }
@@ -423,7 +417,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<long, std::error_code> promise2;
                         zero::async::promise::Promise<int, std::error_code> promise3;
 
-                        auto task = zero::async::coroutine::all(
+                        auto task = all(
                                 half(zero::async::coroutine::from(promise1)),
                                 half(zero::async::coroutine::from(promise2)),
                                 requireEven(zero::async::coroutine::from(promise3))
@@ -431,7 +425,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         REQUIRE(!task.done());
 
                         promise1.resolve(10);
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(!res);
                         REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -439,7 +433,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         promise3.resolve(200);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(result);
                         REQUIRE(result == std::tuple{5, 50});
                     }
@@ -451,22 +445,22 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<long, std::error_code> promise2;
                         zero::async::promise::Promise<int, std::error_code> promise3;
 
-                        auto task = zero::async::coroutine::all(
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                        auto task = all(
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise1,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise1.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise2,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise2.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                requireEven(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                requireEven(from(zero::async::coroutine::Cancellable{
                                         promise3,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise3.reject(make_error_code(std::errc::operation_canceled));
@@ -476,11 +470,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         );
                         REQUIRE(!task.done());
 
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(res);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(!result);
                         REQUIRE(result.error() == std::errc::operation_canceled);
                     }
@@ -490,14 +484,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<long, std::error_code> promise2;
                         zero::async::promise::Promise<int, std::error_code> promise3;
 
-                        auto task = zero::async::coroutine::all(
+                        auto task = all(
                                 half(zero::async::coroutine::from(promise1)),
                                 half(zero::async::coroutine::from(promise2)),
                                 requireEven(zero::async::coroutine::from(promise3))
                         );
                         REQUIRE(!task.done());
 
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(!res);
                         REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -506,7 +500,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         promise3.resolve(200);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(result);
                         REQUIRE(result == std::tuple{5, 50});
                     }
@@ -521,7 +515,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             zero::async::promise::Promise<long, std::error_code> promise2;
             zero::async::promise::Promise<int, std::error_code> promise3;
 
-            auto task = zero::async::coroutine::allSettled(
+            const auto task = allSettled(
                     half(zero::async::coroutine::from(promise1)),
                     half(zero::async::coroutine::from(promise2)),
                     requireEven(zero::async::coroutine::from(promise3))
@@ -533,7 +527,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             promise3.resolve(200);
             REQUIRE(task.done());
 
-            auto result = task.result();
+            const auto &result = task.result();
             REQUIRE(result);
             REQUIRE(std::get<0>(*result));
             REQUIRE(*std::get<0>(*result) == 5);
@@ -547,7 +541,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             zero::async::promise::Promise<long, std::error_code> promise2;
             zero::async::promise::Promise<int, std::error_code> promise3;
 
-            auto task = zero::async::coroutine::allSettled(
+            const auto task = allSettled(
                     half(zero::async::coroutine::from(promise1)),
                     half(zero::async::coroutine::from(promise2)),
                     requireEven(zero::async::coroutine::from(promise3))
@@ -559,7 +553,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             promise3.resolve(99);
             REQUIRE(task.done());
 
-            auto result = task.result();
+            const auto &result = task.result();
             REQUIRE(result);
             REQUIRE(std::get<0>(*result));
             REQUIRE(*std::get<0>(*result) == 5);
@@ -574,7 +568,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             zero::async::promise::Promise<long, std::error_code> promise2;
             zero::async::promise::Promise<int, std::error_code> promise3;
 
-            auto task = zero::async::coroutine::allSettled(
+            const auto task = allSettled(
                     half(zero::async::coroutine::from(promise1)),
                     half(zero::async::coroutine::from(promise2)),
                     requireEven(zero::async::coroutine::from(promise3))
@@ -586,7 +580,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             promise3.reject(make_error_code(std::errc::owner_dead));
             REQUIRE(task.done());
 
-            auto result = task.result();
+            const auto &result = task.result();
             REQUIRE(result);
             REQUIRE(std::get<0>(*result));
             REQUIRE(*std::get<0>(*result) == 5);
@@ -603,22 +597,22 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::allSettled(
-                            half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                    auto task = allSettled(
+                            half(from(zero::async::coroutine::Cancellable{
                                     promise1,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise1.reject(make_error_code(std::errc::operation_canceled));
                                         return {};
                                     }
                             })),
-                            half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                            half(from(zero::async::coroutine::Cancellable{
                                     promise2,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise2.reject(make_error_code(std::errc::operation_canceled));
                                         return {};
                                     }
                             })),
-                            requireEven(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                            requireEven(from(zero::async::coroutine::Cancellable{
                                     promise3,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise3.reject(make_error_code(std::errc::operation_canceled));
@@ -630,11 +624,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
 
                     promise1.resolve(10);
                     promise2.resolve(100);
-                    auto res = task.cancel();
+                    const auto &res = task.cancel();
                     REQUIRE(res);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(std::get<0>(*result));
                     REQUIRE(*std::get<0>(*result) == 5);
@@ -649,7 +643,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::allSettled(
+                    auto task = allSettled(
                             half(zero::async::coroutine::from(promise1)),
                             half(zero::async::coroutine::from(promise2)),
                             requireEven(zero::async::coroutine::from(promise3))
@@ -657,7 +651,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     REQUIRE(!task.done());
 
                     promise1.resolve(10);
-                    auto res = task.cancel();
+                    const auto &res = task.cancel();
                     REQUIRE(!res);
                     REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -665,7 +659,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise3.resolve(200);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(std::get<0>(*result));
                     REQUIRE(*std::get<0>(*result) == 5);
@@ -681,22 +675,22 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::allSettled(
-                            half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                    auto task = allSettled(
+                            half(from(zero::async::coroutine::Cancellable{
                                     promise1,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise1.reject(make_error_code(std::errc::operation_canceled));
                                         return {};
                                     }
                             })),
-                            half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                            half(from(zero::async::coroutine::Cancellable{
                                     promise2,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise2.reject(make_error_code(std::errc::operation_canceled));
                                         return {};
                                     }
                             })),
-                            requireEven(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                            requireEven(from(zero::async::coroutine::Cancellable{
                                     promise3,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise3.reject(make_error_code(std::errc::operation_canceled));
@@ -706,11 +700,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     );
                     REQUIRE(!task.done());
 
-                    auto res = task.cancel();
+                    const auto &res = task.cancel();
                     REQUIRE(res);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(!std::get<0>(*result));
                     REQUIRE(!std::get<1>(*result));
@@ -725,14 +719,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::allSettled(
+                    auto task = allSettled(
                             half(zero::async::coroutine::from(promise1)),
                             half(zero::async::coroutine::from(promise2)),
                             requireEven(zero::async::coroutine::from(promise3))
                     );
                     REQUIRE(!task.done());
 
-                    auto res = task.cancel();
+                    const auto &res = task.cancel();
                     REQUIRE(!res);
                     REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -741,7 +735,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise3.resolve(200);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(std::get<0>(*result));
                     REQUIRE(*std::get<0>(*result) == 5);
@@ -759,7 +753,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<int, std::error_code> promise1;
                 zero::async::promise::Promise<int, std::error_code> promise2;
 
-                auto task = zero::async::coroutine::any(
+                const auto task = any(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2))
                 );
@@ -769,7 +763,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise2.resolve(100);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(result);
                 REQUIRE(result == 50);
             }
@@ -778,7 +772,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<int, std::error_code> promise1;
                 zero::async::promise::Promise<int, std::error_code> promise2;
 
-                auto task = zero::async::coroutine::any(
+                const auto task = any(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2))
                 );
@@ -788,7 +782,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise2.resolve(99);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
 
                 auto it = result.error().begin();
@@ -800,7 +794,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<int, std::error_code> promise1;
                 zero::async::promise::Promise<int, std::error_code> promise2;
 
-                auto task = zero::async::coroutine::any(
+                const auto task = any(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2))
                 );
@@ -810,7 +804,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise2.reject(make_error_code(std::errc::owner_dead));
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
 
                 auto it = result.error().begin();
@@ -824,15 +818,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<int, std::error_code> promise1;
                         zero::async::promise::Promise<int, std::error_code> promise2;
 
-                        auto task = zero::async::coroutine::any(
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                        auto task = any(
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise1,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise1.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise2,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise2.reject(make_error_code(std::errc::operation_canceled));
@@ -843,11 +837,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         REQUIRE(!task.done());
 
                         promise1.resolve(9);
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(res);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(!result);
 
                         auto it = result.error().begin();
@@ -859,21 +853,21 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<int, std::error_code> promise1;
                         zero::async::promise::Promise<int, std::error_code> promise2;
 
-                        auto task = zero::async::coroutine::any(
+                        auto task = any(
                                 half(zero::async::coroutine::from(promise1)),
                                 half(zero::async::coroutine::from(promise2))
                         );
                         REQUIRE(!task.done());
 
                         promise1.resolve(9);
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(!res);
                         REQUIRE(res.error() == std::errc::operation_not_supported);
 
                         promise2.resolve(100);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(result);
                         REQUIRE(result == 50);
                     }
@@ -884,15 +878,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<int, std::error_code> promise1;
                         zero::async::promise::Promise<int, std::error_code> promise2;
 
-                        auto task = zero::async::coroutine::any(
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                        auto task = any(
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise1,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise1.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise2,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise2.reject(make_error_code(std::errc::operation_canceled));
@@ -902,11 +896,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         );
                         REQUIRE(!task.done());
 
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(res);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(!result);
 
                         auto it = result.error().begin();
@@ -918,13 +912,13 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<int, std::error_code> promise1;
                         zero::async::promise::Promise<int, std::error_code> promise2;
 
-                        auto task = zero::async::coroutine::any(
+                        auto task = any(
                                 half(zero::async::coroutine::from(promise1)),
                                 half(zero::async::coroutine::from(promise2))
                         );
                         REQUIRE(!task.done());
 
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(!res);
                         REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -932,7 +926,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         promise2.resolve(100);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(result);
                         REQUIRE(result == 50);
                     }
@@ -947,7 +941,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::any(
+                    const auto task = any(
                             half(zero::async::coroutine::from(promise1)),
                             half(zero::async::coroutine::from(promise2)),
                             requireEven(zero::async::coroutine::from(promise3))
@@ -959,7 +953,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise3.resolve(99);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(result->has_value());
 
@@ -974,7 +968,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::any(
+                    const auto task = any(
                             half(zero::async::coroutine::from(promise1)),
                             half(zero::async::coroutine::from(promise2)),
                             requireEven(zero::async::coroutine::from(promise3))
@@ -986,7 +980,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise3.resolve(100);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(!result->has_value());
 
@@ -1001,7 +995,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<long, std::error_code> promise2;
                 zero::async::promise::Promise<int, std::error_code> promise3;
 
-                auto task = zero::async::coroutine::any(
+                const auto task = any(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2)),
                         requireEven(zero::async::coroutine::from(promise3))
@@ -1013,7 +1007,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise3.resolve(199);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
 
                 auto it = result.error().begin();
@@ -1027,7 +1021,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<long, std::error_code> promise2;
                 zero::async::promise::Promise<int, std::error_code> promise3;
 
-                auto task = zero::async::coroutine::any(
+                const auto task = any(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2)),
                         requireEven(zero::async::coroutine::from(promise3))
@@ -1039,7 +1033,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise3.reject(make_error_code(std::errc::owner_dead));
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
 
                 auto it = result.error().begin();
@@ -1055,22 +1049,22 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<long, std::error_code> promise2;
                         zero::async::promise::Promise<int, std::error_code> promise3;
 
-                        auto task = zero::async::coroutine::any(
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                        auto task = any(
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise1,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise1.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise2,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise2.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                requireEven(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                requireEven(from(zero::async::coroutine::Cancellable{
                                         promise3,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise3.reject(make_error_code(std::errc::operation_canceled));
@@ -1081,11 +1075,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         REQUIRE(!task.done());
 
                         promise1.resolve(9);
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(res);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(!result);
 
                         auto it = result.error().begin();
@@ -1099,7 +1093,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<long, std::error_code> promise2;
                         zero::async::promise::Promise<int, std::error_code> promise3;
 
-                        auto task = zero::async::coroutine::any(
+                        auto task = any(
                                 half(zero::async::coroutine::from(promise1)),
                                 half(zero::async::coroutine::from(promise2)),
                                 requireEven(zero::async::coroutine::from(promise3))
@@ -1107,7 +1101,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         REQUIRE(!task.done());
 
                         promise1.resolve(9);
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(!res);
                         REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -1115,7 +1109,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         promise3.resolve(100);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(result);
                         REQUIRE(!result->has_value());
 
@@ -1131,22 +1125,22 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<long, std::error_code> promise2;
                         zero::async::promise::Promise<int, std::error_code> promise3;
 
-                        auto task = zero::async::coroutine::any(
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                        auto task = any(
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise1,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise1.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                half(from(zero::async::coroutine::Cancellable{
                                         promise2,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise2.reject(make_error_code(std::errc::operation_canceled));
                                             return {};
                                         }
                                 })),
-                                requireEven(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                                requireEven(from(zero::async::coroutine::Cancellable{
                                         promise3,
                                         [=]() mutable -> tl::expected<void, std::error_code> {
                                             promise3.reject(make_error_code(std::errc::operation_canceled));
@@ -1156,11 +1150,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         );
                         REQUIRE(!task.done());
 
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(res);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(!result);
 
                         auto it = result.error().begin();
@@ -1174,14 +1168,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         zero::async::promise::Promise<long, std::error_code> promise2;
                         zero::async::promise::Promise<int, std::error_code> promise3;
 
-                        auto task = zero::async::coroutine::any(
+                        auto task = any(
                                 half(zero::async::coroutine::from(promise1)),
                                 half(zero::async::coroutine::from(promise2)),
                                 requireEven(zero::async::coroutine::from(promise3))
                         );
                         REQUIRE(!task.done());
 
-                        auto res = task.cancel();
+                        const auto &res = task.cancel();
                         REQUIRE(!res);
                         REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -1190,7 +1184,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         promise3.resolve(90);
                         REQUIRE(task.done());
 
-                        auto result = task.result();
+                        const auto &result = task.result();
                         REQUIRE(result);
                         REQUIRE(result->has_value());
 
@@ -1210,7 +1204,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<int, std::error_code> promise1;
                 zero::async::promise::Promise<int, std::error_code> promise2;
 
-                auto task = zero::async::coroutine::race(
+                const auto task = race(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2))
                 );
@@ -1220,7 +1214,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise2.resolve(99);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(result);
                 REQUIRE(result == 5);
             }
@@ -1229,7 +1223,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<int, std::error_code> promise1;
                 zero::async::promise::Promise<int, std::error_code> promise2;
 
-                auto task = zero::async::coroutine::race(
+                const auto task = race(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2))
                 );
@@ -1239,7 +1233,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise2.resolve(100);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
                 REQUIRE(result.error() == std::errc::invalid_argument);
             }
@@ -1248,7 +1242,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<int, std::error_code> promise1;
                 zero::async::promise::Promise<int, std::error_code> promise2;
 
-                auto task = zero::async::coroutine::race(
+                const auto task = race(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2))
                 );
@@ -1258,7 +1252,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise2.resolve(100);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
                 REQUIRE(result.error() == std::errc::owner_dead);
             }
@@ -1268,15 +1262,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<int, std::error_code> promise1;
                     zero::async::promise::Promise<int, std::error_code> promise2;
 
-                    auto task = zero::async::coroutine::race(
-                            half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                    auto task = race(
+                            half(from(zero::async::coroutine::Cancellable{
                                     promise1,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise1.reject(make_error_code(std::errc::operation_canceled));
                                         return {};
                                     }
                             })),
-                            half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                            half(from(zero::async::coroutine::Cancellable{
                                     promise2,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise2.reject(make_error_code(std::errc::operation_canceled));
@@ -1286,11 +1280,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     );
                     REQUIRE(!task.done());
 
-                    auto res = task.cancel();
+                    const auto &res = task.cancel();
                     REQUIRE(res);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::operation_canceled);
                 }
@@ -1299,13 +1293,13 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<int, std::error_code> promise1;
                     zero::async::promise::Promise<int, std::error_code> promise2;
 
-                    auto task = zero::async::coroutine::race(
+                    auto task = race(
                             half(zero::async::coroutine::from(promise1)),
                             half(zero::async::coroutine::from(promise2))
                     );
                     REQUIRE(!task.done());
 
-                    auto res = task.cancel();
+                    const auto &res = task.cancel();
                     REQUIRE(!res);
                     REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -1313,7 +1307,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise2.resolve(100);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(result == 5);
                 }
@@ -1327,7 +1321,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::race(
+                    const auto task = race(
                             half(zero::async::coroutine::from(promise1)),
                             half(zero::async::coroutine::from(promise2)),
                             requireEven(zero::async::coroutine::from(promise3))
@@ -1339,7 +1333,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise3.resolve(199);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(result->has_value());
 
@@ -1354,7 +1348,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::race(
+                    const auto task = race(
                             half(zero::async::coroutine::from(promise1)),
                             half(zero::async::coroutine::from(promise2)),
                             requireEven(zero::async::coroutine::from(promise3))
@@ -1366,7 +1360,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise2.resolve(99);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(!result->has_value());
 
@@ -1381,7 +1375,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<long, std::error_code> promise2;
                 zero::async::promise::Promise<int, std::error_code> promise3;
 
-                auto task = zero::async::coroutine::race(
+                const auto task = race(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2)),
                         requireEven(zero::async::coroutine::from(promise3))
@@ -1393,7 +1387,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise3.resolve(199);
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
                 REQUIRE(result.error() == std::errc::invalid_argument);
             }
@@ -1403,7 +1397,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 zero::async::promise::Promise<long, std::error_code> promise2;
                 zero::async::promise::Promise<int, std::error_code> promise3;
 
-                auto task = zero::async::coroutine::race(
+                const auto task = race(
                         half(zero::async::coroutine::from(promise1)),
                         half(zero::async::coroutine::from(promise2)),
                         requireEven(zero::async::coroutine::from(promise3))
@@ -1415,7 +1409,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 promise3.reject(make_error_code(std::errc::io_error));
                 REQUIRE(task.done());
 
-                auto result = task.result();
+                const auto &result = task.result();
                 REQUIRE(!result);
                 REQUIRE(result.error() == std::errc::owner_dead);
             }
@@ -1426,22 +1420,22 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::race(
-                            half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                    auto task = race(
+                            half(from(zero::async::coroutine::Cancellable{
                                     promise1,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise1.reject(make_error_code(std::errc::operation_canceled));
                                         return {};
                                     }
                             })),
-                            half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                            half(from(zero::async::coroutine::Cancellable{
                                     promise2,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise2.reject(make_error_code(std::errc::operation_canceled));
                                         return {};
                                     }
                             })),
-                            requireEven(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                            requireEven(from(zero::async::coroutine::Cancellable{
                                     promise3,
                                     [=]() mutable -> tl::expected<void, std::error_code> {
                                         promise3.reject(make_error_code(std::errc::operation_canceled));
@@ -1451,11 +1445,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     );
                     REQUIRE(!task.done());
 
-                    auto res = task.cancel();
+                    const auto &res = task.cancel();
                     REQUIRE(res);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::operation_canceled);
                 }
@@ -1465,14 +1459,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     zero::async::promise::Promise<long, std::error_code> promise2;
                     zero::async::promise::Promise<int, std::error_code> promise3;
 
-                    auto task = zero::async::coroutine::race(
+                    auto task = race(
                             half(zero::async::coroutine::from(promise1)),
                             half(zero::async::coroutine::from(promise2)),
                             requireEven(zero::async::coroutine::from(promise3))
                     );
                     REQUIRE(!task.done());
 
-                    auto res = task.cancel();
+                    const auto &res = task.cancel();
                     REQUIRE(!res);
                     REQUIRE(res.error() == std::errc::operation_not_supported);
 
@@ -1481,7 +1475,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise3.resolve(90);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::invalid_argument);
                 }
@@ -1494,8 +1488,8 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             SECTION("normal") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .andThen([](int value) -> tl::expected<int, std::error_code> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .andThen([](const auto &value) -> tl::expected<int, std::error_code> {
                                 return value * 10;
                             });
                     REQUIRE(!task.done());
@@ -1503,15 +1497,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 50);
                 }
 
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .andThen([](int value) -> tl::expected<int, std::error_code> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .andThen([](const auto &value) -> tl::expected<int, std::error_code> {
                                 return value * 10;
                             });
                     REQUIRE(!task.done());
@@ -1519,15 +1513,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::invalid_argument);
                 }
 
                 SECTION("throw") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .andThen([](int value) -> tl::expected<int, std::error_code> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .andThen([](const auto &value) -> tl::expected<int, std::error_code> {
                                 return value * 10;
                             });
                     REQUIRE(!task.done());
@@ -1535,20 +1529,20 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.reject(make_error_code(std::errc::owner_dead));
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::owner_dead);
                 }
 
                 SECTION("cancel") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                    auto task = half(from(zero::async::coroutine::Cancellable{
                             promise,
                             [=]() mutable -> tl::expected<void, std::error_code> {
                                 promise.reject(make_error_code(std::errc::operation_canceled));
                                 return {};
                             }
-                    })).andThen([](int value) -> tl::expected<int, std::error_code> {
+                    })).andThen([](const auto &value) -> tl::expected<int, std::error_code> {
                         return value * 10;
                     });
                     REQUIRE(!task.done());
@@ -1556,15 +1550,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     task.cancel();
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::operation_canceled);
                 }
 
                 SECTION("void") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .andThen([](int value) -> tl::expected<void, std::error_code> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .andThen([](const auto &) -> tl::expected<void, std::error_code> {
                                 return {};
                             })
                             .andThen([]() -> tl::expected<int, std::error_code> {
@@ -1575,7 +1569,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 1000);
                 }
@@ -1584,8 +1578,8 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             SECTION("coroutine") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .andThen([](int value) -> zero::async::coroutine::Task<int, std::error_code> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .andThen([](const auto &value) -> zero::async::coroutine::Task<int, std::error_code> {
                                 co_return value * 10;
                             });
                     REQUIRE(!task.done());
@@ -1593,15 +1587,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 50);
                 }
 
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .andThen([](int value) -> zero::async::coroutine::Task<int, std::error_code> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .andThen([](const auto &value) -> zero::async::coroutine::Task<int, std::error_code> {
                                 co_return value * 10;
                             });
                     REQUIRE(!task.done());
@@ -1609,15 +1603,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::invalid_argument);
                 }
 
                 SECTION("throw") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .andThen([](int value) -> zero::async::coroutine::Task<int, std::error_code> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .andThen([](const auto &value) -> zero::async::coroutine::Task<int, std::error_code> {
                                 co_return value * 10;
                             });
                     REQUIRE(!task.done());
@@ -1625,20 +1619,20 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.reject(make_error_code(std::errc::owner_dead));
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::owner_dead);
                 }
 
                 SECTION("cancel") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                    auto task = half(from(zero::async::coroutine::Cancellable{
                             promise,
                             [=]() mutable -> tl::expected<void, std::error_code> {
                                 promise.reject(make_error_code(std::errc::operation_canceled));
                                 return {};
                             }
-                    })).andThen([](int value) -> zero::async::coroutine::Task<int, std::error_code> {
+                    })).andThen([](const auto &value) -> zero::async::coroutine::Task<int, std::error_code> {
                         co_return value * 10;
                     });
                     REQUIRE(!task.done());
@@ -1646,15 +1640,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     task.cancel();
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::operation_canceled);
                 }
 
                 SECTION("void") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .andThen([](int value) -> zero::async::coroutine::Task<void, std::error_code> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .andThen([](const auto &) -> zero::async::coroutine::Task<void, std::error_code> {
                                 co_return tl::expected<void, std::error_code>{};
                             })
                             .andThen([]() -> zero::async::coroutine::Task<int, std::error_code> {
@@ -1665,7 +1659,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 1000);
                 }
@@ -1676,7 +1670,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             SECTION("normal") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise)).transform([](int value) {
+                    const auto task = half(zero::async::coroutine::from(promise)).transform([](const auto &value) {
                         return value * 10;
                     });
                     REQUIRE(!task.done());
@@ -1684,14 +1678,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 50);
                 }
 
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise)).transform([](int value) {
+                    const auto task = half(zero::async::coroutine::from(promise)).transform([](const auto &value) {
                         return value * 10;
                     });
                     REQUIRE(!task.done());
@@ -1699,14 +1693,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::invalid_argument);
                 }
 
                 SECTION("throw") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise)).transform([](int value) {
+                    const auto task = half(zero::async::coroutine::from(promise)).transform([](const auto &value) {
                         return value * 10;
                     });
                     REQUIRE(!task.done());
@@ -1714,20 +1708,20 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.reject(make_error_code(std::errc::owner_dead));
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::owner_dead);
                 }
 
                 SECTION("cancel") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                    auto task = half(from(zero::async::coroutine::Cancellable{
                             promise,
                             [=]() mutable -> tl::expected<void, std::error_code> {
                                 promise.reject(make_error_code(std::errc::operation_canceled));
                                 return {};
                             }
-                    })).transform([](int value) {
+                    })).transform([](const auto &value) {
                         return value * 10;
                     });
                     REQUIRE(!task.done());
@@ -1735,16 +1729,16 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     task.cancel();
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::operation_canceled);
                 }
 
                 SECTION("void") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise)).transform([](int value) {
+                    const auto task = half(zero::async::coroutine::from(promise)).transform([](const auto &) {
 
-                    }).transform([]() {
+                    }).transform([] {
                         return 1000;
                     });
                     REQUIRE(!task.done());
@@ -1752,7 +1746,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 1000);
                 }
@@ -1761,8 +1755,8 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             SECTION("coroutine") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .transform([](int value) -> zero::async::coroutine::Task<int> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .transform([](const auto &value) -> zero::async::coroutine::Task<int> {
                                 co_return value * 10;
                             });
                     REQUIRE(!task.done());
@@ -1770,15 +1764,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 50);
                 }
 
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .transform([](int value) -> zero::async::coroutine::Task<int> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .transform([](const auto &value) -> zero::async::coroutine::Task<int> {
                                 co_return value * 10;
                             });
                     REQUIRE(!task.done());
@@ -1786,15 +1780,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::invalid_argument);
                 }
 
                 SECTION("throw") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .transform([](int value) -> zero::async::coroutine::Task<int> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .transform([](const auto &value) -> zero::async::coroutine::Task<int> {
                                 co_return value * 10;
                             });
                     REQUIRE(!task.done());
@@ -1802,20 +1796,20 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.reject(make_error_code(std::errc::owner_dead));
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::owner_dead);
                 }
 
                 SECTION("cancel") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(zero::async::coroutine::Cancellable{
+                    auto task = half(from(zero::async::coroutine::Cancellable{
                             promise,
                             [=]() mutable -> tl::expected<void, std::error_code> {
                                 promise.reject(make_error_code(std::errc::operation_canceled));
                                 return {};
                             }
-                    })).transform([](int value) -> zero::async::coroutine::Task<int> {
+                    })).transform([](const auto &value) -> zero::async::coroutine::Task<int> {
                         co_return value * 10;
                     });
                     REQUIRE(!task.done());
@@ -1823,15 +1817,15 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     task.cancel();
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::operation_canceled);
                 }
 
                 SECTION("void") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
-                            .transform([](int value) -> zero::async::coroutine::Task<void> {
+                    const auto task = half(zero::async::coroutine::from(promise))
+                            .transform([](const auto &) -> zero::async::coroutine::Task<void> {
                                 co_return;
                             })
                             .transform([]() -> zero::async::coroutine::Task<int> {
@@ -1842,7 +1836,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 1000);
                 }
@@ -1853,7 +1847,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             SECTION("normal") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
+                    const auto task = half(zero::async::coroutine::from(promise))
                             .orElse([](std::error_code ec) -> tl::expected<int, std::error_code> {
                                 REQUIRE(ec == std::errc::invalid_argument);
                                 return 1000;
@@ -1863,14 +1857,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 1000);
                 }
 
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
+                    const auto task = half(zero::async::coroutine::from(promise))
                             .orElse([](std::error_code ec) -> tl::expected<int, std::error_code> {
                                 REQUIRE(ec == std::errc::invalid_argument);
                                 return tl::unexpected(make_error_code(std::errc::owner_dead));
@@ -1880,14 +1874,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::owner_dead);
                 }
 
                 SECTION("throw") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
+                    const auto task = half(zero::async::coroutine::from(promise))
                             .orElse([](std::error_code ec) -> tl::expected<int, std::error_code> {
                                 REQUIRE(ec == std::errc::owner_dead);
                                 return 1000;
@@ -1897,7 +1891,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.reject(make_error_code(std::errc::owner_dead));
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 1000);
                 }
@@ -1906,7 +1900,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             SECTION("coroutine") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
+                    const auto task = half(zero::async::coroutine::from(promise))
                             .orElse([](std::error_code ec) -> zero::async::coroutine::Task<int, std::error_code> {
                                 REQUIRE(ec == std::errc::invalid_argument);
                                 co_return 1000;
@@ -1916,14 +1910,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 1000);
                 }
 
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
+                    const auto task = half(zero::async::coroutine::from(promise))
                             .orElse([](std::error_code ec) -> zero::async::coroutine::Task<int, std::error_code> {
                                 REQUIRE(ec == std::errc::invalid_argument);
                                 co_return tl::unexpected(make_error_code(std::errc::owner_dead));
@@ -1933,14 +1927,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == std::errc::owner_dead);
                 }
 
                 SECTION("throw") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
+                    const auto task = half(zero::async::coroutine::from(promise))
                             .orElse([](std::error_code ec) -> zero::async::coroutine::Task<int, std::error_code> {
                                 REQUIRE(ec == std::errc::owner_dead);
                                 co_return 1000;
@@ -1950,7 +1944,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.reject(make_error_code(std::errc::owner_dead));
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 1000);
                 }
@@ -1961,7 +1955,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             SECTION("normal") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise)).transformError([](std::error_code ec) {
+                    const auto task = half(zero::async::coroutine::from(promise)).transformError([](const auto &ec) {
                         return ec.value();
                     });
                     REQUIRE(!task.done());
@@ -1969,14 +1963,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 5);
                 }
 
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise)).transformError([](std::error_code ec) {
+                    const auto task = half(zero::async::coroutine::from(promise)).transformError([](const auto &ec) {
                         return ec.value();
                     });
                     REQUIRE(!task.done());
@@ -1984,14 +1978,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == (int) std::errc::invalid_argument);
                 }
 
                 SECTION("throw") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise)).transformError([](std::error_code ec) {
+                    const auto task = half(zero::async::coroutine::from(promise)).transformError([](const auto &ec) {
                         return ec.value();
                     });
                     REQUIRE(!task.done());
@@ -1999,7 +1993,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.reject(make_error_code(std::errc::owner_dead));
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == (int) std::errc::owner_dead);
                 }
@@ -2008,7 +2002,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             SECTION("coroutine") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
+                    const auto task = half(zero::async::coroutine::from(promise))
                             .transformError([](std::error_code ec) -> zero::async::coroutine::Task<int> {
                                 co_return ec.value();
                             });
@@ -2017,14 +2011,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(10);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(result);
                     REQUIRE(*result == 5);
                 }
 
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
+                    const auto task = half(zero::async::coroutine::from(promise))
                             .transformError([](std::error_code ec) -> zero::async::coroutine::Task<int> {
                                 co_return ec.value();
                             });
@@ -2033,14 +2027,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.resolve(9);
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == (int) std::errc::invalid_argument);
                 }
 
                 SECTION("throw") {
                     zero::async::promise::Promise<int, std::error_code> promise;
-                    auto task = half(zero::async::coroutine::from(promise))
+                    const auto task = half(zero::async::coroutine::from(promise))
                             .transformError([](std::error_code ec) -> zero::async::coroutine::Task<int> {
                                 co_return ec.value();
                             });
@@ -2049,7 +2043,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     promise.reject(make_error_code(std::errc::owner_dead));
                     REQUIRE(task.done());
 
-                    auto result = task.result();
+                    const auto &result = task.result();
                     REQUIRE(!result);
                     REQUIRE(result.error() == (int) std::errc::owner_dead);
                 }

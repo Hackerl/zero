@@ -9,11 +9,10 @@ namespace zero::cache {
     template<typename K, typename V>
     class LRUCache {
     public:
-        explicit LRUCache(size_t capacity) : mCapacity(capacity) {
+        explicit LRUCache(const std::size_t capacity) : mCapacity(capacity) {
 
         }
 
-    public:
         void set(const K &key, const V &value) {
             auto it = mMap.find(key);
 
@@ -59,15 +58,14 @@ namespace zero::cache {
         }
 
         [[nodiscard]] bool contains(const K &key) const {
-            return mMap.find(key) != mMap.end();
+            return mMap.contains(key);
         }
 
-    public:
-        [[nodiscard]] size_t size() const {
+        [[nodiscard]] std::size_t size() const {
             return mMap.size();
         }
 
-        [[nodiscard]] size_t capacity() const {
+        [[nodiscard]] std::size_t capacity() const {
             return mCapacity;
         }
 
@@ -76,7 +74,7 @@ namespace zero::cache {
         }
 
     private:
-        size_t mCapacity;
+        std::size_t mCapacity;
         std::list<K> mKeys;
         std::unordered_map<K, std::pair<V, typename std::list<K>::iterator>> mMap;
     };
