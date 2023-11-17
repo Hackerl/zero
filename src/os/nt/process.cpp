@@ -292,13 +292,13 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
     return result;
 }
 
-tl::expected<zero::os::nt::process::CPUStat, std::error_code> zero::os::nt::process::Process::cpu() const {
+tl::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::process::Process::cpu() const {
     FILETIME create, exit, kernel, user;
 
     if (!GetProcessTimes(mHandle, &create, &exit, &kernel, &user))
         return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-    return CPUStat{
+    return CPUTime{
             static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
             static_cast<double>(kernel.dwHighDateTime) * 429.4967296 + static_cast<double>(kernel.dwLowDateTime) * 1e-7,
     };

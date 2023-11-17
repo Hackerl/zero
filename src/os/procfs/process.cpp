@@ -1,4 +1,5 @@
-#include <zero/os/procfs.h>
+#include <zero/os/procfs/process.h>
+#include <zero/os/procfs/procfs.h>
 #include <zero/try.h>
 #include <zero/defer.h>
 #include <zero/strings/strings.h>
@@ -13,64 +14,23 @@ constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
-const char *zero::os::procfs::ErrorCategory::name() const noexcept {
-    return "zero::os::procfs";
-}
-
-std::string zero::os::procfs::ErrorCategory::message(const int value) const {
-    std::string msg;
-
-    switch (value) {
-        case NO_SUCH_IMAGE:
-            msg = "no such image";
-            break;
-
-        case NO_SUCH_MEMORY_MAPPING:
-            msg = "no such memory mapping";
-            break;
-
-        case UNEXPECTED_DATA:
-            msg = "unexpected data";
-            break;
-
-        case MAYBE_ZOMBIE_PROCESS:
-            msg = "maybe zombie process";
-            break;
-
-        default:
-            msg = "unknown";
-            break;
-    }
-
-    return msg;
-}
-
-const std::error_category &zero::os::procfs::errorCategory() {
-    static ErrorCategory instance;
-    return instance;
-}
-
-std::error_code zero::os::procfs::make_error_code(const Error e) {
-    return {static_cast<int>(e), errorCategory()};
-}
-
-zero::os::procfs::Process::Process(const int fd, const pid_t pid) : mFD(fd), mPID(pid) {
+zero::os::procfs::process::Process::Process(const int fd, const pid_t pid) : mFD(fd), mPID(pid) {
 
 }
 
-zero::os::procfs::Process::Process(Process &&rhs) noexcept
+zero::os::procfs::process::Process::Process(Process &&rhs) noexcept
         : mFD(std::exchange(rhs.mFD, -1)), mPID(std::exchange(rhs.mPID, -1)) {
 
 }
 
-zero::os::procfs::Process::~Process() {
+zero::os::procfs::process::Process::~Process() {
     if (mFD < 0)
         return;
 
     close(mFD);
 }
 
-tl::expected<std::string, std::error_code> zero::os::procfs::Process::readFile(const char *filename) const {
+tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::readFile(const char *filename) const {
     const auto fd = openat(mFD, filename, O_RDONLY);
 
     if (fd < 0)
@@ -97,17 +57,17 @@ tl::expected<std::string, std::error_code> zero::os::procfs::Process::readFile(c
     return result;
 }
 
-pid_t zero::os::procfs::Process::pid() const {
+pid_t zero::os::procfs::process::Process::pid() const {
     return mPID;
 }
 
-tl::expected<pid_t, std::error_code> zero::os::procfs::Process::ppid() const {
+tl::expected<pid_t, std::error_code> zero::os::procfs::process::Process::ppid() const {
     const auto stat = TRY(this->stat());
     return stat->ppid;
 }
 
-tl::expected<zero::os::procfs::MemoryMapping, std::error_code>
-zero::os::procfs::Process::getImageBase(std::string_view path) const {
+tl::expected<zero::os::procfs::process::MemoryMapping, std::error_code>
+zero::os::procfs::process::Process::getImageBase(std::string_view path) const {
     const auto memoryMappings = TRY(maps());
     const auto it = std::ranges::find_if(
             *memoryMappings,
@@ -122,8 +82,8 @@ zero::os::procfs::Process::getImageBase(std::string_view path) const {
     return *it;
 }
 
-tl::expected<zero::os::procfs::MemoryMapping, std::error_code>
-zero::os::procfs::Process::findMapping(std::uintptr_t address) const {
+tl::expected<zero::os::procfs::process::MemoryMapping, std::error_code>
+zero::os::procfs::process::Process::findMapping(std::uintptr_t address) const {
     const auto memoryMappings = TRY(maps());
     const auto it = std::ranges::find_if(
             *memoryMappings,
@@ -138,7 +98,7 @@ zero::os::procfs::Process::findMapping(std::uintptr_t address) const {
     return *it;
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::Process::exe() const {
+tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::exe() const {
     char buffer[PATH_MAX + 1] = {};
 
     if (readlinkat(mFD, "exe", buffer, PATH_MAX) == -1)
@@ -147,7 +107,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::Process::
     return buffer;
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::Process::cwd() const {
+tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::cwd() const {
     char buffer[PATH_MAX + 1] = {};
 
     if (readlinkat(mFD, "cwd", buffer, PATH_MAX) == -1)
@@ -156,7 +116,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::Process::
     return buffer;
 }
 
-tl::expected<std::string, std::error_code> zero::os::procfs::Process::comm() const {
+tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::comm() const {
     auto content = TRY(readFile("comm"));
 
     if (content->size() < 2)
@@ -166,7 +126,7 @@ tl::expected<std::string, std::error_code> zero::os::procfs::Process::comm() con
     return *content;
 }
 
-tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::Process::cmdline() const {
+tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::process::Process::cmdline() const {
     const auto content = TRY(readFile("cmdline"));
 
     if (content->empty())
@@ -181,7 +141,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::Proces
     return tokens;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::Process::env() const {
+tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::process::Process::env() const {
     const auto content = TRY(readFile("environ"));
 
     if (content->empty())
@@ -206,7 +166,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
     return result;
 }
 
-tl::expected<zero::os::procfs::Stat, std::error_code> zero::os::procfs::Process::stat() const {
+tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs::process::Process::stat() const {
     const auto content = TRY(readFile("stat"));
     const std::size_t start = content->find('(');
     const std::size_t end = content->rfind(')');
@@ -340,7 +300,7 @@ tl::expected<zero::os::procfs::Stat, std::error_code> zero::os::procfs::Process:
     return stat;
 }
 
-tl::expected<zero::os::procfs::StatM, std::error_code> zero::os::procfs::Process::statM() const {
+tl::expected<zero::os::procfs::process::StatM, std::error_code> zero::os::procfs::process::Process::statM() const {
     const auto content = TRY(readFile("statm"));
     const auto tokens = strings::split(*content, " ");
 
@@ -377,7 +337,7 @@ statusIntegerField(const std::map<std::string, std::string> &map, const char *ke
     return *zero::strings::toNumber<T>(it->second, base);
 }
 
-tl::expected<zero::os::procfs::Status, std::error_code> zero::os::procfs::Process::status() const {
+tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procfs::process::Process::status() const {
     const auto content = TRY(readFile("status"));
     std::map<std::string, std::string> map;
 
@@ -555,7 +515,7 @@ tl::expected<zero::os::procfs::Status, std::error_code> zero::os::procfs::Proces
     return status;
 }
 
-tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::Process::tasks() const {
+tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Process::tasks() const {
     const int fd = openat(mFD, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 
     if (fd < 0)
@@ -593,7 +553,7 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::Process::tasks
     return result;
 }
 
-tl::expected<std::list<zero::os::procfs::MemoryMapping>, std::error_code> zero::os::procfs::Process::maps() const {
+tl::expected<std::list<zero::os::procfs::process::MemoryMapping>, std::error_code> zero::os::procfs::process::Process::maps() const {
     const auto content = TRY(readFile("maps"));
 
     if (content->empty())
@@ -683,7 +643,7 @@ tl::expected<std::list<zero::os::procfs::MemoryMapping>, std::error_code> zero::
     return result;
 }
 
-tl::expected<zero::os::procfs::CPUStat, std::error_code> zero::os::procfs::Process::cpu() const {
+tl::expected<zero::os::procfs::process::CPUTime, std::error_code> zero::os::procfs::process::Process::cpu() const {
     const long result = sysconf(_SC_CLK_TCK);
 
     if (result < 0)
@@ -692,18 +652,18 @@ tl::expected<zero::os::procfs::CPUStat, std::error_code> zero::os::procfs::Proce
     const auto stat = TRY(this->stat());
     const auto ticks = static_cast<double>(result);
 
-    CPUStat cpuStat = {
+    CPUTime time = {
             static_cast<double>(stat->uTime) / ticks,
             static_cast<double>(stat->sTime) / ticks
     };
 
     if (stat->delayAcctBlkIOTicks)
-        cpuStat.ioWait = static_cast<double>(*stat->delayAcctBlkIOTicks) / ticks;
+        time.ioWait = static_cast<double>(*stat->delayAcctBlkIOTicks) / ticks;
 
-    return cpuStat;
+    return time;
 }
 
-tl::expected<zero::os::procfs::MemoryStat, std::error_code> zero::os::procfs::Process::memory() const {
+tl::expected<zero::os::procfs::process::MemoryStat, std::error_code> zero::os::procfs::process::Process::memory() const {
     const long result = sysconf(_SC_PAGE_SIZE);
 
     if (result < 0)
@@ -718,7 +678,7 @@ tl::expected<zero::os::procfs::MemoryStat, std::error_code> zero::os::procfs::Pr
     };
 }
 
-tl::expected<zero::os::procfs::IOStat, std::error_code> zero::os::procfs::Process::io() const {
+tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procfs::process::Process::io() const {
     const auto content = TRY(readFile("io"));
     std::map<std::string, std::string> map;
 
@@ -750,11 +710,11 @@ tl::expected<zero::os::procfs::IOStat, std::error_code> zero::os::procfs::Proces
     };
 }
 
-tl::expected<zero::os::procfs::Process, std::error_code> zero::os::procfs::self() {
+tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::self() {
     return open(getpid());
 }
 
-tl::expected<zero::os::procfs::Process, std::error_code> zero::os::procfs::open(const pid_t pid) {
+tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::open(const pid_t pid) {
     const auto path = std::filesystem::path("/proc") / std::to_string(pid);
 
 #ifdef O_PATH
@@ -769,7 +729,7 @@ tl::expected<zero::os::procfs::Process, std::error_code> zero::os::procfs::open(
     return Process{fd, pid};
 }
 
-tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::all() {
+tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all() {
     std::error_code ec;
     auto iterator = std::filesystem::directory_iterator("/proc", ec);
 

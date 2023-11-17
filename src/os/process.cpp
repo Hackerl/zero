@@ -51,9 +51,9 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
     return mImpl.env();
 }
 
-tl::expected<zero::os::process::CPUStat, std::error_code> zero::os::process::Process::cpu() const {
+tl::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Process::cpu() const {
     const auto cpu = TRY(mImpl.cpu());
-    return CPUStat{
+    return CPUTime{
             cpu->user,
             cpu->system
     };
@@ -81,7 +81,7 @@ tl::expected<zero::os::process::Process, std::error_code> zero::os::process::sel
 #elif __APPLE__
     auto impl = TRY(darwin::process::self());
 #elif __linux__
-    auto impl = TRY(procfs::self());
+    auto impl = TRY(procfs::process::self());
 #endif
 
     return Process{std::move(*impl)};
@@ -93,7 +93,7 @@ tl::expected<zero::os::process::Process, std::error_code> zero::os::process::ope
 #elif __APPLE__
     auto impl = TRY(darwin::process::open(pid));
 #elif __linux__
-    auto impl = TRY(procfs::open(pid));
+    auto impl = TRY(procfs::process::open(pid));
 #endif
 
     return Process{std::move(*impl)};
@@ -111,6 +111,6 @@ tl::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::proces
 #elif __APPLE__
     return darwin::process::all();
 #elif __linux__
-    return procfs::all();
+    return procfs::process::all();
 #endif
 }

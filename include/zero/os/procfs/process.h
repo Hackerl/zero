@@ -1,5 +1,5 @@
-#ifndef ZERO_PROCFS_H
-#define ZERO_PROCFS_H
+#ifndef ZERO_PROCFS_PROCESS_H
+#define ZERO_PROCFS_PROCESS_H
 
 #include <map>
 #include <list>
@@ -10,23 +10,7 @@
 #include <tl/expected.hpp>
 #include <sys/types.h>
 
-namespace zero::os::procfs {
-    enum Error {
-        NO_SUCH_IMAGE = 1,
-        NO_SUCH_MEMORY_MAPPING,
-        UNEXPECTED_DATA,
-        MAYBE_ZOMBIE_PROCESS
-    };
-
-    class ErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-    };
-
-    const std::error_category &errorCategory();
-    std::error_code make_error_code(Error e);
-
+namespace zero::os::procfs::process {
     enum MemoryPermission {
         READ = 0x1,
         WRITE = 0x2,
@@ -169,7 +153,7 @@ namespace zero::os::procfs {
         std::optional<bool> thpEnabled;
     };
 
-    struct CPUStat {
+    struct CPUTime {
         double user{};
         double system{};
         std::optional<double> ioWait;
@@ -218,7 +202,7 @@ namespace zero::os::procfs {
         [[nodiscard]] tl::expected<std::list<pid_t>, std::error_code> tasks() const;
         [[nodiscard]] tl::expected<std::list<MemoryMapping>, std::error_code> maps() const;
 
-        [[nodiscard]] tl::expected<CPUStat, std::error_code> cpu() const;
+        [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
@@ -232,9 +216,4 @@ namespace zero::os::procfs {
     tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
-template<>
-struct std::is_error_code_enum<zero::os::procfs::Error> : std::true_type {
-
-};
-
-#endif //ZERO_PROCFS_H
+#endif //ZERO_PROCFS_PROCESS_H

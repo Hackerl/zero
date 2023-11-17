@@ -1,4 +1,5 @@
 #include <zero/os/darwin/process.h>
+#include <zero/os/darwin/error.h>
 #include <zero/strings/strings.h>
 #include <zero/try.h>
 #include <mach/mach_time.h>
@@ -197,7 +198,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
     return result;
 }
 
-tl::expected<zero::os::darwin::process::CPUStat, std::error_code> zero::os::darwin::process::Process::cpu() const {
+tl::expected<zero::os::darwin::process::CPUTime, std::error_code> zero::os::darwin::process::Process::cpu() const {
     proc_taskinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDTASKINFO, 0, &info, PROC_PIDTASKINFO_SIZE) <= 0)
@@ -205,12 +206,12 @@ tl::expected<zero::os::darwin::process::CPUStat, std::error_code> zero::os::darw
 
     struct mach_timebase_info tb = {};
 
-    if (mach_timebase_info(&tb) != KERN_SUCCESS)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+    if (const kern_return_t status = mach_timebase_info(&tb); status != KERN_SUCCESS)
+        return tl::unexpected(make_error_code(static_cast<darwin::Error>(status)));
 
     const auto scale = static_cast<double>(tb.numer) / static_cast<double>(tb.denom);
 
-    return CPUStat{
+    return CPUTime{
             static_cast<double>(info.pti_total_user) * scale / 1e9,
             static_cast<double>(info.pti_total_system) * scale / 1e9
     };

@@ -20,7 +20,7 @@ namespace zero::os::darwin::process {
     const std::error_category &errorCategory();
     std::error_code make_error_code(Error e);
 
-    struct CPUStat {
+    struct CPUTime {
         double user;
         double system;
     };
@@ -55,7 +55,7 @@ namespace zero::os::darwin::process {
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
         [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
 
-        [[nodiscard]] tl::expected<CPUStat, std::error_code> cpu() const;
+        [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
