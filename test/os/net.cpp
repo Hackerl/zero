@@ -1,6 +1,5 @@
 #include <zero/os/net.h>
 #include <catch2/catch_test_macros.hpp>
-#include <fmt/std.h>
 
 TEST_CASE("stringify IP address", "[net]") {
     std::array<std::byte, 4> ipv4 = {};
@@ -54,6 +53,17 @@ TEST_CASE("stringify IP address", "[net]") {
 
     address = zero::os::net::IfAddress6{ipv6};
     REQUIRE(fmt::to_string(address) == "variant(fdbd:dc02:ff:1:9::8d)");
+
+    zero::os::net::Interface interface = {
+        "lo",
+        {},
+        {zero::os::net::IfAddress4{ipv4, mask}, zero::os::net::IfAddress6{ipv6}}
+    };
+
+    REQUIRE(
+        fmt::to_string(interface) ==
+        R"({ name: "lo", mac: "00:00:00:00:00:00", addresses: ["192.168.10.1/0", "fdbd:dc02:ff:1:9::8d"] })"
+    );
 }
 
 TEST_CASE("fetch network interface", "[net]") {

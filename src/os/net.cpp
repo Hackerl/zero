@@ -9,7 +9,6 @@
 #include <zero/strings/strings.h>
 #elif __linux__
 #include <map>
-#include <ranges>
 #include <cstring>
 #include <ifaddrs.h>
 #include <arpa/inet.h>
@@ -24,7 +23,6 @@
 #endif
 #elif __APPLE__
 #include <map>
-#include <ranges>
 #include <cstring>
 #include <ifaddrs.h>
 #include <arpa/inet.h>

@@ -1,6 +1,7 @@
 #ifndef ZERO_LOG_H
 #define ZERO_LOG_H
 
+#include "singleton.h"
 #include "interface.h"
 #include "concurrent/channel.h"
 #include <thread>
