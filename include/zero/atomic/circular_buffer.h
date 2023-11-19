@@ -21,7 +21,7 @@ namespace zero::atomic {
     public:
         explicit CircularBuffer(const std::size_t capacity)
                 : mHead(0), mTail(0), mCapacity(capacity),
-                  mModulo(std::numeric_limits<std::size_t>::max() / capacity * capacity),
+                  mModulo((std::numeric_limits<std::size_t>::max)() / capacity * capacity),
                   mBuffer(std::make_unique<T[]>(capacity)), mState(std::make_unique<std::atomic<State>[]>(capacity)) {
             assert(mCapacity > 1);
         }
