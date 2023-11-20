@@ -8,7 +8,7 @@
 #include <zero/detail/type_traits.h>
 
 namespace zero::async::promise {
-    template<typename T, typename E>
+    template<typename T, typename E = std::nullptr_t>
     class Promise;
 
     template<typename T>
@@ -363,8 +363,8 @@ namespace zero::async::promise {
     private:
         std::shared_ptr<Storage<T, E>> mStorage;
 
-        template<std::size_t...Is, typename ...Ts, typename Error>
-        friend Promise<std::tuple<tl::expected<Ts, Error>...>, Error>
+        template<std::size_t...Is, typename ...Ts, typename ...Error>
+        friend Promise<std::tuple<tl::expected<Ts, Error>...>>
         allSettled(std::index_sequence<Is...>, Promise<Ts, Error> &...promises);
     };
 
@@ -492,11 +492,11 @@ namespace zero::async::promise {
         return all(promises...);
     }
 
-    template<std::size_t...Is, typename ...Ts, typename E>
-    Promise<std::tuple<tl::expected<Ts, E>...>, E> allSettled(std::index_sequence<Is...>, Promise<Ts, E> &...promises) {
+    template<std::size_t...Is, typename ...Ts, typename ...E>
+    Promise<std::tuple<tl::expected<Ts, E>...>> allSettled(std::index_sequence<Is...>, Promise<Ts, E> &...promises) {
         using T = std::tuple<tl::expected<Ts, E>...>;
 
-        Promise<T, E> promise;
+        Promise<T> promise;
 
         const auto results = std::make_shared<T>();
         const auto remain = std::make_shared<std::size_t>(sizeof...(Ts));
@@ -515,8 +515,8 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename ...Ts, typename E>
-    Promise<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Promise<Ts, E> &...promises) {
+    template<typename ...Ts, typename ...E>
+    Promise<std::tuple<tl::expected<Ts, E>...>> allSettled(Promise<Ts, E> &...promises) {
         return allSettled(std::index_sequence_for<Ts...>{}, promises...);
     }
 

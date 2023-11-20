@@ -772,7 +772,7 @@ namespace zero::async::coroutine {
         }
     }
 
-    template<typename ...Ts, typename E>
+    template<typename ...Ts, typename ...E>
     Task<std::tuple<tl::expected<Ts, E>...>> allSettled(Task<Ts, E> ...tasks) {
         co_return *std::move(co_await Cancellable{
                 promise::allSettled(tasks.promise()...),

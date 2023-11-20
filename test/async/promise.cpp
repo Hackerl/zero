@@ -121,17 +121,33 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
     }
 
     SECTION("promise::allSettled") {
-        allSettled(
-                zero::async::promise::resolve<int, int>(1),
-                zero::async::promise::reject<void, int>(-1),
-                zero::async::promise::resolve<long, int>(2L)
-        ).then([](const tl::expected<int, int> &r1,
-                  const tl::expected<void, int> &r2,
-                  const tl::expected<long, int> &r3) {
-            REQUIRE(r1.value() == 1);
-            REQUIRE(r2.error() == -1);
-            REQUIRE(r3.value() == 2);
-        });
+        SECTION("same types") {
+            allSettled(
+                    zero::async::promise::resolve<int, int>(1),
+                    zero::async::promise::reject<void, int>(-1),
+                    zero::async::promise::resolve<long, int>(2L)
+            ).then([](const tl::expected<int, int> &r1,
+                      const tl::expected<void, int> &r2,
+                      const tl::expected<long, int> &r3) {
+                REQUIRE(r1.value() == 1);
+                REQUIRE(r2.error() == -1);
+                REQUIRE(r3.value() == 2);
+            });
+        }
+
+        SECTION("different types") {
+            allSettled(
+                    zero::async::promise::resolve<int, int>(1),
+                    zero::async::promise::reject<void, long>(-1),
+                    zero::async::promise::resolve<long, long>(2L)
+            ).then([](const tl::expected<int, int> &r1,
+                      const tl::expected<void, long> &r2,
+                      const tl::expected<long, long> &r3) {
+                REQUIRE(r1.value() == 1);
+                REQUIRE(r2.error() == -1);
+                REQUIRE(r3.value() == 2);
+            });
+        }
     }
 
     SECTION("promise::any") {

@@ -745,6 +745,33 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 }
             }
         }
+
+        SECTION("different types") {
+            zero::async::promise::Promise<int, int> promise1;
+            zero::async::promise::Promise<long, long> promise2;
+            zero::async::promise::Promise<int, long> promise3;
+
+            const auto task = allSettled(
+                    zero::async::coroutine::from(promise1),
+                    zero::async::coroutine::from(promise2),
+                    zero::async::coroutine::from(promise3)
+            );
+            REQUIRE(!task.done());
+
+            promise1.resolve(10);
+            promise2.resolve(100);
+            promise3.reject(1024);
+            REQUIRE(task.done());
+
+            const auto &result = task.result();
+            REQUIRE(result);
+            REQUIRE(std::get<0>(*result));
+            REQUIRE(*std::get<0>(*result) == 10);
+            REQUIRE(std::get<1>(*result));
+            REQUIRE(*std::get<1>(*result) == 100);
+            REQUIRE(!std::get<2>(*result));
+            REQUIRE(std::get<2>(*result).error() == 1024);
+        }
     }
 
     SECTION("coroutine::any") {
