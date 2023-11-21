@@ -147,8 +147,8 @@ struct fmt::formatter<zero::LogMessage, Char> {
     auto format(const zero::LogMessage &message, FmtContext &ctx) const {
         return fmt::format_to(
                 ctx.out(),
-                "{} | {:<5} | {:>20}:{:<4}] {}",
-                message.timestamp,
+                "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
+                localtime(std::chrono::system_clock::to_time_t(message.timestamp)),
                 zero::LOG_TAGS[message.level],
                 message.filename,
                 message.line,
