@@ -31,14 +31,14 @@ std::string zero::strings::rtrim(std::string_view str) {
 }
 
 std::string zero::strings::tolower(std::string_view str) {
-    auto v = str
+    const auto v = str
              | std::views::transform(::tolower);
 
     return {v.begin(), v.end()};
 }
 
 std::string zero::strings::toupper(std::string_view str) {
-    auto v = str
+    const auto v = str
              | std::views::transform(::toupper);
 
     return {v.begin(), v.end()};
