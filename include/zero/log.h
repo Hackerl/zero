@@ -144,7 +144,7 @@ struct fmt::formatter<zero::LogMessage, Char> {
     }
 
     template<typename FmtContext>
-    auto format(const zero::LogMessage &message, FmtContext &ctx) const {
+    static auto format(const zero::LogMessage &message, FmtContext &ctx) {
         return fmt::format_to(
                 ctx.out(),
                 "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",

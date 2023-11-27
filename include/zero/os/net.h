@@ -44,7 +44,7 @@ struct fmt::formatter<zero::os::net::IfAddress4, Char> {
     }
 
     template<typename FmtContext>
-    auto format(const zero::os::net::IfAddress4 &address, FmtContext &ctx) const {
+    static auto format(const zero::os::net::IfAddress4 &address, FmtContext &ctx) {
         int mask = 0;
 
         for (auto b: address.mask) {

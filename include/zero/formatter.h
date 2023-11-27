@@ -12,7 +12,7 @@ struct fmt::formatter<tl::expected<T, E>, Char> {
     }
 
     template<typename FmtContext>
-    auto format(const tl::expected<T, E> &expected, FmtContext &ctx) const {
+    static auto format(const tl::expected<T, E> &expected, FmtContext &ctx) {
         if (!expected)
             return fmt::format_to(ctx.out(), "unexpected({})", expected.error());
 
@@ -32,7 +32,7 @@ struct fmt::formatter<std::exception_ptr, Char> {
     }
 
     template<typename FmtContext>
-    auto format(const std::exception_ptr &ptr, FmtContext &ctx) const {
+    static auto format(const std::exception_ptr &ptr, FmtContext &ctx) {
         if (!ptr)
             return std::ranges::copy(std::string_view{"nullptr"}, ctx.out()).out;
 

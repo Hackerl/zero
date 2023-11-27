@@ -23,6 +23,25 @@ jobs:
       - name: Test
         run: ctest --output-on-failure --test-dir build
 
+  linux-static-amd64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install musl toolchains
+        run: curl -fsSL https://github.com/Hackerl/musl-cross-make/releases/download/gcc-13.2.0/x86_64-linux-musl-native-gcc13.tar.gz | tar -xz -C /opt
+      - name: Build
+        run: |
+          mkdir -p build
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-pie"
+          cmake --build build -j$(nproc)
+        env:
+          CC: /opt/x86_64-linux-musl-native/bin/x86_64-linux-musl-gcc
+          CXX: /opt/x86_64-linux-musl-native/bin/x86_64-linux-musl-g++
+      - name: Test
+        run: ctest --output-on-failure --test-dir build
+
   windows-amd64:
     runs-on: windows-latest
     steps:
@@ -83,10 +102,10 @@ jobs:
         run: |
           mkdir -p build
           cmake -B build \
-            -DCMAKE_CATCH_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST \
             -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake \
             -DVCPKG_TARGET_TRIPLET=arm64-android \
             -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-24
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_CATCH_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST
           cmake --build build -j$(nproc)
