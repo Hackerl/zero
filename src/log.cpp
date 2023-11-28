@@ -31,11 +31,11 @@ zero::LogResult zero::ConsoleProvider::write(const LogMessage &message) {
 }
 
 zero::FileProvider::FileProvider(
-        const char *name,
-        const std::optional<std::filesystem::path> &directory,
-        const std::size_t limit,
-        const int remain
-) : mName(name), mLimit(limit), mRemain(remain), mPosition(0),
+    const char *name,
+    const std::optional<std::filesystem::path> &directory,
+    const std::size_t limit,
+    const int remain
+) : mRemain(remain), mLimit(limit), mPosition(0), mName(name),
     mDirectory(directory.value_or(std::filesystem::temp_directory_path())) {
 #ifndef _WIN32
     mPID = getpid();
@@ -46,10 +46,10 @@ zero::FileProvider::FileProvider(
 
 bool zero::FileProvider::init() {
     const std::string name = fmt::format(
-            "{}.{}.{}.log",
-            mName,
-            mPID,
-            std::time(nullptr)
+        "{}.{}.{}.log",
+        mName,
+        mPID,
+        std::time(nullptr)
     );
 
     mStream.open(mDirectory / name);
@@ -69,19 +69,19 @@ bool zero::FileProvider::rotate() {
 
     const std::string prefix = fmt::format("%s.%d", mName, mPID);
     auto v = iterator
-             | std::views::filter([](const auto &entry) { return entry.is_regular_file(); })
-             | std::views::transform(&std::filesystem::directory_entry::path)
-             | std::views::filter([&](const auto &path) { return path.filename().string().starts_with(prefix); });
+        | std::views::filter([](const auto &entry) { return entry.is_regular_file(); })
+        | std::views::transform(&std::filesystem::directory_entry::path)
+        | std::views::filter([&](const auto &path) { return path.filename().string().starts_with(prefix); });
 
     std::list<std::filesystem::path> logs;
     std::ranges::copy(v, std::back_inserter(logs));
     logs.sort();
 
     if (!std::ranges::all_of(
-            logs | std::views::reverse | std::views::drop(mRemain),
-            [&](const auto &path) {
-                return std::filesystem::remove(path, ec);
-            }
+        logs | std::views::reverse | std::views::drop(mRemain),
+        [&](const auto &path) {
+            return std::filesystem::remove(path, ec);
+        }
     ))
         return false;
 
@@ -111,7 +111,6 @@ zero::LogResult zero::FileProvider::write(const LogMessage &message) {
 }
 
 zero::Logger::Logger() : mChannel(LOGGER_BUFFER_SIZE) {
-
 }
 
 zero::Logger::~Logger() {
@@ -200,9 +199,9 @@ bool zero::Logger::enabled(const LogLevel level) const {
 }
 
 void zero::Logger::addProvider(
-        LogLevel level,
-        std::unique_ptr<ILogProvider> provider,
-        std::chrono::milliseconds interval
+    LogLevel level,
+    std::unique_ptr<ILogProvider> provider,
+    std::chrono::milliseconds interval
 ) {
     std::call_once(mOnceFlag, [=, this] {
         const auto getEnv = [](const char *name) -> std::optional<int> {
@@ -261,9 +260,9 @@ void zero::Logger::addProvider(
     mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(ERROR_LEVEL));
 
     mConfigs.emplace_back(
-            level,
-            std::move(provider),
-            interval,
-            std::chrono::system_clock::now() + interval
+        level,
+        std::move(provider),
+        interval,
+        std::chrono::system_clock::now() + interval
     );
 }

@@ -79,11 +79,11 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
 
     if (const kern_return_t status = host_statistics(
-                mach_host_self(),
-                HOST_CPU_LOAD_INFO,
-                reinterpret_cast<host_info_t>(&data),
-                &count
-        ); status != KERN_SUCCESS)
+        mach_host_self(),
+        HOST_CPU_LOAD_INFO,
+        reinterpret_cast<host_info_t>(&data),
+        &count
+    ); status != KERN_SUCCESS)
         return tl::unexpected(make_error_code(static_cast<darwin::Error>(status)));
 
     const long result = sysconf(_SC_CLK_TCK);
@@ -94,9 +94,9 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     const auto ticks = static_cast<double>(result);
 
     return CPUTime{
-            data.cpu_ticks[CPU_STATE_USER] / ticks,
-            data.cpu_ticks[CPU_STATE_SYSTEM] / ticks,
-            data.cpu_ticks[CPU_STATE_IDLE] / ticks
+        data.cpu_ticks[CPU_STATE_USER] / ticks,
+        data.cpu_ticks[CPU_STATE_SYSTEM] / ticks,
+        data.cpu_ticks[CPU_STATE_IDLE] / ticks
     };
 #endif
 }

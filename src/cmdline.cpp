@@ -4,15 +4,14 @@
 #include <fmt/std.h>
 
 zero::Cmdline::Cmdline() : mOptionals({{"help", '?', "print help message", false}}) {
-
 }
 
 zero::Optional &zero::Cmdline::find(char shortName) {
     const auto it = std::ranges::find_if(
-            mOptionals,
-            [=](const auto &optional) {
-                return optional.shortName == shortName;
-            }
+        mOptionals,
+        [=](const auto &optional) {
+            return optional.shortName == shortName;
+        }
     );
 
     if (it == mOptionals.end())
@@ -23,10 +22,10 @@ zero::Optional &zero::Cmdline::find(char shortName) {
 
 zero::Optional &zero::Cmdline::find(std::string_view name) {
     const auto it = std::ranges::find_if(
-            mOptionals,
-            [=](const auto &optional) {
-                return optional.name == name;
-            }
+        mOptionals,
+        [=](const auto &optional) {
+            return optional.name == name;
+        }
     );
 
     if (it == mOptionals.end())
@@ -37,10 +36,10 @@ zero::Optional &zero::Cmdline::find(std::string_view name) {
 
 const zero::Optional &zero::Cmdline::find(std::string_view name) const {
     const auto it = std::ranges::find_if(
-            mOptionals,
-            [=](const auto &optional) {
-                return optional.name == name;
-            }
+        mOptionals,
+        [=](const auto &optional) {
+            return optional.name == name;
+        }
     );
 
     if (it == mOptionals.end())
@@ -51,16 +50,16 @@ const zero::Optional &zero::Cmdline::find(std::string_view name) const {
 
 void zero::Cmdline::help() const {
     fmt::print(
-            stderr,
-            "usage: {} [options] {} ... {} ...\n",
-            filesystem::getApplicationPath()->filename(),
-            fmt::join(
-                    mPositionals | std::views::transform([](const auto &p) {
-                        return fmt::format("{}({})", p.name, p.typeInfo.type);
-                    }),
-                    " "
-            ),
-            mFooter.value_or("extra")
+        stderr,
+        "usage: {} [options] {} ... {} ...\n",
+        filesystem::getApplicationPath()->filename(),
+        fmt::join(
+            mPositionals | std::views::transform([](const auto &p) {
+                return fmt::format("{}({})", p.name, p.typeInfo.type);
+            }),
+            " "
+        ),
+        mFooter.value_or("extra")
     );
 
     fmt::print(stderr, "positional:\n");
@@ -73,22 +72,22 @@ void zero::Cmdline::help() const {
     for (const auto &[name, shortName, desc, value, typeInfo]: mOptionals) {
         if (!shortName) {
             fmt::print(
-                    stderr,
-                    "\t    --{:<24} {}{}\n",
-                    name,
-                    desc,
-                    typeInfo ? fmt::format("({})", typeInfo->type) : ""
+                stderr,
+                "\t    --{:<24} {}{}\n",
+                name,
+                desc,
+                typeInfo ? fmt::format("({})", typeInfo->type) : ""
             );
             continue;
         }
 
         fmt::print(
-                stderr,
-                "\t-{}, --{:<24} {}{}\n",
-                shortName,
-                name,
-                desc,
-                typeInfo ? fmt::format("({})", typeInfo->type) : ""
+            stderr,
+            "\t-{}, --{:<24} {}{}\n",
+            shortName,
+            name,
+            desc,
+            typeInfo ? fmt::format("({})", typeInfo->type) : ""
         );
     }
 }
@@ -186,7 +185,8 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
 void zero::Cmdline::parse(const int argc, const char *const *argv) {
     try {
         from(argc, argv);
-    } catch (const std::runtime_error &e) {
+    }
+    catch (const std::runtime_error &e) {
         fmt::print(stderr, "error:\n\t{}\n", e.what());
         help();
         exit(EXIT_FAILURE);

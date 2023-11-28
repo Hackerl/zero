@@ -20,9 +20,9 @@ namespace zero::atomic {
 
     public:
         explicit CircularBuffer(const std::size_t capacity)
-                : mHead(0), mTail(0), mCapacity(capacity),
-                  mModulo((std::numeric_limits<std::size_t>::max)() / capacity * capacity),
-                  mBuffer(std::make_unique<T[]>(capacity)), mState(std::make_unique<std::atomic<State>[]>(capacity)) {
+            : mModulo((std::numeric_limits<std::size_t>::max)() / capacity * capacity),
+              mCapacity(capacity), mHead(0), mTail(0),
+              mBuffer(std::make_unique<T[]>(capacity)), mState(std::make_unique<std::atomic<State>[]>(capacity)) {
             assert(mCapacity > 1);
         }
 
@@ -32,7 +32,8 @@ namespace zero::atomic {
             do {
                 if (full())
                     return std::nullopt;
-            } while (!mTail.compare_exchange_weak(index, (index + 1) % mModulo));
+            }
+            while (!mTail.compare_exchange_weak(index, (index + 1) % mModulo));
 
             index %= mCapacity;
 
@@ -54,7 +55,8 @@ namespace zero::atomic {
             do {
                 if (empty())
                     return std::nullopt;
-            } while (!mHead.compare_exchange_weak(index, (index + 1) % mModulo));
+            }
+            while (!mHead.compare_exchange_weak(index, (index + 1) % mModulo));
 
             index %= mCapacity;
 

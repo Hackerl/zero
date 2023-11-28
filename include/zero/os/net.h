@@ -86,9 +86,8 @@ struct fmt::formatter<zero::os::net::Interface, Char> {
             ctx.out(),
             R"({{ name: {:?}, mac: "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", addresses: {} }})",
             i.name,
-            i.mac[0], i.mac[1], i.mac[2],
-            i.mac[3], i.mac[4], i.mac[5],
-            i.addresses | std::views::transform([](const auto&address) {
+            i.mac[0], i.mac[1], i.mac[2], i.mac[3], i.mac[4], i.mac[5],
+            i.addresses | std::views::transform([](const auto &address) {
                 if (address.index() == 0)
                     return fmt::to_string(std::get<0>(address));
 

@@ -14,22 +14,10 @@ TEST_CASE("stringify IP address", "[net]") {
     REQUIRE(zero::os::net::stringify(std::array<std::byte, 16>{}) == "::");
 
     constexpr std::array ipv6 = {
-            std::byte{253},
-            std::byte{189},
-            std::byte{220},
-            std::byte{2},
-            std::byte{0},
-            std::byte{255},
-            std::byte{0},
-            std::byte{1},
-            std::byte{0},
-            std::byte{9},
-            std::byte{0},
-            std::byte{0},
-            std::byte{0},
-            std::byte{0},
-            std::byte{0},
-            std::byte{141}
+        std::byte{253}, std::byte{189}, std::byte{220}, std::byte{2},
+        std::byte{0}, std::byte{255}, std::byte{0}, std::byte{1},
+        std::byte{0}, std::byte{9}, std::byte{0}, std::byte{0},
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{141}
     };
 
     REQUIRE(zero::os::net::stringify(ipv6) == "fdbd:dc02:ff:1:9::8d");

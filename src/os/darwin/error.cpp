@@ -13,17 +13,17 @@ std::error_condition zero::os::darwin::ErrorCategory::default_error_condition(co
     std::error_condition condition;
 
     switch (value) {
-        case KERN_INVALID_ARGUMENT:
-            condition = std::errc::invalid_argument;
-            break;
+    case KERN_INVALID_ARGUMENT:
+        condition = std::errc::invalid_argument;
+        break;
 
-        case KERN_OPERATION_TIMED_OUT:
-            condition = std::errc::timed_out;
-            break;
+    case KERN_OPERATION_TIMED_OUT:
+        condition = std::errc::timed_out;
+        break;
 
-        default:
-            condition = error_category::default_error_condition(value);
-            break;
+    default:
+        condition = error_category::default_error_condition(value);
+        break;
     }
 
     return condition;

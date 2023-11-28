@@ -61,12 +61,12 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
     const auto buffer = std::make_unique<char[]>(length);
 
     if (GetAdaptersAddresses(
-            AF_UNSPEC,
-            0,
-            nullptr,
-            reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.get()),
-            &length
-        ) != ERROR_SUCCESS)
+        AF_UNSPEC,
+        0,
+        nullptr,
+        reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.get()),
+        &length
+    ) != ERROR_SUCCESS)
         return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     std::vector<Interface> interfaces;
@@ -82,36 +82,36 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
 
         for (PIP_ADAPTER_UNICAST_ADDRESS addr = adapter->FirstUnicastAddress; addr; addr = addr->Next) {
             switch (addr->Address.lpSockaddr->sa_family) {
-                case AF_INET: {
-                    IfAddress4 address = {};
+            case AF_INET: {
+                IfAddress4 address = {};
 
-                    memcpy(address.ip.data(), &reinterpret_cast<sockaddr_in *>(addr->Address.lpSockaddr)->sin_addr, 4);
+                memcpy(address.ip.data(), &reinterpret_cast<sockaddr_in *>(addr->Address.lpSockaddr)->sin_addr, 4);
 
-                    if (ConvertLengthToIpv4Mask(
-                            addr->OnLinkPrefixLength,
-                            reinterpret_cast<PULONG>(address.mask.data())
-                        ) != NO_ERROR)
-                        break;
-
-                    addresses.emplace_back(address);
+                if (ConvertLengthToIpv4Mask(
+                    addr->OnLinkPrefixLength,
+                    reinterpret_cast<PULONG>(address.mask.data())
+                ) != NO_ERROR)
                     break;
-                }
 
-                case AF_INET6: {
-                    IfAddress6 address = {};
+                addresses.emplace_back(address);
+                break;
+            }
 
-                    memcpy(
-                        address.ip.data(),
-                        &reinterpret_cast<sockaddr_in6 *>(addr->Address.lpSockaddr)->sin6_addr,
-                        16
-                    );
+            case AF_INET6: {
+                IfAddress6 address = {};
 
-                    addresses.emplace_back(address);
-                    break;
-                }
+                memcpy(
+                    address.ip.data(),
+                    &reinterpret_cast<sockaddr_in6 *>(addr->Address.lpSockaddr)->sin6_addr,
+                    16
+                );
 
-                default:
-                    break;
+                addresses.emplace_back(address);
+                break;
+            }
+
+            default:
+                break;
             }
         }
 
@@ -130,8 +130,8 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
     return interfaces;
 #elif __linux__ || __APPLE__
 #if __ANDROID__ && __ANDROID_API__ < 24
-    static const auto getifaddrs = static_cast<int (*)(ifaddrs **)>(dlsym(RTLD_DEFAULT, "getifaddrs"));
-    static const auto freeifaddrs = static_cast<void (*)(ifaddrs *)>(dlsym(RTLD_DEFAULT, "freeifaddrs"));
+    static const auto getifaddrs = reinterpret_cast<int (*)(ifaddrs **)>(dlsym(RTLD_DEFAULT, "getifaddrs"));
+    static const auto freeifaddrs = reinterpret_cast<void (*)(ifaddrs *)>(dlsym(RTLD_DEFAULT, "freeifaddrs"));
 
     if (!getifaddrs || !freeifaddrs)
         return tl::unexpected(make_error_code(std::errc::function_not_supported));
@@ -152,48 +152,48 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
         name = p->ifa_name;
 
         switch (p->ifa_addr->sa_family) {
-            case AF_INET: {
-                IfAddress4 address = {};
+        case AF_INET: {
+            IfAddress4 address = {};
 
-                memcpy(address.ip.data(), &reinterpret_cast<sockaddr_in *>(p->ifa_addr)->sin_addr, 4);
-                memcpy(address.mask.data(), &reinterpret_cast<sockaddr_in *>(p->ifa_netmask)->sin_addr, 4);
+            memcpy(address.ip.data(), &reinterpret_cast<sockaddr_in *>(p->ifa_addr)->sin_addr, 4);
+            memcpy(address.mask.data(), &reinterpret_cast<sockaddr_in *>(p->ifa_netmask)->sin_addr, 4);
 
-                addresses.emplace_back(address);
-                break;
-            }
+            addresses.emplace_back(address);
+            break;
+        }
 
-            case AF_INET6: {
-                IfAddress6 address = {};
-                memcpy(address.ip.data(), &reinterpret_cast<sockaddr_in6 *>(p->ifa_addr)->sin6_addr, 16);
+        case AF_INET6: {
+            IfAddress6 address = {};
+            memcpy(address.ip.data(), &reinterpret_cast<sockaddr_in6 *>(p->ifa_addr)->sin6_addr, 16);
 
-                addresses.emplace_back(address);
-                break;
-            }
+            addresses.emplace_back(address);
+            break;
+        }
 
 #ifdef __APPLE__
-            case AF_LINK: {
-                const auto address = reinterpret_cast<const sockaddr_dl *>(p->ifa_addr);
+        case AF_LINK: {
+            const auto address = reinterpret_cast<const sockaddr_dl *>(p->ifa_addr);
 
-                if (address->sdl_alen != 6)
-                    break;
-
-                memcpy(mac.data(), LLADDR(address), 6);
+            if (address->sdl_alen != 6)
                 break;
-            }
+
+            memcpy(mac.data(), LLADDR(address), 6);
+            break;
+        }
 #else
-            case AF_PACKET: {
-                const auto address = reinterpret_cast<const sockaddr_ll *>(p->ifa_addr);
+        case AF_PACKET: {
+            const auto address = reinterpret_cast<const sockaddr_ll *>(p->ifa_addr);
 
-                if (address->sll_halen != 6)
-                    break;
-
-                memcpy(mac.data(), address->sll_addr, 6);
+            if (address->sll_halen != 6)
                 break;
-            }
+
+            memcpy(mac.data(), address->sll_addr, 6);
+            break;
+        }
 #endif
 
-            default:
-                break;
+        default:
+            break;
         }
     }
 

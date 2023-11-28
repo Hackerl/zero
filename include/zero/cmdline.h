@@ -25,11 +25,14 @@ namespace zero {
                 return tl::unexpected(value.error());
 
             return *value;
-        } else if constexpr (std::is_same_v<T, std::string>) {
+        }
+        else if constexpr (std::is_same_v<T, std::string>) {
             return std::string{input};
-        } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
+        }
+        else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return std::filesystem::path{input};
-        } else if constexpr (detail::Vector<T>) {
+        }
+        else if constexpr (detail::Vector<T>) {
             T v;
 
             for (const auto &token: strings::split(input, ",")) {
@@ -42,7 +45,8 @@ namespace zero {
             }
 
             return v;
-        } else {
+        }
+        else {
             auto value = scan<T>(input);
 
             if (!value)
@@ -56,25 +60,28 @@ namespace zero {
     std::string getType() {
         if constexpr (std::is_same_v<T, std::string>) {
             return "string";
-        } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
+        }
+        else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return "path";
-        } else if constexpr (detail::Vector<T>) {
+        }
+        else if constexpr (detail::Vector<T>) {
             return fmt::format("{}[]", getType<typename T::value_type>());
-        } else {
+        }
+        else {
 #if _CPPRTTI || __GXX_RTTI
 #ifdef _MSC_VER
             return typeid(T).name();
 #elif __GNUC__
             int status = 0;
 
-            std::unique_ptr<char, decltype(free) *> buffer(
-                    abi::__cxa_demangle(
-                            typeid(T).name(),
-                            nullptr,
-                            nullptr,
-                            &status
-                    ),
-                    free
+            const std::unique_ptr<char, decltype(free) *> buffer(
+                abi::__cxa_demangle(
+                    typeid(T).name(),
+                    nullptr,
+                    nullptr,
+                    &status
+                ),
+                free
             );
 
             if (status != 0 || !buffer)
@@ -128,14 +135,14 @@ namespace zero {
         template<typename T>
         void addOptional(const char *name, char shortName, const char *desc, std::optional<T> def = std::nullopt) {
             mOptionals.emplace_back(
-                    name,
-                    shortName,
-                    desc,
-                    def ? std::any{*def} : std::any{},
-                    TypeInfo{
-                            getType<T>(),
-                            parseValue<T>
-                    }
+                name,
+                shortName,
+                desc,
+                def ? std::any{*def} : std::any{},
+                TypeInfo{
+                    getType<T>(),
+                    parseValue<T>
+                }
             );
         }
 
@@ -144,10 +151,10 @@ namespace zero {
         template<typename T>
         T get(const char *name) const {
             const auto it = std::ranges::find_if(
-                    mPositionals,
-                    [=](const auto &positional) {
-                        return positional.name == name;
-                    }
+                mPositionals,
+                [=](const auto &positional) {
+                    return positional.name == name;
+                }
             );
 
             if (it == mPositionals.end())

@@ -4,11 +4,11 @@
 
 TEST_CASE("hex encoding", "[base64]") {
     constexpr std::array buffer = {
-            std::byte{'h'},
-            std::byte{'e'},
-            std::byte{'l'},
-            std::byte{'l'},
-            std::byte{'o'}
+        std::byte{'h'},
+        std::byte{'e'},
+        std::byte{'l'},
+        std::byte{'l'},
+        std::byte{'o'}
     };
 
     REQUIRE(zero::encoding::hex::encode({buffer.data(), 0}).empty());

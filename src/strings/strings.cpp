@@ -6,40 +6,40 @@
 
 std::string zero::strings::trim(std::string_view str) {
     auto v = str
-             | std::views::drop_while(isspace)
-             | std::views::reverse
-             | std::views::drop_while(isspace)
-             | std::views::reverse;
+        | std::views::drop_while(isspace)
+        | std::views::reverse
+        | std::views::drop_while(isspace)
+        | std::views::reverse;
 
     return {v.begin(), v.end()};
 }
 
 std::string zero::strings::ltrim(std::string_view str) {
     auto v = str
-             | std::views::drop_while(isspace);
+        | std::views::drop_while(isspace);
 
     return {v.begin(), v.end()};
 }
 
 std::string zero::strings::rtrim(std::string_view str) {
     auto v = str
-             | std::views::reverse
-             | std::views::drop_while(isspace)
-             | std::views::reverse;
+        | std::views::reverse
+        | std::views::drop_while(isspace)
+        | std::views::reverse;
 
     return {v.begin(), v.end()};
 }
 
 std::string zero::strings::tolower(std::string_view str) {
     const auto v = str
-             | std::views::transform(::tolower);
+        | std::views::transform(::tolower);
 
     return {v.begin(), v.end()};
 }
 
 std::string zero::strings::toupper(std::string_view str) {
     const auto v = str
-             | std::views::transform(::toupper);
+        | std::views::transform(::toupper);
 
     return {v.begin(), v.end()};
 }
@@ -105,7 +105,7 @@ std::vector<std::string> zero::strings::split(std::string_view str, const std::s
 }
 
 tl::expected<std::string, std::error_code> zero::strings::encode(std::wstring_view str, const char *encoding) {
-    const iconv_t cd = iconv_open(encoding, "WCHAR_T");
+    const auto cd = iconv_open(encoding, "WCHAR_T");
 
     if (cd == reinterpret_cast<iconv_t>(-1))
         return tl::unexpected(std::error_code(errno, std::system_category()));
@@ -134,7 +134,7 @@ tl::expected<std::string, std::error_code> zero::strings::encode(std::wstring_vi
 }
 
 tl::expected<std::wstring, std::error_code> zero::strings::decode(std::string_view str, const char *encoding) {
-    const iconv_t cd = iconv_open("WCHAR_T", encoding);
+    const auto cd = iconv_open("WCHAR_T", encoding);
 
     if (cd == reinterpret_cast<iconv_t>(-1))
         return tl::unexpected(std::error_code(errno, std::system_category()));

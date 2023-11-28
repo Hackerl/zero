@@ -19,14 +19,14 @@ tl::expected<Config, std::error_code> zero::scan(const std::string_view input) {
 
 TEST_CASE("parse command line arguments", "[cmdline]") {
     constexpr std::array argv = {
-            "cmdline",
-            "--output=/tmp/out",
-            "-c",
-            "6",
-            "--http",
-            "--config=root:123456",
-            "localhost",
-            "8080, 8090, 9090",
+        "cmdline",
+        "--output=/tmp/out",
+        "-c",
+        "6",
+        "--http",
+        "--config=root:123456",
+        "localhost",
+        "8080, 8090, 9090",
     };
 
     zero::Cmdline cmdline;

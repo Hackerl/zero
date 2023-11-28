@@ -11,11 +11,11 @@ TEST_CASE("notify event", "[event]") {
 
     SECTION("normal notification") {
         std::thread thread(
-                [&] {
-                    std::this_thread::sleep_for(100ms);
-                    n = 1;
-                    event.notify();
-                }
+            [&] {
+                std::this_thread::sleep_for(100ms);
+                n = 1;
+                event.notify();
+            }
         );
 
         REQUIRE(event.wait());
@@ -26,11 +26,11 @@ TEST_CASE("notify event", "[event]") {
 
     SECTION("wait timeout") {
         std::thread thread(
-                [&] {
-                    std::this_thread::sleep_for(500ms);
-                    n = 1;
-                    event.notify();
-                }
+            [&] {
+                std::this_thread::sleep_for(500ms);
+                n = 1;
+                event.notify();
+            }
         );
 
         REQUIRE(event.wait(100ms).error() == std::errc::timed_out);

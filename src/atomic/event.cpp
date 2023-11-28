@@ -75,10 +75,10 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(std::optional<std:
         }
 #elif __APPLE__
         if (__ulock_wait(
-                UL_COMPARE_AND_WAIT,
-                &mState,
-                0,
-                !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
+            UL_COMPARE_AND_WAIT,
+            &mState,
+            0,
+            !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
         ) < 0) {
             result = tl::unexpected(std::error_code(errno, std::system_category()));
             break;

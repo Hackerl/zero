@@ -18,6 +18,7 @@ namespace zero::atomic {
 #else
         using Value = int;
 #endif
+
     public:
         Event();
 #ifdef ZERO_LEGACY_NT

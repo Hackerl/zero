@@ -56,10 +56,10 @@ namespace zero {
     class FileProvider final : public ILogProvider {
     public:
         explicit FileProvider(
-                const char *name,
-                const std::optional<std::filesystem::path> &directory = std::nullopt,
-                std::size_t limit = 10 * 1024 * 1024,
-                int remain = 10
+            const char *name,
+            const std::optional<std::filesystem::path> &directory = std::nullopt,
+            std::size_t limit = 10 * 1024 * 1024,
+            int remain = 10
         );
 
         bool init() override;
@@ -97,21 +97,21 @@ namespace zero {
         [[nodiscard]] bool enabled(LogLevel level) const;
 
         void addProvider(
-                LogLevel level,
-                std::unique_ptr<ILogProvider> provider,
-                std::chrono::milliseconds interval = std::chrono::seconds{1}
+            LogLevel level,
+            std::unique_ptr<ILogProvider> provider,
+            std::chrono::milliseconds interval = std::chrono::seconds{1}
         );
 
         void log(const LogLevel level, const std::string_view filename, const int line, std::string content) {
             mChannel.send(
-                    LogMessage{
-                            level,
-                            line,
-                            filename,
-                            std::chrono::system_clock::now(),
-                            std::move(content)
-                    },
-                    mTimeout
+                LogMessage{
+                    level,
+                    line,
+                    filename,
+                    std::chrono::system_clock::now(),
+                    std::move(content)
+                },
+                mTimeout
             );
         }
 
@@ -146,13 +146,13 @@ struct fmt::formatter<zero::LogMessage, Char> {
     template<typename FmtContext>
     static auto format(const zero::LogMessage &message, FmtContext &ctx) {
         return fmt::format_to(
-                ctx.out(),
-                "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
-                localtime(std::chrono::system_clock::to_time_t(message.timestamp)),
-                zero::LOG_TAGS[message.level],
-                message.filename,
-                message.line,
-                message.content
+            ctx.out(),
+            "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
+            localtime(std::chrono::system_clock::to_time_t(message.timestamp)),
+            zero::LOG_TAGS[message.level],
+            message.filename,
+            message.line,
+            message.content
         );
     }
 };

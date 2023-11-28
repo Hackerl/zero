@@ -70,7 +70,6 @@ namespace zero::os::darwin::process {
 
 template<>
 struct std::is_error_code_enum<zero::os::darwin::process::Error> : std::true_type {
-
 };
 
 #endif //ZERO_DARWIN_PROCESS_H

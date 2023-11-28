@@ -18,7 +18,8 @@ struct fmt::formatter<tl::expected<T, E>, Char> {
 
         if constexpr (std::is_void_v<T>) {
             return std::ranges::copy(std::string_view{"expected()"}, ctx.out()).out;
-        } else {
+        }
+        else {
             return fmt::format_to(ctx.out(), "expected({})", *expected);
         }
     }
@@ -38,7 +39,8 @@ struct fmt::formatter<std::exception_ptr, Char> {
 
         try {
             std::rethrow_exception(ptr);
-        } catch (const std::exception &e) {
+        }
+        catch (const std::exception &e) {
             return fmt::format_to(ctx.out(), "exception({})", e);
         }
     }

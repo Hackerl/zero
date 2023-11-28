@@ -125,19 +125,19 @@ TEST_CASE("atomic channel", "[channel]") {
         };
 
         std::array producers = {
-                std::thread(produce),
-                std::thread(produce),
-                std::thread(produce),
-                std::thread(produce),
-                std::thread(produce)
+            std::thread(produce),
+            std::thread(produce),
+            std::thread(produce),
+            std::thread(produce),
+            std::thread(produce)
         };
 
         std::array consumers = {
-                std::thread(consume),
-                std::thread(consume),
-                std::thread(consume),
-                std::thread(consume),
-                std::thread(consume)
+            std::thread(consume),
+            std::thread(consume),
+            std::thread(consume),
+            std::thread(consume),
+            std::thread(consume)
         };
 
         for (auto &producer: producers)

@@ -16,12 +16,10 @@ constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
 zero::os::procfs::process::Process::Process(const int fd, const pid_t pid) : mFD(fd), mPID(pid) {
-
 }
 
 zero::os::procfs::process::Process::Process(Process &&rhs) noexcept
-        : mFD(std::exchange(rhs.mFD, -1)), mPID(std::exchange(rhs.mPID, -1)) {
-
+    : mFD(std::exchange(rhs.mFD, -1)), mPID(std::exchange(rhs.mPID, -1)) {
 }
 
 zero::os::procfs::process::Process::~Process() {
@@ -32,7 +30,7 @@ zero::os::procfs::process::Process::~Process() {
 }
 
 tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::readFile(const char *filename) const {
-    const auto fd = openat(mFD, filename, O_RDONLY);
+    const int fd = openat(mFD, filename, O_RDONLY);
 
     if (fd < 0)
         return tl::unexpected(std::error_code(errno, std::system_category()));
@@ -71,10 +69,10 @@ tl::expected<zero::os::procfs::process::MemoryMapping, std::error_code>
 zero::os::procfs::process::Process::getImageBase(std::string_view path) const {
     const auto memoryMappings = TRY(maps());
     const auto it = std::ranges::find_if(
-            *memoryMappings,
-            [=](const auto &m) {
-                return m.pathname.find(path) != std::string::npos;
-            }
+        *memoryMappings,
+        [=](const auto &m) {
+            return m.pathname.find(path) != std::string::npos;
+        }
     );
 
     if (it == memoryMappings->end())
@@ -87,10 +85,10 @@ tl::expected<zero::os::procfs::process::MemoryMapping, std::error_code>
 zero::os::procfs::process::Process::findMapping(std::uintptr_t address) const {
     const auto memoryMappings = TRY(maps());
     const auto it = std::ranges::find_if(
-            *memoryMappings,
-            [=](const auto &m) {
-                return m.start <= address && address < m.end;
-            }
+        *memoryMappings,
+        [=](const auto &m) {
+            return m.start <= address && address < m.end;
+        }
     );
 
     if (it == memoryMappings->end())
@@ -317,13 +315,13 @@ tl::expected<zero::os::procfs::process::StatM, std::error_code> zero::os::procfs
     const auto dirty = TRY(strings::toNumber<std::uint64_t>(tokens[6]));
 
     return StatM{
-            *size,
-            *resident,
-            *shared,
-            *text,
-            *library,
-            *data,
-            *dirty
+        *size,
+        *resident,
+        *shared,
+        *text,
+        *library,
+        *data,
+        *dirty
     };
 }
 
@@ -460,8 +458,8 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
                 continue;
 
             status.cpusAllowedList->emplace_back(
-                    *strings::toNumber<unsigned int>(tokens[0]),
-                    *strings::toNumber<unsigned int>(tokens[1])
+                *strings::toNumber<unsigned int>(tokens[0]),
+                *strings::toNumber<unsigned int>(tokens[1])
             );
         }
     }
@@ -494,8 +492,8 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
                 continue;
 
             status.memoryNodesAllowedList->emplace_back(
-                    *strings::toNumber<unsigned int>(tokens[0]),
-                    *strings::toNumber<unsigned int>(tokens[1])
+                *strings::toNumber<unsigned int>(tokens[0]),
+                *strings::toNumber<unsigned int>(tokens[1])
             );
         }
     }
@@ -554,7 +552,8 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Proce
     return result;
 }
 
-tl::expected<std::list<zero::os::procfs::process::MemoryMapping>, std::error_code> zero::os::procfs::process::Process::maps() const {
+tl::expected<std::list<zero::os::procfs::process::MemoryMapping>, std::error_code>
+zero::os::procfs::process::Process::maps() const {
     const auto content = TRY(readFile("maps"));
 
     if (content->empty())
@@ -654,8 +653,8 @@ tl::expected<zero::os::procfs::process::CPUTime, std::error_code> zero::os::proc
     const auto ticks = static_cast<double>(result);
 
     CPUTime time = {
-            static_cast<double>(stat->uTime) / ticks,
-            static_cast<double>(stat->sTime) / ticks
+        static_cast<double>(stat->uTime) / ticks,
+        static_cast<double>(stat->sTime) / ticks
     };
 
     if (stat->delayAcctBlkIOTicks)
@@ -664,7 +663,8 @@ tl::expected<zero::os::procfs::process::CPUTime, std::error_code> zero::os::proc
     return time;
 }
 
-tl::expected<zero::os::procfs::process::MemoryStat, std::error_code> zero::os::procfs::process::Process::memory() const {
+tl::expected<zero::os::procfs::process::MemoryStat, std::error_code>
+zero::os::procfs::process::Process::memory() const {
     const long result = sysconf(_SC_PAGE_SIZE);
 
     if (result < 0)
@@ -674,8 +674,8 @@ tl::expected<zero::os::procfs::process::MemoryStat, std::error_code> zero::os::p
     const auto pageSize = static_cast<std::uint64_t>(result);
 
     return MemoryStat{
-            statM->resident * pageSize,
-            statM->size * pageSize
+        statM->resident * pageSize,
+        statM->size * pageSize
     };
 }
 
@@ -701,13 +701,13 @@ tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procf
     const auto cancelledWriteBytes = TRY(strings::toNumber<unsigned long long>(map["cancelled_write_bytes"]));
 
     return IOStat{
-            *readCharacters,
-            *writeCharacters,
-            *readSyscall,
-            *writeSyscall,
-            *readBytes,
-            *writeBytes,
-            *cancelledWriteBytes
+        *readCharacters,
+        *writeCharacters,
+        *readSyscall,
+        *writeSyscall,
+        *readBytes,
+        *writeBytes,
+        *cancelledWriteBytes
     };
 }
 
@@ -738,12 +738,12 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all()
         return tl::unexpected(ec);
 
     auto v = iterator
-             | std::views::filter([](const auto &entry) { return entry.is_directory(); })
-             | std::views::transform([](const auto &entry) {
-                 return strings::toNumber<pid_t>(entry.path().filename().string());
-             })
-             | std::views::filter([](const auto &result) { return result.has_value(); })
-             | std::views::transform([](const auto &result) { return *result; });
+        | std::views::filter([](const auto &entry) { return entry.is_directory(); })
+        | std::views::transform([](const auto &entry) {
+            return strings::toNumber<pid_t>(entry.path().filename().string());
+        })
+        | std::views::filter([](const auto &result) { return result.has_value(); })
+        | std::views::transform([](const auto &result) { return *result; });
 
     std::list<pid_t> ids;
     std::ranges::copy(v, std::back_inserter(ids));

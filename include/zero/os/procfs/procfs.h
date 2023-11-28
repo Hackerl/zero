@@ -24,7 +24,6 @@ namespace zero::os::procfs {
 
 template<>
 struct std::is_error_code_enum<zero::os::procfs::Error> : std::true_type {
-
 };
 
 #endif //ZERO_PROCFS_H

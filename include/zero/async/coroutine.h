@@ -18,28 +18,35 @@ namespace zero::async::coroutine {
 
         void await_suspend(const std::coroutine_handle<> handle) {
             if constexpr (std::is_void_v<T>) {
-                promise.then([=] {
-                    handle.resume();
-                }, [=](const E &) {
-                    handle.resume();
-                });
-            } else {
-                promise.then([=](const T &) {
-                    handle.resume();
-                }, [=](const E &) {
-                    handle.resume();
-                });
+                promise.then(
+                    [=] {
+                        handle.resume();
+                    },
+                    [=](const E &) {
+                        handle.resume();
+                    }
+                );
+            }
+            else {
+                promise.then(
+                    [=](const T &) {
+                        handle.resume();
+                    },
+                    [=](const E &) {
+                        handle.resume();
+                    }
+                );
             }
         }
 
         template<typename = void>
-        requires (!std::is_same_v<E, std::exception_ptr>)
+            requires (!std::is_same_v<E, std::exception_ptr>)
         tl::expected<T, E> &await_resume() {
             return promise.result();
         }
 
         template<typename = void>
-        requires std::is_same_v<E, std::exception_ptr>
+            requires std::is_same_v<E, std::exception_ptr>
         std::add_lvalue_reference_t<T> await_resume() {
             auto &result = promise.result();
 
@@ -63,17 +70,24 @@ namespace zero::async::coroutine {
 
         void await_suspend(const std::coroutine_handle<> handle) {
             if constexpr (std::is_void_v<T>) {
-                promise.then([=] {
-                    handle.resume();
-                }, [=](const E &) {
-                    handle.resume();
-                });
-            } else {
-                promise.then([=](const T &) {
-                    handle.resume();
-                }, [=](const E &) {
-                    handle.resume();
-                });
+                promise.then(
+                    [=] {
+                        handle.resume();
+                    },
+                    [=](const E &) {
+                        handle.resume();
+                    }
+                );
+            }
+            else {
+                promise.then(
+                    [=](const T &) {
+                        handle.resume();
+                    },
+                    [=](const E &) {
+                        handle.resume();
+                    }
+                );
             }
         }
 
@@ -104,7 +118,6 @@ namespace zero::async::coroutine {
     Cancellable(promise::Promise<T, E>, std::function<void()>) -> Cancellable<T, E>;
 
     struct CheckPoint {
-
     };
 
     template<typename T, typename E = std::exception_ptr>
@@ -115,7 +128,6 @@ namespace zero::async::coroutine {
         using promise_type = Promise<T, E>;
 
         explicit Task(promise_type promise) : mPromise(std::move(promise)) {
-
         }
 
         tl::expected<void, std::error_code> cancel() {
@@ -152,7 +164,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename F, typename R = std::invoke_result_t<F>>
-        requires (!std::is_same_v<E, std::exception_ptr> && std::is_void_v<T>)
+            requires (!std::is_same_v<E, std::exception_ptr> && std::is_void_v<T>)
         Task<typename R::value_type, E> andThen(F f) && {
             auto result = std::move(co_await *this);
 
@@ -161,13 +173,14 @@ namespace zero::async::coroutine {
                     co_return tl::unexpected(std::move(result.error()));
 
                 co_return std::move(co_await std::invoke(std::move(f)));
-            } else {
+            }
+            else {
                 co_return std::move(result).and_then(std::move(f));
             }
         }
 
         template<typename F, typename R = std::invoke_result_t<F>>
-        requires (!std::is_same_v<E, std::exception_ptr> && std::is_void_v<T>)
+            requires (!std::is_same_v<E, std::exception_ptr> && std::is_void_v<T>)
         Task<typename R::value_type, E> andThen(F f) & {
             auto result = co_await *this;
 
@@ -176,13 +189,14 @@ namespace zero::async::coroutine {
                     co_return tl::unexpected(std::move(result.error()));
 
                 co_return std::move(co_await std::invoke(std::move(f)));
-            } else {
+            }
+            else {
                 co_return std::move(result).and_then(std::move(f));
             }
         }
 
         template<typename F, typename R = std::invoke_result_t<F, T>>
-        requires (!std::is_same_v<E, std::exception_ptr> && !std::is_void_v<T>)
+            requires (!std::is_same_v<E, std::exception_ptr> && !std::is_void_v<T>)
         Task<typename R::value_type, E> andThen(F f) && {
             auto result = std::move(co_await *this);
 
@@ -191,13 +205,14 @@ namespace zero::async::coroutine {
                     co_return tl::unexpected(std::move(result.error()));
 
                 co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
-            } else {
+            }
+            else {
                 co_return std::move(result).and_then(std::move(f));
             }
         }
 
         template<typename F, typename R = std::invoke_result_t<F, T>>
-        requires (!std::is_same_v<E, std::exception_ptr> && !std::is_void_v<T>)
+            requires (!std::is_same_v<E, std::exception_ptr> && !std::is_void_v<T>)
         Task<typename R::value_type, E> andThen(F f) & {
             auto result = co_await *this;
 
@@ -206,40 +221,41 @@ namespace zero::async::coroutine {
                     co_return tl::unexpected(std::move(result.error()));
 
                 co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
-            } else {
+            }
+            else {
                 co_return std::move(result).and_then(std::move(f));
             }
         }
 
         template<typename F, typename R = std::invoke_result_t<F>>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 std::is_void_v<T> &&
                 !detail::is_specialization<R, Task>
-        )
+            )
         Task<R, E> transform(F f) && {
             auto result = std::move(co_await *this);
             co_return std::move(result).transform(std::move(f));
         }
 
         template<typename F, typename R = std::invoke_result_t<F>>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 std::is_void_v<T> &&
                 !detail::is_specialization<R, Task>
-        )
+            )
         Task<R, E> transform(F f) & {
             auto result = co_await *this;
             co_return std::move(result).transform(std::move(f));
         }
 
         template<typename F, typename R = std::invoke_result_t<F>>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 std::is_void_v<T> &&
                 detail::is_specialization<R, Task> &&
                 std::is_same_v<typename R::error_type, std::exception_ptr>
-        )
+            )
         Task<typename R::value_type, E> transform(F f) && {
             auto result = std::move(co_await *this);
 
@@ -250,12 +266,12 @@ namespace zero::async::coroutine {
         }
 
         template<typename F, typename R = std::invoke_result_t<F>>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 std::is_void_v<T> &&
                 detail::is_specialization<R, Task> &&
                 std::is_same_v<typename R::error_type, std::exception_ptr>
-        )
+            )
         Task<typename R::value_type, E> transform(F f) & {
             auto result = co_await *this;
 
@@ -266,34 +282,34 @@ namespace zero::async::coroutine {
         }
 
         template<typename F>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 !std::is_void_v<T> &&
                 !detail::is_specialization<std::invoke_result_t<F, T>, Task>
-        )
+            )
         Task<std::invoke_result_t<F, T>, E> transform(F f) && {
             auto result = std::move(co_await *this);
             co_return std::move(result).transform(std::move(f));
         }
 
         template<typename F>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 !std::is_void_v<T> &&
                 !detail::is_specialization<std::invoke_result_t<F, T>, Task>
-        )
+            )
         Task<std::invoke_result_t<F, T>, E> transform(F f) & {
             auto result = co_await *this;
             co_return std::move(result).transform(std::move(f));
         }
 
         template<typename F, typename R = std::invoke_result_t<F, T>>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 !std::is_void_v<T> &&
                 detail::is_specialization<R, Task> &&
                 std::is_same_v<typename R::error_type, std::exception_ptr>
-        )
+            )
         Task<typename R::value_type, E> transform(F f) && {
             auto result = std::move(co_await *this);
 
@@ -303,18 +319,19 @@ namespace zero::async::coroutine {
             if constexpr (std::is_void_v<typename R::value_type>) {
                 co_await std::invoke(std::move(f), std::move(*result));
                 co_return tl::expected<typename R::value_type, E>{};
-            } else {
+            }
+            else {
                 co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
             }
         }
 
         template<typename F, typename R = std::invoke_result_t<F, T>>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 !std::is_void_v<T> &&
                 detail::is_specialization<R, Task> &&
                 std::is_same_v<typename R::error_type, std::exception_ptr>
-        )
+            )
         Task<typename R::value_type, E> transform(F f) & {
             auto result = co_await *this;
 
@@ -324,13 +341,14 @@ namespace zero::async::coroutine {
             if constexpr (std::is_void_v<typename R::value_type>) {
                 co_await std::invoke(std::move(f), std::move(*result));
                 co_return tl::expected<typename R::value_type, E>{};
-            } else {
+            }
+            else {
                 co_return std::move(co_await std::invoke(std::move(f), std::move(*result)));
             }
         }
 
         template<typename F, typename R = std::invoke_result_t<F, E>>
-        requires (!std::is_same_v<E, std::exception_ptr>)
+            requires (!std::is_same_v<E, std::exception_ptr>)
         Task<T, typename R::error_type> orElse(F f) && {
             auto result = std::move(co_await *this);
 
@@ -339,13 +357,14 @@ namespace zero::async::coroutine {
                     co_return std::move(*result);
 
                 co_return std::move(co_await std::invoke(std::move(f), std::move(result.error())));
-            } else {
+            }
+            else {
                 co_return std::move(result).or_else(std::move(f));
             }
         }
 
         template<typename F, typename R = std::invoke_result_t<F, E>>
-        requires (!std::is_same_v<E, std::exception_ptr>)
+            requires (!std::is_same_v<E, std::exception_ptr>)
         Task<T, typename R::error_type> orElse(F f) & {
             auto result = co_await *this;
 
@@ -354,31 +373,32 @@ namespace zero::async::coroutine {
                     co_return std::move(*result);
 
                 co_return std::move(co_await std::invoke(std::move(f), std::move(result.error())));
-            } else {
+            }
+            else {
                 co_return std::move(result).or_else(std::move(f));
             }
         }
 
         template<typename F, typename R = std::invoke_result_t<F, E>>
-        requires (!std::is_same_v<E, std::exception_ptr> && !detail::is_specialization<R, Task>)
+            requires (!std::is_same_v<E, std::exception_ptr> && !detail::is_specialization<R, Task>)
         Task<T, R> transformError(F f) && {
             auto result = std::move(co_await *this);
             co_return std::move(result).transform_error(std::move(f));
         }
 
         template<typename F, typename R = std::invoke_result_t<F, E>>
-        requires (!std::is_same_v<E, std::exception_ptr> && !detail::is_specialization<R, Task>)
+            requires (!std::is_same_v<E, std::exception_ptr> && !detail::is_specialization<R, Task>)
         Task<T, R> transformError(F f) & {
             auto result = co_await *this;
             co_return std::move(result).transform_error(std::move(f));
         }
 
         template<typename F, typename R = std::invoke_result_t<F, E>>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 detail::is_specialization<R, Task> &&
                 std::is_same_v<typename R::error_type, std::exception_ptr>
-        )
+            )
         Task<T, typename R::value_type> transformError(F f) && {
             auto result = std::move(co_await *this);
 
@@ -389,11 +409,11 @@ namespace zero::async::coroutine {
         }
 
         template<typename F, typename R = std::invoke_result_t<F, E>>
-        requires (
+            requires (
                 !std::is_same_v<E, std::exception_ptr> &&
                 detail::is_specialization<R, Task> &&
                 std::is_same_v<typename R::error_type, std::exception_ptr>
-        )
+            )
         Task<T, typename R::value_type> transformError(F f) & {
             auto result = co_await *this;
 
@@ -430,7 +450,6 @@ namespace zero::async::coroutine {
     class Promise : public promise::Promise<T, E> {
     public:
         Promise() : mFrame(std::make_shared<Frame>()) {
-
         }
 
         std::suspend_never initial_suspend() {
@@ -461,8 +480,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error> await_transform(
-                Cancellable<Result, Error> &&cancellable,
-                const std::source_location location = std::source_location::current()
+            Cancellable<Result, Error> &&cancellable,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next.reset();
             mFrame->location = location;
@@ -473,8 +492,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error> await_transform(
-                const Cancellable<Result, Error> &cancellable,
-                const std::source_location location = std::source_location::current()
+            const Cancellable<Result, Error> &cancellable,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next.reset();
             mFrame->location = location;
@@ -485,8 +504,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error> await_transform(
-                promise::Promise<Result, Error> &&promise,
-                const std::source_location location = std::source_location::current()
+            promise::Promise<Result, Error> &&promise,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next.reset();
             mFrame->location = location;
@@ -497,8 +516,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error> await_transform(
-                const promise::Promise<Result, Error> &promise,
-                const std::source_location location = std::source_location::current()
+            const promise::Promise<Result, Error> &promise,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next.reset();
             mFrame->location = location;
@@ -509,8 +528,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         Awaitable<Result, Error> await_transform(
-                Task<Result, Error> &&task,
-                const std::source_location location = std::source_location::current()
+            Task<Result, Error> &&task,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next = task.mPromise.mFrame;
             mFrame->location = location;
@@ -521,8 +540,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         Awaitable<Result, Error> await_transform(
-                const Task<Result, Error> &task,
-                const std::source_location location = std::source_location::current()
+            const Task<Result, Error> &task,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next = task.mPromise.mFrame;
             mFrame->location = location;
@@ -532,11 +551,11 @@ namespace zero::async::coroutine {
         }
 
         template<typename U>
-        requires (
+            requires (
                 !std::is_void_v<T> &&
                 !detail::is_specialization<std::decay_t<U>, tl::expected> &&
                 !detail::is_specialization<std::decay_t<U>, tl::unexpected>
-        )
+            )
         void return_value(U &&result) {
             mFrame->next.reset();
             mFrame->location.reset();
@@ -546,7 +565,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename = void>
-        requires (!std::is_same_v<E, std::exception_ptr>)
+            requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(const tl::expected<T, E> &result) {
             mFrame->next.reset();
             mFrame->location.reset();
@@ -564,7 +583,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename = void>
-        requires (!std::is_same_v<E, std::exception_ptr>)
+            requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(tl::expected<T, E> &&result) {
             mFrame->next.reset();
             mFrame->location.reset();
@@ -582,7 +601,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename = void>
-        requires (!std::is_same_v<E, std::exception_ptr>)
+            requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(const tl::unexpected<E> &reason) {
             mFrame->next.reset();
             mFrame->location.reset();
@@ -592,7 +611,7 @@ namespace zero::async::coroutine {
         }
 
         template<typename = void>
-        requires (!std::is_same_v<E, std::exception_ptr>)
+            requires (!std::is_same_v<E, std::exception_ptr>)
         void return_value(tl::unexpected<E> &&reason) {
             mFrame->next.reset();
             mFrame->location.reset();
@@ -615,7 +634,6 @@ namespace zero::async::coroutine {
     class Promise<void, std::exception_ptr> : public promise::Promise<void, std::exception_ptr> {
     public:
         Promise() : mFrame(std::make_shared<Frame>()) {
-
         }
 
         std::suspend_never initial_suspend() {
@@ -639,8 +657,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error> await_transform(
-                Cancellable<Result, Error> &&cancellable,
-                const std::source_location location = std::source_location::current()
+            Cancellable<Result, Error> &&cancellable,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next.reset();
             mFrame->location = location;
@@ -651,8 +669,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error> await_transform(
-                const Cancellable<Result, Error> &cancellable,
-                const std::source_location location = std::source_location::current()
+            const Cancellable<Result, Error> &cancellable,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next.reset();
             mFrame->location = location;
@@ -663,8 +681,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error> await_transform(
-                promise::Promise<Result, Error> &&promise,
-                const std::source_location location = std::source_location::current()
+            promise::Promise<Result, Error> &&promise,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next.reset();
             mFrame->location = location;
@@ -675,8 +693,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error> await_transform(
-                const promise::Promise<Result, Error> &promise,
-                const std::source_location location = std::source_location::current()
+            const promise::Promise<Result, Error> &promise,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next.reset();
             mFrame->location = location;
@@ -687,8 +705,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         Awaitable<Result, Error> await_transform(
-                Task<Result, Error> &&task,
-                const std::source_location location = std::source_location::current()
+            Task<Result, Error> &&task,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next = task.mPromise.mFrame;
             mFrame->location = location;
@@ -699,8 +717,8 @@ namespace zero::async::coroutine {
 
         template<typename Result, typename Error>
         Awaitable<Result, Error> await_transform(
-                const Task<Result, Error> &task,
-                const std::source_location location = std::source_location::current()
+            const Task<Result, Error> &task,
+            const std::source_location location = std::source_location::current()
         ) {
             mFrame->next = task.mPromise.mFrame;
             mFrame->location = location;
@@ -731,25 +749,25 @@ namespace zero::async::coroutine {
         friend class Promise;
     };
 
-    template<typename ...Ts, typename E, typename T = promise::promises_result_t<Ts...>>
-    Task<T, E> all(Task<Ts, E> ...tasks) {
+    template<typename... Ts, typename E, typename T = promise::promises_result_t<Ts...>>
+    Task<T, E> all(Task<Ts, E>... tasks) {
         auto result = std::move(co_await Cancellable{
-                promise::all(tasks.promise()...),
-                [=]() mutable {
-                    std::optional<tl::expected<void, std::error_code>> res;
+            promise::all(tasks.promise()...),
+            [=]() mutable {
+                std::optional<tl::expected<void, std::error_code>> res;
 
-                    ([&] {
-                        if (res && *res)
-                            return;
+                ([&] {
+                    if (res && *res)
+                        return;
 
-                        if (tasks.done())
-                            return;
+                    if (tasks.done())
+                        return;
 
-                        res = tasks.cancel();
-                    }(), ...);
+                    res = tasks.cancel();
+                }(), ...);
 
-                    return *res;
-                }
+                return *res;
+            }
         });
 
         if (!result) {
@@ -767,57 +785,56 @@ namespace zero::async::coroutine {
 
             if constexpr (!std::is_void_v<T>)
                 co_return std::move(*result);
-        } else {
+        }
+        else {
             co_return std::move(result);
         }
     }
 
-    template<typename ...Ts, typename ...E>
-    Task<std::tuple<tl::expected<Ts, E>...>> allSettled(Task<Ts, E> ...tasks) {
+    template<typename... Ts, typename... E>
+    Task<std::tuple<tl::expected<Ts, E>...>> allSettled(Task<Ts, E>... tasks) {
         co_return *std::move(co_await Cancellable{
-                promise::allSettled(tasks.promise()...),
-                [=]() mutable {
-                    tl::expected<void, std::error_code> res;
+            promise::allSettled(tasks.promise()...),
+            [=]() mutable {
+                tl::expected<void, std::error_code> res;
 
-                    ([&] {
-                        if (!res)
-                            return;
+                ([&] {
+                    if (!res)
+                        return;
 
-                        if (tasks.done())
-                            return;
+                    if (tasks.done())
+                        return;
 
-                        res = tasks.cancel();
-                    }(), ...);
+                    res = tasks.cancel();
+                }(), ...);
 
-                    return res;
-                }
+                return res;
+            }
         });
     }
 
-    template<
-            typename ...Ts,
-            typename E,
-            typename F = detail::first_element_t<Ts...>,
-            typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
-    >
-    Task<T, std::list<E>> any(Task<Ts, E> ...tasks) {
+    template<typename... Ts,
+             typename E,
+             typename F = detail::first_element_t<Ts...>,
+             typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>>
+    Task<T, std::list<E>> any(Task<Ts, E>... tasks) {
         auto result = std::move(co_await Cancellable{
-                promise::any(tasks.promise()...),
-                [=]() mutable {
-                    tl::expected<void, std::error_code> res;
+            promise::any(tasks.promise()...),
+            [=]() mutable {
+                tl::expected<void, std::error_code> res;
 
-                    ([&] {
-                        if (!res)
-                            return;
+                ([&] {
+                    if (!res)
+                        return;
 
-                        if (tasks.done())
-                            return;
+                    if (tasks.done())
+                        return;
 
-                        res = tasks.cancel();
-                    }(), ...);
+                    res = tasks.cancel();
+                }(), ...);
 
-                    return res;
-                }
+                return res;
+            }
         });
 
         if (result)
@@ -831,30 +848,28 @@ namespace zero::async::coroutine {
         co_return std::move(result);
     }
 
-    template<
-            typename ...Ts,
-            typename E,
-            typename F = detail::first_element_t<Ts...>,
-            typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>
-    >
-    Task<T, E> race(Task<Ts, E> ...tasks) {
+    template<typename... Ts,
+             typename E,
+             typename F = detail::first_element_t<Ts...>,
+             typename T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>>
+    Task<T, E> race(Task<Ts, E>... tasks) {
         auto result = std::move(co_await Cancellable{
-                promise::race(tasks.promise()...),
-                [=]() mutable {
-                    std::optional<tl::expected<void, std::error_code>> res;
+            promise::race(tasks.promise()...),
+            [=]() mutable {
+                std::optional<tl::expected<void, std::error_code>> res;
 
-                    ([&] {
-                        if (res && *res)
-                            return;
+                ([&] {
+                    if (res && *res)
+                        return;
 
-                        if (tasks.done())
-                            return;
+                    if (tasks.done())
+                        return;
 
-                        res = tasks.cancel();
-                    }(), ...);
+                    res = tasks.cancel();
+                }(), ...);
 
-                    return *res;
-                }
+                return *res;
+            }
         });
 
         ([&] {
@@ -870,7 +885,8 @@ namespace zero::async::coroutine {
 
             if constexpr (!std::is_void_v<T>)
                 co_return std::move(*result);
-        } else {
+        }
+        else {
             co_return std::move(result);
         }
     }
@@ -885,7 +901,8 @@ namespace zero::async::coroutine {
 
             if constexpr (!std::is_void_v<T>)
                 co_return std::move(*result);
-        } else {
+        }
+        else {
             co_return std::move(result);
         }
     }
@@ -900,7 +917,8 @@ namespace zero::async::coroutine {
 
             if constexpr (!std::is_void_v<T>)
                 co_return std::move(*result);
-        } else {
+        }
+        else {
             co_return std::move(result);
         }
     }

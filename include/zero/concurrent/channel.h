@@ -29,7 +29,6 @@ namespace zero::concurrent {
 
 template<>
 struct std::is_error_code_enum<zero::concurrent::ChannelError> : std::true_type {
-
 };
 
 namespace zero::concurrent {
@@ -40,7 +39,6 @@ namespace zero::concurrent {
 
     public:
         explicit Channel(std::size_t capacity) : mClosed(false), mBuffer(capacity), mWaiting{false, false} {
-
         }
 
     private:

@@ -76,7 +76,6 @@ namespace zero::os::nt::process {
 
 template<>
 struct std::is_error_code_enum<zero::os::nt::process::Error> : std::true_type {
-
 };
 
 #endif //ZERO_NT_PROCESS_H

@@ -8,25 +8,25 @@ std::string zero::os::procfs::ErrorCategory::message(const int value) const {
     std::string msg;
 
     switch (value) {
-        case NO_SUCH_IMAGE:
-            msg = "no such image";
-            break;
+    case NO_SUCH_IMAGE:
+        msg = "no such image";
+        break;
 
-        case NO_SUCH_MEMORY_MAPPING:
-            msg = "no such memory mapping";
-            break;
+    case NO_SUCH_MEMORY_MAPPING:
+        msg = "no such memory mapping";
+        break;
 
-        case UNEXPECTED_DATA:
-            msg = "unexpected data";
-            break;
+    case UNEXPECTED_DATA:
+        msg = "unexpected data";
+        break;
 
-        case MAYBE_ZOMBIE_PROCESS:
-            msg = "maybe zombie process";
-            break;
+    case MAYBE_ZOMBIE_PROCESS:
+        msg = "maybe zombie process";
+        break;
 
-        default:
-            msg = "unknown";
-            break;
+    default:
+        msg = "unknown";
+        break;
     }
 
     return msg;

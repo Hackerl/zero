@@ -6,7 +6,6 @@
 #endif
 
 zero::os::process::Process::Process(ProcessImpl impl) : mImpl(std::move(impl)) {
-
 }
 
 zero::os::process::ID zero::os::process::Process::pid() const {
@@ -54,24 +53,24 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
 tl::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Process::cpu() const {
     const auto cpu = TRY(mImpl.cpu());
     return CPUTime{
-            cpu->user,
-            cpu->system
+        cpu->user,
+        cpu->system
     };
 }
 
 tl::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::Process::memory() const {
     const auto memory = TRY(mImpl.memory());
     return MemoryStat{
-            memory->rss,
-            memory->vms
+        memory->rss,
+        memory->vms
     };
 }
 
 tl::expected<zero::os::process::IOStat, std::error_code> zero::os::process::Process::io() const {
     const auto io = TRY(mImpl.io());
     return IOStat{
-            io->readBytes,
-            io->writeBytes
+        io->readBytes,
+        io->writeBytes
     };
 }
 

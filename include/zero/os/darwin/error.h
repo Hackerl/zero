@@ -5,7 +5,6 @@
 
 namespace zero::os::darwin {
     enum Error {
-
     };
 
     class ErrorCategory final : public std::error_category {

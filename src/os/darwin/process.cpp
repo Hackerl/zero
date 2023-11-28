@@ -30,11 +30,9 @@ std::error_code zero::os::darwin::process::make_error_code(const Error e) {
 
 
 zero::os::darwin::process::Process::Process(const pid_t pid) : mPID(pid) {
-
 }
 
 zero::os::darwin::process::Process::Process(Process &&rhs) noexcept : mPID(std::exchange(rhs.mPID, -1)) {
-
 }
 
 tl::expected<std::vector<char>, std::error_code> zero::os::darwin::process::Process::arguments() const {
@@ -114,11 +112,11 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::proces
         return tl::unexpected(UNEXPECTED_DATA);
 
     it = std::find_if(
-            it,
-            arguments->end(),
-            [](const char c) {
-                return c != '\0';
-            }
+        it,
+        arguments->end(),
+        [](const char c) {
+            return c != '\0';
+        }
     );
 
     if (it == arguments->end())
@@ -146,11 +144,11 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
         return tl::unexpected(UNEXPECTED_DATA);
 
     it = std::find_if(
-            it,
-            arguments->end(),
-            [](const char c) {
-                return c != '\0';
-            }
+        it,
+        arguments->end(),
+        [](const char c) {
+            return c != '\0';
+        }
     );
 
     if (it == arguments->end())
@@ -212,8 +210,8 @@ tl::expected<zero::os::darwin::process::CPUTime, std::error_code> zero::os::darw
     const auto scale = static_cast<double>(tb.numer) / static_cast<double>(tb.denom);
 
     return CPUTime{
-            static_cast<double>(info.pti_total_user) * scale / 1e9,
-            static_cast<double>(info.pti_total_system) * scale / 1e9
+        static_cast<double>(info.pti_total_user) * scale / 1e9,
+        static_cast<double>(info.pti_total_system) * scale / 1e9
     };
 }
 
@@ -225,9 +223,9 @@ zero::os::darwin::process::Process::memory() const {
         return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return MemoryStat{
-            info.pti_resident_size,
-            info.pti_virtual_size,
-            static_cast<std::uint64_t>(info.pti_pageins)
+        info.pti_resident_size,
+        info.pti_virtual_size,
+        static_cast<std::uint64_t>(info.pti_pageins)
     };
 }
 
@@ -239,8 +237,8 @@ zero::os::darwin::process::Process::io() const {
         return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return IOStat{
-            info.ri_diskio_bytesread,
-            info.ri_diskio_byteswritten
+        info.ri_diskio_bytesread,
+        info.ri_diskio_byteswritten
     };
 }
 

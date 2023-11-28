@@ -47,30 +47,30 @@ TEST_CASE("procfs process", "[process]") {
         REQUIRE(mappings);
 
         auto it = std::ranges::find_if(
-                *mappings,
-                [=](const zero::os::procfs::process::MemoryMapping &mapping) {
-                    return function >= mapping.start && function < mapping.end;
-                }
+            *mappings,
+            [=](const zero::os::procfs::process::MemoryMapping &mapping) {
+                return function >= mapping.start && function < mapping.end;
+            }
         );
         REQUIRE(it != mappings->end());
 
         auto permissions = zero::os::procfs::process::MemoryPermission::READ |
-                           zero::os::procfs::process::MemoryPermission::EXECUTE |
-                           zero::os::procfs::process::MemoryPermission::PRIVATE;
+            zero::os::procfs::process::MemoryPermission::EXECUTE |
+            zero::os::procfs::process::MemoryPermission::PRIVATE;
 
         REQUIRE(it->permissions == permissions);
 
         it = std::ranges::find_if(
-                *mappings,
-                [=](const zero::os::procfs::process::MemoryMapping &mapping) {
-                    return variable >= mapping.start && variable < mapping.end;
-                }
+            *mappings,
+            [=](const zero::os::procfs::process::MemoryMapping &mapping) {
+                return variable >= mapping.start && variable < mapping.end;
+            }
         );
         REQUIRE(it != mappings->end());
 
         permissions = zero::os::procfs::process::MemoryPermission::READ |
-                      zero::os::procfs::process::MemoryPermission::WRITE |
-                      zero::os::procfs::process::MemoryPermission::PRIVATE;
+            zero::os::procfs::process::MemoryPermission::WRITE |
+            zero::os::procfs::process::MemoryPermission::PRIVATE;
 
         REQUIRE(it->permissions == permissions);
 
@@ -155,30 +155,30 @@ TEST_CASE("procfs process", "[process]") {
         REQUIRE(mappings);
 
         auto it = std::ranges::find_if(
-                *mappings,
-                [=](const zero::os::procfs::process::MemoryMapping &mapping) {
-                    return function >= mapping.start && function < mapping.end;
-                }
+            *mappings,
+            [=](const zero::os::procfs::process::MemoryMapping &mapping) {
+                return function >= mapping.start && function < mapping.end;
+            }
         );
         REQUIRE(it != mappings->end());
 
         auto permissions = zero::os::procfs::process::MemoryPermission::READ |
-                           zero::os::procfs::process::MemoryPermission::EXECUTE |
-                           zero::os::procfs::process::MemoryPermission::PRIVATE;
+            zero::os::procfs::process::MemoryPermission::EXECUTE |
+            zero::os::procfs::process::MemoryPermission::PRIVATE;
 
         REQUIRE(it->permissions == permissions);
 
         it = std::ranges::find_if(
-                *mappings,
-                [=](const zero::os::procfs::process::MemoryMapping &mapping) {
-                    return variable >= mapping.start && variable < mapping.end;
-                }
+            *mappings,
+            [=](const zero::os::procfs::process::MemoryMapping &mapping) {
+                return variable >= mapping.start && variable < mapping.end;
+            }
         );
         REQUIRE(it != mappings->end());
 
         permissions = zero::os::procfs::process::MemoryPermission::READ |
-                      zero::os::procfs::process::MemoryPermission::WRITE |
-                      zero::os::procfs::process::MemoryPermission::PRIVATE;
+            zero::os::procfs::process::MemoryPermission::WRITE |
+            zero::os::procfs::process::MemoryPermission::PRIVATE;
 
         REQUIRE(it->permissions == permissions);
 

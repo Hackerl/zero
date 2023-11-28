@@ -10,7 +10,6 @@ namespace zero::cache {
     class LRUCache {
     public:
         explicit LRUCache(const std::size_t capacity) : mCapacity(capacity) {
-
         }
 
         void set(const K &key, const V &value) {
