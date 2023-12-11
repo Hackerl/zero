@@ -32,6 +32,10 @@ std::string zero::os::nt::process::ErrorCategory::message(const int value) const
         msg = "api not available";
         break;
 
+    case PROCESS_STILL_ACTIVE:
+        msg = "process still active";
+        break;
+
     case UNEXPECTED_DATA:
         msg = "unexpected data";
         break;
@@ -72,6 +76,16 @@ zero::os::nt::process::Process::~Process() {
         return;
 
     CloseHandle(mHandle);
+}
+
+tl::expected<zero::os::nt::process::Process, std::error_code>
+zero::os::nt::process::Process::from(const HANDLE handle) {
+    const DWORD pid = GetProcessId(handle);
+
+    if (pid == 0)
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+    return Process{handle, pid};
 }
 
 tl::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::parameters() const {
@@ -326,6 +340,18 @@ tl::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::proce
         counters.WriteOperationCount,
         counters.WriteTransferCount
     };
+}
+
+tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() const {
+    DWORD code;
+
+    if (!GetExitCodeProcess(mHandle, &code))
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+    if (code == STILL_ACTIVE)
+        return tl::unexpected(PROCESS_STILL_ACTIVE);
+
+    return code;
 }
 
 tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {

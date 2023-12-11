@@ -10,6 +10,7 @@
 namespace zero::os::nt::process {
     enum Error {
         API_NOT_AVAILABLE = 1,
+        PROCESS_STILL_ACTIVE,
         UNEXPECTED_DATA
     };
 
@@ -46,6 +47,8 @@ namespace zero::os::nt::process {
         Process(Process &&rhs) noexcept;
         ~Process();
 
+        static tl::expected<Process, std::error_code> from(HANDLE handle);
+
     private:
         [[nodiscard]] tl::expected<std::uintptr_t, std::error_code> parameters() const;
 
@@ -63,6 +66,8 @@ namespace zero::os::nt::process {
         [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
+
+        [[nodiscard]] tl::expected<DWORD, std::error_code> exitCode() const;
 
     private:
         DWORD mPID;

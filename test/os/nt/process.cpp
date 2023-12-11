@@ -40,4 +40,8 @@ TEST_CASE("windows process", "[process]") {
 
     const auto io = process->io();
     REQUIRE(io);
+
+    const auto code = process->exitCode();
+    REQUIRE(!code);
+    REQUIRE(code.error() == zero::os::nt::process::Error::PROCESS_STILL_ACTIVE);
 }
