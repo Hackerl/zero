@@ -795,20 +795,21 @@ namespace zero::async::coroutine {
     Task<std::tuple<tl::expected<Ts, E>...>> allSettled(Task<Ts, E>... tasks) {
         co_return *std::move(co_await Cancellable{
             promise::allSettled(tasks.promise()...),
-            [=]() mutable {
-                tl::expected<void, std::error_code> res;
+            [=]() mutable -> tl::expected<void, std::error_code> {
+                std::error_code ec;
 
                 ([&] {
-                    if (!res)
-                        return;
-
                     if (tasks.done())
                         return;
 
-                    res = tasks.cancel();
+                    if (const auto result = tasks.cancel(); !result)
+                        ec = result.error();
                 }(), ...);
 
-                return res;
+                if (ec)
+                    return tl::unexpected(ec);
+
+                return {};
             }
         });
     }
@@ -820,20 +821,21 @@ namespace zero::async::coroutine {
     Task<T, std::list<E>> any(Task<Ts, E>... tasks) {
         auto result = std::move(co_await Cancellable{
             promise::any(tasks.promise()...),
-            [=]() mutable {
-                tl::expected<void, std::error_code> res;
+            [=]() mutable -> tl::expected<void, std::error_code> {
+                std::error_code ec;
 
                 ([&] {
-                    if (!res)
-                        return;
-
                     if (tasks.done())
                         return;
 
-                    res = tasks.cancel();
+                    if (const auto res = tasks.cancel(); !res)
+                        ec = res.error();
                 }(), ...);
 
-                return res;
+                if (ec)
+                    return tl::unexpected(ec);
+
+                return {};
             }
         });
 
