@@ -94,13 +94,13 @@ tl::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::pa
 
     PROCESS_BASIC_INFORMATION info = {};
 
-    if (!NT_SUCCESS(queryInformationProcess(
+    if (!(NT_SUCCESS(queryInformationProcess(
         mHandle,
         ProcessBasicInformation,
         &info,
         sizeof(info),
         nullptr
-    )))
+    ))))
         return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     std::uintptr_t ptr;
@@ -131,13 +131,13 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() cons
 
     PROCESS_BASIC_INFORMATION info = {};
 
-    if (!NT_SUCCESS(queryInformationProcess(
+    if (!(NT_SUCCESS(queryInformationProcess(
         mHandle,
         ProcessBasicInformation,
         &info,
         sizeof(info),
         nullptr
-    )))
+    ))))
         return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
@@ -352,6 +352,13 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() 
         return tl::unexpected(PROCESS_STILL_ACTIVE);
 
     return code;
+}
+
+tl::expected<void, std::error_code> zero::os::nt::process::Process::terminate(const DWORD code) const {
+    if (!TerminateProcess(mHandle, code))
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+    return {};
 }
 
 tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {
