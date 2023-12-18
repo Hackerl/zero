@@ -354,7 +354,8 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() 
     return code;
 }
 
-tl::expected<void, std::error_code> zero::os::nt::process::Process::terminate(const DWORD code) const {
+// ReSharper disable once CppMemberFunctionMayBeConst
+tl::expected<void, std::error_code> zero::os::nt::process::Process::terminate(const DWORD code) {
     if (!TerminateProcess(mHandle, code))
         return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 

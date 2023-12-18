@@ -8,7 +8,11 @@
 zero::os::process::Process::Process(ProcessImpl impl) : mImpl(std::move(impl)) {
 }
 
-const zero::os::process::ProcessImpl &zero::os::process::Process::impl() {
+zero::os::process::ProcessImpl &zero::os::process::Process::impl() {
+    return mImpl;
+}
+
+const zero::os::process::ProcessImpl &zero::os::process::Process::impl() const {
     return mImpl;
 }
 

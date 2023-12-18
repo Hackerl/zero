@@ -39,7 +39,8 @@ namespace zero::os::process {
     public:
         explicit Process(ProcessImpl impl);
 
-        [[nodiscard]] const ProcessImpl &impl();
+        ProcessImpl &impl();
+        [[nodiscard]] const ProcessImpl &impl() const;
 
         [[nodiscard]] ID pid() const;
         [[nodiscard]] tl::expected<ID, std::error_code> ppid() const;

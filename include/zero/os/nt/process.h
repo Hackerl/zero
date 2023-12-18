@@ -68,7 +68,7 @@ namespace zero::os::nt::process {
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
         [[nodiscard]] tl::expected<DWORD, std::error_code> exitCode() const;
-        [[nodiscard]] tl::expected<void, std::error_code> terminate(DWORD code) const;
+        tl::expected<void, std::error_code> terminate(DWORD code);
 
     private:
         DWORD mPID;
