@@ -33,7 +33,7 @@ namespace zero {
         LogLevel level{};
         int line{};
         std::string_view filename;
-        std::chrono::time_point<std::chrono::system_clock> timestamp;
+        std::chrono::system_clock::time_point timestamp;
         std::string content;
     };
 
@@ -83,7 +83,7 @@ namespace zero {
             LogLevel level;
             std::unique_ptr<ILogProvider> provider;
             std::chrono::milliseconds flushInterval;
-            std::chrono::time_point<std::chrono::system_clock> flushDeadline;
+            std::chrono::system_clock::time_point flushDeadline;
         };
 
     public:
