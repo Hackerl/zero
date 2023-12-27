@@ -8,7 +8,6 @@ namespace zero {
     class Defer {
     public:
         explicit Defer(F &&fn) : mFn(std::move(fn)) {
-
         }
 
         ~Defer() {

@@ -1,21 +1,20 @@
 #ifndef ZERO_LOG_H
 #define ZERO_LOG_H
 
-#include "interface.h"
 #include "singleton.h"
-#include "strings/strings.h"
-#include "atomic/event.h"
-#include "atomic/circular_buffer.h"
+#include "interface.h"
+#include "concurrent/channel.h"
 #include <thread>
 #include <fstream>
 #include <list>
 #include <mutex>
-#include <tuple>
-#include <cstring>
+#include <array>
 #include <filesystem>
+#include <fmt/format.h>
+#include <fmt/chrono.h>
 
 namespace zero {
-    constexpr const char *LOG_TAGS[] = {"ERROR", "WARN", "INFO", "DEBUG"};
+    constexpr auto LOG_TAGS = std::array{"ERROR", "WARN", "INFO", "DEBUG"};
 
     enum LogLevel {
         ERROR_LEVEL,
@@ -34,133 +33,101 @@ namespace zero {
         LogLevel level{};
         int line{};
         std::string_view filename;
-        std::chrono::time_point<std::chrono::system_clock> timestamp;
+        std::chrono::system_clock::time_point timestamp;
         std::string content;
     };
-
-    std::string stringify(const LogMessage &message);
 
     class ILogProvider : public Interface {
     public:
         virtual bool init() = 0;
         virtual bool rotate() = 0;
         virtual bool flush() = 0;
-
-    public:
         virtual LogResult write(const LogMessage &message) = 0;
     };
 
-    class ConsoleProvider : public ILogProvider {
+    class ConsoleProvider final : public ILogProvider {
     public:
         bool init() override;
         bool rotate() override;
         bool flush() override;
-
-    public:
         LogResult write(const LogMessage &message) override;
     };
 
-    class FileProvider : public ILogProvider {
+    class FileProvider final : public ILogProvider {
     public:
         explicit FileProvider(
-                const char *name,
-                const std::optional<std::filesystem::path> &directory = std::nullopt,
-                size_t limit = 10 * 1024 * 1024,
-                int remain = 10
+            const char *name,
+            const std::optional<std::filesystem::path> &directory = std::nullopt,
+            std::size_t limit = 10 * 1024 * 1024,
+            int remain = 10
         );
 
-    public:
         bool init() override;
         bool rotate() override;
         bool flush() override;
 
-    public:
         LogResult write(const LogMessage &message) override;
-
-    private:
-        std::string mName;
-        std::filesystem::path mDirectory;
 
     private:
         int mPID;
         int mRemain;
-        size_t mLimit;
-        size_t mPosition;
-
-    private:
+        std::size_t mLimit;
+        std::size_t mPosition;
         std::ofstream mStream;
+        std::string mName;
+        std::filesystem::path mDirectory;
     };
 
     class Logger {
-    private:
         struct Config {
             LogLevel level;
             std::unique_ptr<ILogProvider> provider;
             std::chrono::milliseconds flushInterval;
-            std::chrono::time_point<std::chrono::system_clock> flushDeadline;
+            std::chrono::system_clock::time_point flushDeadline;
         };
 
     public:
         Logger();
         ~Logger();
 
-    public:
-        bool enabled(LogLevel level);
-
     private:
         void consume();
 
     public:
+        [[nodiscard]] bool enabled(LogLevel level) const;
+
         void addProvider(
-                LogLevel level,
-                std::unique_ptr<ILogProvider> provider,
-                std::chrono::milliseconds interval = std::chrono::seconds{1}
+            LogLevel level,
+            std::unique_ptr<ILogProvider> provider,
+            std::chrono::milliseconds interval = std::chrono::seconds{1}
         );
 
-    public:
-        template<typename... Args>
-        void log(LogLevel level, std::string_view filename, int line, const char *format, Args... args) {
-            if (mExit)
-                return;
-
-            auto index = mBuffer.reserve();
-
-            if (!index)
-                return;
-
-            auto &message = mBuffer[*index];
-
-            message = {
+        void log(const LogLevel level, const std::string_view filename, const int line, std::string content) {
+            mChannel.send(
+                LogMessage{
                     level,
                     line,
                     filename,
-                    std::chrono::system_clock::now()
-            };
-
-            if constexpr (sizeof...(Args) > 0) {
-                message.content = strings::format(format, args...);
-            } else {
-                message.content = format;
-            }
-
-            mBuffer.commit(*index);
-            mEvent.notify();
+                    std::chrono::system_clock::now(),
+                    std::move(content)
+                },
+                mTimeout
+            );
         }
 
     private:
         std::mutex mMutex;
         std::thread mThread;
-        atomic::Event mEvent;
-        std::atomic<bool> mExit;
         std::once_flag mOnceFlag;
         std::list<Config> mConfigs;
         std::optional<LogLevel> mMinLogLevel;
         std::optional<LogLevel> mMaxLogLevel;
-        atomic::CircularBuffer<LogMessage> mBuffer;
+        std::optional<std::chrono::milliseconds> mTimeout;
+        concurrent::Channel<LogMessage> mChannel;
     };
 
-    static inline constexpr std::string_view sourceFilename(std::string_view path) {
-        size_t pos = path.find_last_of("/\\");
+    static constexpr std::string_view sourceFilename(const std::string_view path) {
+        const auto pos = path.find_last_of("/\\");
 
         if (pos == std::string_view::npos)
             return path;
@@ -168,6 +135,27 @@ namespace zero {
         return path.substr(pos + 1);
     }
 }
+
+template<typename Char>
+struct fmt::formatter<zero::LogMessage, Char> {
+    template<typename ParseContext>
+    static constexpr auto parse(ParseContext &ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FmtContext>
+    static auto format(const zero::LogMessage &message, FmtContext &ctx) {
+        return fmt::format_to(
+            ctx.out(),
+            "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
+            localtime(std::chrono::system_clock::to_time_t(message.timestamp)),
+            zero::LOG_TAGS[message.level],
+            message.filename,
+            message.line,
+            message.content
+        );
+    }
+};
 
 #define GLOBAL_LOGGER                       zero::Singleton<zero::Logger>::getInstance()
 #define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::ConsoleProvider>())
@@ -184,10 +172,10 @@ namespace zero {
 #define LOG_WARNING(message, ...)
 #define LOG_ERROR(message, ...)
 #else
-#define LOG_DEBUG(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::DEBUG_LEVEL)) logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_INFO(message, ...)              if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::INFO_LEVEL)) logger.log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_WARNING(message, ...)           if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::WARNING_LEVEL)) logger.log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
-#define LOG_ERROR(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::ERROR_LEVEL)) logger.log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, message, ## __VA_ARGS__)
+#define LOG_DEBUG(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::DEBUG_LEVEL)) logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_INFO(message, ...)              if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::INFO_LEVEL)) logger.log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_WARNING(message, ...)           if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::WARNING_LEVEL)) logger.log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_ERROR(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::ERROR_LEVEL)) logger.log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 #endif
 
 #endif //ZERO_LOG_H

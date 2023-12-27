@@ -1,5 +1,5 @@
-#ifndef ZERO_PROCFS_H
-#define ZERO_PROCFS_H
+#ifndef ZERO_PROCFS_PROCESS_H
+#define ZERO_PROCFS_PROCESS_H
 
 #include <map>
 #include <list>
@@ -8,26 +8,9 @@
 #include <optional>
 #include <filesystem>
 #include <tl/expected.hpp>
-#include <unistd.h>
 #include <sys/types.h>
 
-namespace zero::os::procfs {
-    enum Error {
-        NO_SUCH_IMAGE = 1,
-        NO_SUCH_MEMORY_MAPPING,
-        UNEXPECTED_DATA,
-        MAYBE_ZOMBIE_PROCESS
-    };
-
-    class ErrorCategory : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-    };
-
-    const std::error_category &errorCategory();
-    std::error_code make_error_code(Error e);
-
+namespace zero::os::procfs::process {
     enum MemoryPermission {
         READ = 0x1,
         WRITE = 0x2,
@@ -37,13 +20,23 @@ namespace zero::os::procfs {
     };
 
     struct MemoryMapping {
-        uintptr_t start;
-        uintptr_t end;
+        std::uintptr_t start;
+        std::uintptr_t end;
         int permissions;
         off_t offset;
         std::string device;
         ino_t inode;
         std::string pathname;
+    };
+
+    struct StatM {
+        std::uint64_t size;
+        std::uint64_t resident;
+        std::uint64_t shared;
+        std::uint64_t text;
+        std::uint64_t library;
+        std::uint64_t data;
+        std::uint64_t dirty;
     };
 
     struct Stat {
@@ -160,6 +153,27 @@ namespace zero::os::procfs {
         std::optional<bool> thpEnabled;
     };
 
+    struct CPUTime {
+        double user{};
+        double system{};
+        std::optional<double> ioWait;
+    };
+
+    struct MemoryStat {
+        std::uint64_t rss;
+        std::uint64_t vms;
+    };
+
+    struct IOStat {
+        unsigned long long readCharacters;
+        unsigned long long writeCharacters;
+        unsigned long long readSyscall;
+        unsigned long long writeSyscall;
+        unsigned long long readBytes;
+        unsigned long long writeBytes;
+        unsigned long long cancelledWriteBytes;
+    };
+
     class Process {
     public:
         Process(int fd, pid_t pid);
@@ -171,35 +185,35 @@ namespace zero::os::procfs {
 
     public:
         [[nodiscard]] pid_t pid() const;
+        [[nodiscard]] tl::expected<pid_t, std::error_code> ppid() const;
 
-    public:
         [[nodiscard]] tl::expected<MemoryMapping, std::error_code> getImageBase(std::string_view path) const;
-        [[nodiscard]] tl::expected<MemoryMapping, std::error_code> findMapping(uintptr_t address) const;
+        [[nodiscard]] tl::expected<MemoryMapping, std::error_code> findMapping(std::uintptr_t address) const;
 
-    public:
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
         [[nodiscard]] tl::expected<std::string, std::error_code> comm() const;
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
-        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> environ() const;
+        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
+
         [[nodiscard]] tl::expected<Stat, std::error_code> stat() const;
+        [[nodiscard]] tl::expected<StatM, std::error_code> statM() const;
         [[nodiscard]] tl::expected<Status, std::error_code> status() const;
         [[nodiscard]] tl::expected<std::list<pid_t>, std::error_code> tasks() const;
         [[nodiscard]] tl::expected<std::list<MemoryMapping>, std::error_code> maps() const;
+
+        [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
+        [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
+        [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
     private:
         int mFD;
         pid_t mPID;
     };
 
-    tl::expected<Process, std::error_code> openProcess(pid_t pid);
+    tl::expected<Process, std::error_code> self();
+    tl::expected<Process, std::error_code> open(pid_t pid);
+    tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
-namespace std {
-    template<>
-    struct is_error_code_enum<zero::os::procfs::Error> : public true_type {
-
-    };
-}
-
-#endif //ZERO_PROCFS_H
+#endif //ZERO_PROCFS_PROCESS_H

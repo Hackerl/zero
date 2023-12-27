@@ -6,7 +6,7 @@ add_executable(
         log.cpp
         defer.cpp
         cmdline.cpp
-        ptr/ref.cpp
+        formatter.cpp
         atomic/event.cpp
         atomic/circular_buffer.cpp
         concurrent/channel.cpp
@@ -17,8 +17,11 @@ add_executable(
         cache/lru.cpp
         os/os.cpp
         os/net.cpp
+        os/stat.cpp
+        os/process.cpp
         $<$<PLATFORM_ID:Windows>:os/nt/process.cpp>
-        $<$<PLATFORM_ID:Linux,Android>:os/procfs.cpp>
+        $<$<PLATFORM_ID:Darwin>:os/darwin/error.cpp os/darwin/process.cpp>
+        $<$<PLATFORM_ID:Linux,Android>:os/procfs/process.cpp>
 )
 
 target_link_libraries(zero_test PRIVATE zero Catch2::Catch2WithMain)

@@ -3,29 +3,27 @@
 
 #include <any>
 #include <list>
-#include <string>
 #include <memory>
-#include <stdexcept>
 #include <tl/expected.hpp>
 #include <zero/detail/type_traits.h>
 
 namespace zero::async::promise {
-    template<typename T, typename E>
+    template<typename T, typename E = std::nullptr_t>
     class Promise;
 
     template<typename T>
     struct promise_next_result {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T, typename E>
     struct promise_next_result<Promise<T, E>> {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T, typename E>
     struct promise_next_result<tl::expected<T, E>> {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T>
@@ -33,22 +31,22 @@ namespace zero::async::promise {
 
     template<typename T>
     struct promise_next_reason {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T, typename E>
     struct promise_next_reason<Promise<T, E>> {
-        typedef E type;
+        using type = E;
     };
 
     template<typename T, typename E>
     struct promise_next_reason<tl::expected<T, E>> {
-        typedef E type;
+        using type = E;
     };
 
     template<typename T>
     struct promise_next_reason<tl::unexpected<T>> {
-        typedef T type;
+        using type = T;
     };
 
     template<typename T>
@@ -79,14 +77,11 @@ namespace zero::async::promise {
         using value_type = T;
         using error_type = E;
 
-    public:
         Promise() : mStorage(std::make_shared<Storage<T, E>>()) {
-
         }
 
-    public:
-        template<typename ...Ts>
-        void resolve(Ts &&...args) {
+        template<typename... Ts>
+        void resolve(Ts &&... args) {
             if (mStorage->status != PENDING)
                 return;
 
@@ -97,8 +92,8 @@ namespace zero::async::promise {
                 trigger.first();
         }
 
-        template<typename ...Ts>
-        void reject(Ts &&...args) {
+        template<typename... Ts>
+        void reject(Ts &&... args) {
             if (mStorage->status != PENDING)
                 return;
 
@@ -109,12 +104,13 @@ namespace zero::async::promise {
                 trigger.second();
         }
 
-    public:
         template<typename F>
         auto then(F &&f) {
             using Next = detail::callable_result_t<F>;
-            using NextResult = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, T, promise_next_result_t<Next>>;
-            using NextReason = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, promise_next_reason_t<Next>, E>;
+            using NextResult = std::conditional_t<
+                detail::is_specialization<Next, tl::unexpected>, T, promise_next_result_t<Next>>;
+            using NextReason = std::conditional_t<
+                detail::is_specialization<Next, tl::unexpected>, promise_next_reason_t<Next>, E>;
 
             Promise<NextResult, NextReason> promise;
 
@@ -122,20 +118,25 @@ namespace zero::async::promise {
                 if constexpr (std::is_void_v<Next>) {
                     if constexpr (std::is_void_v<T>) {
                         f();
-                    } else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                    }
+                    else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
                         std::apply(f, std::as_const(result->value()));
-                    } else {
+                    }
+                    else {
                         f(std::as_const(result->value()));
                     }
 
                     promise.resolve();
-                } else {
-                    Next next = [=, &result]() {
+                }
+                else {
+                    Next next = [=, &result] {
                         if constexpr (std::is_void_v<T>) {
                             return f();
-                        } else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                        }
+                        else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
                             return std::apply(f, std::as_const(result->value()));
-                        } else {
+                        }
+                        else {
                             return f(std::as_const(result->value()));
                         }
                     }();
@@ -147,32 +148,44 @@ namespace zero::async::promise {
                             if (next) {
                                 if constexpr (std::is_void_v<NextResult>) {
                                     promise.resolve();
-                                } else {
+                                }
+                                else {
                                     promise.resolve(std::move(next.value()));
                                 }
-                            } else {
+                            }
+                            else {
                                 promise.reject(std::move(next.error()));
                             }
-                        } else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
+                        }
+                        else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
                             promise.reject(std::move(next.error()));
-                        } else {
+                        }
+                        else {
                             promise.resolve(std::move(next));
                         }
-                    } else {
+                    }
+                    else {
                         static_assert(std::is_same_v<promise_next_reason_t<Next>, E>);
 
                         if constexpr (std::is_void_v<NextResult>) {
-                            next.then([=]() mutable {
-                                promise.resolve();
-                            }, [=](const E &reason) mutable {
-                                promise.reject(reason);
-                            });
-                        } else {
-                            next.then([=](const NextResult &result) mutable {
-                                promise.resolve(result);
-                            }, [=](const E &reason) mutable {
-                                promise.reject(reason);
-                            });
+                            next.then(
+                                [=]() mutable {
+                                    promise.resolve();
+                                },
+                                [=](const E &reason) mutable {
+                                    promise.reject(reason);
+                                }
+                            );
+                        }
+                        else {
+                            next.then(
+                                [=](const NextResult &nextResult) mutable {
+                                    promise.resolve(nextResult);
+                                },
+                                [=](const E &reason) mutable {
+                                    promise.reject(reason);
+                                }
+                            );
                         }
                     }
                 }
@@ -184,16 +197,20 @@ namespace zero::async::promise {
             };
 
             switch (mStorage->status) {
-                case FULFILLED:
-                    onFulfilledTrigger();
-                    break;
+            case FULFILLED:
+                onFulfilledTrigger();
+                break;
 
-                case REJECTED:
-                    onRejectedTrigger();
-                    break;
+            case REJECTED:
+                onRejectedTrigger();
+                break;
 
-                case PENDING:
-                    mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+            case PENDING:
+                mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+                break;
+
+            default:
+                std::abort();
             }
 
             return promise;
@@ -202,8 +219,10 @@ namespace zero::async::promise {
         template<typename F>
         auto fail(F &&f) {
             using Next = detail::callable_result_t<F>;
-            using NextResult = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, T, promise_next_result_t<Next>>;
-            using NextReason = std::conditional_t<detail::is_specialization<Next, tl::unexpected>, promise_next_reason_t<Next>, E>;
+            using NextResult = std::conditional_t<
+                detail::is_specialization<Next, tl::unexpected>, T, promise_next_result_t<Next>>;
+            using NextReason = std::conditional_t<
+                detail::is_specialization<Next, tl::unexpected>, promise_next_reason_t<Next>, E>;
 
             Promise<NextResult, NextReason> promise;
 
@@ -212,7 +231,8 @@ namespace zero::async::promise {
 
                 if constexpr (std::is_void_v<T>) {
                     promise.resolve();
-                } else {
+                }
+                else {
                     promise.resolve(std::as_const(result->value()));
                 }
             };
@@ -221,16 +241,19 @@ namespace zero::async::promise {
                 if constexpr (std::is_void_v<Next>) {
                     if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
                         std::apply(f, std::as_const(result->error()));
-                    } else {
+                    }
+                    else {
                         f(std::as_const(result->error()));
                     }
 
                     promise.resolve();
-                } else {
-                    Next next = [=, &result]() {
+                }
+                else {
+                    Next next = [=, &result] {
                         if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
                             return std::apply(f, std::as_const(result->error()));
-                        } else {
+                        }
+                        else {
                             return f(std::as_const(result->error()));
                         }
                     }();
@@ -242,63 +265,80 @@ namespace zero::async::promise {
                             if (next) {
                                 if constexpr (std::is_void_v<NextResult>) {
                                     promise.resolve();
-                                } else {
+                                }
+                                else {
                                     promise.resolve(std::move(next.value()));
                                 }
-                            } else {
+                            }
+                            else {
                                 promise.reject(std::move(next.error()));
                             }
-                        } else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
+                        }
+                        else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
                             promise.reject(std::move(next.value()));
-                        } else {
+                        }
+                        else {
                             promise.resolve(std::move(next));
                         }
-                    } else {
+                    }
+                    else {
                         static_assert(std::is_same_v<promise_next_reason_t<Next>, E>);
 
                         if constexpr (std::is_void_v<NextResult>) {
-                            next.then([=]() mutable {
-                                promise.resolve();
-                            }, [=](const E &reason) mutable {
-                                promise.reject(reason);
-                            });
-                        } else {
-                            next.then([=](const NextResult &result) mutable {
-                                promise.resolve(result);
-                            }, [=](const E &reason) mutable {
-                                promise.reject(reason);
-                            });
+                            next.then(
+                                [=]() mutable {
+                                    promise.resolve();
+                                },
+                                [=](const E &reason) mutable {
+                                    promise.reject(reason);
+                                }
+                            );
+                        }
+                        else {
+                            next.then(
+                                [=](const NextResult &nextResult) mutable {
+                                    promise.resolve(nextResult);
+                                },
+                                [=](const E &reason) mutable {
+                                    promise.reject(reason);
+                                }
+                            );
                         }
                     }
                 }
             };
 
             switch (mStorage->status) {
-                case FULFILLED:
-                    onFulfilledTrigger();
-                    break;
+            case FULFILLED:
+                onFulfilledTrigger();
+                break;
 
-                case REJECTED:
-                    onRejectedTrigger();
-                    break;
+            case REJECTED:
+                onRejectedTrigger();
+                break;
 
-                case PENDING:
-                    mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+            case PENDING:
+                mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+                break;
+
+            default:
+                std::abort();
             }
 
             return promise;
         }
 
         template<typename F>
-        Promise<T, E> finally(F &&f) {
-            Promise<T, E> promise;
+        Promise finally(F &&f) {
+            Promise promise;
 
             auto onFulfilledTrigger = [=, &result = mStorage->result]() mutable {
                 f();
 
                 if constexpr (std::is_void_v<T>) {
                     promise.resolve();
-                } else {
+                }
+                else {
                     promise.resolve(std::as_const(result->value()));
                 }
             };
@@ -309,16 +349,20 @@ namespace zero::async::promise {
             };
 
             switch (mStorage->status) {
-                case FULFILLED:
-                    onFulfilledTrigger();
-                    break;
+            case FULFILLED:
+                onFulfilledTrigger();
+                break;
 
-                case REJECTED:
-                    onRejectedTrigger();
-                    break;
+            case REJECTED:
+                onRejectedTrigger();
+                break;
 
-                case PENDING:
-                    mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+            case PENDING:
+                mStorage->triggers.emplace_back(std::move(onFulfilledTrigger), std::move(onRejectedTrigger));
+                break;
+
+            default:
+                std::abort();
             }
 
             return promise;
@@ -329,7 +373,6 @@ namespace zero::async::promise {
             return then(std::forward<F1>(f1)).fail(std::forward<F2>(f2));
         }
 
-    public:
         [[nodiscard]] State status() const {
             return mStorage->status;
         }
@@ -350,7 +393,6 @@ namespace zero::async::promise {
             return *mStorage->result;
         }
 
-    public:
         bool operator==(const Promise &rhs) const {
             return mStorage == rhs.mStorage;
         }
@@ -362,45 +404,43 @@ namespace zero::async::promise {
     private:
         std::shared_ptr<Storage<T, E>> mStorage;
 
-        template<size_t...Is, typename ...Ts, typename Error>
-        friend Promise<std::tuple<tl::expected<Ts, Error>...>, Error>
-        allSettled(std::index_sequence<Is...>, Promise<Ts, Error> &...promises);
+        template<std::size_t... Is, typename... Ts, typename... Error>
+        friend Promise<std::tuple<tl::expected<Ts, Error>...>>
+        allSettled(std::index_sequence<Is...>, Promise<Ts, Error> &... promises);
     };
 
-    template<typename...Ts>
+    template<typename... Ts>
     using promises_result_t = std::conditional_t<
-            detail::is_elements_same_v<detail::first_element_t<Ts...>, Ts...>,
-            std::conditional_t<
-                    std::is_void_v<detail::first_element_t<Ts...>>,
-                    void,
-                    std::array<detail::first_element_t<Ts...>, sizeof...(Ts)>
-            >,
-            decltype(std::tuple_cat(
-                    std::declval<
-                            std::conditional_t<
-                                    std::is_void_v<Ts>,
-                                    std::tuple<>,
-                                    std::tuple<Ts>
-                            >
-                    >()...)
-            )
+        detail::is_elements_same_v<detail::first_element_t<Ts...>, Ts...>,
+        std::conditional_t<
+            std::is_void_v<detail::first_element_t<Ts...>>,
+            void,
+            std::array<detail::first_element_t<Ts...>, sizeof...(Ts)>
+        >,
+        decltype(std::tuple_cat(
+                std::declval<
+                    std::conditional_t<
+                        std::is_void_v<Ts>,
+                        std::tuple<>,
+                        std::tuple<Ts>
+                    >
+                >()...)
+        )
     >;
 
-    template<size_t Count, size_t Index, size_t N, size_t... Is>
+    template<std::size_t Count, std::size_t Index, std::size_t N, std::size_t... Is>
     struct promises_result_index_sequence : promises_result_index_sequence<Count - 1, Index + N, Is..., Index> {
-
     };
 
-    template<size_t Index, size_t N, size_t... Is>
+    template<std::size_t Index, std::size_t N, std::size_t... Is>
     struct promises_result_index_sequence<0, Index, N, Is...> : std::index_sequence<N, Is...> {
-
     };
 
-    template<typename...Ts>
+    template<typename... Ts>
     using promises_result_index_sequence_for = promises_result_index_sequence<
-            sizeof...(Ts),
-            0,
-            (std::is_void_v<Ts> ? 0 : 1)...
+        sizeof...(Ts),
+        0,
+        std::is_void_v<Ts> ? 0 : 1 ...
     >;
 
     template<typename T, typename E, typename F>
@@ -417,60 +457,71 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename T, typename E, std::enable_if_t<std::is_void_v<T>, void *> = nullptr>
+    template<typename T, typename E, std::enable_if_t<std::is_void_v<T>, void *>  = nullptr>
     Promise<T, E> resolve() {
         Promise<T, E> promise;
         promise.resolve();
         return promise;
     }
 
-    template<typename T, typename E, typename U, std::enable_if_t<!std::is_void_v<T>, void *> = nullptr>
+    template<typename T, typename E, typename U, std::enable_if_t<!std::is_void_v<T>, void *>  = nullptr>
     Promise<T, E> resolve(U &&result) {
         Promise<T, E> promise;
         promise.resolve(std::forward<U>(result));
         return promise;
     }
 
-    template<size_t...Is, typename ...Ts, typename E>
-    Promise<promises_result_t<Ts...>, E> all(std::index_sequence<Is...>, Promise<Ts, E> &...promises) {
+    template<std::size_t... Is, typename... Ts, typename E>
+    Promise<promises_result_t<Ts...>, E> all(std::index_sequence<Is...>, Promise<Ts, E> &... promises) {
         Promise<promises_result_t<Ts...>, E> promise;
-        auto remain = std::make_shared<size_t>(sizeof...(promises));
+        const auto remain = std::make_shared<std::size_t>(sizeof...(promises));
 
         if constexpr (std::is_void_v<promises_result_t<Ts...>>) {
-            ([&]() {
-                promises.then([=]() mutable {
-                    if (--(*remain) > 0)
-                        return;
+            ([&] {
+                promises.then(
+                    [=]() mutable {
+                        if (--*remain > 0)
+                            return;
 
-                    promise.resolve();
-                }, [=](const E &reason) mutable {
-                    promise.reject(reason);
-                });
+                        promise.resolve();
+                    },
+                    [=](const E &reason) mutable {
+                        promise.reject(reason);
+                    }
+                );
             }(), ...);
-        } else {
-            auto results = std::make_shared<promises_result_t<Ts...>>();
+        }
+        else {
+            const auto results = std::make_shared<promises_result_t<Ts...>>();
 
-            ([&]() {
+            ([&] {
                 if constexpr (std::is_void_v<Ts>) {
-                    promises.then([=]() mutable {
-                        if (--(*remain) > 0)
-                            return;
+                    promises.then(
+                        [=]() mutable {
+                            if (--*remain > 0)
+                                return;
 
-                        promise.resolve(std::move(*results));
-                    }, [=](const E &reason) mutable {
-                        promise.reject(reason);
-                    });
-                } else {
-                    promises.then([=](const Ts &result) mutable {
-                        std::get<Is>(*results) = result;
+                            promise.resolve(std::move(*results));
+                        },
+                        [=](const E &reason) mutable {
+                            promise.reject(reason);
+                        }
+                    );
+                }
+                else {
+                    promises.then(
+                        [=](const Ts &result) mutable {
+                            std::get<Is>(*results) = result;
 
-                        if (--(*remain) > 0)
-                            return;
+                            if (--*remain > 0)
+                                return;
 
-                        promise.resolve(std::move(*results));
-                    }, [=](const E &reason) mutable {
-                        promise.reject(reason);
-                    });
+                            promise.resolve(std::move(*results));
+                        },
+                        [=](const E &reason) mutable {
+                            promise.reject(reason);
+                        }
+                    );
                 }
             }(), ...);
         }
@@ -478,30 +529,30 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename ...Ts, typename E>
-    Promise<promises_result_t<Ts...>, E> all(Promise<Ts, E> &...promises) {
+    template<typename... Ts, typename E>
+    Promise<promises_result_t<Ts...>, E> all(Promise<Ts, E> &... promises) {
         return all(promises_result_index_sequence_for<Ts...>{}, promises...);
     }
 
-    template<typename ...Ts, std::enable_if_t<(is_promise_v<Ts> && ...), void *> = nullptr>
-    auto all(Ts &&...promises) {
+    template<typename... Ts, std::enable_if_t<(is_promise_v<Ts> && ...), void *>  = nullptr>
+    auto all(Ts &&... promises) {
         return all(promises...);
     }
 
-    template<size_t...Is, typename ...Ts, typename E>
-    Promise<std::tuple<tl::expected<Ts, E>...>, E> allSettled(std::index_sequence<Is...>, Promise<Ts, E> &...promises) {
+    template<std::size_t... Is, typename... Ts, typename... E>
+    Promise<std::tuple<tl::expected<Ts, E>...>> allSettled(std::index_sequence<Is...>, Promise<Ts, E> &... promises) {
         using T = std::tuple<tl::expected<Ts, E>...>;
 
-        Promise<T, E> promise;
+        Promise<T> promise;
 
-        auto results = std::make_shared<T>();
-        auto remain = std::make_shared<size_t>(sizeof...(Ts));
+        const auto results = std::make_shared<T>();
+        const auto remain = std::make_shared<std::size_t>(sizeof...(Ts));
 
-        ([&]() {
+        ([&] {
             promises.finally([=, &result = promises.mStorage->result]() mutable {
                 std::get<Is>(*results) = *result;
 
-                if (--(*remain) > 0)
+                if (--*remain > 0)
                     return;
 
                 promise.resolve(std::move(*results));
@@ -511,94 +562,108 @@ namespace zero::async::promise {
         return promise;
     }
 
-    template<typename ...Ts, typename E>
-    Promise<std::tuple<tl::expected<Ts, E>...>, E> allSettled(Promise<Ts, E> &...promises) {
+    template<typename... Ts, typename... E>
+    Promise<std::tuple<tl::expected<Ts, E>...>> allSettled(Promise<Ts, E> &... promises) {
         return allSettled(std::index_sequence_for<Ts...>{}, promises...);
     }
 
-    template<typename ...Ts>
-    auto allSettled(Ts &&...promises) {
+    template<typename... Ts>
+    auto allSettled(Ts &&... promises) {
         return allSettled(promises...);
     }
 
-    template<typename ...Ts, typename E>
-    auto any(Promise<Ts, E> &...promises) {
+    template<typename... Ts, typename E>
+    auto any(Promise<Ts, E> &... promises) {
         using T = detail::first_element_t<Ts...>;
         constexpr bool Same = detail::is_elements_same_v<T, Ts...>;
 
         Promise<std::conditional_t<Same, T, std::any>, std::list<E>> promise;
 
-        auto remain = std::make_shared<size_t>(sizeof...(Ts));
-        auto reasons = std::make_shared<std::list<E>>();
+        const auto remain = std::make_shared<std::size_t>(sizeof...(Ts));
+        const auto reasons = std::make_shared<std::list<E>>();
 
-        ([&]() {
+        ([&] {
             if constexpr (std::is_void_v<Ts>) {
-                promises.then([=]() mutable {
-                    if constexpr (Same)
-                        promise.resolve();
-                    else
-                        promise.resolve(std::any{});
-                }, [=](const E &reason) mutable {
-                    reasons->push_front(reason);
+                promises.then(
+                    [=]() mutable {
+                        if constexpr (Same)
+                            promise.resolve();
+                        else
+                            promise.resolve(std::any{});
+                    },
+                    [=](const E &reason) mutable {
+                        reasons->push_front(reason);
 
-                    if (--(*remain) > 0)
-                        return;
+                        if (--*remain > 0)
+                            return;
 
-                    promise.reject(std::move(*reasons));
-                });
-            } else {
-                promises.then([=](const Ts &result) mutable {
-                    promise.resolve(result);
-                }, [=](const E &reason) mutable {
-                    reasons->push_front(reason);
+                        promise.reject(std::move(*reasons));
+                    }
+                );
+            }
+            else {
+                promises.then(
+                    [=](const Ts &result) mutable {
+                        promise.resolve(result);
+                    },
+                    [=](const E &reason) mutable {
+                        reasons->push_front(reason);
 
-                    if (--(*remain) > 0)
-                        return;
+                        if (--*remain > 0)
+                            return;
 
-                    promise.reject(std::move(*reasons));
-                });
+                        promise.reject(std::move(*reasons));
+                    }
+                );
             }
         }(), ...);
 
         return promise;
     }
 
-    template<typename ...Ts>
-    auto any(Ts &&...promises) {
+    template<typename... Ts>
+    auto any(Ts &&... promises) {
         return any(promises...);
     }
 
-    template<typename ...Ts,typename E>
-    auto race(Promise<Ts, E> &...promises) {
+    template<typename... Ts, typename E>
+    auto race(Promise<Ts, E> &... promises) {
         using T = detail::first_element_t<Ts...>;
         constexpr bool Same = detail::is_elements_same_v<T, Ts...>;
 
         Promise<std::conditional_t<Same, T, std::any>, E> promise;
 
-        ([&]() {
+        ([&] {
             if constexpr (std::is_void_v<Ts>) {
-                promises.then([=]() mutable {
-                    if constexpr (Same)
-                        promise.resolve();
-                    else
-                        promise.resolve(std::any{});
-                }, [=](const E &reason) mutable {
-                    promise.reject(reason);
-                });
-            } else {
-                promises.then([=](const Ts &result) mutable {
-                    promise.resolve(result);
-                }, [=](const E &reason) mutable {
-                    promise.reject(reason);
-                });
+                promises.then(
+                    [=]() mutable {
+                        if constexpr (Same)
+                            promise.resolve();
+                        else
+                            promise.resolve(std::any{});
+                    },
+                    [=](const E &reason) mutable {
+                        promise.reject(reason);
+                    }
+                );
+            }
+            else {
+                promises.then(
+                    [=](const Ts &result) mutable {
+                        promise.resolve(result);
+                    },
+                    [=](const E &reason) mutable {
+                        promise.reject(reason);
+                    }
+                );
             }
         }(), ...);
 
         return promise;
     }
 
-    template<typename ...Ts>
-    auto race(Ts &&...promises) {
+    template<typename... Ts>
+    auto race(Ts &&... promises) {
         return race(promises...);
     }
 }

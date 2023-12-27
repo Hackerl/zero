@@ -3,23 +3,45 @@
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("windows process", "[process]") {
-    DWORD pid = GetCurrentProcessId();
-    auto process = zero::os::nt::process::openProcess(pid);
-    REQUIRE(process);
-    REQUIRE(process->pid() == pid);
+    const auto ids = zero::os::nt::process::all();
+    REQUIRE(ids);
 
-    auto path = zero::filesystem::getApplicationPath();
+    const auto process = zero::os::nt::process::self();
+    REQUIRE(process);
+    REQUIRE(process->pid() == GetCurrentProcessId());
+
+    const auto path = zero::filesystem::getApplicationPath();
     REQUIRE(path);
 
-    auto name = process->name();
+    const auto name = process->name();
     REQUIRE(name);
     REQUIRE(*name == path->filename());
 
-    auto image = process->image();
-    REQUIRE(image);
-    REQUIRE(*image == *path);
+    const auto exe = process->exe();
+    REQUIRE(exe);
+    REQUIRE(*exe == *path);
 
-    auto cmdline = process->cmdline();
+    const auto cmdline = process->cmdline();
     REQUIRE(cmdline);
     REQUIRE(cmdline->at(0).find(path->filename().string()) != std::string::npos);
+
+    const auto cwd = process->cwd();
+    REQUIRE(cwd);
+    REQUIRE(*cwd == std::filesystem::current_path());
+
+    const auto env = process->env();
+    REQUIRE(env);
+
+    const auto memory = process->memory();
+    REQUIRE(memory);
+
+    const auto cpu = process->cpu();
+    REQUIRE(cpu);
+
+    const auto io = process->io();
+    REQUIRE(io);
+
+    const auto code = process->exitCode();
+    REQUIRE(!code);
+    REQUIRE(code.error() == zero::os::nt::process::Error::PROCESS_STILL_ACTIVE);
 }

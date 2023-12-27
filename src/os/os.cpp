@@ -21,9 +21,9 @@ tl::expected<std::string, std::error_code> zero::os::hostname() {
     DWORD length = ARRAYSIZE(name);
 
     if (!GetComputerNameW(name, &length))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-    return zero::strings::encode(name);
+    return strings::encode(name);
 #elif __linux__
     char name[HOST_NAME_MAX + 1] = {};
 
@@ -49,31 +49,30 @@ tl::expected<std::string, std::error_code> zero::os::username() {
     DWORD length = ARRAYSIZE(name);
 
     if (!GetUserNameW(name, &length))
-        return tl::unexpected(std::error_code((int) GetLastError(), std::system_category()));
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-    return zero::strings::encode(name);
+    return strings::encode(name);
 #elif __linux__ || __APPLE__
-    uid_t uid = geteuid();
-    long max = sysconf(_SC_GETPW_R_SIZE_MAX);
+    const uid_t uid = geteuid();
+    const long max = sysconf(_SC_GETPW_R_SIZE_MAX);
 
-    size_t length = max != -1 ? max : 1024;
+    std::size_t length = max != -1 ? max : 1024;
     auto buffer = std::make_unique<char[]>(length);
-    tl::expected<std::string, std::error_code> result = tl::unexpected(std::error_code());
 
     passwd pwd = {};
     passwd *ptr = nullptr;
 
-    while (true) {
-        int n = getpwuid_r(uid, &pwd, buffer.get(), length, &ptr);
+    tl::expected<std::string, std::error_code> result;
 
-        if (n < 0) {
-            if (errno == ERANGE) {
+    while (true) {
+        if (const int n = getpwuid_r(uid, &pwd, buffer.get(), length, &ptr); n != 0) {
+            if (n == ERANGE) {
                 length *= 2;
                 buffer = std::make_unique<char[]>(length);
                 continue;
             }
 
-            result = tl::unexpected(std::error_code(errno, std::system_category()));
+            result = tl::unexpected(std::error_code(n, std::system_category()));
             break;
         }
 

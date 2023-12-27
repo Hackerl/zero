@@ -4,6 +4,8 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(Iconv)
 find_dependency(Threads)
+find_dependency(fmt)
+find_dependency(range-v3)
 find_dependency(span-lite)
 find_dependency(tl-expected)
 

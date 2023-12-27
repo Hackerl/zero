@@ -69,7 +69,12 @@ TEST_CASE("logging module", "[log]") {
     SECTION("override") {
         SECTION("enable") {
             std::string env = "ZERO_LOG_LEVEL=3";
+
+#ifdef _WIN32
+            _putenv(env.data());
+#else
             putenv(env.data());
+#endif
 
             class Provider : public zero::ILogProvider {
             public:
@@ -100,12 +105,22 @@ TEST_CASE("logging module", "[log]") {
             logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
 
             env = "ZERO_LOG_LEVEL=";
+
+#ifdef _WIN32
+            _putenv(env.data());
+#else
             putenv(env.data());
+#endif
         }
 
         SECTION("disable") {
             std::string env = "ZERO_LOG_LEVEL=2";
+
+#ifdef _WIN32
+            _putenv(env.data());
+#else
             putenv(env.data());
+#endif
 
             class Provider : public zero::ILogProvider {
             public:
@@ -137,7 +152,12 @@ TEST_CASE("logging module", "[log]") {
             logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
 
             env = "ZERO_LOG_LEVEL=";
+
+#ifdef _WIN32
+            _putenv(env.data());
+#else
             putenv(env.data());
+#endif
         }
     }
 

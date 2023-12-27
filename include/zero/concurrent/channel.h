@@ -16,7 +16,7 @@ namespace zero::concurrent {
         FULL
     };
 
-    class ChannelErrorCategory : public std::error_category {
+    class ChannelErrorCategory final : public std::error_category {
     public:
         [[nodiscard]] const char *name() const noexcept override;
         [[nodiscard]] std::string message(int value) const override;
@@ -27,31 +27,41 @@ namespace zero::concurrent {
     std::error_code make_error_code(ChannelError e);
 }
 
-namespace std {
-    template<>
-    struct is_error_code_enum<zero::concurrent::ChannelError> : public true_type {
-
-    };
-}
+template<>
+struct std::is_error_code_enum<zero::concurrent::ChannelError> : std::true_type {
+};
 
 namespace zero::concurrent {
     template<typename T>
     class Channel {
-    private:
         static constexpr auto SENDER = 0;
         static constexpr auto RECEIVER = 1;
 
     public:
-        explicit Channel(size_t capacity) : mClosed(false), mBuffer(capacity), mWaiting{false, false} {
+        explicit Channel(std::size_t capacity) : mClosed(false), mBuffer(capacity), mWaiting{false, false} {
+        }
 
+    private:
+        template<int Index>
+        void trigger() {
+            {
+                std::lock_guard guard(mMutex);
+
+                if (!mWaiting[Index])
+                    return;
+
+                mWaiting[Index] = false;
+            }
+
+            mCVs[Index].notify_all();
         }
 
     public:
         tl::expected<T, std::error_code> tryReceive() {
-            auto index = mBuffer.acquire();
+            const auto index = mBuffer.acquire();
 
             if (!index)
-                return tl::unexpected(mClosed ? ChannelError::CHANNEL_EOF : ChannelError::EMPTY);
+                return tl::unexpected(mClosed ? CHANNEL_EOF : EMPTY);
 
             T element = std::move(mBuffer[*index]);
             mBuffer.release(*index);
@@ -63,12 +73,12 @@ namespace zero::concurrent {
         template<typename U>
         tl::expected<void, std::error_code> trySend(U &&element) {
             if (mClosed)
-                return tl::unexpected(ChannelError::CHANNEL_EOF);
+                return tl::unexpected(CHANNEL_EOF);
 
-            auto index = mBuffer.reserve();
+            const auto index = mBuffer.reserve();
 
             if (!index)
-                return tl::unexpected(ChannelError::FULL);
+                return tl::unexpected(FULL);
 
             mBuffer[*index] = std::forward<U>(element);
             mBuffer.commit(*index);
@@ -77,17 +87,18 @@ namespace zero::concurrent {
             return {};
         }
 
-        tl::expected<T, std::error_code> receive(std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
+        tl::expected<T, std::error_code>
+        receive(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
             tl::expected<T, std::error_code> result;
 
             while (true) {
-                auto index = mBuffer.acquire();
+                const auto index = mBuffer.acquire();
 
                 if (!index) {
-                    std::unique_lock<std::mutex> lock(mMutex);
+                    std::unique_lock lock(mMutex);
 
                     if (mClosed) {
-                        result = tl::unexpected<std::error_code>(ChannelError::CHANNEL_EOF);
+                        result = tl::unexpected<std::error_code>(CHANNEL_EOF);
                         break;
                     }
 
@@ -102,7 +113,7 @@ namespace zero::concurrent {
                     }
 
                     if (mCVs[RECEIVER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected<std::error_code>(ChannelError::RECEIVE_TIMEOUT);
+                        result = tl::unexpected<std::error_code>(RECEIVE_TIMEOUT);
                         break;
                     }
 
@@ -121,20 +132,20 @@ namespace zero::concurrent {
 
         template<typename U>
         tl::expected<void, std::error_code>
-        send(U &&element, std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
+        send(U &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
             if (mClosed)
-                return tl::unexpected(ChannelError::CHANNEL_EOF);
+                return tl::unexpected(CHANNEL_EOF);
 
             tl::expected<void, std::error_code> result;
 
             while (true) {
-                auto index = mBuffer.reserve();
+                const auto index = mBuffer.reserve();
 
                 if (!index) {
-                    std::unique_lock<std::mutex> lock(mMutex);
+                    std::unique_lock lock(mMutex);
 
                     if (mClosed) {
-                        result = tl::unexpected<std::error_code>(ChannelError::CHANNEL_EOF);
+                        result = tl::unexpected<std::error_code>(CHANNEL_EOF);
                         break;
                     }
 
@@ -149,7 +160,7 @@ namespace zero::concurrent {
                     }
 
                     if (mCVs[SENDER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected<std::error_code>(ChannelError::SEND_TIMEOUT);
+                        result = tl::unexpected<std::error_code>(SEND_TIMEOUT);
                         break;
                     }
 
@@ -168,7 +179,7 @@ namespace zero::concurrent {
 
         void close() {
             {
-                std::lock_guard<std::mutex> guard(mMutex);
+                std::lock_guard guard(mMutex);
 
                 if (mClosed)
                     return;
@@ -180,25 +191,30 @@ namespace zero::concurrent {
             trigger<RECEIVER>();
         }
 
-    private:
-        template<int Index>
-        void trigger() {
-            {
-                std::lock_guard<std::mutex> guard(mMutex);
+        [[nodiscard]] std::size_t size() const {
+            return mBuffer.size();
+        }
 
-                if (!mWaiting[Index])
-                    return;
+        [[nodiscard]] std::size_t capacity() const {
+            return mBuffer.capacity();
+        }
 
-                mWaiting[Index] = false;
-            }
+        [[nodiscard]] bool empty() const {
+            return mBuffer.empty();
+        }
 
-            mCVs[Index].notify_all();
+        [[nodiscard]] bool full() const {
+            return mBuffer.full();
+        }
+
+        [[nodiscard]] bool closed() const {
+            return mClosed;
         }
 
     private:
         std::mutex mMutex;
         std::atomic<bool> mClosed;
-        zero::atomic::CircularBuffer<T> mBuffer;
+        atomic::CircularBuffer<T> mBuffer;
         std::array<std::atomic<bool>, 2> mWaiting;
         std::array<std::condition_variable, 2> mCVs;
     };

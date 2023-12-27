@@ -1,76 +1,73 @@
 #include <zero/strings/strings.h>
-#include <algorithm>
+#include <zero/defer.h>
+#include <range/v3/view.hpp>
+#include <range/v3/algorithm.hpp>
 #include <functional>
 #include <iconv.h>
 
-bool zero::strings::startsWith(std::string_view str, std::string_view prefix) {
+bool zero::strings::startsWith(const std::string_view str, const std::string_view prefix) {
     if (str.length() < prefix.length())
         return false;
 
     return str.compare(0, prefix.length(), prefix) == 0;
 }
 
-bool zero::strings::endsWith(std::string_view str, std::string_view suffix) {
+bool zero::strings::endsWith(const std::string_view str, const std::string_view suffix) {
     if (str.length() < suffix.length())
         return false;
 
     return str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0;
 }
 
-std::string zero::strings::trim(const std::string &str) {
-    return rtrim(ltrim(str));
+std::string zero::strings::trim(std::string_view str) {
+    auto v = str
+        | ranges::views::drop_while(isspace)
+        | ranges::views::reverse
+        | ranges::views::drop_while(isspace)
+        | ranges::views::reverse;
+
+    return {v.begin(), v.end()};
 }
 
-std::string zero::strings::ltrim(std::string str) {
-    str.erase(
-            str.begin(),
-            std::find_if(
-                    str.begin(),
-                    str.end(),
-                    [](char ch) {
-                        return !std::isspace(ch);
-                    }
-            )
-    );
+std::string zero::strings::ltrim(std::string_view str) {
+    auto v = str
+        | ranges::views::drop_while(isspace);
 
-    return str;
+    return {v.begin(), v.end()};
 }
 
-std::string zero::strings::rtrim(std::string str) {
-    str.erase(
-            std::find_if(
-                    str.rbegin(),
-                    str.rend(),
-                    [](char ch) {
-                        return !std::isspace(ch);
-                    }
-            ).base(),
-            str.end()
-    );
+std::string zero::strings::rtrim(std::string_view str) {
+    auto v = str
+        | ranges::views::reverse
+        | ranges::views::drop_while(isspace)
+        | ranges::views::reverse;
 
-    return str;
+    return {v.begin(), v.end()};
 }
 
-std::string zero::strings::tolower(std::string str) {
-    std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-    return str;
+std::string zero::strings::tolower(std::string_view str) {
+    const auto v = str
+        | ranges::views::transform(::tolower);
+
+    return {v.begin(), v.end()};
 }
 
-std::string zero::strings::toupper(std::string str) {
-    std::transform(str.begin(), str.end(), str.begin(), ::toupper);
-    return str;
+std::string zero::strings::toupper(std::string_view str) {
+    const auto v = str
+        | ranges::views::transform(::toupper);
+
+    return {v.begin(), v.end()};
 }
 
 std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
     std::vector<std::string> tokens;
-
-    auto prev = std::find_if(str.begin(), str.end(), std::not_fn(isspace));
+    auto prev = ranges::find_if(str, std::not_fn(isspace));
 
     while (true) {
         if (prev == str.end())
             break;
 
-        auto it = std::find_if(prev, str.end(), isspace);
+        const auto it = ranges::find_if(prev, str.end(), isspace);
 
         if (it == str.end()) {
             tokens.emplace_back(prev, str.end());
@@ -78,7 +75,7 @@ std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
         }
 
         tokens.emplace_back(prev, it);
-        prev = std::find_if(it, str.end(), std::not_fn(isspace));
+        prev = ranges::find_if(it, str.end(), std::not_fn(isspace));
 
         if (!--limit) {
             if (prev == str.end())
@@ -92,7 +89,7 @@ std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
     return tokens;
 }
 
-std::vector<std::string> zero::strings::split(std::string_view str, std::string_view delimiter, int limit) {
+std::vector<std::string> zero::strings::split(std::string_view str, const std::string_view delimiter, int limit) {
     std::vector<std::string> tokens;
 
     if (delimiter.empty()) {
@@ -100,10 +97,10 @@ std::vector<std::string> zero::strings::split(std::string_view str, std::string_
         return tokens;
     }
 
-    size_t prev = 0;
+    std::size_t prev = 0;
 
     while (true) {
-        size_t pos = str.find(delimiter, prev);
+        const std::size_t pos = str.find(delimiter, prev);
 
         if (pos == std::string::npos) {
             tokens.emplace_back(str.substr(prev));
@@ -122,22 +119,23 @@ std::vector<std::string> zero::strings::split(std::string_view str, std::string_
     return tokens;
 }
 
-tl::expected<std::string, std::error_code> zero::strings::encode(const std::wstring &str, const char *encoding) {
-    iconv_t cd = iconv_open(encoding, "WCHAR_T");
+tl::expected<std::string, std::error_code> zero::strings::encode(std::wstring_view str, const char *encoding) {
+    const auto cd = iconv_open(encoding, "WCHAR_T");
 
-    if (cd == (iconv_t) -1)
+    if (cd == reinterpret_cast<iconv_t>(-1))
         return tl::unexpected(std::error_code(errno, std::system_category()));
 
+    DEFER(iconv_close(cd));
     tl::expected<std::string, std::error_code> output;
 
-    char *input = (char *) str.c_str();
-    size_t inBytesLeft = str.length() * sizeof(wchar_t);
+    auto input = reinterpret_cast<char *>(const_cast<wchar_t *>(str.data()));
+    std::size_t inBytesLeft = str.length() * sizeof(wchar_t);
 
     while (inBytesLeft > 0) {
         char buffer[1024] = {};
 
-        char *ptr = buffer;
-        size_t outBytesLeft = sizeof(buffer);
+        auto ptr = buffer;
+        std::size_t outBytesLeft = sizeof(buffer);
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
             output = tl::unexpected(std::error_code(errno, std::system_category()));
@@ -147,35 +145,34 @@ tl::expected<std::string, std::error_code> zero::strings::encode(const std::wstr
         output->append(buffer, sizeof(buffer) - outBytesLeft);
     }
 
-    iconv_close(cd);
     return output;
 }
 
-tl::expected<std::wstring, std::error_code> zero::strings::decode(const std::string &str, const char *encoding) {
-    iconv_t cd = iconv_open("WCHAR_T", encoding);
+tl::expected<std::wstring, std::error_code> zero::strings::decode(std::string_view str, const char *encoding) {
+    const auto cd = iconv_open("WCHAR_T", encoding);
 
-    if (cd == (iconv_t) -1)
+    if (cd == reinterpret_cast<iconv_t>(-1))
         return tl::unexpected(std::error_code(errno, std::system_category()));
 
+    DEFER(iconv_close(cd));
     tl::expected<std::wstring, std::error_code> output;
 
-    char *input = (char *) str.c_str();
-    size_t inBytesLeft = str.length();
+    auto input = const_cast<char *>(str.data());
+    std::size_t inBytesLeft = str.length();
 
     while (inBytesLeft > 0) {
         char buffer[1024] = {};
 
-        char *ptr = buffer;
-        size_t outBytesLeft = sizeof(buffer);
+        auto ptr = buffer;
+        std::size_t outBytesLeft = sizeof(buffer);
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
             output = tl::unexpected(std::error_code(errno, std::system_category()));
             break;
         }
 
-        output->append((wchar_t *) buffer, (sizeof(buffer) - outBytesLeft) / sizeof(wchar_t));
+        output->append(reinterpret_cast<wchar_t *>(buffer), (sizeof(buffer) - outBytesLeft) / sizeof(wchar_t));
     }
 
-    iconv_close(cd);
     return output;
 }

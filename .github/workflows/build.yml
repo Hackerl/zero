@@ -23,29 +23,48 @@ jobs:
       - name: Test
         run: ctest --output-on-failure --test-dir build
 
+  linux-static-amd64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install musl toolchains
+        run: curl -fsSL https://github.com/Hackerl/musl-cross-make/releases/download/gcc-13.2.0/x86_64-linux-musl-native-gcc13.tar.gz | tar -xz -C /opt
+      - name: Build
+        run: |
+          mkdir -p build
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-pie"
+          cmake --build build -j$(nproc)
+        env:
+          CC: /opt/x86_64-linux-musl-native/bin/x86_64-linux-musl-gcc
+          CXX: /opt/x86_64-linux-musl-native/bin/x86_64-linux-musl-g++
+      - name: Test
+        run: ctest --output-on-failure --test-dir build
+
   windows-amd64:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: ilammy/msvc-dev-cmd@v1
-      - uses: seanmiddleditch/gha-setup-ninja@master
       - name: Build
         run: |
           mkdir -p build
-          cmake -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           cmake --build build -j $env:NUMBER_OF_PROCESSORS
+      - name: Test
+        run: ctest --output-on-failure --test-dir build
 
   windows-legacy-amd64:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: ilammy/msvc-dev-cmd@v1
-      - uses: seanmiddleditch/gha-setup-ninja@master
       - name: Build
         run: |
           mkdir -p build
-          cmake -B build -G Ninja -DZERO_LEGACY_NT=ON -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build -DZERO_LEGACY_NT=ON -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           cmake --build build -j $env:NUMBER_OF_PROCESSORS
+      - name: Test
+        run: ctest --output-on-failure --test-dir build
 
   macos-amd64:
     runs-on: macos-latest
@@ -53,17 +72,39 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install LLVM
         run: |
-          brew install llvm@16
-          echo "LLVM16=$(brew --prefix llvm@16)" >> $GITHUB_ENV
+          brew install llvm
+          echo "LLVM_HOME=$(brew --prefix llvm)" >> $GITHUB_ENV
       - name: Build
         run: |
           mkdir -p build
           cmake -B build -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
           cmake --build build -j$(sysctl -n hw.physicalcpu)
         env:
-          CC: ${{ env.LLVM16 }}/bin/clang
-          CXX: ${{ env.LLVM16 }}/bin/clang++
-          CPPFLAGS: -I${{ env.LLVM16 }}/include
-          LDFLAGS: -L${{ env.LLVM16 }}/lib -L${{ env.LLVM16 }}/lib/c++ -Wl,-rpath,${{ env.LLVM16 }}/lib/c++
+          CC: ${{ env.LLVM_HOME }}/bin/clang
+          CXX: ${{ env.LLVM_HOME }}/bin/clang++
+          LDFLAGS: -L${{ env.LLVM_HOME }}/lib -L${{ env.LLVM_HOME }}/lib/c++ -Wl,-rpath,${{ env.LLVM_HOME }}/lib/c++
       - name: Test
         run: ctest --output-on-failure --test-dir build
+
+  android-arm64:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        api: [ 23, 24 ]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use latest NDK
+        run: echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
+      - name: Patch vcpkg
+        run: sed -i 's/-avoid-version $ENV/$ENV/g' "${VCPKG_INSTALLATION_ROOT}/scripts/cmake/vcpkg_configure_make.cmake"
+      - name: Build
+        run: |
+          mkdir -p build
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake \
+            -DVCPKG_TARGET_TRIPLET=arm64-android \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-${{ matrix.api }} \
+            -DCMAKE_CATCH_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST
+          cmake --build build -j$(nproc)

@@ -7,7 +7,7 @@ option(ZERO_DISABLE_LOG "disable log module" OFF)
 option(ZERO_LEGACY_NT "compatible with older Windows" OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-set(ZERO_VERSION 1.0.0)
+set(ZERO_VERSION 1.0.1)
 
 include(CTest)
 include(GNUInstallDirs)
@@ -15,7 +15,9 @@ include(CMakePackageConfigHelpers)
 
 find_package(Iconv REQUIRED)
 find_package(Threads REQUIRED)
-find_package(span-lite REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(range-v3 CONFIG REQUIRED)
+find_package(span-lite CONFIG REQUIRED)
 find_package(tl-expected CONFIG REQUIRED)
 
 add_library(
@@ -25,7 +27,8 @@ add_library(
         src/cmdline.cpp
         src/os/os.cpp
         src/os/net.cpp
-        src/time/time.cpp
+        src/os/stat.cpp
+        src/os/process.cpp
         src/strings/strings.cpp
         src/atomic/event.cpp
         src/concurrent/channel.cpp
@@ -33,15 +36,20 @@ add_library(
         src/encoding/base64.cpp
         src/encoding/hex.cpp
         $<$<PLATFORM_ID:Windows>:src/os/nt/process.cpp>
-        $<$<PLATFORM_ID:Linux,Android>:src/os/procfs.cpp>
+        $<$<PLATFORM_ID:Darwin>:src/os/darwin/error.cpp src/os/darwin/process.cpp>
+        $<$<PLATFORM_ID:Linux,Android>:src/os/procfs/procfs.cpp src/os/procfs/process.cpp>
 )
 
 if (ZERO_DISABLE_LOG)
     target_compile_definitions(zero INTERFACE ZERO_NO_LOG)
 endif ()
 
-if (WIN32 AND ZERO_LEGACY_NT)
-    target_compile_definitions(zero PUBLIC ZERO_LEGACY_NT)
+if (WIN32)
+    target_compile_definitions(zero PRIVATE NOMINMAX)
+
+    if (ZERO_LEGACY_NT)
+        target_compile_definitions(zero PUBLIC ZERO_LEGACY_NT)
+    endif ()
 endif ()
 
 target_include_directories(
@@ -55,7 +63,11 @@ target_link_libraries(
         zero
         PUBLIC
         Iconv::Iconv
+        fmt::fmt
         tl::expected
+        range-v3::meta
+        range-v3::concepts
+        range-v3::range-v3
         nonstd::span-lite
         INTERFACE
         Threads::Threads

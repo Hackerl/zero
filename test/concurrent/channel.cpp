@@ -9,7 +9,7 @@ TEST_CASE("atomic channel", "[channel]") {
         zero::concurrent::Channel<int> channel(5);
 
         SECTION("try receive") {
-            auto result = channel.tryReceive();
+            const auto result = channel.tryReceive();
             REQUIRE(!result);
             REQUIRE(result.error() == zero::concurrent::ChannelError::EMPTY);
             REQUIRE(result.error() == std::errc::operation_would_block);
@@ -38,7 +38,7 @@ TEST_CASE("atomic channel", "[channel]") {
             SECTION("receive after closed") {
                 SECTION("empty") {
                     channel.close();
-                    auto result = channel.receive();
+                    const auto result = channel.receive();
                     REQUIRE(!result);
                     REQUIRE(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
                 }
@@ -66,14 +66,14 @@ TEST_CASE("atomic channel", "[channel]") {
                 channel.send(0);
                 channel.send(1);
                 channel.close();
-                auto result = channel.send(2);
+                const auto result = channel.send(2);
                 REQUIRE(!result);
                 REQUIRE(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
             }
         }
 
         SECTION("receive timeout") {
-            auto result = channel.receive(50ms);
+            const auto result = channel.receive(50ms);
             REQUIRE(!result);
             REQUIRE(result.error() == zero::concurrent::ChannelError::RECEIVE_TIMEOUT);
             REQUIRE(result.error() == std::errc::timed_out);
@@ -103,43 +103,41 @@ TEST_CASE("atomic channel", "[channel]") {
         std::atomic<int> counters[2] = {};
         zero::concurrent::Channel<int> channel(100);
 
-        auto produce = [&]() {
+        auto produce = [&] {
             while (true) {
                 if (counters[0] > 100000)
                     break;
 
-                auto result = channel.send(counters[0]++);
+                const auto result = channel.send(counters[0]++);
                 assert(result);
             }
         };
 
-        auto consume = [&]() {
+        auto consume = [&] {
             while (true) {
-                auto result = channel.receive();
-
-                if (!result) {
+                if (const auto result = channel.receive(); !result) {
                     assert(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
                     break;
                 }
 
-                counters[1]++;
+                ++counters[1];
             }
         };
 
         std::array producers = {
-                std::thread(produce),
-                std::thread(produce),
-                std::thread(produce),
-                std::thread(produce),
-                std::thread(produce)
+            std::thread(produce),
+            std::thread(produce),
+            std::thread(produce),
+            std::thread(produce),
+            std::thread(produce)
         };
 
         std::array consumers = {
-                std::thread(consume),
-                std::thread(consume),
-                std::thread(consume),
-                std::thread(consume),
-                std::thread(consume)
+            std::thread(consume),
+            std::thread(consume),
+            std::thread(consume),
+            std::thread(consume),
+            std::thread(consume)
         };
 
         for (auto &producer: producers)

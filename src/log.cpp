@@ -1,25 +1,12 @@
 #include <zero/log.h>
-#include <zero/time/time.h>
-#include <zero/filesystem/path.h>
-#include <set>
+#include <zero/strings/strings.h>
+#include <range/v3/all.hpp>
 
 #ifndef _WIN32
 #include <unistd.h>
 #endif
 
 constexpr auto LOGGER_BUFFER_SIZE = 1024;
-
-std::string zero::stringify(const zero::LogMessage &message) {
-    return zero::strings::format(
-            "%s | %-5s | %20.*s:%-4d] %s\n",
-            zero::time::stringify(message.timestamp).c_str(),
-            zero::LOG_TAGS[message.level],
-            (int) message.filename.size(),
-            message.filename.data(),
-            message.line,
-            message.content.c_str()
-    );
-}
 
 bool zero::ConsoleProvider::init() {
     return stderr != nullptr;
@@ -34,21 +21,20 @@ bool zero::ConsoleProvider::flush() {
 }
 
 zero::LogResult zero::ConsoleProvider::write(const LogMessage &message) {
-    std::string msg = stringify(message);
-    size_t length = msg.length();
+    const std::string msg = fmt::format("{}\n", message);
 
-    if (fwrite(msg.data(), 1, length, stderr) != length)
+    if (fwrite(msg.data(), 1, msg.length(), stderr) != msg.length())
         return FAILED;
 
     return SUCCEEDED;
 }
 
 zero::FileProvider::FileProvider(
-        const char *name,
-        const std::optional<std::filesystem::path> &directory,
-        size_t limit,
-        int remain
-) : mName(name), mLimit(limit), mRemain(remain), mPosition(0),
+    const char *name,
+    const std::optional<std::filesystem::path> &directory,
+    const std::size_t limit,
+    const int remain
+) : mRemain(remain), mLimit(limit), mPosition(0), mName(name),
     mDirectory(directory.value_or(std::filesystem::temp_directory_path())) {
 #ifndef _WIN32
     mPID = getpid();
@@ -58,11 +44,11 @@ zero::FileProvider::FileProvider(
 }
 
 bool zero::FileProvider::init() {
-    std::string name = strings::format(
-            "%s.%d.%ld.log",
-            mName.c_str(),
-            mPID,
-            std::time(nullptr)
+    const std::string name = fmt::format(
+        "{}.{}.{}.log",
+        mName,
+        mPID,
+        std::time(nullptr)
     );
 
     mStream.open(mDirectory / name);
@@ -80,33 +66,23 @@ bool zero::FileProvider::rotate() {
     if (ec)
         return false;
 
-    std::string prefix = strings::format("%s.%d", mName.c_str(), mPID);
-    std::set<std::filesystem::path> logs;
+    const std::string prefix = fmt::format("%s.%d", mName, mPID);
+    auto v = iterator
+        | ranges::views::filter([](const auto &entry) { return entry.is_regular_file(); })
+        | ranges::views::transform(&std::filesystem::directory_entry::path)
+        | ranges::views::filter([&](const auto &path) {
+            return strings::startsWith(path.filename().string(), prefix);
+        });
 
-    for (const auto &entry: iterator) {
-        if (!entry.is_regular_file())
-            continue;
+    std::list<std::filesystem::path> logs;
+    ranges::copy(v, ranges::back_inserter(logs));
+    logs.sort();
 
-        const auto &path = entry.path();
-
-        if (!strings::startsWith(path.filename().string(), prefix))
-            continue;
-
-        logs.insert(path);
-    }
-
-    size_t size = logs.size();
-
-    if (size <= mRemain)
-        return init();
-
-    if (!std::all_of(
-            logs.begin(),
-            std::prev(logs.end(), mRemain),
-            [](const auto &path) {
-                std::error_code ec;
-                return std::filesystem::remove(path, ec);
-            }
+    if (!ranges::all_of(
+        logs | ranges::views::reverse | ranges::views::drop(mRemain),
+        [&](const auto &path) {
+            return std::filesystem::remove(path, ec);
+        }
     ))
         return false;
 
@@ -118,9 +94,9 @@ bool zero::FileProvider::flush() {
 }
 
 zero::LogResult zero::FileProvider::write(const LogMessage &message) {
-    std::string msg = stringify(message);
+    const std::string msg = fmt::format("{}\n", message);
 
-    if (!mStream.write(msg.c_str(), (std::streamsize) msg.length()))
+    if (!mStream.write(msg.c_str(), static_cast<std::streamsize>(msg.length())))
         return FAILED;
 
     mPosition += msg.length();
@@ -135,40 +111,36 @@ zero::LogResult zero::FileProvider::write(const LogMessage &message) {
     return SUCCEEDED;
 }
 
-zero::Logger::Logger() : mExit(false), mBuffer(LOGGER_BUFFER_SIZE) {
-
+zero::Logger::Logger() : mChannel(LOGGER_BUFFER_SIZE) {
 }
 
 zero::Logger::~Logger() {
-    mExit = true;
-    mEvent.notify();
+    mChannel.close();
 
     if (mThread.joinable())
         mThread.join();
 }
 
-bool zero::Logger::enabled(zero::LogLevel level) {
-    return mMaxLogLevel && *mMaxLogLevel >= level;
-}
-
 void zero::Logger::consume() {
     while (true) {
-        auto index = mBuffer.acquire();
+        auto message = mChannel.tryReceive();
 
-        if (!index) {
-            if (mExit)
+        if (!message) {
+            if (message.error() == concurrent::ChannelError::CHANNEL_EOF)
                 break;
 
             std::list<std::chrono::milliseconds> durations;
 
             {
-                std::lock_guard<std::mutex> guard(mMutex);
+                std::lock_guard guard(mMutex);
 
-                auto now = std::chrono::system_clock::now();
+                const auto now = std::chrono::system_clock::now();
                 auto it = mConfigs.begin();
 
                 while (it != mConfigs.end()) {
-                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(it->flushDeadline - now);
+                    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        it->flushDeadline - now
+                    );
 
                     if (duration.count() <= 0) {
                         if (!it->provider->flush()) {
@@ -181,32 +153,28 @@ void zero::Logger::consume() {
                     }
 
                     durations.push_back(duration);
-                    it++;
+                    ++it;
                 }
             }
 
-            if (durations.empty()) {
-                mEvent.wait();
-                continue;
-            }
+            if (durations.empty())
+                message = mChannel.receive();
+            else
+                message = mChannel.receive(*ranges::min_element(durations));
 
-            mEvent.wait(*std::min_element(durations.begin(), durations.end()));
-            continue;
+            if (!message)
+                continue;
         }
 
-        LogMessage message = std::move(mBuffer[*index]);
-        mBuffer.release(*index);
+        std::lock_guard guard(mMutex);
 
-        std::lock_guard<std::mutex> guard(mMutex);
-
-        auto now = std::chrono::system_clock::now();
+        const auto now = std::chrono::system_clock::now();
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (message.level <= (std::max)(it->level, mMinLogLevel.value_or(ERROR_LEVEL))) {
-                auto result = it->provider->write(message);
-
-                if (result == FAILED || (result == ROTATED && !it->provider->rotate())) {
+            if (message->level <= (std::max)(it->level, mMinLogLevel.value_or(ERROR_LEVEL))) {
+                if (const auto result = it->provider->write(*message);
+                    result == FAILED || (result == ROTATED && !it->provider->rotate())) {
                     it = mConfigs.erase(it);
                     continue;
                 }
@@ -222,26 +190,64 @@ void zero::Logger::consume() {
                 continue;
             }
 
-            it++;
+            ++it;
         }
     }
 }
 
+bool zero::Logger::enabled(const LogLevel level) const {
+    return mMaxLogLevel && *mMaxLogLevel >= level;
+}
+
 void zero::Logger::addProvider(
-        zero::LogLevel level,
-        std::unique_ptr<ILogProvider> provider,
-        std::chrono::milliseconds interval
+    LogLevel level,
+    std::unique_ptr<ILogProvider> provider,
+    std::chrono::milliseconds interval
 ) {
-    std::call_once(mOnceFlag, [=]() {
-        const char *env = getenv("ZERO_LOG_LEVEL");
+    std::call_once(mOnceFlag, [=] {
+        const auto getEnv = [](const char *name) -> std::optional<int> {
+#ifdef _WIN32
+            std::size_t size;
 
-        if (env) {
-            auto level = strings::toNumber<int>(env);
+            if (const auto err = getenv_s(&size, nullptr, 0, name); err != 0 || size == 0)
+                return std::nullopt;
 
-            if (level && *level >= ERROR_LEVEL && *level <= DEBUG_LEVEL) {
-                mMinLogLevel = (LogLevel) *level;
-                mMaxLogLevel = mMinLogLevel;
+            const auto buffer = std::make_unique<char[]>(size);
+
+            if (getenv_s(&size, buffer.get(), size, name) != 0 || size == 0)
+                return std::nullopt;
+
+            const char *env = buffer.get();
+#else
+            const char *env = getenv(name);
+
+            if (!env)
+                return std::nullopt;
+#endif
+
+            const auto result = strings::toNumber<int>(env);
+
+            if (!result)
+                return std::nullopt;
+
+            return *result;
+        };
+
+        if (const auto value = getEnv("ZERO_LOG_LEVEL")) {
+            if (*value < ERROR_LEVEL || *value > DEBUG_LEVEL)
+                return;
+
+            mMinLogLevel = static_cast<LogLevel>(*value);
+            mMaxLogLevel = mMinLogLevel;
+        }
+
+        if (const auto value = getEnv("ZERO_LOG_TIMEOUT")) {
+            if (*value <= 0) {
+                mTimeout.reset();
+                return;
             }
+
+            mTimeout = std::chrono::milliseconds{*value};
         }
 
         mThread = std::thread(&Logger::consume, this);
@@ -250,16 +256,14 @@ void zero::Logger::addProvider(
     if (!provider->init())
         return;
 
-    std::lock_guard<std::mutex> guard(mMutex);
+    std::lock_guard guard(mMutex);
 
     mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(ERROR_LEVEL));
 
-    mConfigs.push_back(
-            Config{
-                    level,
-                    std::move(provider),
-                    interval,
-                    std::chrono::system_clock::now() + interval
-            }
-    );
+    mConfigs.push_back({
+        level,
+        std::move(provider),
+        interval,
+        std::chrono::system_clock::now() + interval
+    });
 }

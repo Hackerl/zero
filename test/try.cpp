@@ -1,13 +1,13 @@
 #include <zero/try.h>
-#include <memory>
 #include <tl/expected.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <memory>
 
-tl::expected<std::unique_ptr<int>, std::error_code> func1(int value) {
+tl::expected<std::unique_ptr<int>, std::error_code> func1(const int value) {
     return std::make_unique<int>(value * 2);
 }
 
-tl::expected<std::unique_ptr<int>, std::error_code> func2(int value) {
+tl::expected<std::unique_ptr<int>, std::error_code> func2(const int value) {
     return std::make_unique<int>(value * 4);
 }
 
