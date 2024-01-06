@@ -4,30 +4,30 @@
 
 TEST_CASE("asynchronous callback chain", "[promise]") {
     SECTION("single promise") {
-        zero::async::promise::chain<int, int>([](auto &p) {
-            p.resolve(1);
-        }).then([](const int result) {
+        zero::async::promise::chain<int, int>([](const auto &p) {
+            p->resolve(1);
+        })->then([](const int result) {
             REQUIRE(result == 1);
         });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int result) {
+            ->then([](const int result) {
                 REQUIRE(result == 1);
             });
 
         zero::async::promise::reject<void, int>(-1)
-            .fail([](const int reason) {
+            ->fail([](const int reason) {
                 REQUIRE(reason == -1);
             });
 
         zero::async::promise::resolve<std::array<int, 2>, int>(std::array{1, 2})
-            .then([](const int r1, const int r2) {
+            ->then([](const int r1, const int r2) {
                 REQUIRE(r1 == 1);
                 REQUIRE(r2 == 2);
             });
 
         zero::async::promise::resolve<std::pair<int, long>, int>(std::pair{1, 2L})
-            .then(
+            ->then(
                 [](const int r1, const long r2) {
                     REQUIRE(r1 == 1);
                     REQUIRE(r2 == 2L);
@@ -35,35 +35,35 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             );
 
         zero::async::promise::resolve<std::tuple<int, long>, int>(std::tuple{1, 2L})
-            .then([](const int r1, const long r2) {
+            ->then([](const int r1, const long r2) {
                 REQUIRE(r1 == 1);
                 REQUIRE(r2 == 2L);
             });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int result) {
+            ->then([](const int result) {
                 return zero::async::promise::resolve<int, int>(result * 10);
-            }).then([](const int result) {
+            })->then([](const int result) {
                 REQUIRE(result == 10);
             });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int result) -> tl::expected<int, int> {
+            ->then([](const int result) -> tl::expected<int, int> {
                 if (result == 2)
                     return tl::unexpected(2);
 
                 return 2;
-            }).then([](const int result) {
+            })->then([](const int result) {
                 REQUIRE(result == 2);
             });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int result) -> tl::expected<int, int> {
+            ->then([](const int result) -> tl::expected<int, int> {
                 if (result == 1)
                     return tl::unexpected(-1);
 
                 return 2;
-            }).fail([](const int reason) {
+            })->fail([](const int reason) {
                 REQUIRE(reason == -1);
                 return tl::unexpected(reason);
             });
@@ -71,14 +71,14 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
         const auto i = std::make_shared<int>(0);
 
         zero::async::promise::resolve<int, int>(1)
-            .finally([=] {
+            ->finally([=] {
                 *i = 1;
-            }).then([=](const int result) {
+            })->then([=](const int result) {
                 REQUIRE(*i == 1);
                 REQUIRE(result == 1);
             });
 
-        zero::async::promise::chain<std::unique_ptr<char[]>, int>([](auto &p) {
+        zero::async::promise::chain<std::unique_ptr<char[]>, int>([](const auto &p) {
             auto buffer = std::make_unique<char[]>(1024);
 
             buffer[0] = 'h';
@@ -87,8 +87,8 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             buffer[3] = 'l';
             buffer[4] = 'o';
 
-            p.resolve(std::move(buffer));
-        }).then([](const std::unique_ptr<char[]> &buffer) {
+            p->resolve(std::move(buffer));
+        })->then([](const std::unique_ptr<char[]> &buffer) {
             REQUIRE(strcmp(buffer.get(), "hello") == 0);
         });
     }
@@ -98,7 +98,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             all(
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::resolve<int, int>(2)
-            ).then([](const int r1, const long r2) {
+            )->then([](const int r1, const long r2) {
                 REQUIRE(r1 == 1);
                 REQUIRE(r2 == 2);
             });
@@ -109,10 +109,10 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::resolve<void, int>(),
                 zero::async::promise::resolve<long, int>(2)
-            ).then([](const int r1, const long r2) {
+            )->then([](const int r1, const long r2) {
                 REQUIRE(r1 == 1);
                 REQUIRE(r2 == 2);
-            }).fail([](const int) {
+            })->fail([](const int) {
                 FAIL();
             });
         }
@@ -122,7 +122,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::reject<void, int>(-1),
                 zero::async::promise::resolve<int, int>(2)
-            ).fail([](const int reason) {
+            )->fail([](const int reason) {
                 REQUIRE(reason == -1);
                 return tl::unexpected(reason);
             });
@@ -135,7 +135,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::reject<void, int>(-1),
                 zero::async::promise::resolve<long, int>(2L)
-            ).then([](const tl::expected<int, int> &r1,
+            )->then([](const tl::expected<int, int> &r1,
                       const tl::expected<void, int> &r2,
                       const tl::expected<long, int> &r3) {
                 REQUIRE(r1.value() == 1);
@@ -149,7 +149,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::reject<void, long>(-1),
                 zero::async::promise::resolve<long, long>(2L)
-            ).then([](const tl::expected<int, int> &r1,
+            )->then([](const tl::expected<int, int> &r1,
                       const tl::expected<void, long> &r2,
                       const tl::expected<long, long> &r3) {
                 REQUIRE(r1.value() == 1);
@@ -164,7 +164,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             any(
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::reject<int, int>(-1)
-            ).then([](const int result) {
+            )->then([](const int result) {
                 REQUIRE(result == 1);
             });
         }
@@ -174,7 +174,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::reject<void, int>(-1),
                 zero::async::promise::reject<long, int>(-1)
-            ).then([](const std::any &result) {
+            )->then([](const std::any &result) {
 #if _CPPRTTI || __GXX_RTTI
                 REQUIRE(result.type() == typeid(int));
 #endif
@@ -185,7 +185,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::reject<int, int>(-1),
                 zero::async::promise::resolve<void, int>(),
                 zero::async::promise::reject<long, int>(-1)
-            ).then([](const std::any &result) {
+            )->then([](const std::any &result) {
                 REQUIRE(!result.has_value());
             });
         }
@@ -195,7 +195,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::reject<int, int>(-1),
                 zero::async::promise::reject<void, int>(-2),
                 zero::async::promise::reject<long, int>(-3)
-            ).fail([](const std::list<int> &reasons) {
+            )->fail([](const std::list<int> &reasons) {
                 REQUIRE(reasons.front() == -3);
                 REQUIRE(reasons.back() == -1);
 
@@ -209,14 +209,14 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
             race(
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::reject<int, int>(-1)
-            ).then([](const int result) {
+            )->then([](const int result) {
                 REQUIRE(result == 1);
             });
 
             race(
                 zero::async::promise::reject<int, int>(-1),
                 zero::async::promise::resolve<int, int>(1)
-            ).fail([](const int reason) {
+            )->fail([](const int reason) {
                 REQUIRE(reason == -1);
                 return tl::unexpected(reason);
             });
@@ -227,7 +227,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::reject<int, int>(-1),
                 zero::async::promise::resolve<long, int>(2L)
-            ).then([](const std::any &result) {
+            )->then([](const std::any &result) {
 #if _CPPRTTI || __GXX_RTTI
                 REQUIRE(result.type() == typeid(int));
 #endif
@@ -238,7 +238,7 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
                 zero::async::promise::reject<int, int>(-1),
                 zero::async::promise::resolve<int, int>(1),
                 zero::async::promise::resolve<long, int>(2L)
-            ).fail([](const int reason) {
+            )->fail([](const int reason) {
                 REQUIRE(reason == -1);
                 return tl::unexpected(reason);
             });
@@ -246,8 +246,8 @@ TEST_CASE("asynchronous callback chain", "[promise]") {
     }
 
     SECTION("comparison") {
-        zero::async::promise::Promise<int, int> p1;
-        zero::async::promise::Promise<int, int> p2;
+        const auto p1 = zero::async::promise::make<int, int>();
+        const auto p2 = zero::async::promise::make<int, int>();
 
         const auto p3 = p1;
         auto p4 = p2;

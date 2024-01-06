@@ -62,29 +62,29 @@ tl::expected<int, std::error_code> test4() {
 }
 
 zero::async::coroutine::Task<int, std::error_code> test5() {
-    auto result = CO_TRY(std::move(co_await func5(2)));
-    result = CO_TRY(std::move(co_await func6(**result)));
+    auto result = CO_TRY(co_await func5(2));
+    result = CO_TRY(co_await func6(**result));
     co_return **result * 10;
 }
 
 zero::async::coroutine::Task<int, std::error_code> test6() {
-    auto result = CO_TRY(std::move(co_await func5(2)));
-    result = CO_TRY(std::move(co_await func6(**result)));
-    result = CO_TRY(std::move(co_await func7(**result)));
+    auto result = CO_TRY(co_await func5(2));
+    result = CO_TRY(co_await func6(**result));
+    result = CO_TRY(co_await func7(**result));
     co_return **result * 10;
 }
 
 zero::async::coroutine::Task<int, std::error_code> test7() {
-    auto result = CO_TRY(std::move(co_await func5(2)));
-    result = CO_TRY(std::move(co_await func6(**result)));
-    result = CO_TRY(std::move(co_await func8(**result)));
+    auto result = CO_TRY(co_await func5(2));
+    result = CO_TRY(co_await func6(**result));
+    result = CO_TRY(co_await func8(**result));
     co_return **result * 10;
 }
 
 zero::async::coroutine::Task<int, std::error_code> test8() {
-    auto result = CO_TRY(std::move(co_await func8(2)));
-    result = CO_TRY(std::move(co_await func5(**result)));
-    result = CO_TRY(std::move(co_await func6(**result)));
+    auto result = CO_TRY(co_await func8(2));
+    result = CO_TRY(co_await func5(**result));
+    result = CO_TRY(co_await func6(**result));
     co_return **result * 10;
 }
 
