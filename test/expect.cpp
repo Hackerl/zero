@@ -1,4 +1,4 @@
-#include <zero/try.h>
+#include <zero/expect.h>
 #include <zero/async/coroutine.h>
 #include <catch2/catch_test_macros.hpp>
 
@@ -35,60 +35,136 @@ zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func8(int) {
 }
 
 tl::expected<int, std::error_code> test1() {
+#ifdef __GNUC__
     auto result = TRY(func1(2));
-    result = TRY(func2(**result));
+    result = TRY(func2(*result));
+    return *result * 10;
+#else
+    auto result = func1(2);
+    EXPECT(result);
+    result = func2(**result);
+    EXPECT(result);
     return **result * 10;
+#endif
 }
 
 tl::expected<int, std::error_code> test2() {
+#ifdef __GNUC__
     auto result = TRY(func1(2));
-    result = TRY(func2(**result));
-    result = TRY(func3(**result));
+    result = TRY(func2(*result));
+    result = TRY(func3(*result));
+    return *result * 10;
+#else
+    auto result = func1(2);
+    EXPECT(result);
+    result = func2(**result);
+    EXPECT(result);
+    result = func3(**result);
+    EXPECT(result);
     return **result * 10;
+#endif
 }
 
 tl::expected<int, std::error_code> test3() {
+#ifdef __GNUC__
     auto result = TRY(func1(2));
-    result = TRY(func2(**result));
-    result = TRY(func4(**result));
+    result = TRY(func2(*result));
+    result = TRY(func4(*result));
+    return *result * 10;
+#else
+    auto result = func1(2);
+    EXPECT(result);
+    result = func2(**result);
+    EXPECT(result);
+    result = func4(**result);
+    EXPECT(result);
     return **result * 10;
+#endif
 }
 
 tl::expected<int, std::error_code> test4() {
+#ifdef __GNUC__
     auto result = TRY(func4(2));
-    result = TRY(func1(**result));
-    result = TRY(func2(**result));
+    result = TRY(func1(*result));
+    result = TRY(func2(*result));
+    return *result * 10;
+#else
+    auto result = func4(2);
+    EXPECT(result);
+    result = func1(**result);
+    EXPECT(result);
+    result = func2(**result);
+    EXPECT(result);
     return **result * 10;
+#endif
 }
 
 zero::async::coroutine::Task<int, std::error_code> test5() {
+#ifdef __clang__
     auto result = CO_TRY(co_await func5(2));
-    result = CO_TRY(co_await func6(**result));
+    result = CO_TRY(co_await func6(*result));
+    co_return *result * 10;
+#else
+    auto result = co_await func5(2);
+    CO_EXPECT(result);
+    result = co_await func6(**result);
+    CO_EXPECT(result);
     co_return **result * 10;
+#endif
 }
 
 zero::async::coroutine::Task<int, std::error_code> test6() {
+#ifdef __clang__
     auto result = CO_TRY(co_await func5(2));
-    result = CO_TRY(co_await func6(**result));
-    result = CO_TRY(co_await func7(**result));
+    result = CO_TRY(co_await func6(*result));
+    result = CO_TRY(co_await func7(*result));
+    co_return *result * 10;
+#else
+    auto result = co_await func5(2);
+    CO_EXPECT(result);
+    result = co_await func6(**result);
+    CO_EXPECT(result);
+    result = co_await func7(**result);
+    CO_EXPECT(result);
     co_return **result * 10;
+#endif
 }
 
 zero::async::coroutine::Task<int, std::error_code> test7() {
+#ifdef __clang__
     auto result = CO_TRY(co_await func5(2));
-    result = CO_TRY(co_await func6(**result));
-    result = CO_TRY(co_await func8(**result));
+    result = CO_TRY(co_await func6(*result));
+    result = CO_TRY(co_await func8(*result));
+    co_return *result * 10;
+#else
+    auto result = co_await func5(2);
+    CO_EXPECT(result);
+    result = co_await func6(**result);
+    CO_EXPECT(result);
+    result = co_await func8(**result);
+    CO_EXPECT(result);
     co_return **result * 10;
+#endif
 }
 
 zero::async::coroutine::Task<int, std::error_code> test8() {
+#ifdef __clang__
     auto result = CO_TRY(co_await func8(2));
-    result = CO_TRY(co_await func5(**result));
-    result = CO_TRY(co_await func6(**result));
+    result = CO_TRY(co_await func5(*result));
+    result = CO_TRY(co_await func6(*result));
+    co_return *result * 10;
+#else
+    auto result = co_await func8(2);
+    CO_EXPECT(result);
+    result = co_await func5(**result);
+    CO_EXPECT(result);
+    result = co_await func6(**result);
+    CO_EXPECT(result);
     co_return **result * 10;
+#endif
 }
 
-TEST_CASE("try helper macro", "[try]") {
+TEST_CASE("error handling macro", "[expect]") {
     SECTION("normal") {
         auto result = test1();
         REQUIRE(result);

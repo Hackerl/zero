@@ -1,5 +1,5 @@
 #include <zero/os/process.h>
-#include <zero/try.h>
+#include <zero/expect.h>
 
 #ifdef _WIN32
 #include <ranges>
@@ -59,50 +59,55 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
 }
 
 tl::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Process::cpu() const {
-    const auto cpu = TRY(mImpl.cpu());
-    return CPUTime{
-        cpu->user,
-        cpu->system
-    };
+    return mImpl.cpu().transform([](const auto &cpu) {
+        return CPUTime{
+            cpu.user,
+            cpu.system
+        };
+    });
 }
 
 tl::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::Process::memory() const {
-    const auto memory = TRY(mImpl.memory());
-    return MemoryStat{
-        memory->rss,
-        memory->vms
-    };
+    return mImpl.memory().transform([](const auto &memory) {
+        return MemoryStat{
+            memory.rss,
+            memory.vms
+        };
+    });
 }
 
 tl::expected<zero::os::process::IOStat, std::error_code> zero::os::process::Process::io() const {
-    const auto io = TRY(mImpl.io());
-    return IOStat{
-        io->readBytes,
-        io->writeBytes
-    };
+    return mImpl.io().transform([](const auto &io) {
+        return IOStat{
+            io.readBytes,
+            io.writeBytes
+        };
+    });
 }
 
 tl::expected<zero::os::process::Process, std::error_code> zero::os::process::self() {
 #ifdef _WIN32
-    auto impl = TRY(nt::process::self());
+    auto impl = nt::process::self();
 #elif __APPLE__
-    auto impl = TRY(darwin::process::self());
+    auto impl = darwin::process::self();
 #elif __linux__
-    auto impl = TRY(procfs::process::self());
+    auto impl = procfs::process::self();
 #endif
 
+    EXPECT(impl);
     return Process{std::move(*impl)};
 }
 
 tl::expected<zero::os::process::Process, std::error_code> zero::os::process::open(ID pid) {
 #ifdef _WIN32
-    auto impl = TRY(nt::process::open(static_cast<DWORD>(pid)));
+    auto impl = nt::process::open(static_cast<DWORD>(pid));
 #elif __APPLE__
-    auto impl = TRY(darwin::process::open(pid));
+    auto impl = darwin::process::open(pid);
 #elif __linux__
-    auto impl = TRY(procfs::process::open(pid));
+    auto impl = procfs::process::open(pid);
 #endif
 
+    EXPECT(impl);
     return Process{std::move(*impl)};
 }
 

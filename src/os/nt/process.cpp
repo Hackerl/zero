@@ -1,6 +1,6 @@
 #include <zero/os/nt/process.h>
 #include <zero/strings/strings.h>
-#include <zero/try.h>
+#include <zero/expect.h>
 #include <zero/defer.h>
 #include <winternl.h>
 #include <psapi.h>
@@ -150,7 +150,9 @@ tl::expected<std::string, std::error_code> zero::os::nt::process::Process::name(
 }
 
 tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::cwd() const {
-    const auto ptr = TRY(parameters());
+    const auto ptr = parameters();
+    EXPECT(ptr);
+
     UNICODE_STRING str;
 
     if (!ReadProcessMemory(
@@ -196,7 +198,9 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
 }
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {
-    const auto ptr = TRY(parameters());
+    const auto ptr = parameters();
+    EXPECT(ptr);
+
     UNICODE_STRING str;
 
     if (!ReadProcessMemory(
@@ -246,7 +250,9 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
 }
 
 tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::process::Process::env() const {
-    const auto ptr = TRY(parameters());
+    const auto ptr = parameters();
+    EXPECT(ptr);
+
     PVOID env;
 
     if (!ReadProcessMemory(
@@ -280,7 +286,8 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
     ))
         return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-    const auto str = TRY(strings::encode({buffer.get(), size / sizeof(WCHAR)}));
+    const auto str = strings::encode({buffer.get(), size / sizeof(WCHAR)});
+    EXPECT(str);
 
     tl::expected<std::map<std::string, std::string>, std::error_code> result;
 

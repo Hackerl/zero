@@ -2,9 +2,9 @@ find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(
         zero_test
-        try.cpp
         log.cpp
         defer.cpp
+        expect.cpp
         cmdline.cpp
         formatter.cpp
         atomic/event.cpp

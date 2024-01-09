@@ -7,7 +7,7 @@
 #include <regex>
 #include <fstream>
 #include <unistd.h>
-#include <zero/try.h>
+#include <zero/expect.h>
 #include <zero/strings/strings.h>
 #include <zero/os/procfs/procfs.h>
 #elif __APPLE__
@@ -58,9 +58,13 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     if (tokens.size() != 11)
         return tl::unexpected(procfs::UNEXPECTED_DATA);
 
-    const auto user = TRY(strings::toNumber<std::uint64_t>(tokens[1]));
-    const auto system = TRY(strings::toNumber<std::uint64_t>(tokens[3]));
-    const auto idle = TRY(strings::toNumber<std::uint64_t>(tokens[4]));
+    const auto user = strings::toNumber<std::uint64_t>(tokens[1]);
+    const auto system = strings::toNumber<std::uint64_t>(tokens[3]);
+    const auto idle = strings::toNumber<std::uint64_t>(tokens[4]);
+
+    EXPECT(user);
+    EXPECT(system);
+    EXPECT(idle);
 
     const long result = sysconf(_SC_CLK_TCK);
 
@@ -131,7 +135,9 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         if (tokens.size() != 2)
             return tl::unexpected(procfs::UNEXPECTED_DATA);
 
-        const auto n = TRY(strings::toNumber<std::uint64_t>(strings::trim(tokens[1])));
+        const auto n = strings::toNumber<std::uint64_t>(strings::trim(tokens[1]));
+        EXPECT(n);
+
         map[tokens[0]] = *n * 1024;
     }
 
