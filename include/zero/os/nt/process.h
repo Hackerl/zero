@@ -54,6 +54,7 @@ namespace zero::os::nt::process {
 
     public:
         [[nodiscard]] HANDLE handle() const;
+
         [[nodiscard]] DWORD pid() const;
         [[nodiscard]] tl::expected<DWORD, std::error_code> ppid() const;
 
@@ -61,13 +62,19 @@ namespace zero::os::nt::process {
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
-        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
+        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> envs() const;
 
         [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
         [[nodiscard]] tl::expected<DWORD, std::error_code> exitCode() const;
+
+        [[nodiscard]] tl::expected<void, std::error_code>
+        wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt) const;
+
+        [[nodiscard]] tl::expected<void, std::error_code> tryWait() const;
+
         tl::expected<void, std::error_code> terminate(DWORD code);
 
     private:

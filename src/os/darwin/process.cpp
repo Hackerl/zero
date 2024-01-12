@@ -132,7 +132,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::proces
     return tokens;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darwin::process::Process::env() const {
+tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darwin::process::Process::envs() const {
     const auto arguments = this->arguments();
     EXPECT(arguments);
 
@@ -161,10 +161,13 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
     if (tokens.size() != argc + 1)
         return tl::unexpected(UNEXPECTED_DATA);
 
-    tl::expected<std::map<std::string, std::string>, std::error_code> result;
+    const auto &str = tokens[argc];
+
+    if (str.empty())
+        return {};
 
     std::size_t prev = 0;
-    const auto &str = tokens[argc];
+    tl::expected<std::map<std::string, std::string>, std::error_code> result;
 
     while (true) {
         if (str.length() <= prev) {
@@ -184,7 +187,6 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
 
         const auto item = str.substr(prev, pos - prev);
         prev = pos + 1;
-
         pos = item.find('=');
 
         if (pos == std::string::npos) {

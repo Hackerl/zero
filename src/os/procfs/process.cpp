@@ -60,48 +60,6 @@ pid_t zero::os::procfs::process::Process::pid() const {
     return mPID;
 }
 
-tl::expected<pid_t, std::error_code> zero::os::procfs::process::Process::ppid() const {
-    return stat().transform([](const auto &stat) {
-        return stat.ppid;
-    });
-}
-
-tl::expected<zero::os::procfs::process::MemoryMapping, std::error_code>
-zero::os::procfs::process::Process::getImageBase(std::string_view path) const {
-    const auto memoryMappings = maps();
-    EXPECT(memoryMappings);
-
-    const auto it = std::ranges::find_if(
-        *memoryMappings,
-        [=](const auto &m) {
-            return m.pathname.find(path) != std::string::npos;
-        }
-    );
-
-    if (it == memoryMappings->end())
-        return tl::unexpected(NO_SUCH_IMAGE);
-
-    return *it;
-}
-
-tl::expected<zero::os::procfs::process::MemoryMapping, std::error_code>
-zero::os::procfs::process::Process::findMapping(std::uintptr_t address) const {
-    const auto memoryMappings = maps();
-    EXPECT(memoryMappings);
-
-    const auto it = std::ranges::find_if(
-        *memoryMappings,
-        [=](const auto &m) {
-            return m.start <= address && address < m.end;
-        }
-    );
-
-    if (it == memoryMappings->end())
-        return tl::unexpected(NO_SUCH_MEMORY_MAPPING);
-
-    return *it;
-}
-
 tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::exe() const {
     char buffer[PATH_MAX + 1] = {};
 
@@ -147,12 +105,12 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::proces
     return tokens;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::process::Process::env() const {
+tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::process::Process::environ() const {
     const auto content = readFile("environ");
     EXPECT(content);
 
     if (content->empty())
-        return tl::unexpected(MAYBE_ZOMBIE_PROCESS);
+        return {};
 
     auto tokens = strings::split(*content, {"\0", 1});
     tokens.pop_back();
@@ -664,44 +622,6 @@ zero::os::procfs::process::Process::maps() const {
     }
 
     return result;
-}
-
-tl::expected<zero::os::procfs::process::CPUTime, std::error_code> zero::os::procfs::process::Process::cpu() const {
-    const long result = sysconf(_SC_CLK_TCK);
-
-    if (result < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
-
-    const auto ticks = static_cast<double>(result);
-    const auto stat = this->stat();
-    EXPECT(stat);
-
-    CPUTime time = {
-        static_cast<double>(stat->uTime) / ticks,
-        static_cast<double>(stat->sTime) / ticks
-    };
-
-    if (stat->delayAcctBlkIOTicks)
-        time.ioWait = static_cast<double>(*stat->delayAcctBlkIOTicks) / ticks;
-
-    return time;
-}
-
-tl::expected<zero::os::procfs::process::MemoryStat, std::error_code>
-zero::os::procfs::process::Process::memory() const {
-    const long result = sysconf(_SC_PAGE_SIZE);
-
-    if (result < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
-
-    const auto pageSize = static_cast<std::uint64_t>(result);
-    const auto statM = this->statM();
-    EXPECT(statM);
-
-    return MemoryStat{
-        statM->resident * pageSize,
-        statM->size * pageSize
-    };
 }
 
 tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procfs::process::Process::io() const {

@@ -40,7 +40,7 @@ TEST_CASE("procfs process", "[process]") {
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        const auto env = process->env();
+        const auto env = process->environ();
         REQUIRE(env);
 
         const auto mappings = process->maps();
@@ -73,14 +73,6 @@ TEST_CASE("procfs process", "[process]") {
             zero::os::procfs::process::MemoryPermission::PRIVATE;
 
         REQUIRE(it->permissions == permissions);
-
-        auto mapping = process->findMapping(variable);
-        REQUIRE(mapping);
-        REQUIRE(mapping->permissions == permissions);
-
-        mapping = process->getImageBase(path->string());
-        REQUIRE(mapping);
-        REQUIRE(mapping->permissions & zero::os::procfs::process::MemoryPermission::READ);
 
         const auto exe = process->exe();
         REQUIRE(exe);
@@ -112,12 +104,6 @@ TEST_CASE("procfs process", "[process]") {
         REQUIRE(tasks->size() == 1);
         REQUIRE(tasks->front() == pid);
 
-        const auto memory = process->memory();
-        REQUIRE(memory);
-
-        const auto cpu = process->cpu();
-        REQUIRE(cpu);
-
         const auto io = process->io();
         REQUIRE(io);
     }
@@ -148,7 +134,7 @@ TEST_CASE("procfs process", "[process]") {
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        const auto env = process->env();
+        const auto env = process->environ();
         REQUIRE(env);
 
         const auto mappings = process->maps();
@@ -182,14 +168,6 @@ TEST_CASE("procfs process", "[process]") {
 
         REQUIRE(it->permissions == permissions);
 
-        auto mapping = process->findMapping(variable);
-        REQUIRE(mapping);
-        REQUIRE(mapping->permissions == permissions);
-
-        mapping = process->getImageBase(path->string());
-        REQUIRE(mapping);
-        REQUIRE(mapping->permissions & zero::os::procfs::process::MemoryPermission::READ);
-
         const auto exe = process->exe();
         REQUIRE(exe);
         REQUIRE(*exe == *path);
@@ -219,12 +197,6 @@ TEST_CASE("procfs process", "[process]") {
         REQUIRE(tasks);
         REQUIRE(tasks->size() == 1);
         REQUIRE(tasks->front() == pid);
-
-        const auto memory = process->memory();
-        REQUIRE(memory);
-
-        const auto cpu = process->cpu();
-        REQUIRE(cpu);
 
         const auto io = process->io();
         REQUIRE(io);
@@ -261,20 +233,12 @@ TEST_CASE("procfs process", "[process]") {
         REQUIRE(!cmdline);
         REQUIRE(cmdline.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
-        const auto env = process->env();
+        const auto env = process->environ();
         REQUIRE(!env);
 
         const auto mappings = process->maps();
         REQUIRE(!mappings);
         REQUIRE(mappings.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
-
-        auto mapping = process->findMapping(function);
-        REQUIRE(!mapping);
-        REQUIRE(mapping.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
-
-        mapping = process->getImageBase(path->string());
-        REQUIRE(!mapping);
-        REQUIRE(mapping.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto exe = process->exe();
         REQUIRE(!exe);

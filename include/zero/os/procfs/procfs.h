@@ -6,9 +6,7 @@
 
 namespace zero::os::procfs {
     enum Error {
-        NO_SUCH_IMAGE = 1,
-        NO_SUCH_MEMORY_MAPPING,
-        UNEXPECTED_DATA,
+        UNEXPECTED_DATA = 1,
         MAYBE_ZOMBIE_PROCESS
     };
 
