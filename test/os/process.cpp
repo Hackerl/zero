@@ -136,11 +136,10 @@ TEST_CASE("process module", "[process]") {
             REQUIRE(result.find("ZERO_PROCESS_TESTS") != std::string::npos);
 #else
             SECTION("inherit") {
-                std::string env = "ZERO_PROCESS_TESTS=1";
 #ifdef _WIN32
-                _putenv(env.data());
+                SetEnvironmentVariableA("ZERO_PROCESS_TESTS", "1");
 #else
-                putenv(env.data());
+                setenv("ZERO_PROCESS_TESTS", "1", 0);
 #endif
 
                 const auto child = command
@@ -156,11 +155,10 @@ TEST_CASE("process module", "[process]") {
                 const auto result = child->wait();
                 REQUIRE(result);
 
-                env = "ZERO_PROCESS_TESTS=";
 #ifdef _WIN32
-                _putenv(env.data());
+                SetEnvironmentVariableA("ZERO_PROCESS_TESTS", nullptr);
 #else
-                putenv(env.data());
+                unsetenv("ZERO_PROCESS_TESTS");
 #endif
             }
 
@@ -215,11 +213,10 @@ TEST_CASE("process module", "[process]") {
             }
 
             SECTION("remove env") {
-                std::string env = "ZERO_PROCESS_TESTS=1";
 #ifdef _WIN32
-                _putenv(env.data());
+                SetEnvironmentVariableA("ZERO_PROCESS_TESTS", "1");
 #else
-                putenv(env.data());
+                setenv("ZERO_PROCESS_TESTS", "1", 0);
 #endif
 
                 const auto child = command
@@ -235,11 +232,10 @@ TEST_CASE("process module", "[process]") {
                 const auto result = child->wait();
                 REQUIRE(result);
 
-                env = "ZERO_PROCESS_TESTS=";
 #ifdef _WIN32
-                _putenv(env.data());
+                SetEnvironmentVariableA("ZERO_PROCESS_TESTS", nullptr);
 #else
-                putenv(env.data());
+                unsetenv("ZERO_PROCESS_TESTS");
 #endif
             }
 
