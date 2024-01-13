@@ -37,7 +37,7 @@ pid_t zero::os::process::Process::pid() const {
 }
 
 tl::expected<pid_t, std::error_code> zero::os::process::Process::ppid() const {
-    return mImpl.stat().transform([](const auto stat) {
+    return mImpl.stat().transform([](const auto &stat) {
         return stat.ppid;
     });
 }
@@ -124,7 +124,7 @@ tl::expected<zero::os::process::Process, std::error_code> zero::os::process::ope
 }
 #endif
 
-zero::os::process::ChildProcess::ChildProcess(Process process, const std::array<std::optional<Stdio>, 3> &stdio)
+zero::os::process::ChildProcess::ChildProcess(Process process, const std::array<std::optional<StdioFile>, 3> &stdio)
     : Process(std::move(process)), mStdio(stdio) {
 }
 
@@ -145,15 +145,15 @@ zero::os::process::ChildProcess::~ChildProcess() {
     }
 }
 
-std::optional<zero::os::process::ChildProcess::Stdio> &zero::os::process::ChildProcess::stdInput() {
+std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::ChildProcess::stdInput() {
     return mStdio[0];
 }
 
-std::optional<zero::os::process::ChildProcess::Stdio> &zero::os::process::ChildProcess::stdOutput() {
+std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::ChildProcess::stdOutput() {
     return mStdio[1];
 }
 
-std::optional<zero::os::process::ChildProcess::Stdio> &zero::os::process::ChildProcess::stdError() {
+std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::ChildProcess::stdError() {
     return mStdio[2];
 }
 
@@ -325,7 +325,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
 
     CloseHandle(info.hThread);
 
-    std::array<std::optional<HANDLE>, 3> stdio;
+    std::array<std::optional<ChildProcess::StdioFile>, 3> stdio;
 
     if (handles[1])
         stdio[0] = std::exchange(handles[1], nullptr);
@@ -485,15 +485,15 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
         return tl::unexpected(process.error());
     }
 
-    std::array<std::optional<int>, 3> stdio;
+    std::array<std::optional<ChildProcess::StdioFile>, 3> stdio;
 
-    if (fds[1] > 0)
+    if (fds[1] >= 0)
         stdio[0] = std::exchange(fds[1], -1);
 
-    if (fds[2] > 0)
+    if (fds[2] >= 0)
         stdio[1] = std::exchange(fds[2], -1);
 
-    if (fds[4] > 0)
+    if (fds[4] >= 0)
         stdio[2] = std::exchange(fds[4], -1);
 
     return ChildProcess{std::move(*process), stdio};

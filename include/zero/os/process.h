@@ -77,20 +77,19 @@ namespace zero::os::process {
 #endif
 
     class ChildProcess final : public Process {
-#ifdef _WIN32
-        using Stdio = HANDLE;
-#else
-        using Stdio = int;
-#endif
-
     public:
-        ChildProcess(Process process, const std::array<std::optional<Stdio>, 3> &stdio);
+#ifdef _WIN32
+        using StdioFile = HANDLE;
+#else
+        using StdioFile = int;
+#endif
+        ChildProcess(Process process, const std::array<std::optional<StdioFile>, 3> &stdio);
         ChildProcess(ChildProcess &&rhs) noexcept;
         ~ChildProcess();
 
-        std::optional<Stdio> &stdInput();
-        std::optional<Stdio> &stdOutput();
-        std::optional<Stdio> &stdError();
+        std::optional<StdioFile> &stdInput();
+        std::optional<StdioFile> &stdOutput();
+        std::optional<StdioFile> &stdError();
 
 #ifndef _WIN32
         [[nodiscard]] tl::expected<int, std::error_code> wait() const;
@@ -98,7 +97,7 @@ namespace zero::os::process {
 #endif
 
     private:
-        std::array<std::optional<Stdio>, 3> mStdio;
+        std::array<std::optional<StdioFile>, 3> mStdio;
     };
 
     struct Output {
