@@ -90,42 +90,40 @@ tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::c
 }
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::process::Process::cmdline() const {
-    const auto content = readFile("cmdline");
+    auto content = readFile("cmdline");
     EXPECT(content);
 
     if (content->empty())
         return tl::unexpected(MAYBE_ZOMBIE_PROCESS);
 
+    content->pop_back();
     auto tokens = strings::split(*content, {"\0", 1});
 
-    if (tokens.size() < 2)
+    if (tokens.empty())
         return tl::unexpected(UNEXPECTED_DATA);
 
-    tokens.pop_back();
     return tokens;
 }
 
 tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::process::Process::environ() const {
-    const auto content = readFile("environ");
+    auto content = readFile("environ");
     EXPECT(content);
 
     if (content->empty())
         return {};
 
-    auto tokens = strings::split(*content, {"\0", 1});
-    tokens.pop_back();
-
+    content->pop_back();
     tl::expected<std::map<std::string, std::string>, std::error_code> result;
 
-    for (const auto &token: tokens) {
-        const auto pos = token.find('=');
+    for (const auto &env: strings::split(*content, {"\0", 1})) {
+        auto tokens = strings::split(env, "=", 1);
 
-        if (pos == std::string::npos) {
+        if (tokens.size() != 2) {
             result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
             break;
         }
 
-        result->operator[](token.substr(0, pos)) = token.substr(pos + 1);
+        result->emplace(std::move(tokens[0]), std::move(tokens[1]));
     }
 
     return result;
