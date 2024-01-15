@@ -2,7 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cstring>
 
-TEST_CASE("asynchronous callback chain", "[promise]") {
+TEST_CASE("promise", "[async]") {
     SECTION("single promise") {
         zero::async::promise::chain<int, int>([](const auto &p) {
             p->resolve(1);

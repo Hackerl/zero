@@ -13,6 +13,7 @@ add_executable(
         async/promise.cpp
         async/coroutine/error.cpp
         async/coroutine/exception.cpp
+        filesystem/file.cpp
         encoding/hex.cpp
         encoding/base64.cpp
         strings/strings.cpp

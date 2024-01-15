@@ -2,7 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <mach/mach.h>
 
-TEST_CASE("darwin error code", "[error code]") {
+TEST_CASE("darwin error code", "[darwin]") {
     auto ec = make_error_code(static_cast<zero::os::darwin::Error>(KERN_OPERATION_TIMED_OUT));
     REQUIRE(strcmp(ec.category().name(), "zero::os::darwin") == 0);
     REQUIRE(ec == std::errc::timed_out);

@@ -4,7 +4,7 @@
 
 using namespace std::chrono_literals;
 
-TEST_CASE("windows process", "[process]") {
+TEST_CASE("windows process", "[nt]") {
     const auto ids = zero::os::nt::process::all();
     REQUIRE(ids);
 

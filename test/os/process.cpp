@@ -12,7 +12,7 @@ constexpr auto SLEEP_PROGRAM = "sleep";
 
 constexpr auto SLEEP_ARGUMENT = "1";
 
-TEST_CASE("process module", "[process]") {
+TEST_CASE("process", "[os]") {
     SECTION("process") {
         const auto ids = zero::os::process::all();
         REQUIRE(ids);

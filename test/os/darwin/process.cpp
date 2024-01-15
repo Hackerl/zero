@@ -8,7 +8,7 @@
 
 using namespace std::chrono_literals;
 
-TEST_CASE("darwin process", "[process]") {
+TEST_CASE("darwin process", "[darwin]") {
     SECTION("all") {
         const auto ids = zero::os::darwin::process::all();
         REQUIRE(ids);

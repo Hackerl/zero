@@ -10,7 +10,7 @@
 
 using namespace std::chrono_literals;
 
-TEST_CASE("procfs process", "[process]") {
+TEST_CASE("procfs process", "[procfs]") {
     char name[16] = {};
     prctl(PR_GET_NAME, name);
     prctl(PR_SET_NAME, "(test)");

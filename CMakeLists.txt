@@ -31,6 +31,7 @@ add_library(
         src/atomic/event.cpp
         src/concurrent/channel.cpp
         src/filesystem/path.cpp
+        src/filesystem/file.cpp
         src/encoding/base64.cpp
         src/encoding/hex.cpp
         $<$<PLATFORM_ID:Windows>:src/os/nt/process.cpp>

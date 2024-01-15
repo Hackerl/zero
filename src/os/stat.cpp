@@ -5,11 +5,11 @@
 #elif __linux__
 #include <map>
 #include <regex>
-#include <fstream>
 #include <unistd.h>
 #include <zero/expect.h>
 #include <zero/strings/strings.h>
 #include <zero/os/procfs/procfs.h>
+#include <zero/filesystem/file.h>
 #elif __APPLE__
 #include <unistd.h>
 #include <sys/sysctl.h>
@@ -33,22 +33,19 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     time.system = time.system - time.idle;
     return time;
 #elif __linux__
-    std::ifstream stream("/proc/stat");
+    const auto content = filesystem::readString("/proc/stat");
+    EXPECT(content);
 
-    if (!stream.is_open())
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+    const auto lines = strings::split(strings::trim(*content), "\n");
+    const auto it = std::ranges::find_if(
+        lines,
+        [](const auto &line) {
+            if (line.length() < 4)
+                return false;
 
-    const auto lines = strings::split(
-        std::string{std::istreambuf_iterator(stream), std::istreambuf_iterator<char>()},
-        "\n"
+            return std::regex_match(line.substr(0, 4), std::regex(R"(^cpu\s)"));
+        }
     );
-
-    auto it = std::ranges::find_if(lines, [](const auto &line) {
-        if (line.length() < 4)
-            return false;
-
-        return std::regex_match(line.substr(0, 4), std::regex(R"(^cpu\s)"));
-    });
 
     if (it == lines.end())
         return tl::unexpected(procfs::UNEXPECTED_DATA);
@@ -121,15 +118,12 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         static_cast<double>(status.dwMemoryLoad)
     };
 #elif __linux__
-    std::ifstream stream("/proc/meminfo");
+    const auto content = filesystem::readString("/proc/meminfo");
+    EXPECT(content);
 
-    if (!stream.is_open())
-        return tl::unexpected(std::error_code(errno, std::system_category()));
-
-    std::string line;
     std::map<std::string, std::uint64_t> map;
 
-    while (std::getline(stream, line)) {
+    for (const auto &line: strings::split(strings::trim(*content), "\n")) {
         const auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)

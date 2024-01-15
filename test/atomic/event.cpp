@@ -4,7 +4,7 @@
 
 using namespace std::chrono_literals;
 
-TEST_CASE("notify event", "[event]") {
+TEST_CASE("notify event", "[atomic]") {
     zero::atomic::Event event;
 
     int n = 0;
