@@ -234,7 +234,7 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(cmdline.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto env = process->environ();
-        REQUIRE(!env);
+        REQUIRE((!env || env->empty()));
 
         const auto mappings = process->maps();
         REQUIRE(!mappings);

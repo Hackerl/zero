@@ -4,13 +4,17 @@
 #include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
 
-#ifdef _WIN32
-constexpr auto SLEEP_PROGRAM = "timeout";
-#else
-constexpr auto SLEEP_PROGRAM = "sleep";
+#ifndef _WIN32
+#include <unistd.h>
 #endif
 
-constexpr auto SLEEP_ARGUMENT = "1";
+#ifdef _WIN32
+constexpr auto PROGRAM = "ping";
+constexpr auto ARGUMENTS = {"localhost", "-n", "2"};
+#else
+constexpr auto PROGRAM = "sleep";
+constexpr auto ARGUMENTS = {"1"};
+#endif
 
 TEST_CASE("process", "[os]") {
     SECTION("process") {
@@ -53,8 +57,8 @@ TEST_CASE("process", "[os]") {
     }
 
     SECTION("command") {
-        auto command = zero::os::process::Command(SLEEP_PROGRAM).arg(SLEEP_ARGUMENT);
-        REQUIRE(command.program() == SLEEP_PROGRAM);
+        auto command = zero::os::process::Command(PROGRAM).args({ARGUMENTS.begin(), ARGUMENTS.end()});
+        REQUIRE(command.program() == PROGRAM);
 
         SECTION("spawn") {
             const auto child = command
@@ -64,42 +68,42 @@ TEST_CASE("process", "[os]") {
 
             const auto name = child->name();
             REQUIRE(name);
-            REQUIRE(name->starts_with(SLEEP_PROGRAM));
+            REQUIRE(zero::strings::tolower(*name).find(PROGRAM) != std::string::npos);
 
             const auto exe = child->exe();
             REQUIRE(exe);
-            REQUIRE(exe->filename().string().starts_with(SLEEP_PROGRAM));
+            REQUIRE(zero::strings::tolower(exe->filename().string()).find(PROGRAM) != std::string::npos);
 
             const auto cmdline = child->cmdline();
             REQUIRE(cmdline);
-            REQUIRE(cmdline->size() == 2);
-            REQUIRE(cmdline->at(0) == SLEEP_PROGRAM);
-            REQUIRE(cmdline->at(1) == SLEEP_ARGUMENT);
+            REQUIRE(cmdline->size() == ARGUMENTS.size() + 1);
+            REQUIRE(std::equal(cmdline->begin() + 1, cmdline->end(), ARGUMENTS.begin()));
 
             const auto result = child->wait();
             REQUIRE(result);
         }
 
-        SECTION("set args") {
-            const auto child = command
-                               .args({"2"})
-                               .stdOutput(zero::os::process::Command::StdioType::NUL)
-                               .spawn();
+        SECTION("add arg") {
+            auto cmd = zero::os::process::Command(PROGRAM).stdOutput(zero::os::process::Command::StdioType::NUL);
+
+            for (const auto &arg: ARGUMENTS)
+                cmd = cmd.arg(arg);
+
+            const auto child = cmd.spawn();
             REQUIRE(child);
 
             const auto name = child->name();
             REQUIRE(name);
-            REQUIRE(name->starts_with(SLEEP_PROGRAM));
+            REQUIRE(zero::strings::tolower(*name).find(PROGRAM) != std::string::npos);
 
             const auto exe = child->exe();
             REQUIRE(exe);
-            REQUIRE(exe->filename().string().starts_with(SLEEP_PROGRAM));
+            REQUIRE(zero::strings::tolower(exe->filename().string()).find(PROGRAM) != std::string::npos);
 
             const auto cmdline = child->cmdline();
             REQUIRE(cmdline);
-            REQUIRE(cmdline->size() == 2);
-            REQUIRE(cmdline->at(0) == SLEEP_PROGRAM);
-            REQUIRE(cmdline->at(1) == "2");
+            REQUIRE(cmdline->size() == ARGUMENTS.size() + 1);
+            REQUIRE(std::equal(cmdline->begin() + 1, cmdline->end(), ARGUMENTS.begin()));
 
             const auto result = child->wait();
             REQUIRE(result);
@@ -254,6 +258,68 @@ TEST_CASE("process", "[os]") {
                 const auto result = child->wait();
                 REQUIRE(result);
             }
+#endif
+        }
+
+        SECTION("redirect") {
+#ifdef _WIN32
+            auto child = zero::os::process::Command("findstr")
+                         .arg("hello")
+                         .stdIntput(zero::os::process::Command::StdioType::PIPED)
+                         .stdOutput(zero::os::process::Command::StdioType::PIPED)
+                         .spawn();
+
+            REQUIRE(child);
+            REQUIRE(!child->stdError());
+
+            const auto input = std::exchange(child->stdInput(), std::nullopt);
+            REQUIRE(input);
+
+            const auto output = std::exchange(child->stdOutput(), std::nullopt);
+            REQUIRE(output);
+
+            constexpr std::string_view data = "hello wolrd";
+
+            DWORD n;
+            REQUIRE(WriteFile(*input, data.data(), data.size(), &n, nullptr));
+            REQUIRE(n == data.size());
+            CloseHandle(*input);
+
+            char buffer[64] = {};
+            REQUIRE(ReadFile(*output, buffer, sizeof(buffer), &n, nullptr));
+            REQUIRE(n >= data.size());
+            REQUIRE(data == zero::strings::trim(buffer));
+            CloseHandle(*output);
+
+            const auto result = child->wait();
+            REQUIRE(result);
+#else
+            auto child = zero::os::process::Command("cat")
+                         .stdIntput(zero::os::process::Command::StdioType::PIPED)
+                         .stdOutput(zero::os::process::Command::StdioType::PIPED)
+                         .spawn();
+            REQUIRE(child);
+            REQUIRE(!child->stdError());
+
+            const auto input = std::exchange(child->stdInput(), std::nullopt);
+            REQUIRE(input);
+
+            const auto output = std::exchange(child->stdOutput(), std::nullopt);
+            REQUIRE(output);
+
+            constexpr std::string_view data = "hello wolrd";
+            ssize_t n = write(*input, data.data(), data.size());
+            REQUIRE(n == data.size());
+            close(*input);
+
+            char buffer[64] = {};
+            n = read(*output, buffer, sizeof(buffer));
+            REQUIRE(n == data.size());
+            REQUIRE(data == buffer);
+            close(*output);
+
+            const auto result = child->wait();
+            REQUIRE(result);
 #endif
         }
 
