@@ -41,13 +41,13 @@ namespace zero::async::coroutine {
 
         template<typename = void>
             requires (!std::is_same_v<E, std::exception_ptr>)
-        [[nodiscard]] tl::expected<T, E> &await_resume() const {
+        tl::expected<T, E> &await_resume() const {
             return promise->result();
         }
 
         template<typename = void>
             requires std::is_same_v<E, std::exception_ptr>
-        [[nodiscard]] std::add_lvalue_reference_t<T> await_resume() const {
+        std::add_lvalue_reference_t<T> await_resume() const {
             auto &result = promise->result();
 
             if (!result)
@@ -93,13 +93,13 @@ namespace zero::async::coroutine {
 
         template<typename = void>
             requires (!std::is_same_v<E, std::exception_ptr>)
-        [[nodiscard]] tl::expected<T, E> await_resume() const {
+        tl::expected<T, E> await_resume() const {
             return std::move(promise->result());
         }
 
         template<typename = void>
             requires std::is_same_v<E, std::exception_ptr>
-        [[nodiscard]] T await_resume() const {
+        T await_resume() const {
             auto &result = promise->result();
 
             if (!result)
@@ -143,7 +143,7 @@ namespace zero::async::coroutine {
             }
         }
 
-        [[nodiscard]] tl::expected<T, E> &await_resume() const {
+        tl::expected<T, E> &await_resume() const {
             return promise->result();
         }
 
