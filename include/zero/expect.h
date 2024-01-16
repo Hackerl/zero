@@ -3,6 +3,14 @@
 
 #include <tl/expected.hpp>
 
+#define EXPECTED(...)                                                           \
+    if (auto _result = __VA_ARGS__; !_result)                                   \
+        return tl::unexpected(std::move(_result.error()))
+
+#define CO_EXPECTED(...)                                                        \
+    if (auto _result = __VA_ARGS__; !_result)                                   \
+        co_return tl::unexpected(std::move(_result.error()))
+
 #define EXPECT(name)                                                            \
     if (!(name))                                                                \
         return tl::unexpected(std::move((name).error()))
