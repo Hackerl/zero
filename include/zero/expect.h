@@ -4,12 +4,12 @@
 #include <tl/expected.hpp>
 
 #define EXPECT(name)                                                            \
-    if (!name)                                                                  \
-        return tl::unexpected(std::move(name.error()))
+    if (!(name))                                                                \
+        return tl::unexpected(std::move((name).error()))
 
 #define CO_EXPECT(name)                                                         \
-    if (!name)                                                                  \
-        co_return tl::unexpected(std::move(name.error()))
+    if (!(name))                                                                \
+        co_return tl::unexpected(std::move((name).error()))
 
 #ifdef __GNUC__
 #define TRY(...)                                                                \

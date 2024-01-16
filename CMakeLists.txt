@@ -7,7 +7,7 @@ option(ZERO_DISABLE_LOG "disable log module" OFF)
 option(ZERO_LEGACY_NT "compatible with older Windows" OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-set(ZERO_VERSION 1.0.6)
+set(ZERO_VERSION 1.0.7)
 
 include(CTest)
 include(GNUInstallDirs)
