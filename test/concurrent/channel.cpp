@@ -4,7 +4,7 @@
 
 using namespace std::chrono_literals;
 
-TEST_CASE("atomic channel", "[channel]") {
+TEST_CASE("atomic channel", "[concurrent]") {
     SECTION("error handling") {
         zero::concurrent::Channel<int> channel(5);
 

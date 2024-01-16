@@ -1,7 +1,7 @@
 #include <zero/os/darwin/process.h>
 #include <zero/os/darwin/error.h>
 #include <zero/strings/strings.h>
-#include <zero/try.h>
+#include <zero/expect.h>
 #include <mach/mach_time.h>
 #include <sys/sysctl.h>
 #include <libproc.h>
@@ -100,7 +100,8 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::darwin::process::
 }
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::process::Process::cmdline() const {
-    const auto arguments = TRY(this->arguments());
+    const auto arguments = this->arguments();
+    EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
         return tl::unexpected(UNEXPECTED_DATA);
@@ -131,8 +132,9 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::proces
     return tokens;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darwin::process::Process::env() const {
-    const auto arguments = TRY(this->arguments());
+tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darwin::process::Process::envs() const {
+    const auto arguments = this->arguments();
+    EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
         return tl::unexpected(UNEXPECTED_DATA);
@@ -159,10 +161,13 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
     if (tokens.size() != argc + 1)
         return tl::unexpected(UNEXPECTED_DATA);
 
-    tl::expected<std::map<std::string, std::string>, std::error_code> result;
+    const auto &str = tokens[argc];
+
+    if (str.empty())
+        return {};
 
     std::size_t prev = 0;
-    const auto &str = tokens[argc];
+    tl::expected<std::map<std::string, std::string>, std::error_code> result;
 
     while (true) {
         if (str.length() <= prev) {
@@ -182,7 +187,6 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
 
         const auto item = str.substr(prev, pos - prev);
         prev = pos + 1;
-
         pos = item.find('=');
 
         if (pos == std::string::npos) {

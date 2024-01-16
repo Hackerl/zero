@@ -19,9 +19,14 @@ jobs:
         env:
           CC: clang-17
           CXX: clang++-17
-          CXXFLAGS: -stdlib=libc++
+          CFLAGS: -fsanitize=address
+          CXXFLAGS: -fsanitize=address -stdlib=libc++
+          LDFLAGS: -fsanitize=address
       - name: Test
         run: ctest --output-on-failure --test-dir build
+        env:
+          # https://github.com/llvm/llvm-project/issues/59432
+          ASAN_OPTIONS: alloc_dealloc_mismatch=0
 
   linux-static-amd64:
     runs-on: ubuntu-latest
@@ -44,24 +49,17 @@ jobs:
 
   windows-amd64:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        legacy: [ ON, OFF ]
     steps:
       - uses: actions/checkout@v3
       - name: Build
         run: |
           mkdir -p build
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
-          cmake --build build -j $env:NUMBER_OF_PROCESSORS
-      - name: Test
-        run: ctest --output-on-failure --test-dir build
-
-  windows-legacy-amd64:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build
-        run: |
-          mkdir -p build
-          cmake -B build -DZERO_LEGACY_NT=ON -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DZERO_LEGACY_NT=${{ matrix.legacy }}
           cmake --build build -j $env:NUMBER_OF_PROCESSORS
       - name: Test
         run: ctest --output-on-failure --test-dir build
@@ -82,7 +80,9 @@ jobs:
         env:
           CC: ${{ env.LLVM_HOME }}/bin/clang
           CXX: ${{ env.LLVM_HOME }}/bin/clang++
-          LDFLAGS: -L${{ env.LLVM_HOME }}/lib -L${{ env.LLVM_HOME }}/lib/c++ -Wl,-rpath,${{ env.LLVM_HOME }}/lib/c++
+          CFLAGS: -fsanitize=address
+          CXXFLAGS: -fsanitize=address
+          LDFLAGS: -fsanitize=address -L${{ env.LLVM_HOME }}/lib -L${{ env.LLVM_HOME }}/lib/c++ -Wl,-rpath,${{ env.LLVM_HOME }}/lib/c++
       - name: Test
         run: ctest --output-on-failure --test-dir build
 

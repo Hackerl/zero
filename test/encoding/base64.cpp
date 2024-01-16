@@ -2,7 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <array>
 
-TEST_CASE("base64 encoding", "[base64]") {
+TEST_CASE("base64 encoding", "[encoding]") {
     constexpr std::array buffer = {
         std::byte{'h'},
         std::byte{'e'},

@@ -8,7 +8,7 @@
 
 using namespace std::chrono_literals;
 
-TEST_CASE("darwin process", "[process]") {
+TEST_CASE("darwin process", "[darwin]") {
     SECTION("all") {
         const auto ids = zero::os::darwin::process::all();
         REQUIRE(ids);
@@ -36,8 +36,8 @@ TEST_CASE("darwin process", "[process]") {
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        const auto env = process->env();
-        REQUIRE(env);
+        const auto envs = process->envs();
+        REQUIRE(envs);
 
         const auto exe = process->exe();
         REQUIRE(exe);
@@ -83,8 +83,8 @@ TEST_CASE("darwin process", "[process]") {
         REQUIRE(cmdline);
         REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
 
-        const auto env = process->env();
-        REQUIRE(env);
+        const auto envs = process->envs();
+        REQUIRE(envs);
 
         const auto exe = process->exe();
         REQUIRE(exe);
@@ -135,9 +135,9 @@ TEST_CASE("darwin process", "[process]") {
         REQUIRE(!cmdline);
         REQUIRE(cmdline.error() == std::errc::invalid_argument);
 
-        const auto env = process->env();
-        REQUIRE(!env);
-        REQUIRE(env.error() == std::errc::invalid_argument);
+        const auto envs = process->envs();
+        REQUIRE(!envs);
+        REQUIRE(envs.error() == std::errc::invalid_argument);
 
         const auto exe = process->exe();
         REQUIRE(!exe);

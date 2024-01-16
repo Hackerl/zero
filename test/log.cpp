@@ -1,6 +1,10 @@
 #include <zero/log.h>
 #include <catch2/catch_test_macros.hpp>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 using namespace std::chrono_literals;
 
 TEST_CASE("logging module", "[log]") {
@@ -68,12 +72,10 @@ TEST_CASE("logging module", "[log]") {
 
     SECTION("override") {
         SECTION("enable") {
-            std::string env = "ZERO_LOG_LEVEL=3";
-
 #ifdef _WIN32
-            _putenv(env.data());
+            SetEnvironmentVariableA("ZERO_LOG_LEVEL", "3");
 #else
-            putenv(env.data());
+            setenv("ZERO_LOG_LEVEL", "3", 0);
 #endif
 
             class Provider : public zero::ILogProvider {
@@ -104,22 +106,18 @@ TEST_CASE("logging module", "[log]") {
             REQUIRE(logger.enabled(zero::DEBUG_LEVEL));
             logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
 
-            env = "ZERO_LOG_LEVEL=";
-
 #ifdef _WIN32
-            _putenv(env.data());
+            SetEnvironmentVariableA("ZERO_LOG_LEVEL", nullptr);
 #else
-            putenv(env.data());
+            unsetenv("ZERO_LOG_LEVEL");
 #endif
         }
 
         SECTION("disable") {
-            std::string env = "ZERO_LOG_LEVEL=2";
-
 #ifdef _WIN32
-            _putenv(env.data());
+            SetEnvironmentVariableA("ZERO_LOG_LEVEL", "2");
 #else
-            putenv(env.data());
+            setenv("ZERO_LOG_LEVEL", "2", 0);
 #endif
 
             class Provider : public zero::ILogProvider {
@@ -151,12 +149,10 @@ TEST_CASE("logging module", "[log]") {
             REQUIRE(!logger.enabled(zero::DEBUG_LEVEL));
             logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
 
-            env = "ZERO_LOG_LEVEL=";
-
 #ifdef _WIN32
-            _putenv(env.data());
+            SetEnvironmentVariableA("ZERO_LOG_LEVEL", nullptr);
 #else
-            putenv(env.data());
+            unsetenv("ZERO_LOG_LEVEL");
 #endif
         }
     }

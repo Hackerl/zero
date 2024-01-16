@@ -3,6 +3,7 @@
 
 #include <map>
 #include <list>
+#include <vector>
 #include <filesystem>
 #include <tl/expected.hpp>
 
@@ -53,7 +54,7 @@ namespace zero::os::darwin::process {
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
-        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
+        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> envs() const;
 
         [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;

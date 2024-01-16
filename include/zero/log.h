@@ -166,16 +166,9 @@ struct fmt::formatter<zero::LogMessage, Char> {
 #undef LOG_WARNING
 #undef LOG_ERROR
 
-#ifdef ZERO_NO_LOG
-#define LOG_DEBUG(message, ...)
-#define LOG_INFO(message, ...)
-#define LOG_WARNING(message, ...)
-#define LOG_ERROR(message, ...)
-#else
 #define LOG_DEBUG(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::DEBUG_LEVEL)) logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 #define LOG_INFO(message, ...)              if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::INFO_LEVEL)) logger.log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 #define LOG_WARNING(message, ...)           if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::WARNING_LEVEL)) logger.log(zero::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 #define LOG_ERROR(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::ERROR_LEVEL)) logger.log(zero::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
-#endif
 
 #endif //ZERO_LOG_H

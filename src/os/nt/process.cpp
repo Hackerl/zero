@@ -1,6 +1,6 @@
 #include <zero/os/nt/process.h>
 #include <zero/strings/strings.h>
-#include <zero/try.h>
+#include <zero/expect.h>
 #include <zero/defer.h>
 #include <winternl.h>
 #include <psapi.h>
@@ -150,7 +150,9 @@ tl::expected<std::string, std::error_code> zero::os::nt::process::Process::name(
 }
 
 tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::cwd() const {
-    const auto ptr = TRY(parameters());
+    const auto ptr = parameters();
+    EXPECT(ptr);
+
     UNICODE_STRING str;
 
     if (!ReadProcessMemory(
@@ -196,7 +198,9 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
 }
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {
-    const auto ptr = TRY(parameters());
+    const auto ptr = parameters();
+    EXPECT(ptr);
+
     UNICODE_STRING str;
 
     if (!ReadProcessMemory(
@@ -245,8 +249,10 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
     return result;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::process::Process::env() const {
-    const auto ptr = TRY(parameters());
+tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::process::Process::envs() const {
+    const auto ptr = parameters();
+    EXPECT(ptr);
+
     PVOID env;
 
     if (!ReadProcessMemory(
@@ -280,12 +286,12 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
     ))
         return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-    const auto str = TRY(strings::encode({buffer.get(), size / sizeof(WCHAR)}));
-    const auto tokens = strings::split(*str, {"\0", 1});
+    const auto str = strings::encode({buffer.get(), size / sizeof(WCHAR)});
+    EXPECT(str);
 
     tl::expected<std::map<std::string, std::string>, std::error_code> result;
 
-    for (const auto &token: tokens | ranges::views::drop(1)) {
+    for (const auto &token: strings::split(*str, {"\0", 1})) {
         if (token.empty())
             break;
 
@@ -353,6 +359,28 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() 
         return tl::unexpected(PROCESS_STILL_ACTIVE);
 
     return code;
+}
+
+tl::expected<void, std::error_code>
+zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
+    if (const DWORD result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
+        result != WAIT_OBJECT_0) {
+        if (result == WAIT_TIMEOUT)
+            return tl::unexpected(make_error_code(std::errc::timed_out));
+
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+    }
+
+    return {};
+}
+
+tl::expected<void, std::error_code> zero::os::nt::process::Process::tryWait() const {
+    return wait(std::chrono::milliseconds{0}).transform_error([](const auto &ec) {
+        if (ec == std::errc::timed_out)
+            return make_error_code(std::errc::operation_would_block);
+
+        return ec;
+    });
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst

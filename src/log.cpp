@@ -2,7 +2,9 @@
 #include <zero/strings/strings.h>
 #include <range/v3/all.hpp>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <unistd.h>
 #endif
 
@@ -207,17 +209,10 @@ void zero::Logger::addProvider(
     std::call_once(mOnceFlag, [=] {
         const auto getEnv = [](const char *name) -> std::optional<int> {
 #ifdef _WIN32
-            std::size_t size;
+            char env[64] = {};
 
-            if (const auto err = getenv_s(&size, nullptr, 0, name); err != 0 || size == 0)
+            if (const DWORD n = GetEnvironmentVariableA(name, env, sizeof(env)); n == 0 || n >= sizeof(env))
                 return std::nullopt;
-
-            const auto buffer = std::make_unique<char[]>(size);
-
-            if (getenv_s(&size, buffer.get(), size, name) != 0 || size == 0)
-                return std::nullopt;
-
-            const char *env = buffer.get();
 #else
             const char *env = getenv(name);
 

@@ -1,7 +1,7 @@
 #include <zero/os/net.h>
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("stringify IP address", "[net]") {
+TEST_CASE("stringify IP address", "[os]") {
     std::array<std::byte, 4> ipv4 = {};
     REQUIRE(zero::os::net::stringify(ipv4) == "0.0.0.0");
 
@@ -54,6 +54,6 @@ TEST_CASE("stringify IP address", "[net]") {
     );
 }
 
-TEST_CASE("fetch network interface", "[net]") {
+TEST_CASE("fetch network interface", "[os]") {
     REQUIRE(zero::os::net::interfaces());
 }

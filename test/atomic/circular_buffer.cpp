@@ -1,7 +1,7 @@
 #include <zero/atomic/circular_buffer.h>
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("lock-free circular buffer", "[circular buffer]") {
+TEST_CASE("lock-free circular buffer", "[atomic]") {
     zero::atomic::CircularBuffer<int> buffer(10);
 
     REQUIRE(buffer.empty());

@@ -153,17 +153,6 @@ namespace zero::os::procfs::process {
         std::optional<bool> thpEnabled;
     };
 
-    struct CPUTime {
-        double user{};
-        double system{};
-        std::optional<double> ioWait;
-    };
-
-    struct MemoryStat {
-        std::uint64_t rss;
-        std::uint64_t vms;
-    };
-
     struct IOStat {
         unsigned long long readCharacters;
         unsigned long long writeCharacters;
@@ -185,25 +174,18 @@ namespace zero::os::procfs::process {
 
     public:
         [[nodiscard]] pid_t pid() const;
-        [[nodiscard]] tl::expected<pid_t, std::error_code> ppid() const;
-
-        [[nodiscard]] tl::expected<MemoryMapping, std::error_code> getImageBase(std::string_view path) const;
-        [[nodiscard]] tl::expected<MemoryMapping, std::error_code> findMapping(std::uintptr_t address) const;
 
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
         [[nodiscard]] tl::expected<std::string, std::error_code> comm() const;
         [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
-        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> env() const;
+        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> environ() const;
 
         [[nodiscard]] tl::expected<Stat, std::error_code> stat() const;
         [[nodiscard]] tl::expected<StatM, std::error_code> statM() const;
         [[nodiscard]] tl::expected<Status, std::error_code> status() const;
         [[nodiscard]] tl::expected<std::list<pid_t>, std::error_code> tasks() const;
         [[nodiscard]] tl::expected<std::list<MemoryMapping>, std::error_code> maps() const;
-
-        [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
-        [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
     private:

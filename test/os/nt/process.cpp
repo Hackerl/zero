@@ -2,7 +2,9 @@
 #include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("windows process", "[process]") {
+using namespace std::chrono_literals;
+
+TEST_CASE("windows process", "[nt]") {
     const auto ids = zero::os::nt::process::all();
     REQUIRE(ids);
 
@@ -29,8 +31,8 @@ TEST_CASE("windows process", "[process]") {
     REQUIRE(cwd);
     REQUIRE(*cwd == std::filesystem::current_path());
 
-    const auto env = process->env();
-    REQUIRE(env);
+    const auto envs = process->envs();
+    REQUIRE(envs);
 
     const auto memory = process->memory();
     REQUIRE(memory);
@@ -44,4 +46,12 @@ TEST_CASE("windows process", "[process]") {
     const auto code = process->exitCode();
     REQUIRE(!code);
     REQUIRE(code.error() == zero::os::nt::process::Error::PROCESS_STILL_ACTIVE);
+
+    auto result = process->wait(10ms);
+    REQUIRE(!result);
+    REQUIRE(result.error() == std::errc::timed_out);
+
+    result = process->tryWait();
+    REQUIRE(!result);
+    REQUIRE(result.error() == std::errc::operation_would_block);
 }
