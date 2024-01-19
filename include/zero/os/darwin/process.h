@@ -3,6 +3,7 @@
 
 #include <map>
 #include <list>
+#include <vector>
 #include <filesystem>
 #include <tl/expected.hpp>
 

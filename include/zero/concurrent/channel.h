@@ -2,6 +2,8 @@
 #define ZERO_CHANNEL_H
 
 #include <array>
+#include <chrono>
+#include <optional>
 #include <system_error>
 #include <tl/expected.hpp>
 #include <condition_variable>

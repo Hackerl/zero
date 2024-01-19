@@ -401,7 +401,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
         return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     const bool redirect = handles[STDIN_READER] || handles[STDOUT_WRITER] || handles[STDERR_WRITER];
-    STARTUPINFO si = {};
+    STARTUPINFOW si = {};
 
     si.cb = sizeof(si);
 
@@ -447,36 +447,38 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
         envs[key] = *value;
     }
 
-    auto environment = to_string(fmt::join(
+    auto environment = strings::decode(to_string(fmt::join(
         envs | std::views::transform([](const auto &it) {
             std::string env = it.first + "=" + it.second;
             env.push_back('\0');
             return env;
         }),
         ""
-    ));
+    )));
+    EXPECT(environment);
 
     std::vector arguments{mPath.string()};
     std::ranges::copy(mArguments, std::back_inserter(arguments));
 
-    auto cmd = to_string(fmt::join(
+    auto cmd = strings::decode(to_string(fmt::join(
         arguments | std::views::transform([](const auto &arg) {
             return fmt::format("{:?}", arg);
         }),
         " "
-    ));
+    )));
+    EXPECT(cmd);
 
     PROCESS_INFORMATION info;
 
-    if (!CreateProcessA(
+    if (!CreateProcessW(
         nullptr,
-        cmd.data(),
+        cmd->data(),
         nullptr,
         nullptr,
         redirect,
-        0,
-        environment.data(),
-        mCurrentDirectory ? mCurrentDirectory->string().c_str() : nullptr,
+        CREATE_UNICODE_ENVIRONMENT,
+        environment->data(),
+        mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
         &si,
         &info
     ))
@@ -745,7 +747,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     assert(pc.mPC);
     assert(std::ranges::all_of(pc.mHandles, [](const auto &handle) {return handle != nullptr;}));
 
-    STARTUPINFOEX siEx = {};
+    STARTUPINFOEXW siEx = {};
     siEx.StartupInfo.cb = sizeof(STARTUPINFOEX);
 
     siEx.StartupInfo.hStdInput = nullptr;
@@ -808,36 +810,38 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         envs[key] = *value;
     }
 
-    auto environment = to_string(fmt::join(
+    auto environment = strings::decode(to_string(fmt::join(
         envs | std::views::transform([](const auto &it) {
             std::string env = it.first + "=" + it.second;
             env.push_back('\0');
             return env;
         }),
         ""
-    ));
+    )));
+    EXPECT(environment);
 
     std::vector arguments{mPath.string()};
     std::ranges::copy(mArguments, std::back_inserter(arguments));
 
-    auto cmd = to_string(fmt::join(
+    auto cmd = strings::decode(to_string(fmt::join(
         arguments | std::views::transform([](const auto &arg) {
             return fmt::format("{:?}", arg);
         }),
         " "
-    ));
+    )));
+    EXPECT(cmd);
 
     PROCESS_INFORMATION info;
 
-    if (!CreateProcessA(
+    if (!CreateProcessW(
         nullptr,
-        cmd.data(),
+        cmd->data(),
         nullptr,
         nullptr,
         false,
-        EXTENDED_STARTUPINFO_PRESENT,
-        environment.data(),
-        mCurrentDirectory ? mCurrentDirectory->string().c_str() : nullptr,
+        EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+        environment->data(),
+        mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
         &siEx.StartupInfo,
         &info
     ))
