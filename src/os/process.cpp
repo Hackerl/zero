@@ -19,6 +19,9 @@
 #include <util.h>
 #else
 #include <pty.h>
+#if __ANDROID__ && __ANDROID_API__ < 23
+#include <dlfcn.h>
+#endif
 #endif
 #endif
 
@@ -272,7 +275,7 @@ tl::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::makePseudoConsole(const short rows, const short columns) {
 #ifdef _WIN32
     if (!createPseudoConsole || !closePseudoConsole)
-        return tl::unexpected(make_error_code(std::errc::not_supported));
+        return tl::unexpected(make_error_code(std::errc::function_not_supported));
 
     std::array<HANDLE, 4> handles = {};
 
@@ -304,6 +307,14 @@ zero::os::process::makePseudoConsole(const short rows, const short columns) {
 
     return PseudoConsole{hPC, std::exchange(handles, {})};
 #else
+#if __ANDROID__ && __ANDROID_API__ < 23
+    static const auto openpty = reinterpret_cast<int (*)(int *, int *, char *, const termios *, const winsize *)>(
+        dlsym(RTLD_DEFAULT, "openpty")
+    );
+
+    if (!openpty)
+        return tl::unexpected(make_error_code(std::errc::function_not_supported));
+#endif
     int master, slave;
 
     if (openpty(&master, &slave, nullptr, nullptr, nullptr) < 0)
