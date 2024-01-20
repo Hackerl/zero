@@ -321,7 +321,7 @@ zero::os::process::makePseudoConsole(const short rows, const short columns) {
         return tl::unexpected(std::error_code(errno, std::system_category()));
 
     PseudoConsole pc = {master, slave};
-    EXPECTED(pc.resize(rows, columns));
+    EXPECT(pc.resize(rows, columns));
 
     return pc;
 #endif
