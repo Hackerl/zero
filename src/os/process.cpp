@@ -717,7 +717,7 @@ zero::os::process::Command &zero::os::process::Command::removeEnv(const std::str
     return *this;
 }
 
-zero::os::process::Command &zero::os::process::Command::stdIntput(const StdioType type) {
+zero::os::process::Command &zero::os::process::Command::stdInput(const StdioType type) {
     mStdioTypes[0] = type;
     return *this;
 }

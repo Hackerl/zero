@@ -267,7 +267,7 @@ TEST_CASE("process", "[os]") {
 #ifdef _WIN32
             auto child = zero::os::process::Command("findstr")
                          .arg("hello")
-                         .stdIntput(zero::os::process::Command::StdioType::PIPED)
+                         .stdInput(zero::os::process::Command::StdioType::PIPED)
                          .stdOutput(zero::os::process::Command::StdioType::PIPED)
                          .spawn();
 
@@ -297,7 +297,7 @@ TEST_CASE("process", "[os]") {
             REQUIRE(result);
 #else
             auto child = zero::os::process::Command("cat")
-                         .stdIntput(zero::os::process::Command::StdioType::PIPED)
+                         .stdInput(zero::os::process::Command::StdioType::PIPED)
                          .stdOutput(zero::os::process::Command::StdioType::PIPED)
                          .spawn();
             REQUIRE(child);

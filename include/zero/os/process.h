@@ -170,7 +170,7 @@ namespace zero::os::process {
         Command &envs(const std::map<std::string, std::string> &envs);
         Command &clearEnv();
         Command &removeEnv(const std::string &key);
-        Command &stdIntput(StdioType type);
+        Command &stdInput(StdioType type);
         Command &stdOutput(StdioType type);
         Command &stdError(StdioType type);
 
