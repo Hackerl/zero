@@ -766,7 +766,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     siEx.StartupInfo.hStdError = nullptr;
     siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
-    std::size_t size;
+    SIZE_T size;
     InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
 
     const auto buffer = std::make_unique<std::byte[]>(size);
