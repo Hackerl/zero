@@ -43,7 +43,5 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplic
 }
 
 tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplicationDirectory() {
-    return getApplicationPath().transform([](const auto &path) {
-        return path.parent_path();
-    });
+    return getApplicationPath().transform(&std::filesystem::path::parent_path);
 }

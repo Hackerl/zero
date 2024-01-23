@@ -71,9 +71,7 @@ pid_t zero::os::process::Process::pid() const {
 }
 
 tl::expected<pid_t, std::error_code> zero::os::process::Process::ppid() const {
-    return mImpl.stat().transform([](const auto &stat) {
-        return stat.ppid;
-    });
+    return mImpl.stat().transform(&procfs::process::Stat::ppid);
 }
 
 tl::expected<std::string, std::error_code> zero::os::process::Process::name() const {
