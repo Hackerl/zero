@@ -691,7 +691,7 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all()
         return tl::unexpected(ec);
 
     auto v = iterator
-        | std::views::filter([](const auto &entry) { return entry.is_directory(); })
+        | std::views::filter([&](const auto &entry) { return entry.is_directory(ec); })
         | std::views::transform([](const auto &entry) {
             return strings::toNumber<pid_t>(entry.path().filename().string());
         })

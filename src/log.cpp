@@ -71,7 +71,7 @@ bool zero::FileProvider::rotate() {
 
     const std::string prefix = fmt::format("%s.%d", mName, mPID);
     auto v = iterator
-        | std::views::filter([](const auto &entry) { return entry.is_regular_file(); })
+        | std::views::filter([&](const auto &entry) { return entry.is_regular_file(ec); })
         | std::views::transform(&std::filesystem::directory_entry::path)
         | std::views::filter([&](const auto &path) { return path.filename().string().starts_with(prefix); });
 
