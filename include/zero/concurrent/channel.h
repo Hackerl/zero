@@ -12,6 +12,7 @@
 namespace zero::concurrent {
     enum ChannelError {
         CHANNEL_EOF = 1,
+        BROKEN_CHANNEL,
         SEND_TIMEOUT,
         RECEIVE_TIMEOUT,
         EMPTY,
@@ -75,7 +76,7 @@ namespace zero::concurrent {
         template<typename U>
         tl::expected<void, std::error_code> trySend(U &&element) {
             if (mClosed)
-                return tl::unexpected(CHANNEL_EOF);
+                return tl::unexpected(BROKEN_CHANNEL);
 
             const auto index = mBuffer.reserve();
 
@@ -136,7 +137,7 @@ namespace zero::concurrent {
         tl::expected<void, std::error_code>
         send(U &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
             if (mClosed)
-                return tl::unexpected(CHANNEL_EOF);
+                return tl::unexpected(BROKEN_CHANNEL);
 
             tl::expected<void, std::error_code> result;
 
@@ -147,7 +148,7 @@ namespace zero::concurrent {
                     std::unique_lock lock(mMutex);
 
                     if (mClosed) {
-                        result = tl::unexpected<std::error_code>(CHANNEL_EOF);
+                        result = tl::unexpected<std::error_code>(BROKEN_CHANNEL);
                         break;
                     }
 
@@ -180,6 +181,8 @@ namespace zero::concurrent {
         }
 
         void close() {
+            assert(!mClosed);
+
             {
                 std::lock_guard guard(mMutex);
 
