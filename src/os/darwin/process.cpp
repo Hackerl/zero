@@ -246,6 +246,14 @@ zero::os::darwin::process::Process::io() const {
     };
 }
 
+// ReSharper disable once CppMemberFunctionMayBeConst
+tl::expected<void, std::error_code> zero::os::darwin::process::Process::kill(const int sig) {
+    if (::kill(mPID, sig) < 0)
+        return tl::unexpected(std::error_code(errno, std::system_category()));
+
+    return {};
+}
+
 tl::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darwin::process::self() {
     return open(getpid());
 }
