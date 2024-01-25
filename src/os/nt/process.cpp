@@ -49,10 +49,23 @@ std::string zero::os::nt::process::ErrorCategory::message(const int value) const
 }
 
 std::error_condition zero::os::nt::process::ErrorCategory::default_error_condition(const int value) const noexcept {
-    if (value == API_NOT_AVAILABLE)
-        return std::errc::function_not_supported;
+    std::error_condition condition;
 
-    return error_category::default_error_condition(value);
+    switch (value) {
+    case API_NOT_AVAILABLE:
+        condition = std::errc::function_not_supported;
+        break;
+
+    case PROCESS_STILL_ACTIVE:
+        condition = std::errc::operation_would_block;
+        break;
+
+    default:
+        condition = error_category::default_error_condition(value);
+        break;
+    }
+
+    return condition;
 }
 
 const std::error_category &zero::os::nt::process::errorCategory() {

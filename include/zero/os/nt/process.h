@@ -2,6 +2,7 @@
 #define ZERO_NT_PROCESS_H
 
 #include <map>
+#include <vector>
 #include <chrono>
 #include <optional>
 #include <windows.h>

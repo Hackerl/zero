@@ -13,7 +13,7 @@ namespace zero::cache {
         }
 
         void set(const K &key, const V &value) {
-            auto it = mMap.find(key);
+            const auto it = mMap.find(key);
 
             if (it != mMap.end()) {
                 if (it->second.second == mKeys.begin()) {
@@ -40,7 +40,7 @@ namespace zero::cache {
         }
 
         std::optional<V> get(const K &key) {
-            auto it = mMap.find(key);
+            const auto it = mMap.find(key);
 
             if (it == mMap.end())
                 return std::nullopt;

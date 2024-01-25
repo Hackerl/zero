@@ -3,8 +3,11 @@
 #include <zero/strings/strings.h>
 #include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
+#include <range/v3/algorithm.hpp>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <future>
+#else
 #include <unistd.h>
 #endif
 
@@ -265,7 +268,7 @@ TEST_CASE("process", "[os]") {
 #ifdef _WIN32
             auto child = zero::os::process::Command("findstr")
                          .arg("hello")
-                         .stdIntput(zero::os::process::Command::StdioType::PIPED)
+                         .stdInput(zero::os::process::Command::StdioType::PIPED)
                          .stdOutput(zero::os::process::Command::StdioType::PIPED)
                          .spawn();
 
@@ -295,7 +298,7 @@ TEST_CASE("process", "[os]") {
             REQUIRE(result);
 #else
             auto child = zero::os::process::Command("cat")
-                         .stdIntput(zero::os::process::Command::StdioType::PIPED)
+                         .stdInput(zero::os::process::Command::StdioType::PIPED)
                          .stdOutput(zero::os::process::Command::StdioType::PIPED)
                          .spawn();
             REQUIRE(child);
@@ -317,6 +320,93 @@ TEST_CASE("process", "[os]") {
             REQUIRE(n == data.size());
             REQUIRE(data == buffer);
             close(*output);
+
+            const auto result = child->wait();
+            REQUIRE(result);
+#endif
+        }
+
+        SECTION("pseudo console") {
+            auto pc = zero::os::process::makePseudoConsole(80, 32);
+            REQUIRE(pc);
+
+            constexpr std::string_view data = "echo hello\rexit\r";
+            constexpr std::string_view keyword = "hello";
+
+#ifdef _WIN32
+            auto child = zero::os::process::Command("cmd").spawn(*pc);
+            REQUIRE(child);
+
+            const auto input = pc->input();
+            REQUIRE(input);
+
+            const auto output = pc->output();
+            REQUIRE(output);
+
+            DWORD num;
+            REQUIRE(WriteFile(input, data.data(), data.size(), &num, nullptr));
+            REQUIRE(num == data.size());
+
+            auto future = std::async([=] {
+                tl::expected<std::vector<char>, std::error_code> result;
+
+                while (true) {
+                    DWORD n;
+                    char buffer[1024];
+
+                    if (!ReadFile(output, buffer, sizeof(buffer), &n, nullptr)) {
+                        const DWORD error = GetLastError();
+
+                        if (error == ERROR_BROKEN_PIPE)
+                            break;
+
+                        result = tl::unexpected(std::error_code(static_cast<int>(error), std::system_category()));
+                        break;
+                    }
+
+                    assert(n > 0);
+                    std::copy_n(buffer, n, std::back_inserter(*result));
+                }
+
+                return result;
+            });
+
+            const auto result = child->wait();
+            REQUIRE(result);
+            REQUIRE(pc->close());
+
+            const auto content = future.get();
+            REQUIRE(content);
+            REQUIRE(ranges::search(*content, keyword));
+#else
+            auto child = zero::os::process::Command("sh").spawn(*pc);
+            REQUIRE(child);
+
+            const int fd = pc->fd();
+            ssize_t n = write(fd, data.data(), data.size());
+            REQUIRE(n == data.size());
+
+            std::vector<char> content;
+
+            while (true) {
+                char buffer[1024];
+                n = read(fd, buffer, sizeof(buffer));
+
+                if (n == 0)
+                    break;
+
+                if (n < 0) {
+                    if (errno == EIO)
+                        break;
+
+                    FAIL();
+                }
+
+                REQUIRE(n > 0);
+                std::copy_n(buffer, n, std::back_inserter(content));
+            }
+
+            REQUIRE(ranges::search(content, keyword));
 
             const auto result = child->wait();
             REQUIRE(result);

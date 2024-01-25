@@ -68,7 +68,7 @@ TEST_CASE("atomic channel", "[concurrent]") {
                 channel.close();
                 const auto result = channel.send(2);
                 REQUIRE(!result);
-                REQUIRE(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
+                REQUIRE(result.error() == std::errc::broken_pipe);
             }
         }
 

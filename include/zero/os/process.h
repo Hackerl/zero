@@ -100,6 +100,45 @@ namespace zero::os::process {
         std::array<std::optional<StdioFile>, 3> mStdio;
     };
 
+#ifdef _WIN32
+    class PseudoConsole {
+    public:
+        PseudoConsole(HPCON pc, const std::array<HANDLE, 4> &handles);
+        PseudoConsole(PseudoConsole &&rhs) noexcept ;
+        ~PseudoConsole();
+
+        tl::expected<void, std::error_code> close();
+        tl::expected<void, std::error_code> resize(short rows, short columns);
+
+        HANDLE &input();
+        HANDLE &output();
+
+    private:
+        HPCON mPC;
+        std::array<HANDLE, 4> mHandles;
+
+        friend class Command;
+    };
+#else
+    class PseudoConsole {
+    public:
+        PseudoConsole(int master, int slave);
+        PseudoConsole(PseudoConsole &&rhs) noexcept;
+        ~PseudoConsole();
+
+        tl::expected<void, std::error_code> resize(short rows, short columns);
+        int &fd();
+
+    private:
+        int mMaster;
+        int mSlave;
+
+        friend class Command;
+    };
+#endif
+
+    tl::expected<PseudoConsole, std::error_code> makePseudoConsole(short rows, short columns);
+
     struct Output {
 #ifdef _WIN32
         DWORD status;
@@ -131,7 +170,7 @@ namespace zero::os::process {
         Command &envs(const std::map<std::string, std::string> &envs);
         Command &clearEnv();
         Command &removeEnv(const std::string &key);
-        Command &stdIntput(StdioType type);
+        Command &stdInput(StdioType type);
         Command &stdOutput(StdioType type);
         Command &stdError(StdioType type);
 
@@ -141,6 +180,7 @@ namespace zero::os::process {
         [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
 
         [[nodiscard]] tl::expected<ChildProcess, std::error_code> spawn() const;
+        [[nodiscard]] tl::expected<ChildProcess, std::error_code> spawn(PseudoConsole &pc) const;
         [[nodiscard]] tl::expected<Output, std::error_code> output() const;
 
     private:

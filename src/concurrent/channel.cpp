@@ -12,6 +12,10 @@ std::string zero::concurrent::ChannelErrorCategory::message(const int value) con
         msg = "channel eof";
         break;
 
+    case BROKEN_CHANNEL:
+        msg = "broken channel";
+        break;
+
     case SEND_TIMEOUT:
         msg = "channel send timeout";
         break;
@@ -40,6 +44,10 @@ std::error_condition zero::concurrent::ChannelErrorCategory::default_error_condi
     std::error_condition condition;
 
     switch (value) {
+    case BROKEN_CHANNEL:
+        condition = std::errc::broken_pipe;
+        break;
+
     case SEND_TIMEOUT:
     case RECEIVE_TIMEOUT:
         condition = std::errc::timed_out;

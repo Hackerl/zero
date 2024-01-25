@@ -11,6 +11,7 @@ add_executable(
         atomic/circular_buffer.cpp
         concurrent/channel.cpp
         async/promise.cpp
+        filesystem/file.cpp
         encoding/hex.cpp
         encoding/base64.cpp
         strings/strings.cpp
@@ -23,6 +24,10 @@ add_executable(
         $<$<PLATFORM_ID:Darwin>:os/darwin/error.cpp os/darwin/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:os/procfs/process.cpp>
 )
+
+if (WIN32)
+    target_compile_definitions(zero_test PRIVATE NOMINMAX)
+endif ()
 
 target_link_libraries(zero_test PRIVATE zero Catch2::Catch2WithMain)
 

@@ -1,5 +1,6 @@
 #include <zero/filesystem/file.h>
 #include <catch2/catch_test_macros.hpp>
+#include <range/v3/algorithm.hpp>
 #include <array>
 
 TEST_CASE("file utils", "[filesystem]") {
@@ -34,7 +35,7 @@ TEST_CASE("file utils", "[filesystem]") {
 
             const auto content = zero::filesystem::read(path);
             REQUIRE(content);
-            REQUIRE(std::ranges::equal(*content, data));
+            REQUIRE(ranges::equal(*content, data));
         }
 
         SECTION("string") {

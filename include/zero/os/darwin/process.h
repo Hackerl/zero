@@ -60,6 +60,8 @@ namespace zero::os::darwin::process {
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
+        tl::expected<void, std::error_code> kill(int sig);
+
     private:
         pid_t mPID;
     };

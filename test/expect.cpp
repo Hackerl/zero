@@ -1,5 +1,6 @@
 #include <zero/expect.h>
 #include <catch2/catch_test_macros.hpp>
+#include <tl/expected.hpp>
 #include <memory>
 
 tl::expected<std::unique_ptr<int>, std::error_code> func1(const int value) {
