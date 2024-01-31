@@ -52,6 +52,46 @@ constexpr auto NOTIFY_READER = 6;
 constexpr auto NOTIFY_WRITER = 7;
 #endif
 
+#ifdef _WIN32
+static std::string quote(const std::string &arg) {
+    std::string result;
+
+    const char *str = arg.c_str();
+    const bool quote = strchr(str, ' ') != nullptr || strchr(str, '\t') != nullptr || *str == '\0';
+
+    if (quote)
+        result.push_back('\"');
+
+    int bsCount = 0;
+
+    for (const char *p = str; *p != '\0'; p++) {
+        if (*p == '\\') {
+            bsCount++;
+        }
+        else if (*p == '\"') {
+            result.append(bsCount * 2 + 1, '\\');
+            result.push_back('\"');
+            bsCount = 0;
+        }
+        else {
+            result.append(bsCount, '\\');
+            bsCount = 0;
+            result.push_back(*p);
+        }
+    }
+
+    if (quote) {
+        result.append(bsCount * 2, '\\');
+        result.push_back('\"');
+    }
+    else {
+        result.append(bsCount, '\\');
+    }
+
+    return result;
+}
+#endif
+
 #ifdef __linux__
 zero::os::process::Process::Process(procfs::process::Process impl): mImpl(std::move(impl)) {
 }
@@ -467,12 +507,9 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
     std::vector arguments{mPath.string()};
     ranges::copy(mArguments, ranges::back_inserter(arguments));
 
-    auto cmd = strings::decode(to_string(fmt::join(
-        arguments | ranges::views::transform([](const auto &arg) {
-            return fmt::format("{:?}", arg);
-        }),
-        " "
-    )));
+    auto cmd = strings::decode(to_string(
+        fmt::join(arguments | ranges::views::transform(quote), " ")
+    ));
     EXPECT(cmd);
 
     PROCESS_INFORMATION info;
@@ -830,12 +867,9 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     std::vector arguments{mPath.string()};
     ranges::copy(mArguments, ranges::back_inserter(arguments));
 
-    auto cmd = strings::decode(to_string(fmt::join(
-        arguments | ranges::views::transform([](const auto &arg) {
-            return fmt::format("{:?}", arg);
-        }),
-        " "
-    )));
+    auto cmd = strings::decode(to_string(
+        fmt::join(arguments | ranges::views::transform(quote), " ")
+    ));
     EXPECT(cmd);
 
     PROCESS_INFORMATION info;
