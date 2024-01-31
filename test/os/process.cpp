@@ -263,6 +263,28 @@ TEST_CASE("process", "[os]") {
 #endif
         }
 
+#ifdef _WIN32
+        SECTION("quote") {
+            constexpr std::array args = {"\t", "\"", " ", "\\", "\t\", \\", "a", "b", "c"};
+
+            auto child = zero::os::process::Command("findstr")
+                         .args({args.begin(), args.end()})
+                         .stdInput(zero::os::process::Command::StdioType::NUL)
+                         .stdOutput(zero::os::process::Command::StdioType::NUL)
+                         .stdError(zero::os::process::Command::StdioType::NUL)
+                         .spawn();
+            REQUIRE(child);
+
+            const auto cmdline = child->cmdline();
+            REQUIRE(cmdline);
+            REQUIRE(cmdline->size() == args.size() + 1);
+            REQUIRE(std::equal(cmdline->begin() + 1, cmdline->end(), args.begin()));
+
+            const auto result = child->wait();
+            REQUIRE(result);
+        }
+#endif
+
         SECTION("redirect") {
 #ifdef _WIN32
             auto child = zero::os::process::Command("findstr")
