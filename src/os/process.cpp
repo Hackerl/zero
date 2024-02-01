@@ -49,6 +49,10 @@ static const auto createPseudoConsole = reinterpret_cast<decltype(CreatePseudoCo
 static const auto closePseudoConsole = reinterpret_cast<decltype(ClosePseudoConsole) *>(
     GetProcAddress(GetModuleHandleA("kernel32"), "ClosePseudoConsole")
 );
+
+static const auto resizePseudoConsole = reinterpret_cast<decltype(ResizePseudoConsole) *>(
+    GetProcAddress(GetModuleHandleA("kernel32"), "ResizePseudoConsole")
+);
 #else
 constexpr auto NOTIFY_READER = 6;
 constexpr auto NOTIFY_WRITER = 7;
@@ -262,7 +266,7 @@ tl::expected<void, std::error_code> zero::os::process::PseudoConsole::close() {
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
-    if (ResizePseudoConsole(mPC, {rows, columns}) != S_OK)
+    if (resizePseudoConsole(mPC, {columns, rows}) != S_OK)
         return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return {};
@@ -312,7 +316,7 @@ int &zero::os::process::PseudoConsole::fd() {
 tl::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::makePseudoConsole(const short rows, const short columns) {
 #ifdef _WIN32
-    if (!createPseudoConsole || !closePseudoConsole)
+    if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
         return tl::unexpected(make_error_code(std::errc::function_not_supported));
 
     std::array<HANDLE, 4> handles = {};
@@ -335,7 +339,7 @@ zero::os::process::makePseudoConsole(const short rows, const short columns) {
     HPCON hPC;
 
     if (createPseudoConsole(
-        {rows, columns},
+        {columns, rows},
         handles[PTY_SLAVE_READER],
         handles[PTY_SLAVE_WRITER],
         0,
