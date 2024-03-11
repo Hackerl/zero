@@ -13,20 +13,25 @@
 #include <fmt/ranges.h>
 
 namespace zero::os::net {
+    using MAC = std::array<std::byte, 6>;
+    using IPv4 = std::array<std::byte, 4>;
+    using IPv6 = std::array<std::byte, 16>;
+    using IP = std::variant<IPv4, IPv6>;
+
     struct IfAddress4 {
-        std::array<std::byte, 4> ip;
-        std::array<std::byte, 4> mask;
+        IPv4 ip;
+        IPv4 mask;
     };
 
     struct IfAddress6 {
-        std::array<std::byte, 16> ip;
+        IPv6 ip;
     };
 
     using Address = std::variant<IfAddress4, IfAddress6>;
 
     struct Interface {
         std::string name;
-        std::array<std::byte, 6> mac;
+        MAC mac;
         std::vector<Address> addresses;
     };
 
@@ -88,10 +93,10 @@ struct fmt::formatter<zero::os::net::Interface, Char> {
             i.name,
             i.mac[0], i.mac[1], i.mac[2], i.mac[3], i.mac[4], i.mac[5],
             i.addresses | std::views::transform([](const auto &address) {
-                if (address.index() == 0)
-                    return fmt::to_string(std::get<0>(address));
+                if (std::holds_alternative<zero::os::net::IfAddress4>(address))
+                    return fmt::to_string(std::get<zero::os::net::IfAddress4>(address));
 
-                return fmt::to_string(std::get<1>(address));
+                return fmt::to_string(std::get<zero::os::net::IfAddress6>(address));
             })
         );
     }

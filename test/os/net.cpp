@@ -2,7 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("stringify IP address", "[os]") {
-    std::array<std::byte, 4> ipv4 = {};
+    zero::os::net::IPv4 ipv4 = {};
     REQUIRE(zero::os::net::stringify(ipv4) == "0.0.0.0");
 
     ipv4 = {std::byte{127}, std::byte{0}, std::byte{0}, std::byte{1}};
@@ -11,9 +11,9 @@ TEST_CASE("stringify IP address", "[os]") {
     ipv4 = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
     REQUIRE(zero::os::net::stringify(ipv4) == "255.255.255.255");
 
-    REQUIRE(zero::os::net::stringify(std::array<std::byte, 16>{}) == "::");
+    REQUIRE(zero::os::net::stringify(zero::os::net::IPv6{}) == "::");
 
-    constexpr std::array ipv6 = {
+    constexpr zero::os::net::IPv6 ipv6 = {
         std::byte{253}, std::byte{189}, std::byte{220}, std::byte{2},
         std::byte{0}, std::byte{255}, std::byte{0}, std::byte{1},
         std::byte{0}, std::byte{9}, std::byte{0}, std::byte{0},
@@ -23,7 +23,7 @@ TEST_CASE("stringify IP address", "[os]") {
     REQUIRE(zero::os::net::stringify(ipv6) == "fdbd:dc02:ff:1:9::8d");
 
     ipv4 = {std::byte{192}, std::byte{168}, std::byte{10}, std::byte{1}};
-    std::array mask = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
+    zero::os::net::IPv4 mask = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
 
     REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/32");
 
