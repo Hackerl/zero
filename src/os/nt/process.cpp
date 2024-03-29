@@ -84,6 +84,12 @@ zero::os::nt::process::Process::Process(Process &&rhs) noexcept
     : mPID(std::exchange(rhs.mPID, -1)), mHandle(std::exchange(rhs.mHandle, nullptr)) {
 }
 
+zero::os::nt::process::Process &zero::os::nt::process::Process::operator=(Process &&rhs) noexcept {
+    mPID = std::exchange(rhs.mPID, -1);
+    mHandle = std::exchange(rhs.mHandle, nullptr);
+    return *this;
+}
+
 zero::os::nt::process::Process::~Process() {
     if (!mHandle)
         return;
@@ -96,7 +102,7 @@ zero::os::nt::process::Process::from(const HANDLE handle) {
     const DWORD pid = GetProcessId(handle);
 
     if (pid == 0)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return Process{handle, pid};
 }
@@ -114,7 +120,7 @@ tl::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::pa
         sizeof(info),
         nullptr
     ))))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     std::uintptr_t ptr;
 
@@ -125,7 +131,7 @@ tl::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::pa
         sizeof(ptr),
         nullptr
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return ptr;
 }
@@ -151,7 +157,7 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() cons
         sizeof(info),
         nullptr
     ))))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
 }
@@ -175,7 +181,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
         sizeof(UNICODE_STRING),
         nullptr
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     if (!str.Buffer || str.Length == 0)
         return tl::unexpected(UNEXPECTED_DATA);
@@ -189,7 +195,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
         str.Length,
         nullptr
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     std::error_code ec;
     auto path = std::filesystem::canonical(buffer.get(), ec);
@@ -205,7 +211,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
     DWORD size = ARRAYSIZE(buffer);
 
     if (!QueryFullProcessImageNameW(mHandle, 0, buffer, &size))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return buffer;
 }
@@ -223,7 +229,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
         sizeof(UNICODE_STRING),
         nullptr
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     if (!str.Buffer || str.Length == 0)
         return tl::unexpected(UNEXPECTED_DATA);
@@ -237,13 +243,13 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
         str.Length,
         nullptr
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     int num = 0;
     LPWSTR *args = CommandLineToArgvW(buffer.get(), &num);
 
     if (!args)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     DEFER(LocalFree(args));
     tl::expected<std::vector<std::string>, std::error_code> result;
@@ -275,7 +281,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
         sizeof(PVOID),
         nullptr
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     ULONG size;
 
@@ -286,7 +292,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
         sizeof(ULONG),
         nullptr
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     const auto buffer = std::make_unique<WCHAR[]>(size / sizeof(WCHAR));
 
@@ -297,7 +303,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
         size,
         nullptr
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     const auto str = strings::encode({buffer.get(), size / sizeof(WCHAR)});
     EXPECT(str);
@@ -328,7 +334,7 @@ tl::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::proc
     FILETIME create, exit, kernel, user;
 
     if (!GetProcessTimes(mHandle, &create, &exit, &kernel, &user))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return CPUTime{
         static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
@@ -340,7 +346,7 @@ tl::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::p
     PROCESS_MEMORY_COUNTERS counters;
 
     if (!GetProcessMemoryInfo(mHandle, &counters, sizeof(counters)))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return MemoryStat{
         counters.WorkingSetSize,
@@ -352,7 +358,7 @@ tl::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::proce
     IO_COUNTERS counters;
 
     if (!GetProcessIoCounters(mHandle, &counters))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return IOStat{
         counters.ReadOperationCount,
@@ -366,7 +372,7 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() 
     DWORD code;
 
     if (!GetExitCodeProcess(mHandle, &code))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     if (code == STILL_ACTIVE)
         return tl::unexpected(PROCESS_STILL_ACTIVE);
@@ -381,7 +387,7 @@ zero::os::nt::process::Process::wait(const std::optional<std::chrono::millisecon
         if (result == WAIT_TIMEOUT)
             return tl::unexpected(make_error_code(std::errc::timed_out));
 
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
     }
 
     return {};
@@ -399,7 +405,7 @@ tl::expected<void, std::error_code> zero::os::nt::process::Process::tryWait() co
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<void, std::error_code> zero::os::nt::process::Process::terminate(const DWORD code) {
     if (!TerminateProcess(mHandle, code))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return {};
 }
@@ -416,7 +422,7 @@ tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::proc
     );
 
     if (!handle)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return Process{handle, pid};
 }
@@ -431,7 +437,7 @@ tl::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
         DWORD needed;
 
         if (!EnumProcesses(buffer.get(), size * sizeof(DWORD), &needed)) {
-            result = tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            result = tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
             break;
         }
 

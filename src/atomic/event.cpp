@@ -1,8 +1,6 @@
 #include <zero/atomic/event.h>
 
-#if _WIN32 && !ZERO_LEGACY_NT
-#include <windows.h>
-#elif __linux__
+#ifdef __linux__
 #include <cerrno>
 #include <climits>
 #include <unistd.h>
@@ -16,48 +14,58 @@ extern "C" int __ulock_wait(uint32_t operation, void *addr, uint64_t value, uint
 extern "C" int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value);
 #endif
 
-zero::atomic::Event::Event() {
-#ifdef ZERO_LEGACY_NT
-    mEvent = CreateEventA(nullptr, false, false, nullptr);
-#endif
+#ifdef _WIN32
+zero::atomic::Event::Event(const bool manual, const bool initialState) {
+    mEvent = CreateEventA(nullptr, manual, initialState, nullptr);
+
+    if (!mEvent)
+        throw std::system_error(static_cast<int>(GetLastError()), std::system_category());
 }
 
-#ifdef ZERO_LEGACY_NT
 zero::atomic::Event::~Event() {
     CloseHandle(mEvent);
 }
-#endif
+
+// ReSharper disable once CppMemberFunctionMayBeConst
+tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
+    if (const DWORD rc = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
+        rc != WAIT_OBJECT_0) {
+        return tl::unexpected(
+            rc == WAIT_TIMEOUT
+                ? make_error_code(std::errc::timed_out)
+                : std::error_code(static_cast<int>(GetLastError()), std::system_category())
+        );
+    }
+
+    return {};
+}
+
+// ReSharper disable once CppMemberFunctionMayBeConst
+void zero::atomic::Event::set() {
+    SetEvent(mEvent);
+}
+
+// ReSharper disable once CppMemberFunctionMayBeConst
+void zero::atomic::Event::reset() {
+    ResetEvent(mEvent);
+}
+#else
+zero::atomic::Event::Event(const bool manual, const bool initialState) : mState(initialState ? 1 : 0), mManual(manual) {
+}
 
 tl::expected<void, std::error_code> zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
     tl::expected<void, std::error_code> result;
 
     while (true) {
-        if (Value expected = 1; mState.compare_exchange_strong(expected, 0))
-            break;
-
-#ifdef ZERO_LEGACY_NT
-        if (const DWORD rc = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
-            rc != WAIT_OBJECT_0) {
-            result = tl::unexpected(
-                rc == WAIT_TIMEOUT
-                    ? make_error_code(std::errc::timed_out)
-                    : std::error_code(static_cast<int>(GetLastError()), std::system_category())
-            );
-            break;
+        if (mManual) {
+            if (mState)
+                break;
         }
-#elif _WIN32
-        Value expected = 0;
-
-        if (!WaitOnAddress(
-            &mState,
-            &expected,
-            sizeof(int),
-            timeout ? static_cast<DWORD>(timeout->count()) : INFINITE
-        )) {
-            result = tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
-            break;
+        else {
+            if (Value expected = 1; mState.compare_exchange_strong(expected, 0))
+                break;
         }
-#elif __linux__
+#ifdef __linux__
         std::optional<timespec> ts;
 
         if (timeout)
@@ -70,7 +78,7 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(std::optional<std:
             if (errno == EAGAIN)
                 continue;
 
-            result = tl::unexpected(std::error_code(errno, std::system_category()));
+            result = tl::unexpected<std::error_code>(errno, std::system_category());
             break;
         }
 #elif __APPLE__
@@ -80,7 +88,7 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(std::optional<std:
             0,
             !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
         ) < 0) {
-            result = tl::unexpected(std::error_code(errno, std::system_category()));
+            result = tl::unexpected<std::error_code>(errno, std::system_category());
             break;
         }
 #else
@@ -91,29 +99,9 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(std::optional<std:
     return result;
 }
 
-void zero::atomic::Event::notify() {
+void zero::atomic::Event::set() {
     if (Value expected = 0; mState.compare_exchange_strong(expected, 1)) {
-#ifdef ZERO_LEGACY_NT
-        SetEvent(mEvent);
-#elif _WIN32
-        WakeByAddressSingle(&mState);
-#elif __linux__
-        syscall(SYS_futex, &mState, FUTEX_WAKE, 1, nullptr, nullptr, 0);
-#elif __APPLE__
-        __ulock_wake(UL_COMPARE_AND_WAIT, &mState, 0);
-#else
-#error "unsupported platform"
-#endif
-    }
-}
-
-void zero::atomic::Event::broadcast() {
-    if (Value expected = 0; mState.compare_exchange_strong(expected, 1)) {
-#ifdef ZERO_LEGACY_NT
-        PulseEvent(mEvent);
-#elif _WIN32
-        WakeByAddressAll(&mState);
-#elif __linux__
+#ifdef __linux__
         syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
 #elif __APPLE__
         __ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, &mState, 0);
@@ -122,3 +110,8 @@ void zero::atomic::Event::broadcast() {
 #endif
     }
 }
+
+void zero::atomic::Event::reset() {
+    mState = 0;
+}
+#endif

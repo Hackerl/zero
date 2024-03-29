@@ -5,16 +5,20 @@
 using namespace std::chrono_literals;
 
 TEST_CASE("notify event", "[atomic]") {
-    zero::atomic::Event event;
+    SECTION("auto") {
+        zero::atomic::Event event;
 
-    int n = 0;
+        auto result = event.wait(10ms);
+        REQUIRE(!result);
+        REQUIRE(result.error() == std::errc::timed_out);
 
-    SECTION("normal notification") {
+        int n = 0;
+
         std::thread thread(
             [&] {
-                std::this_thread::sleep_for(100ms);
+                std::this_thread::sleep_for(10ms);
                 n = 1;
-                event.notify();
+                event.set();
             }
         );
 
@@ -22,20 +26,73 @@ TEST_CASE("notify event", "[atomic]") {
         REQUIRE(n == 1);
 
         thread.join();
+
+        result = event.wait(10ms);
+        REQUIRE(!result);
+        REQUIRE(result.error() == std::errc::timed_out);
     }
 
-    SECTION("wait timeout") {
-        std::thread thread(
-            [&] {
-                std::this_thread::sleep_for(500ms);
-                n = 1;
-                event.notify();
-            }
-        );
+    SECTION("manual") {
+        SECTION("not set initially") {
+            zero::atomic::Event event(true);
 
-        REQUIRE(event.wait(100ms).error() == std::errc::timed_out);
-        REQUIRE(n == 0);
+            auto result = event.wait(10ms);
+            REQUIRE(!result);
+            REQUIRE(result.error() == std::errc::timed_out);
 
-        thread.join();
+            int n = 0;
+
+            std::thread thread(
+                [&] {
+                    std::this_thread::sleep_for(10ms);
+                    n = 1;
+                    event.set();
+                }
+            );
+
+            REQUIRE(event.wait());
+            REQUIRE(n == 1);
+
+            thread.join();
+
+            REQUIRE(event.wait());
+            event.reset();
+
+            result = event.wait(10ms);
+            REQUIRE(!result);
+            REQUIRE(result.error() == std::errc::timed_out);
+        }
+
+        SECTION("initial set") {
+            zero::atomic::Event event(true, true);
+            REQUIRE(event.wait());
+            event.reset();
+
+            auto result = event.wait(10ms);
+            REQUIRE(!result);
+            REQUIRE(result.error() == std::errc::timed_out);
+
+            int n = 0;
+
+            std::thread thread(
+                [&] {
+                    std::this_thread::sleep_for(10ms);
+                    n = 1;
+                    event.set();
+                }
+            );
+
+            REQUIRE(event.wait());
+            REQUIRE(n == 1);
+
+            thread.join();
+
+            REQUIRE(event.wait());
+            event.reset();
+
+            result = event.wait(10ms);
+            REQUIRE(!result);
+            REQUIRE(result.error() == std::errc::timed_out);
+        }
     }
 }

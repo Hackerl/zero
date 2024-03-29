@@ -1,17 +1,35 @@
 #ifndef ZERO_EVENT_H
 #define ZERO_EVENT_H
 
-#include <atomic>
 #include <chrono>
 #include <optional>
 #include <system_error>
 #include <tl/expected.hpp>
 
-#ifdef ZERO_LEGACY_NT
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <atomic>
 #endif
 
 namespace zero::atomic {
+#ifdef _WIN32
+    class Event {
+    public:
+        explicit Event(bool manual = false, bool initialState = false);
+        Event(const Event &) = delete;
+        Event &operator=(const Event &) = delete;
+        ~Event();
+
+        tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+
+        void set();
+        void reset();
+
+    private:
+        HANDLE mEvent;
+    };
+#else
     class Event {
 #ifdef __APPLE__
         using Value = std::uint64_t;
@@ -20,22 +38,18 @@ namespace zero::atomic {
 #endif
 
     public:
-        Event();
-#ifdef ZERO_LEGACY_NT
-        ~Event();
-#endif
+        explicit Event(bool manual = false, bool initialState = false);
 
         tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
-        void notify();
-        void broadcast();
+        void set();
+        void reset();
 
     private:
-#ifdef ZERO_LEGACY_NT
-        HANDLE mEvent;
-#endif
+        bool mManual;
         std::atomic<Value> mState;
     };
+#endif
 }
 
 #endif //ZERO_EVENT_H

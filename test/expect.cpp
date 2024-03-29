@@ -186,18 +186,18 @@ TEST_CASE("error handling macro", "[expect]") {
     SECTION("coroutine") {
         auto task = test5();
         REQUIRE(task.done());
-        REQUIRE(*task.result() == 160);
+        REQUIRE(task.future().result() == 160);
 
         task = test6();
         REQUIRE(task.done());
-        REQUIRE(task.result().error() == std::errc::operation_canceled);
+        REQUIRE(task.future().result().error() == std::errc::operation_canceled);
 
         task = test7();
         REQUIRE(task.done());
-        REQUIRE(task.result().error() == std::errc::timed_out);
+        REQUIRE(task.future().result().error() == std::errc::timed_out);
 
         task = test8();
         REQUIRE(task.done());
-        REQUIRE(task.result().error() == std::errc::timed_out);
+        REQUIRE(task.future().result().error() == std::errc::timed_out);
     }
 }

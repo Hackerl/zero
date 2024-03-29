@@ -108,7 +108,7 @@ tl::expected<std::string, std::error_code> zero::strings::encode(std::wstring_vi
     const auto cd = iconv_open(encoding, "WCHAR_T");
 
     if (cd == reinterpret_cast<iconv_t>(-1))
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     DEFER(iconv_close(cd));
     tl::expected<std::string, std::error_code> output;
@@ -123,7 +123,7 @@ tl::expected<std::string, std::error_code> zero::strings::encode(std::wstring_vi
         std::size_t outBytesLeft = sizeof(buffer);
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
-            output = tl::unexpected(std::error_code(errno, std::system_category()));
+            output = tl::unexpected<std::error_code>(errno, std::system_category());
             break;
         }
 
@@ -137,7 +137,7 @@ tl::expected<std::wstring, std::error_code> zero::strings::decode(std::string_vi
     const auto cd = iconv_open("WCHAR_T", encoding);
 
     if (cd == reinterpret_cast<iconv_t>(-1))
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     DEFER(iconv_close(cd));
     tl::expected<std::wstring, std::error_code> output;
@@ -152,7 +152,7 @@ tl::expected<std::wstring, std::error_code> zero::strings::decode(std::string_vi
         std::size_t outBytesLeft = sizeof(buffer);
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
-            output = tl::unexpected(std::error_code(errno, std::system_category()));
+            output = tl::unexpected<std::error_code>(errno, std::system_category());
             break;
         }
 

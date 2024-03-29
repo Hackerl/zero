@@ -142,7 +142,7 @@ tl::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Pro
     const long result = sysconf(_SC_CLK_TCK);
 
     if (result < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     const auto ticks = static_cast<double>(result);
     const auto stat = mImpl.stat();
@@ -163,7 +163,7 @@ tl::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::
     const long result = sysconf(_SC_PAGE_SIZE);
 
     if (result < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     const auto pageSize = static_cast<std::uint64_t>(result);
     const auto statM = mImpl.statM();
@@ -182,7 +182,7 @@ tl::expected<zero::os::process::IOStat, std::error_code> zero::os::process::Proc
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<void, std::error_code> zero::os::process::Process::kill(const int sig) {
     if (::kill(mImpl.pid(), sig) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     return {};
 }
@@ -206,6 +206,12 @@ zero::os::process::ChildProcess::ChildProcess(Process process, const std::array<
 
 zero::os::process::ChildProcess::ChildProcess(ChildProcess &&rhs) noexcept
     : Process(std::move(rhs)), mStdio(std::exchange(rhs.mStdio, {})) {
+}
+
+zero::os::process::ChildProcess &zero::os::process::ChildProcess::operator=(ChildProcess &&rhs) noexcept {
+    Process::operator=(std::move(rhs));
+    mStdio = std::exchange(rhs.mStdio, {});
+    return *this;
 }
 
 zero::os::process::ChildProcess::~ChildProcess() {
@@ -242,6 +248,12 @@ zero::os::process::PseudoConsole::PseudoConsole(PseudoConsole &&rhs) noexcept
     : mPC(std::exchange(rhs.mPC, nullptr)), mHandles(std::exchange(rhs.mHandles, {})) {
 }
 
+zero::os::process::PseudoConsole &zero::os::process::PseudoConsole::operator=(PseudoConsole &&rhs) noexcept {
+    mPC = std::exchange(rhs.mPC, nullptr);
+    mHandles = std::exchange(rhs.mHandles, {});
+    return *this;
+}
+
 zero::os::process::PseudoConsole::~PseudoConsole() {
     if (!mPC)
         return;
@@ -256,6 +268,42 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
     }
 }
 
+tl::expected<zero::os::process::PseudoConsole, std::error_code>
+zero::os::process::PseudoConsole::make(const short rows, const short columns) {
+    if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
+        return tl::unexpected(make_error_code(std::errc::function_not_supported));
+
+    std::array<HANDLE, 4> handles = {};
+
+    DEFER(
+        for (const auto &handle: handles) {
+            if (!handle)
+                continue;
+
+            CloseHandle(handle);
+        }
+    );
+
+    if (!CreatePipe(handles.data() + PTY_MASTER_READER, handles.data() + PTY_SLAVE_WRITER, nullptr, 0))
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+
+    if (!CreatePipe(handles.data() + PTY_SLAVE_READER, handles.data() + PTY_MASTER_WRITER, nullptr, 0))
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+
+    HPCON hPC;
+
+    if (createPseudoConsole(
+        {columns, rows},
+        handles[PTY_SLAVE_READER],
+        handles[PTY_SLAVE_WRITER],
+        0,
+        &hPC
+    ) != S_OK)
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+
+    return PseudoConsole{hPC, std::exchange(handles, {})};
+}
+
 tl::expected<void, std::error_code> zero::os::process::PseudoConsole::close() {
     if (!mPC)
         return tl::unexpected(make_error_code(std::errc::bad_file_descriptor));
@@ -267,7 +315,7 @@ tl::expected<void, std::error_code> zero::os::process::PseudoConsole::close() {
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
     if (resizePseudoConsole(mPC, {columns, rows}) != S_OK)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return {};
 }
@@ -287,6 +335,12 @@ zero::os::process::PseudoConsole::PseudoConsole(PseudoConsole &&rhs) noexcept
     : mMaster(std::exchange(rhs.mMaster, -1)), mSlave(std::exchange(rhs.mSlave, -1)) {
 }
 
+zero::os::process::PseudoConsole &zero::os::process::PseudoConsole::operator=(PseudoConsole &&rhs) noexcept {
+    mMaster = std::exchange(rhs.mMaster, -1);
+    mSlave = std::exchange(rhs.mSlave, -1);
+    return *this;
+}
+
 zero::os::process::PseudoConsole::~PseudoConsole() {
     if (mMaster >= 0)
         close(mMaster);
@@ -295,60 +349,8 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
         close(mSlave);
 }
 
-// ReSharper disable once CppMemberFunctionMayBeConst
-tl::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
-    winsize ws = {};
-
-    ws.ws_row = rows;
-    ws.ws_col = columns;
-
-    if (ioctl(mMaster, TIOCSWINSZ, &ws) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
-
-    return {};
-}
-
-int &zero::os::process::PseudoConsole::fd() {
-    return mMaster;
-}
-#endif
-
 tl::expected<zero::os::process::PseudoConsole, std::error_code>
-zero::os::process::makePseudoConsole(const short rows, const short columns) {
-#ifdef _WIN32
-    if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
-        return tl::unexpected(make_error_code(std::errc::function_not_supported));
-
-    std::array<HANDLE, 4> handles = {};
-
-    DEFER(
-        for (const auto &handle : handles) {
-            if (!handle)
-                continue;
-
-            CloseHandle(handle);
-        }
-    );
-
-    if (!CreatePipe(handles.data() + PTY_MASTER_READER, handles.data() + PTY_SLAVE_WRITER, nullptr, 0))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
-
-    if (!CreatePipe(handles.data() + PTY_SLAVE_READER, handles.data() + PTY_MASTER_WRITER, nullptr, 0))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
-
-    HPCON hPC;
-
-    if (createPseudoConsole(
-        {columns, rows},
-        handles[PTY_SLAVE_READER],
-        handles[PTY_SLAVE_WRITER],
-        0,
-        &hPC
-    ) != S_OK)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
-
-    return PseudoConsole{hPC, std::exchange(handles, {})};
-#else
+zero::os::process::PseudoConsole::make(const short rows, const short columns) {
 #if __ANDROID__ && __ANDROID_API__ < 23
     static const auto openpty = reinterpret_cast<int (*)(int *, int *, char *, const termios *, const winsize *)>(
         dlsym(RTLD_DEFAULT, "openpty")
@@ -360,21 +362,38 @@ zero::os::process::makePseudoConsole(const short rows, const short columns) {
     int master, slave;
 
     if (openpty(&master, &slave, nullptr, nullptr, nullptr) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     PseudoConsole pc = {master, slave};
     EXPECT(pc.resize(rows, columns));
 
     return pc;
-#endif
 }
+
+// ReSharper disable once CppMemberFunctionMayBeConst
+tl::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
+    winsize ws = {};
+
+    ws.ws_row = rows;
+    ws.ws_col = columns;
+
+    if (ioctl(mMaster, TIOCSWINSZ, &ws) < 0)
+        return tl::unexpected<std::error_code>(errno, std::system_category());
+
+    return {};
+}
+
+int &zero::os::process::PseudoConsole::fd() {
+    return mMaster;
+}
+#endif
 
 #ifndef _WIN32
 tl::expected<int, std::error_code> zero::os::process::ChildProcess::wait() const {
     int s;
 
     if (const pid_t pid = this->pid(); waitpid(pid, &s, 0) != pid)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     return s;
 }
@@ -387,7 +406,7 @@ tl::expected<int, std::error_code> zero::os::process::ChildProcess::tryWait() co
         if (result == 0)
             return tl::unexpected(make_error_code(std::errc::operation_would_block));
 
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
     }
 
     return s;
@@ -410,7 +429,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
     HANDLE handles[6] = {};
 
     DEFER(
-        for (const auto &handle : handles) {
+        for (const auto &handle: handles) {
             if (!handle)
                 continue;
 
@@ -427,7 +446,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
 
         if (type == PIPED) {
             if (!CreatePipe(handles + i * 2, handles + i * 2 + 1, &saAttr, 0))
-                return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+                return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
             continue;
         }
@@ -443,7 +462,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
         );
 
         if (handle == INVALID_HANDLE_VALUE)
-            return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
         handles[i * 2 + (input ? 0 : 1)] = handle;
     }
@@ -451,7 +470,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
     if ((handles[STDIN_WRITER] && !SetHandleInformation(handles[STDIN_WRITER], HANDLE_FLAG_INHERIT, 0))
         || (handles[STDOUT_READER] && !SetHandleInformation(handles[STDOUT_READER], HANDLE_FLAG_INHERIT, 0))
         || (handles[STDERR_READER] && !SetHandleInformation(handles[STDERR_READER], HANDLE_FLAG_INHERIT, 0)))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     const bool redirect = handles[STDIN_READER] || handles[STDOUT_WRITER] || handles[STDERR_WRITER];
     STARTUPINFOW si = {};
@@ -471,7 +490,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
         const auto ptr = GetEnvironmentStringsW();
 
         if (!ptr)
-            return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
         DEFER(FreeEnvironmentStringsW(ptr));
 
@@ -532,7 +551,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
         &si,
         &info
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     CloseHandle(info.hThread);
 
@@ -553,7 +572,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
     std::ranges::fill(fds, -1);
 
     DEFER(
-        for (const auto &fd : fds) {
+        for (const auto &fd: fds) {
             if (fd < 0)
                 continue;
 
@@ -562,10 +581,10 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
     );
 
     if (pipe(fds + NOTIFY_READER) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     if (fcntl(fds[NOTIFY_WRITER], F_SETFD, FD_CLOEXEC) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     for (int i = 0; i < 3; i++) {
         const bool input = i == 0;
@@ -576,7 +595,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
 
         if (type == PIPED) {
             if (pipe(fds + i * 2) < 0)
-                return tl::unexpected(std::error_code(errno, std::system_category()));
+                return tl::unexpected<std::error_code>(errno, std::system_category());
 
             continue;
         }
@@ -584,7 +603,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
         const int fd = ::open("/dev/null", input ? O_RDONLY : O_WRONLY);
 
         if (fd < 0)
-            return tl::unexpected(std::error_code(errno, std::system_category()));
+            return tl::unexpected<std::error_code>(errno, std::system_category());
 
         fds[i * 2 + (input ? 0 : 1)] = fd;
     }
@@ -637,7 +656,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
     const pid_t pid = fork();
 
     if (pid < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     if (pid == 0) {
         if ((fds[STDIN_READER] > 0 && dup2(fds[STDIN_READER], STDIN_FILENO) < 0)
@@ -687,7 +706,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
     if (const int n = read(fds[NOTIFY_READER], &error, sizeof(int)); n != 0) {
         assert(n == sizeof(int));
         waitpid(pid, nullptr, 0);
-        return tl::unexpected(std::error_code(error, std::system_category()));
+        return tl::unexpected<std::error_code>(error, std::system_category());
     }
 
     auto process = open(pid);
@@ -812,7 +831,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 
     if (!InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     if (!UpdateProcThreadAttribute(
         siEx.lpAttributeList,
@@ -823,7 +842,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         nullptr,
         nullptr
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     std::map<std::string, std::string> envs;
 
@@ -831,7 +850,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         const auto ptr = GetEnvironmentStringsW();
 
         if (!ptr)
-            return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
         DEFER(FreeEnvironmentStringsW(ptr));
 
@@ -892,7 +911,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         &siEx.StartupInfo,
         &info
     ))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     CloseHandle(info.hThread);
     CloseHandle(std::exchange(pc.mHandles[PTY_SLAVE_READER], nullptr));
@@ -904,7 +923,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     std::ranges::fill(fds, -1);
 
     DEFER(
-        for (const auto &fd : fds) {
+        for (const auto &fd: fds) {
             if (fd < 0)
                 continue;
 
@@ -913,14 +932,14 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     );
 
     if (pipe(fds) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     assert(pc.mMaster >= 0);
     assert(pc.mSlave > STDERR_FILENO);
     assert(std::ranges::all_of(fds, [](const auto &fd) {return fd > STDERR_FILENO;}));
 
     if (fcntl(fds[1], F_SETFD, FD_CLOEXEC) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     const std::string program = mPath.string();
 
@@ -968,7 +987,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     const pid_t pid = fork();
 
     if (pid < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     if (pid == 0) {
         if (setsid() < 0) {
@@ -1030,7 +1049,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     if (const int n = read(fds[0], &error, sizeof(int)); n != 0) {
         assert(n == sizeof(int));
         waitpid(pid, nullptr, 0);
-        return tl::unexpected(std::error_code(error, std::system_category()));
+        return tl::unexpected<std::error_code>(error, std::system_category());
     }
 
     close(std::exchange(pc.mSlave, -1));
@@ -1069,7 +1088,7 @@ zero::os::process::Command::output() const {
                 if (error == ERROR_BROKEN_PIPE)
                     break;
 
-                result = tl::unexpected(std::error_code(static_cast<int>(error), std::system_category()));
+                result = tl::unexpected<std::error_code>(static_cast<int>(error), std::system_category());
                 break;
             }
 
@@ -1085,7 +1104,7 @@ zero::os::process::Command::output() const {
                 break;
 
             if (n < 0) {
-                result = tl::unexpected(std::error_code(errno, std::system_category()));
+                result = tl::unexpected<std::error_code>(errno, std::system_category());
                 break;
             }
 

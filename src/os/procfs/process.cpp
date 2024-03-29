@@ -22,6 +22,12 @@ zero::os::procfs::process::Process::Process(Process &&rhs) noexcept
     : mFD(std::exchange(rhs.mFD, -1)), mPID(std::exchange(rhs.mPID, -1)) {
 }
 
+zero::os::procfs::process::Process &zero::os::procfs::process::Process::operator=(Process &&rhs) noexcept {
+    mFD = std::exchange(rhs.mFD, -1);
+    mPID = std::exchange(rhs.mPID, -1);
+    return *this;
+}
+
 zero::os::procfs::process::Process::~Process() {
     if (mFD < 0)
         return;
@@ -33,7 +39,7 @@ tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::r
     const int fd = openat(mFD, filename, O_RDONLY);
 
     if (fd < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     DEFER(close(fd));
     tl::expected<std::string, std::error_code> result;
@@ -46,7 +52,7 @@ tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::r
             if (n == 0)
                 break;
 
-            result = tl::unexpected(std::error_code(errno, std::system_category()));
+            result = tl::unexpected<std::error_code>(errno, std::system_category());
             break;
         }
 
@@ -64,7 +70,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::
     char buffer[PATH_MAX + 1] = {};
 
     if (readlinkat(mFD, "exe", buffer, PATH_MAX) == -1)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     return buffer;
 }
@@ -73,7 +79,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::
     char buffer[PATH_MAX + 1] = {};
 
     if (readlinkat(mFD, "cwd", buffer, PATH_MAX) == -1)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     return buffer;
 }
@@ -496,13 +502,13 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Proce
     const int fd = openat(mFD, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 
     if (fd < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     DIR *dir = fdopendir(fd);
 
     if (!dir) {
         close(fd);
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
     }
 
     DEFER(closedir(dir));
@@ -678,7 +684,7 @@ tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::proc
 #endif
 
     if (fd < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     return Process{fd, pid};
 }

@@ -22,7 +22,7 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     FILETIME idle, kernel, user;
 
     if (!GetSystemTimes(&idle, &kernel, &user))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     CPUTime time{
         static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
@@ -66,7 +66,7 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     const long result = sysconf(_SC_CLK_TCK);
 
     if (result < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     const auto ticks = static_cast<double>(result);
 
@@ -90,7 +90,7 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     const long result = sysconf(_SC_CLK_TCK);
 
     if (result < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     const auto ticks = static_cast<double>(result);
 
@@ -108,7 +108,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     status.dwLength = sizeof(status);
 
     if (!GlobalMemoryStatusEx(&status))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return MemoryStat{
         status.ullTotalPhys,
@@ -172,7 +172,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     std::size_t size = sizeof(total);
 
     if (int mib[2] = {CTL_HW, HW_MEMSIZE}; sysctl(mib, 2, &total, &size, nullptr, 0) != 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     MemoryStat stat = {};
 

@@ -21,21 +21,21 @@ tl::expected<std::string, std::error_code> zero::os::hostname() {
     DWORD length = ARRAYSIZE(name);
 
     if (!GetComputerNameW(name, &length))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return strings::encode(name);
 #elif __linux__
     char name[HOST_NAME_MAX + 1] = {};
 
     if (gethostname(name, sizeof(name)) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     return name;
 #elif __APPLE__
     char name[MAXHOSTNAMELEN] = {};
 
     if (gethostname(name, sizeof(name)) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     return name;
 #else
@@ -49,7 +49,7 @@ tl::expected<std::string, std::error_code> zero::os::username() {
     DWORD length = ARRAYSIZE(name);
 
     if (!GetUserNameW(name, &length))
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return strings::encode(name);
 #elif __linux__ || __APPLE__
@@ -72,7 +72,7 @@ tl::expected<std::string, std::error_code> zero::os::username() {
                 continue;
             }
 
-            result = tl::unexpected(std::error_code(n, std::system_category()));
+            result = tl::unexpected<std::error_code>(n, std::system_category());
             break;
         }
 

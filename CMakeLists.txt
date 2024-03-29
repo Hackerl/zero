@@ -2,10 +2,6 @@ cmake_minimum_required(VERSION 3.17)
 project(zero)
 
 set(CMAKE_CXX_STANDARD 20)
-
-option(ZERO_DISABLE_LOG "disable log module" OFF)
-option(ZERO_LEGACY_NT "compatible with older Windows" OFF)
-
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 set(ZERO_VERSION 1.0.7)
 
@@ -39,14 +35,6 @@ add_library(
         $<$<PLATFORM_ID:Linux,Android>:src/os/procfs/procfs.cpp src/os/procfs/process.cpp>
 )
 
-if (ZERO_DISABLE_LOG)
-    target_compile_definitions(zero INTERFACE ZERO_NO_LOG)
-endif ()
-
-if (WIN32 AND ZERO_LEGACY_NT)
-    target_compile_definitions(zero PUBLIC ZERO_LEGACY_NT)
-endif ()
-
 target_include_directories(
         zero
         PUBLIC
@@ -64,7 +52,6 @@ target_link_libraries(
         Threads::Threads
         $<$<PLATFORM_ID:Windows>:Ws2_32>
         $<$<PLATFORM_ID:Windows>:Iphlpapi>
-        $<$<AND:$<PLATFORM_ID:Windows>,$<NOT:$<BOOL:${ZERO_LEGACY_NT}>>>:Synchronization>
 )
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")

@@ -85,6 +85,7 @@ namespace zero::os::process {
 #endif
         ChildProcess(Process process, const std::array<std::optional<StdioFile>, 3> &stdio);
         ChildProcess(ChildProcess &&rhs) noexcept;
+        ChildProcess &operator=(ChildProcess &&rhs) noexcept;
         ~ChildProcess();
 
         std::optional<StdioFile> &stdInput();
@@ -104,8 +105,11 @@ namespace zero::os::process {
     class PseudoConsole {
     public:
         PseudoConsole(HPCON pc, const std::array<HANDLE, 4> &handles);
-        PseudoConsole(PseudoConsole &&rhs) noexcept ;
+        PseudoConsole(PseudoConsole &&rhs) noexcept;
+        PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
         ~PseudoConsole();
+
+        static tl::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
         tl::expected<void, std::error_code> close();
         tl::expected<void, std::error_code> resize(short rows, short columns);
@@ -124,7 +128,10 @@ namespace zero::os::process {
     public:
         PseudoConsole(int master, int slave);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
+        PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
         ~PseudoConsole();
+
+        static tl::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
         tl::expected<void, std::error_code> resize(short rows, short columns);
         int &fd();
@@ -136,8 +143,6 @@ namespace zero::os::process {
         friend class Command;
     };
 #endif
-
-    tl::expected<PseudoConsole, std::error_code> makePseudoConsole(short rows, short columns);
 
     struct Output {
 #ifdef _WIN32

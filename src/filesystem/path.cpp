@@ -12,7 +12,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplic
     WCHAR buffer[MAX_PATH] = {};
 
     if (const DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH); length == 0 || length == MAX_PATH)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return buffer;
 #elif __linux__
@@ -28,7 +28,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplic
     std::uint32_t size = sizeof(buffer);
 
     if (_NSGetExecutablePath(buffer, &size) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     std::error_code ec;
     auto path = std::filesystem::canonical(buffer, ec);
