@@ -4,7 +4,6 @@
 #include <zero/defer.h>
 #include <winternl.h>
 #include <psapi.h>
-#include <ranges>
 
 #ifdef _WIN64
 constexpr auto CURRENT_DIRECTORY_OFFSET = 0x38;
