@@ -241,7 +241,8 @@ namespace zero::async::promise {
             return std::move(*mCore->result);
         }
 
-        tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
+        [[nodiscard]] tl::expected<void, std::error_code>
+        wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt) const {
             assert(mCore);
 
             if (mCore->hasResult())
