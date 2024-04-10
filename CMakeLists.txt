@@ -3,7 +3,7 @@ project(zero)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-set(ZERO_VERSION 1.0.2)
+set(ZERO_VERSION 1.0.3)
 
 include(CTest)
 include(GNUInstallDirs)
