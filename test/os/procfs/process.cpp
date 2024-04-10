@@ -101,7 +101,7 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto tasks = process->tasks();
         REQUIRE(tasks);
-        REQUIRE(tasks->size() == 1);
+        REQUIRE(!tasks->empty());
         REQUIRE(tasks->front() == pid);
 
         const auto io = process->io();

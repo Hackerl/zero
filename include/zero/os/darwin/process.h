@@ -41,6 +41,7 @@ namespace zero::os::darwin::process {
     public:
         explicit Process(pid_t pid);
         Process(Process &&rhs) noexcept;
+        Process &operator=(Process &&rhs) noexcept;
 
     private:
         [[nodiscard]] tl::expected<std::vector<char>, std::error_code> arguments() const;

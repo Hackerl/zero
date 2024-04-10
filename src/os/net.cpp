@@ -53,7 +53,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
     ULONG length = 0;
 
     if (GetAdaptersAddresses(AF_UNSPEC, 0, nullptr, nullptr, &length) != ERROR_BUFFER_OVERFLOW)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     if (length == 0)
         return {};
@@ -67,7 +67,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
         reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.get()),
         &length
     ) != ERROR_SUCCESS)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     std::vector<Interface> interfaces;
 
@@ -139,7 +139,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
     ifaddrs *addr;
 
     if (getifaddrs(&addr) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     DEFER(freeifaddrs(addr));
     std::map<std::string, Interface> interfaceTable;
@@ -203,7 +203,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
     const int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 
     if (fd < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected<std::error_code>(errno, std::system_category());
 
     DEFER(close(fd));
 
@@ -214,7 +214,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
         strncpy(request.ifr_name, name.c_str(), IFNAMSIZ);
 
         if (ioctl(fd, SIOCGIFHWADDR, &request) < 0)
-            return tl::unexpected(std::error_code(errno, std::system_category()));
+            return tl::unexpected<std::error_code>(errno, std::system_category());
 
         memcpy(mac.data(), request.ifr_hwaddr.sa_data, 6);
     }

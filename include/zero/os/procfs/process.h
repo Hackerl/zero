@@ -166,6 +166,7 @@ namespace zero::os::procfs::process {
     public:
         Process(int fd, pid_t pid);
         Process(Process &&rhs) noexcept;
+        Process &operator=(Process &&rhs) noexcept;
         ~Process();
 
     private:

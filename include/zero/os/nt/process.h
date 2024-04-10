@@ -48,6 +48,7 @@ namespace zero::os::nt::process {
     public:
         Process(HANDLE handle, DWORD pid);
         Process(Process &&rhs) noexcept;
+        Process &operator=(Process &&rhs) noexcept;
         ~Process();
 
         static tl::expected<Process, std::error_code> from(HANDLE handle);

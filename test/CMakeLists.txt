@@ -25,10 +25,6 @@ add_executable(
         $<$<PLATFORM_ID:Linux,Android>:os/procfs/process.cpp>
 )
 
-if (WIN32)
-    target_compile_definitions(zero_test PRIVATE NOMINMAX)
-endif ()
-
 target_link_libraries(zero_test PRIVATE zero Catch2::Catch2WithMain)
 
 include(Catch)

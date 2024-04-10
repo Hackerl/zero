@@ -349,7 +349,7 @@ TEST_CASE("process", "[os]") {
         }
 
         SECTION("pseudo console") {
-            auto pc = zero::os::process::makePseudoConsole(80, 32);
+            auto pc = zero::os::process::PseudoConsole::make(80, 32);
             REQUIRE(pc);
 
             constexpr std::string_view data = "echo hello\rexit\r";
@@ -382,7 +382,7 @@ TEST_CASE("process", "[os]") {
                         if (error == ERROR_BROKEN_PIPE)
                             break;
 
-                        result = tl::unexpected(std::error_code(static_cast<int>(error), std::system_category()));
+                        result = tl::unexpected<std::error_code>(static_cast<int>(error), std::system_category());
                         break;
                     }
 
