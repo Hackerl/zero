@@ -940,17 +940,17 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                 const auto &result = task.future().result();
                 REQUIRE(!result);
 
-                auto it = result.error().begin();
+                const auto &errors = result.error();
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[0]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::invalid_argument);
                 }
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[1]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::invalid_argument);
@@ -974,17 +974,17 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                 const auto &result = task.future().result();
                 REQUIRE(!result);
 
-                auto it = result.error().begin();
+                const auto &errors = result.error();
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[0]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::owner_dead);
                 }
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[0]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::owner_dead);
@@ -1029,20 +1029,20 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         const auto &result = task.future().result();
                         REQUIRE(!result);
 
-                        auto it = result.error().begin();
+                        const auto &errors = result.error();
 
                         try {
-                            std::rethrow_exception(*it++);
-                        }
-                        catch (const std::system_error &error) {
-                            REQUIRE(error.code() == std::errc::operation_canceled);
-                        }
-
-                        try {
-                            std::rethrow_exception(*it++);
+                            std::rethrow_exception(errors[0]);
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
+                        }
+
+                        try {
+                            std::rethrow_exception(errors[1]);
+                        }
+                        catch (const std::system_error &error) {
+                            REQUIRE(error.code() == std::errc::operation_canceled);
                         }
                     }
 
@@ -1106,17 +1106,17 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         const auto &result = task.future().result();
                         REQUIRE(!result);
 
-                        auto it = result.error().begin();
+                        const auto &errors = result.error();
 
                         try {
-                            std::rethrow_exception(*it++);
+                            std::rethrow_exception(errors[0]);
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
                         }
 
                         try {
-                            std::rethrow_exception(*it++);
+                            std::rethrow_exception(errors[1]);
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
@@ -1225,24 +1225,24 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                 const auto &result = task.future().result();
                 REQUIRE(!result);
 
-                auto it = result.error().begin();
+                const auto &errors = result.error();
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[0]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::invalid_argument);
                 }
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[1]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::invalid_argument);
                 }
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[2]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::invalid_argument);
@@ -1269,24 +1269,24 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                 const auto &result = task.future().result();
                 REQUIRE(!result);
 
-                auto it = result.error().begin();
+                const auto &errors = result.error();
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[0]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::owner_dead);
                 }
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[1]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::owner_dead);
                 }
 
                 try {
-                    std::rethrow_exception(*it++);
+                    std::rethrow_exception(errors[2]);
                 }
                 catch (const std::system_error &error) {
                     REQUIRE(error.code() == std::errc::owner_dead);
@@ -1342,27 +1342,27 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         const auto &result = task.future().result();
                         REQUIRE(!result);
 
-                        auto it = result.error().begin();
+                        const auto &errors = result.error();
 
                         try {
-                            std::rethrow_exception(*it++);
-                        }
-                        catch (const std::system_error &error) {
-                            REQUIRE(error.code() == std::errc::operation_canceled);
-                        }
-
-                        try {
-                            std::rethrow_exception(*it++);
-                        }
-                        catch (const std::system_error &error) {
-                            REQUIRE(error.code() == std::errc::operation_canceled);
-                        }
-
-                        try {
-                            std::rethrow_exception(*it++);
+                            std::rethrow_exception(errors[0]);
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
+                        }
+
+                        try {
+                            std::rethrow_exception(errors[1]);
+                        }
+                        catch (const std::system_error &error) {
+                            REQUIRE(error.code() == std::errc::operation_canceled);
+                        }
+
+                        try {
+                            std::rethrow_exception(errors[2]);
+                        }
+                        catch (const std::system_error &error) {
+                            REQUIRE(error.code() == std::errc::operation_canceled);
                         }
                     }
 
@@ -1444,24 +1444,24 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         const auto &result = task.future().result();
                         REQUIRE(!result);
 
-                        auto it = result.error().begin();
+                        const auto &errors = result.error();
 
                         try {
-                            std::rethrow_exception(*it++);
+                            std::rethrow_exception(errors[0]);
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
                         }
 
                         try {
-                            std::rethrow_exception(*it++);
+                            std::rethrow_exception(errors[1]);
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
                         }
 
                         try {
-                            std::rethrow_exception(*it++);
+                            std::rethrow_exception(errors[2]);
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);

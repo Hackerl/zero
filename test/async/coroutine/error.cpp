@@ -812,9 +812,9 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 const auto &result = task.future().result();
                 REQUIRE(!result);
 
-                auto it = result.error().begin();
-                REQUIRE(*it++ == std::errc::invalid_argument);
-                REQUIRE(*it++ == std::errc::invalid_argument);
+                const auto &errors = result.error();
+                REQUIRE(errors[0] == std::errc::invalid_argument);
+                REQUIRE(errors[1] == std::errc::invalid_argument);
             }
 
             SECTION("throw") {
@@ -834,9 +834,9 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 const auto &result = task.future().result();
                 REQUIRE(!result);
 
-                auto it = result.error().begin();
-                REQUIRE(*it++ == std::errc::owner_dead);
-                REQUIRE(*it++ == std::errc::owner_dead);
+                const auto &errors = result.error();
+                REQUIRE(errors[0] == std::errc::owner_dead);
+                REQUIRE(errors[1]== std::errc::owner_dead);
             }
 
             SECTION("cancel") {
@@ -871,9 +871,9 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         const auto &result = task.future().result();
                         REQUIRE(!result);
 
-                        auto it = result.error().begin();
-                        REQUIRE(*it++ == std::errc::operation_canceled);
-                        REQUIRE(*it++ == std::errc::invalid_argument);
+                        const auto &errors = result.error();
+                        REQUIRE(errors[0] == std::errc::invalid_argument);
+                        REQUIRE(errors[1] == std::errc::operation_canceled);
                     }
 
                     SECTION("not supported") {
@@ -930,9 +930,9 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         const auto &result = task.future().result();
                         REQUIRE(!result);
 
-                        auto it = result.error().begin();
-                        REQUIRE(*it++ == std::errc::operation_canceled);
-                        REQUIRE(*it++ == std::errc::operation_canceled);
+                        const auto &errors = result.error();
+                        REQUIRE(errors[0] == std::errc::operation_canceled);
+                        REQUIRE(errors[1] == std::errc::operation_canceled);
                     }
 
                     SECTION("not supported") {
@@ -1037,10 +1037,10 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 const auto &result = task.future().result();
                 REQUIRE(!result);
 
-                auto it = result.error().begin();
-                REQUIRE(*it++ == std::errc::invalid_argument);
-                REQUIRE(*it++ == std::errc::invalid_argument);
-                REQUIRE(*it++ == std::errc::invalid_argument);
+                const auto &errors = result.error();
+                REQUIRE(errors[0] == std::errc::invalid_argument);
+                REQUIRE(errors[1] == std::errc::invalid_argument);
+                REQUIRE(errors[2] == std::errc::invalid_argument);
             }
 
             SECTION("throw") {
@@ -1063,10 +1063,10 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 const auto &result = task.future().result();
                 REQUIRE(!result);
 
-                auto it = result.error().begin();
-                REQUIRE(*it++ == std::errc::owner_dead);
-                REQUIRE(*it++ == std::errc::owner_dead);
-                REQUIRE(*it++ == std::errc::owner_dead);
+                const auto &errors = result.error();
+                REQUIRE(errors[0] == std::errc::owner_dead);
+                REQUIRE(errors[1] == std::errc::owner_dead);
+                REQUIRE(errors[2] == std::errc::owner_dead);
             }
 
             SECTION("cancel") {
@@ -1109,10 +1109,10 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         const auto &result = task.future().result();
                         REQUIRE(!result);
 
-                        auto it = result.error().begin();
-                        REQUIRE(*it++ == std::errc::operation_canceled);
-                        REQUIRE(*it++ == std::errc::operation_canceled);
-                        REQUIRE(*it++ == std::errc::invalid_argument);
+                        const auto &errors = result.error();
+                        REQUIRE(errors[0] == std::errc::invalid_argument);
+                        REQUIRE(errors[1] == std::errc::operation_canceled);
+                        REQUIRE(errors[2] == std::errc::operation_canceled);
                     }
 
                     SECTION("not supported") {
@@ -1184,10 +1184,10 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         const auto &result = task.future().result();
                         REQUIRE(!result);
 
-                        auto it = result.error().begin();
-                        REQUIRE(*it++ == std::errc::operation_canceled);
-                        REQUIRE(*it++ == std::errc::operation_canceled);
-                        REQUIRE(*it++ == std::errc::operation_canceled);
+                        const auto &errors = result.error();
+                        REQUIRE(errors[0] == std::errc::operation_canceled);
+                        REQUIRE(errors[1] == std::errc::operation_canceled);
+                        REQUIRE(errors[2] == std::errc::operation_canceled);
                     }
 
                     SECTION("not supported") {

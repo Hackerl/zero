@@ -19,30 +19,20 @@ namespace zero::async::coroutine {
         }
 
         void await_suspend(const std::coroutine_handle<> handle) {
-            if constexpr (std::is_void_v<T>) {
-                std::move(future).then(
-                    [=, this] {
-                        result.emplace();
-                        handle.resume();
-                    },
-                    [=, this](E error) {
-                        result.emplace(tl::unexpected(std::move(error)));
-                        handle.resume();
-                    }
-                );
-            }
-            else {
-                std::move(future).then(
-                    [=, this](T value) {
-                        result.emplace(std::move(value));
-                        handle.resume();
-                    },
-                    [=, this](E error) {
-                        result.emplace(tl::unexpected(std::move(error)));
-                        handle.resume();
-                    }
-                );
-            }
+            future.setCallback([=, this](tl::expected<T, E> res) {
+                if (!res) {
+                    result.emplace(tl::unexpected(std::move(res).error()));
+                    handle.resume();
+                    return;
+                }
+
+                if constexpr (std::is_void_v<T>)
+                    result.emplace();
+                else
+                    result.emplace(*std::move(res));
+
+                handle.resume();
+            });
         }
 
         template<typename = void>
@@ -78,30 +68,20 @@ namespace zero::async::coroutine {
         }
 
         void await_suspend(const std::coroutine_handle<> handle) {
-            if constexpr (std::is_void_v<T>) {
-                std::move(future).then(
-                    [=, this] {
-                        result.emplace();
-                        handle.resume();
-                    },
-                    [=, this](E error) {
-                        result.emplace(tl::unexpected(std::move(error)));
-                        handle.resume();
-                    }
-                );
-            }
-            else {
-                std::move(future).then(
-                    [=, this](T value) {
-                        result.emplace(std::move(value));
-                        handle.resume();
-                    },
-                    [=, this](E error) {
-                        result.emplace(tl::unexpected(std::move(error)));
-                        handle.resume();
-                    }
-                );
-            }
+            future.setCallback([=, this](tl::expected<T, E> res) {
+                if (!res) {
+                    result.emplace(tl::unexpected(std::move(res).error()));
+                    handle.resume();
+                    return;
+                }
+
+                if constexpr (std::is_void_v<T>)
+                    result.emplace();
+                else
+                    result.emplace(*std::move(res));
+
+                handle.resume();
+            });
         }
 
         tl::expected<T, E> await_resume() {
@@ -668,7 +648,7 @@ namespace zero::async::coroutine {
         using F = detail::first_element_t<Ts...>;
         using T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>;
 
-        return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, std::list<E>> {
+        return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, std::array<E, sizeof...(Ts)>> {
             auto result = co_await Cancellable{
                 promise::any(taskPtrs->future()...),
                 [=]() -> tl::expected<void, std::error_code> {
