@@ -645,8 +645,7 @@ namespace zero::async::coroutine {
 
     template<typename... Ts, typename E>
     auto any(Task<Ts, E>... tasks) {
-        using F = detail::first_element_t<Ts...>;
-        using T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>;
+        using T = std::conditional_t<detail::all_same_v<Ts...>, detail::first_element_t<Ts...>, std::any>;
 
         return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, std::array<E, sizeof...(Ts)>> {
             auto result = co_await Cancellable{
@@ -683,8 +682,7 @@ namespace zero::async::coroutine {
 
     template<typename... Ts, typename E>
     auto race(Task<Ts, E>... tasks) {
-        using F = detail::first_element_t<Ts...>;
-        using T = std::conditional_t<detail::is_elements_same_v<F, Ts...>, F, std::any>;
+        using T = std::conditional_t<detail::all_same_v<Ts...>, detail::first_element_t<Ts...>, std::any>;
 
         return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, E> {
             auto result = co_await Cancellable{

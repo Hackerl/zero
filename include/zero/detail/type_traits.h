@@ -76,11 +76,17 @@ namespace zero::detail {
     template<typename T>
     using callable_arguments_t = typename callable_traits<T>::arguments;
 
+    template<std::size_t I, typename... Ts>
+    using element_t = std::tuple_element_t<I, std::tuple<Ts...>>;
+
     template<typename... Ts>
-    using first_element_t = std::tuple_element_t<0, std::tuple<Ts...>>;
+    using first_element_t = element_t<0, Ts...>;
 
     template<typename T, typename... Ts>
-    inline constexpr bool is_elements_same_v = (std::is_same_v<T, Ts> && ...);
+    inline constexpr bool all_same_as_v = (std::is_same_v<T, Ts> && ...);
+
+    template<typename... Ts>
+    inline constexpr bool all_same_v = all_same_as_v<first_element_t<Ts...>, Ts...>;
 }
 
 #endif //ZERO_TYPE_TRAITS_H
