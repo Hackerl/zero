@@ -2,6 +2,7 @@
 #define ZERO_COROUTINE_H
 
 #include "promise.h"
+#include <list>
 #include <optional>
 #include <coroutine>
 #include <system_error>
@@ -577,33 +578,38 @@ namespace zero::async::coroutine {
         using T = promise::futures_result_t<Ts...>;
 
         return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, E> {
+            std::list<promise::Future<void>> futures;
+
             auto result = co_await Cancellable{
-                promise::all(taskPtrs->future()...),
-                [=] {
-                    std::optional<tl::expected<void, std::error_code>> res;
+                promise::all(std::back_inserter(futures), taskPtrs->future()...),
+                [=]() -> tl::expected<void, std::error_code> {
+                    std::error_code ec;
 
                     ([&] {
-                        if (res && *res)
+                        if (taskPtrs->done() || taskPtrs->cancelled())
                             return;
 
-                        if (taskPtrs->done())
-                            return;
-
-                        res = taskPtrs->cancel();
+                        if (const auto res = taskPtrs->cancel(); !res)
+                            ec = res.error();
                     }(), ...);
 
-                    return *res;
+                    if (ec)
+                        return tl::unexpected(ec);
+
+                    return {};
                 }
             };
 
             if (!result) {
                 ([&] {
-                    if (taskPtrs->done())
+                    if (taskPtrs->done() || taskPtrs->cancelled())
                         return;
 
                     taskPtrs->cancel();
                 }(), ...);
             }
+
+            co_await allSettled(std::move(futures));
 
             if constexpr (std::is_same_v<E, std::exception_ptr>) {
                 if (!result)
@@ -627,7 +633,7 @@ namespace zero::async::coroutine {
                     std::error_code ec;
 
                     ([&] {
-                        if (taskPtrs->done())
+                        if (taskPtrs->done() || taskPtrs->cancelled())
                             return;
 
                         if (const auto result = taskPtrs->cancel(); !result)
@@ -648,13 +654,15 @@ namespace zero::async::coroutine {
         using T = std::conditional_t<detail::all_same_v<Ts...>, detail::first_element_t<Ts...>, std::any>;
 
         return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, std::array<E, sizeof...(Ts)>> {
+            std::list<promise::Future<void>> futures;
+
             auto result = co_await Cancellable{
-                promise::any(taskPtrs->future()...),
+                promise::any(std::back_inserter(futures), taskPtrs->future()...),
                 [=]() -> tl::expected<void, std::error_code> {
                     std::error_code ec;
 
                     ([&] {
-                        if (taskPtrs->done())
+                        if (taskPtrs->done() || taskPtrs->cancelled())
                             return;
 
                         if (const auto res = taskPtrs->cancel(); !res)
@@ -668,14 +676,16 @@ namespace zero::async::coroutine {
                 }
             };
 
-            if (result)
+            if (result) {
                 ([&] {
-                    if (taskPtrs->done())
+                    if (taskPtrs->done() || taskPtrs->cancelled())
                         return;
 
                     taskPtrs->cancel();
                 }(), ...);
+            }
 
+            co_await allSettled(std::move(futures));
             co_return std::move(result);
         }(std::make_shared<Task<Ts, E>>(std::move(tasks))...);
     }
@@ -685,31 +695,36 @@ namespace zero::async::coroutine {
         using T = std::conditional_t<detail::all_same_v<Ts...>, detail::first_element_t<Ts...>, std::any>;
 
         return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, E> {
+            std::list<promise::Future<void>> futures;
+
             auto result = co_await Cancellable{
-                promise::race(taskPtrs->future()...),
-                [=] {
-                    std::optional<tl::expected<void, std::error_code>> res;
+                promise::race(std::back_inserter(futures), taskPtrs->future()...),
+                [=]() -> tl::expected<void, std::error_code> {
+                    std::error_code ec;
 
                     ([&] {
-                        if (res && *res)
+                        if (taskPtrs->done() || taskPtrs->cancelled())
                             return;
 
-                        if (taskPtrs->done())
-                            return;
-
-                        res = taskPtrs->cancel();
+                        if (const auto res = taskPtrs->cancel(); !res)
+                            ec = res.error();
                     }(), ...);
 
-                    return *res;
+                    if (ec)
+                        return tl::unexpected(ec);
+
+                    return {};
                 }
             };
 
             ([&] {
-                if (taskPtrs->done())
+                if (taskPtrs->done() || taskPtrs->cancelled())
                     return;
 
                 taskPtrs->cancel();
             }(), ...);
+
+            co_await allSettled(std::move(futures));
 
             if constexpr (std::is_same_v<E, std::exception_ptr>) {
                 if (!result)

@@ -300,7 +300,7 @@ TEST_CASE("promise", "[async]") {
     SECTION("promise::all") {
         SECTION("ranges") {
             SECTION("output") {
-                std::vector<zero::async::promise::Future<void>> futures;
+                std::list<zero::async::promise::Future<void>> futures;
 
                 SECTION("void") {
                     SECTION("resolve") {
@@ -440,7 +440,7 @@ TEST_CASE("promise", "[async]") {
 
         SECTION("variadic") {
             SECTION("output") {
-                std::vector<zero::async::promise::Future<void>> futures;
+                std::list<zero::async::promise::Future<void>> futures;
 
                 SECTION("same types") {
                     SECTION("void") {
@@ -749,7 +749,7 @@ TEST_CASE("promise", "[async]") {
     SECTION("promise::any") {
         SECTION("ranges") {
             SECTION("output") {
-                std::vector<zero::async::promise::Future<void>> futures;
+                std::list<zero::async::promise::Future<void>> futures;
 
                 SECTION("void") {
                     SECTION("resolve") {
@@ -927,7 +927,7 @@ TEST_CASE("promise", "[async]") {
 
         SECTION("variadic") {
             SECTION("output") {
-                std::vector<zero::async::promise::Future<void>> futures;
+                std::list<zero::async::promise::Future<void>> futures;
 
                 SECTION("same types") {
                     SECTION("void") {
@@ -1285,7 +1285,7 @@ TEST_CASE("promise", "[async]") {
     SECTION("promise::race") {
         SECTION("ranges") {
             SECTION("output") {
-                std::vector<zero::async::promise::Future<void>> futures;
+                std::list<zero::async::promise::Future<void>> futures;
 
                 SECTION("void") {
                     if (const auto result = race(
@@ -1371,7 +1371,7 @@ TEST_CASE("promise", "[async]") {
 
         SECTION("variadic") {
             SECTION("output") {
-                std::vector<zero::async::promise::Future<void>> futures;
+                std::list<zero::async::promise::Future<void>> futures;
 
                 SECTION("same types") {
                     SECTION("void") {

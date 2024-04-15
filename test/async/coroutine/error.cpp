@@ -100,8 +100,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
             }
         }));
         REQUIRE(!task.done());
-
-        task.cancel();
+        REQUIRE(task.cancel());
         REQUIRE(task.done());
 
         const auto &result = task.future().result();
@@ -211,8 +210,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         REQUIRE(!task.done());
 
                         promise1->resolve(10);
-                        const auto &res = task.cancel();
-                        REQUIRE(res);
+                        REQUIRE(task.cancel());
                         REQUIRE(task.done());
 
                         const auto &result = task.future().result();
@@ -266,9 +264,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                             }))
                         );
                         REQUIRE(!task.done());
-
-                        const auto &res = task.cancel();
-                        REQUIRE(res);
+                        REQUIRE(task.cancel());
                         REQUIRE(task.done());
 
                         const auto &result = task.future().result();
@@ -403,8 +399,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
 
                         promise1->resolve(10);
                         promise2->resolve(100);
-                        const auto &res = task.cancel();
-                        REQUIRE(res);
+                        REQUIRE(task.cancel());
                         REQUIRE(task.done());
 
                         const auto &result = task.future().result();
@@ -469,9 +464,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                             }))
                         );
                         REQUIRE(!task.done());
-
-                        const auto &res = task.cancel();
-                        REQUIRE(res);
+                        REQUIRE(task.cancel());
                         REQUIRE(task.done());
 
                         const auto &result = task.future().result();
@@ -624,8 +617,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
 
                     promise1->resolve(10);
                     promise2->resolve(100);
-                    const auto &res = task.cancel();
-                    REQUIRE(res);
+                    REQUIRE(task.cancel());
                     REQUIRE(task.done());
 
                     const auto &result = task.future().result();
@@ -699,9 +691,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         }))
                     );
                     REQUIRE(!task.done());
-
-                    const auto &res = task.cancel();
-                    REQUIRE(res);
+                    REQUIRE(task.cancel());
                     REQUIRE(task.done());
 
                     const auto &result = task.future().result();
@@ -864,8 +854,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         REQUIRE(!task.done());
 
                         promise1->resolve(9);
-                        const auto &res = task.cancel();
-                        REQUIRE(res);
+                        REQUIRE(task.cancel());
                         REQUIRE(task.done());
 
                         const auto &result = task.future().result();
@@ -922,9 +911,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                             }))
                         );
                         REQUIRE(!task.done());
-
-                        const auto &res = task.cancel();
-                        REQUIRE(res);
+                        REQUIRE(task.cancel());
                         REQUIRE(task.done());
 
                         const auto &result = task.future().result();
@@ -1102,8 +1089,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         REQUIRE(!task.done());
 
                         promise1->resolve(9);
-                        const auto &res = task.cancel();
-                        REQUIRE(res);
+                        REQUIRE(task.cancel());
                         REQUIRE(task.done());
 
                         const auto &result = task.future().result();
@@ -1176,9 +1162,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                             }))
                         );
                         REQUIRE(!task.done());
-
-                        const auto &res = task.cancel();
-                        REQUIRE(res);
+                        REQUIRE(task.cancel());
                         REQUIRE(task.done());
 
                         const auto &result = task.future().result();
@@ -1307,8 +1291,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     );
                     REQUIRE(!task.done());
 
-                    const auto &res = task.cancel();
-                    REQUIRE(res);
+                    REQUIRE(task.cancel());
                     REQUIRE(task.done());
 
                     const auto &result = task.future().result();
@@ -1471,9 +1454,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         }))
                     );
                     REQUIRE(!task.done());
-
-                    const auto &res = task.cancel();
-                    REQUIRE(res);
+                    REQUIRE(task.cancel());
                     REQUIRE(task.done());
 
                     const auto &result = task.future().result();
@@ -1573,8 +1554,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         return value * 10;
                     });
                     REQUIRE(!task.done());
-
-                    task.cancel();
+                    REQUIRE(task.cancel());
                     REQUIRE(task.done());
 
                     const auto &result = task.future().result();
@@ -1663,8 +1643,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         co_return value * 10;
                     });
                     REQUIRE(!task.done());
-
-                    task.cancel();
+                    REQUIRE(task.cancel());
                     REQUIRE(task.done());
 
                     const auto &result = task.future().result();
@@ -1755,8 +1734,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         return value * 10;
                     });
                     REQUIRE(!task.done());
-
-                    task.cancel();
+                    REQUIRE(task.cancel());
                     REQUIRE(task.done());
 
                     const auto &result = task.future().result();
@@ -1844,8 +1822,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                         co_return value * 10;
                     });
                     REQUIRE(!task.done());
-
-                    task.cancel();
+                    REQUIRE(task.cancel());
                     REQUIRE(task.done());
 
                     const auto &result = task.future().result();
