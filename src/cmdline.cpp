@@ -1,9 +1,10 @@
 #include <zero/cmdline.h>
+#include <zero/filesystem/path.h>
 #include <cstring>
 #include <ranges>
 #include <fmt/std.h>
 
-zero::Cmdline::Cmdline() : mOptionals({{"help", '?', "print help message", false}}) {
+zero::Cmdline::Cmdline() : mOptionals{{"help", '?', "print help message", false}} {
 }
 
 zero::Optional &zero::Cmdline::find(char shortName) {

@@ -4,6 +4,7 @@
 #include "promise.h"
 #include <list>
 #include <optional>
+#include <algorithm>
 #include <coroutine>
 #include <system_error>
 #include <source_location>
@@ -345,10 +346,7 @@ namespace zero::async::coroutine {
         }
 
         [[nodiscard]] Awaitable<bool, std::exception_ptr> await_transform(Cancelled) const {
-            if (!mFrame->cancelled)
-                return {promise::resolve<bool, std::exception_ptr>(false)};
-
-            return {promise::resolve<bool, std::exception_ptr>(true)};
+            return {promise::resolve<bool, std::exception_ptr>(mFrame->cancelled)};
         }
 
         template<typename Result, typename Error>
@@ -573,6 +571,80 @@ namespace zero::async::coroutine {
         std::shared_ptr<promise::Promise<void, std::exception_ptr>> mPromise;
     };
 
+    template<std::input_iterator I, std::sentinel_for<I> S>
+        requires detail::is_specialization<std::iter_value_t<I>, Task>
+    auto all(I first, S last) {
+        using T = typename std::iter_value_t<I>::value_type;
+        using E = typename std::iter_value_t<I>::error_type;
+
+        std::list<std::shared_ptr<Task<T, E>>> ptrs;
+        std::transform(
+            std::move(first),
+            std::move(last),
+            std::back_inserter(ptrs),
+            [](Task<T, E> &&task) {
+                return std::make_shared<Task<T, E>>(std::move(task));
+            }
+        );
+
+        return [](auto taskPtrs) -> Task<std::conditional_t<std::is_void_v<T>, void, std::vector<T>>, E> {
+            std::list<promise::Future<void>> futures;
+
+            auto result = co_await Cancellable{
+                promise::all(
+                    taskPtrs | std::views::transform([](auto &taskPtr) {
+                        return taskPtr->future();
+                    }),
+                    std::back_inserter(futures)
+                ),
+                [=]() -> tl::expected<void, std::error_code> {
+                    std::error_code ec;
+
+                    for (const auto &taskPtr: taskPtrs) {
+                        if (taskPtr->done() || taskPtr->cancelled())
+                            continue;
+
+                        if (const auto res = taskPtr->cancel(); !res)
+                            ec = res.error();
+                    }
+
+                    if (ec)
+                        return tl::unexpected(ec);
+
+                    return {};
+                }
+            };
+
+            if (!result) {
+                for (const auto &taskPtr: taskPtrs) {
+                    if (taskPtr->done() || taskPtr->cancelled())
+                        continue;
+
+                    taskPtr->cancel();
+                }
+            }
+
+            co_await allSettled(std::move(futures));
+
+            if constexpr (std::is_same_v<E, std::exception_ptr>) {
+                if (!result)
+                    std::rethrow_exception(result.error());
+
+                if constexpr (!std::is_void_v<T>)
+                    co_return *std::move(result);
+            }
+            else {
+                co_return std::move(result);
+            }
+        }(std::move(ptrs));
+    }
+
+    template<std::ranges::range R>
+        requires detail::is_specialization<std::ranges::range_value_t<R>, Task>
+    auto all(R tasks) {
+        return all(std::make_move_iterator(tasks.begin()), std::make_move_iterator(tasks.end()));
+    }
+
     template<typename... Ts, typename E>
     auto all(Task<Ts, E>... tasks) {
         using T = promise::futures_result_t<Ts...>;
@@ -624,9 +696,60 @@ namespace zero::async::coroutine {
         }(std::make_shared<Task<Ts, E>>(std::move(tasks))...);
     }
 
-    template<typename... Ts, typename... E>
-    auto allSettled(Task<Ts, E>... tasks) {
-        return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<std::tuple<tl::expected<Ts, E>...>> {
+    template<std::input_iterator I, std::sentinel_for<I> S>
+        requires detail::is_specialization<std::iter_value_t<I>, Task>
+    auto allSettled(I first, S last) {
+        using T = typename std::iter_value_t<I>::value_type;
+        using E = typename std::iter_value_t<I>::error_type;
+
+        std::list<std::shared_ptr<Task<T, E>>> ptrs;
+        std::transform(
+            std::move(first),
+            std::move(last),
+            std::back_inserter(ptrs),
+            [](Task<T, E> &&task) {
+                return std::make_shared<Task<T, E>>(std::move(task));
+            }
+        );
+
+        return [](auto taskPtrs) -> Task<std::vector<tl::expected<T, E>>> {
+            co_return *co_await Cancellable{
+                promise::allSettled(taskPtrs | std::views::transform([](auto &taskPtr) { return taskPtr->future(); })),
+                [=]() -> tl::expected<void, std::error_code> {
+                    std::error_code ec;
+
+                    for (const auto &taskPtr: taskPtrs) {
+                        if (taskPtr->done() || taskPtr->cancelled())
+                            continue;
+
+                        if (const auto result = taskPtr->cancel(); !result)
+                            ec = result.error();
+                    }
+
+                    if (ec)
+                        return tl::unexpected(ec);
+
+                    return {};
+                }
+            };
+        }(std::move(ptrs));
+    }
+
+    template<std::ranges::range R>
+        requires detail::is_specialization<std::ranges::range_value_t<R>, Task>
+    auto allSettled(R tasks) {
+        return allSettled(std::make_move_iterator(tasks.begin()), std::make_move_iterator(tasks.end()));
+    }
+
+    template<typename... Ts, typename... Es>
+    auto allSettled(Task<Ts, Es>... tasks) {
+        using T = std::conditional_t<
+            detail::all_same_v<Ts...>,
+            std::array<tl::expected<detail::first_element_t<Ts...>, detail::first_element_t<Es...>>, sizeof...(Ts)>,
+            std::tuple<tl::expected<Ts, Es>...>
+        >;
+
+        return [](std::shared_ptr<Task<Ts, Es>>... taskPtrs) -> Task<T> {
             co_return *co_await Cancellable{
                 promise::allSettled(taskPtrs->future()...),
                 [=]() -> tl::expected<void, std::error_code> {
@@ -646,7 +769,71 @@ namespace zero::async::coroutine {
                     return {};
                 }
             };
-        }(std::make_shared<Task<Ts, E>>(std::move(tasks))...);
+        }(std::make_shared<Task<Ts, Es>>(std::move(tasks))...);
+    }
+
+    template<std::input_iterator I, std::sentinel_for<I> S>
+        requires detail::is_specialization<std::iter_value_t<I>, Task>
+    auto any(I first, S last) {
+        using T = typename std::iter_value_t<I>::value_type;
+        using E = typename std::iter_value_t<I>::error_type;
+
+        std::list<std::shared_ptr<Task<T, E>>> ptrs;
+        std::transform(
+            std::move(first),
+            std::move(last),
+            std::back_inserter(ptrs),
+            [](Task<T, E> &&task) {
+                return std::make_shared<Task<T, E>>(std::move(task));
+            }
+        );
+
+        return [](auto taskPtrs) -> Task<T, std::vector<E>> {
+            std::list<promise::Future<void>> futures;
+
+            auto result = co_await Cancellable{
+                promise::any(
+                    taskPtrs | std::views::transform([](auto &taskPtr) {
+                        return taskPtr->future();
+                    }),
+                    std::back_inserter(futures)
+                ),
+                [=]() -> tl::expected<void, std::error_code> {
+                    std::error_code ec;
+
+                    for (const auto &taskPtr: taskPtrs) {
+                        if (taskPtr->done() || taskPtr->cancelled())
+                            continue;
+
+                        if (const auto res = taskPtr->cancel(); !res)
+                            ec = res.error();
+                    }
+
+                    if (ec)
+                        return tl::unexpected(ec);
+
+                    return {};
+                }
+            };
+
+            if (result) {
+                for (const auto &taskPtr: taskPtrs) {
+                    if (taskPtr->done() || taskPtr->cancelled())
+                        continue;
+
+                    taskPtr->cancel();
+                }
+            }
+
+            co_await allSettled(std::move(futures));
+            co_return std::move(result);
+        }(std::move(ptrs));
+    }
+
+    template<std::ranges::range R>
+        requires detail::is_specialization<std::ranges::range_value_t<R>, Task>
+    auto any(R tasks) {
+        return any(std::make_move_iterator(tasks.begin()), std::make_move_iterator(tasks.end()));
     }
 
     template<typename... Ts, typename E>
@@ -688,6 +875,78 @@ namespace zero::async::coroutine {
             co_await allSettled(std::move(futures));
             co_return std::move(result);
         }(std::make_shared<Task<Ts, E>>(std::move(tasks))...);
+    }
+
+    template<std::input_iterator I, std::sentinel_for<I> S>
+        requires detail::is_specialization<std::iter_value_t<I>, Task>
+    auto race(I first, S last) {
+        using T = typename std::iter_value_t<I>::value_type;
+        using E = typename std::iter_value_t<I>::error_type;
+
+        std::list<std::shared_ptr<Task<T, E>>> ptrs;
+        std::transform(
+            std::move(first),
+            std::move(last),
+            std::back_inserter(ptrs),
+            [](Task<T, E> &&task) {
+                return std::make_shared<Task<T, E>>(std::move(task));
+            }
+        );
+
+        return [](auto taskPtrs) -> Task<T, E> {
+            std::list<promise::Future<void>> futures;
+
+            auto result = co_await Cancellable{
+                promise::race(
+                    taskPtrs | std::views::transform([](auto &taskPtr) {
+                        return taskPtr->future();
+                    }),
+                    std::back_inserter(futures)
+                ),
+                [=]() -> tl::expected<void, std::error_code> {
+                    std::error_code ec;
+
+                    for (const auto &taskPtr: taskPtrs) {
+                        if (taskPtr->done() || taskPtr->cancelled())
+                            continue;
+
+                        if (const auto res = taskPtr->cancel(); !res)
+                            ec = res.error();
+                    }
+
+                    if (ec)
+                        return tl::unexpected(ec);
+
+                    return {};
+                }
+            };
+
+            for (const auto &taskPtr: taskPtrs) {
+                if (taskPtr->done() || taskPtr->cancelled())
+                    continue;
+
+                taskPtr->cancel();
+            }
+
+            co_await allSettled(std::move(futures));
+
+            if constexpr (std::is_same_v<E, std::exception_ptr>) {
+                if (!result)
+                    std::rethrow_exception(result.error());
+
+                if constexpr (!std::is_void_v<T>)
+                    co_return *std::move(result);
+            }
+            else {
+                co_return std::move(result);
+            }
+        }(std::move(ptrs));
+    }
+
+    template<std::ranges::range R>
+        requires detail::is_specialization<std::ranges::range_value_t<R>, Task>
+    auto race(R tasks) {
+        return race(std::make_move_iterator(tasks.begin()), std::make_move_iterator(tasks.end()));
     }
 
     template<typename... Ts, typename E>

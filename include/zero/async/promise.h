@@ -138,10 +138,14 @@ namespace zero::async::promise {
             assert(mCore->status != ONLY_RESULT);
             assert(mCore->status != DONE);
 
-            if constexpr (std::is_void_v<T>)
+            if constexpr (std::is_void_v<T>) {
+                static_assert(sizeof...(Ts) == 0);
                 mCore->result.emplace();
-            else
+            }
+            else {
+                static_assert(sizeof...(Ts) > 0);
                 mCore->result.emplace(tl::in_place, std::forward<Ts>(args)...);
+            }
 
             State state = mCore->status;
 
@@ -159,6 +163,7 @@ namespace zero::async::promise {
 
         template<typename... Ts>
         void reject(Ts &&... args) {
+            static_assert(sizeof...(Ts) > 0);
             assert(mCore);
             assert(!mCore->result);
             assert(mCore->status != ONLY_RESULT);
@@ -597,7 +602,7 @@ namespace zero::async::promise {
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
             while (first != last) {
-                first++->setCallback([=](tl::expected<T, E> result) {
+                (*first++).setCallback([=](tl::expected<T, E> result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -628,7 +633,7 @@ namespace zero::async::promise {
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
             for (std::size_t i = 0; first != last; ++first, ++i) {
-                first->setCallback([=](tl::expected<T, E> result) {
+                (*first).setCallback([=](tl::expected<T, E> result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -674,7 +679,7 @@ namespace zero::async::promise {
                 auto promise = std::make_shared<Promise<void>>();
                 *output++ = promise->getFuture();
 
-                first++->setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
+                (*first++).setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
                     DEFER(promise->resolve());
 
                     if (!result) {
@@ -710,7 +715,7 @@ namespace zero::async::promise {
                 auto promise = std::make_shared<Promise<void>>();
                 *output = promise->getFuture();
 
-                first->setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
+                (*first).setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
                     DEFER(promise->resolve());
 
                     if (!result) {
@@ -926,7 +931,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
         for (std::size_t i = 0; first != last; ++first, ++i) {
-            first->setCallback([=](tl::expected<T, E> result) {
+            (*first).setCallback([=](tl::expected<T, E> result) {
                 if (!result) {
                     ctx->results[i] = tl::unexpected(std::move(result).error());
 
@@ -1035,7 +1040,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
         for (std::size_t i = 0; first != last; ++first, ++i) {
-            first->setCallback([=](tl::expected<T, E> result) {
+            (*first).setCallback([=](tl::expected<T, E> result) {
                 if (!result) {
                     ctx->errors[i] = std::move(result).error();
 
@@ -1083,7 +1088,7 @@ namespace zero::async::promise {
             auto promise = std::make_shared<Promise<void>>();
             *output = promise->getFuture();
 
-            first->setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
+            (*first).setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
                 DEFER(promise->resolve());
 
                 if (!result) {
@@ -1252,7 +1257,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>();
 
         while (first != last) {
-            first++->setCallback([=](tl::expected<T, E> result) {
+            (*first++).setCallback([=](tl::expected<T, E> result) {
                 if (!result) {
                     if (!ctx->flag.test_and_set())
                         ctx->promise.reject(std::move(result).error());
@@ -1292,7 +1297,7 @@ namespace zero::async::promise {
             auto promise = std::make_shared<Promise<void>>();
             *output = promise->getFuture();
 
-            first++->setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
+            (*first++).setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
                 DEFER(promise->resolve());
 
                 if (!result) {
