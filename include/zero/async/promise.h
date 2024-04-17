@@ -3,15 +3,16 @@
 
 #include <memory>
 #include <any>
-#include <list>
 #include <mutex>
 #include <cassert>
 #include <optional>
 #include <stdexcept>
 #include <fmt/core.h>
 #include <tl/expected.hpp>
+#include <zero/defer.h>
 #include <zero/atomic/event.h>
 #include <zero/detail/type_traits.h>
+#include <range/v3/algorithm.hpp>
 
 namespace zero::async::promise {
     template<typename T, typename E = std::nullptr_t>
@@ -76,19 +77,11 @@ namespace zero::async::promise {
         atomic::Event event{true};
         std::atomic<State> status{PENDING};
         std::optional<tl::expected<T, E>> result;
-        std::function<void()> onSuccess;
-        std::function<void()> onFailure;
+        std::function<void(tl::expected<T, E>)> callback;
 
         void trigger() {
             assert(status == DONE);
-            assert(result);
-            assert(onSuccess);
-            assert(onFailure);
-
-            if (result->has_value())
-                std::exchange(onSuccess, nullptr)();
-            else
-                std::exchange(onFailure, nullptr)();
+            std::exchange(callback, nullptr)(std::move(*result));
         }
 
         bool hasResult() const {
@@ -145,10 +138,14 @@ namespace zero::async::promise {
             assert(mCore->status != ONLY_RESULT);
             assert(mCore->status != DONE);
 
-            if constexpr (std::is_void_v<T>)
+            if constexpr (std::is_void_v<T>) {
+                static_assert(sizeof...(Ts) == 0);
                 mCore->result.emplace();
-            else
+            }
+            else {
+                static_assert(sizeof...(Ts) > 0);
                 mCore->result.emplace(tl::in_place, std::forward<Ts>(args)...);
+            }
 
             State state = mCore->status;
 
@@ -166,6 +163,7 @@ namespace zero::async::promise {
 
         template<typename... Ts>
         void reject(Ts &&... args) {
+            static_assert(sizeof...(Ts) > 0);
             assert(mCore);
             assert(!mCore->result);
             assert(mCore->status != ONLY_RESULT);
@@ -223,7 +221,7 @@ namespace zero::async::promise {
             return *mCore->result;
         }
 
-        const tl::expected<T, E> &result() const & {
+        [[nodiscard]] const tl::expected<T, E> &result() const & {
             assert(mCore);
             assert(mCore->result);
             return *mCore->result;
@@ -235,7 +233,7 @@ namespace zero::async::promise {
             return std::move(*mCore->result);
         }
 
-        const tl::expected<T, E> &&result() const && {
+        [[nodiscard]] const tl::expected<T, E> &&result() const && {
             assert(mCore);
             assert(mCore->result);
             return std::move(*mCore->result);
@@ -259,6 +257,25 @@ namespace zero::async::promise {
         }
 
         template<typename F>
+        void setCallback(F &&f) {
+            assert(mCore);
+            assert(!mCore->callback);
+            assert(mCore->status != ONLY_CALLBACK);
+            assert(mCore->status != DONE);
+            mCore->callback = std::forward<F>(f);
+
+            State state = mCore->status;
+
+            if (state == PENDING && mCore->status.compare_exchange_strong(state, ONLY_CALLBACK))
+                return;
+
+            if (state != ONLY_RESULT || !mCore->status.compare_exchange_strong(state, DONE))
+                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
+
+            mCore->trigger();
+        }
+
+        template<typename F>
         auto then(F &&f) && {
             using Next = detail::callable_result_t<F>;
             using NextValue = std::conditional_t<
@@ -267,23 +284,28 @@ namespace zero::async::promise {
                 detail::is_specialization<Next, tl::unexpected>, future_next_error_t<Next>, E>;
 
             assert(mCore);
-            assert(!mCore->onSuccess);
-            assert(!mCore->onFailure);
+            assert(!mCore->callback);
             assert(mCore->status != ONLY_CALLBACK);
             assert(mCore->status != DONE);
 
             const auto promise = std::make_shared<Promise<NextValue, NextError>>();
 
-            mCore->onSuccess = [=, f = std::forward<F>(f), &result = mCore->result] {
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> result) {
+                if (!result) {
+                    static_assert(std::is_same_v<NextError, E>);
+                    promise->reject(std::move(result).error());
+                    return;
+                }
+
                 if constexpr (std::is_void_v<Next>) {
                     if constexpr (std::is_void_v<T>) {
                         f();
                     }
                     else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
-                        std::apply(f, *std::move(*result));
+                        std::apply(f, *std::move(result));
                     }
                     else {
-                        f(*std::move(*result));
+                        f(*std::move(result));
                     }
 
                     promise->resolve();
@@ -294,10 +316,10 @@ namespace zero::async::promise {
                             return f();
                         }
                         else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
-                            return std::apply(f, *std::move(*result));
+                            return std::apply(f, *std::move(result));
                         }
                         else {
-                            return f(*std::move(*result));
+                            return f(*std::move(result));
                         }
                     }();
 
@@ -349,22 +371,8 @@ namespace zero::async::promise {
                         }
                     }
                 }
-            };
+            });
 
-            mCore->onFailure = [=, &result = mCore->result] {
-                static_assert(std::is_same_v<NextError, E>);
-                promise->reject(std::move(*result).error());
-            };
-
-            State state = mCore->status;
-
-            if (state == PENDING && mCore->status.compare_exchange_strong(state, ONLY_CALLBACK))
-                return promise->getFuture();
-
-            if (state != ONLY_RESULT || !mCore->status.compare_exchange_strong(state, DONE))
-                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
-
-            mCore->trigger();
             return promise->getFuture();
         }
 
@@ -377,31 +385,32 @@ namespace zero::async::promise {
                 detail::is_specialization<Next, tl::unexpected>, future_next_error_t<Next>, E>;
 
             assert(mCore);
-            assert(!mCore->onSuccess);
-            assert(!mCore->onFailure);
+            assert(!mCore->callback);
             assert(mCore->status != ONLY_CALLBACK);
             assert(mCore->status != DONE);
 
             const auto promise = std::make_shared<Promise<NextValue, NextError>>();
 
-            mCore->onSuccess = [=, &result = mCore->result] {
-                static_assert(std::is_same_v<NextValue, T>);
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> result) {
+                if (result) {
+                    static_assert(std::is_same_v<NextValue, T>);
 
-                if constexpr (std::is_void_v<T>) {
-                    promise->resolve();
-                }
-                else {
-                    promise->resolve(*std::move(*result));
-                }
-            };
-
-            mCore->onFailure = [=, f = std::forward<F>(f), &result = mCore->result] {
-                if constexpr (std::is_void_v<Next>) {
-                    if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
-                        std::apply(f, std::move(*result).error());
+                    if constexpr (std::is_void_v<T>) {
+                        promise->resolve();
                     }
                     else {
-                        f(std::move(*result).error());
+                        promise->resolve(*std::move(result));
+                    }
+
+                    return;
+                }
+
+                if constexpr (std::is_void_v<Next>) {
+                    if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                        std::apply(f, std::move(result).error());
+                    }
+                    else {
+                        f(std::move(result).error());
                     }
 
                     promise->resolve();
@@ -409,10 +418,10 @@ namespace zero::async::promise {
                 else {
                     Next next = [&] {
                         if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
-                            return std::apply(f, std::move(*result).error());
+                            return std::apply(f, std::move(result).error());
                         }
                         else {
-                            return f(std::move(*result).error());
+                            return f(std::move(result).error());
                         }
                     }();
 
@@ -464,55 +473,37 @@ namespace zero::async::promise {
                         }
                     }
                 }
-            };
+            });
 
-            State state = mCore->status;
-
-            if (state == PENDING && mCore->status.compare_exchange_strong(state, ONLY_CALLBACK))
-                return promise->getFuture();
-
-            if (state != ONLY_RESULT || !mCore->status.compare_exchange_strong(state, DONE))
-                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
-
-            mCore->trigger();
             return promise->getFuture();
         }
 
         template<typename F>
         auto finally(F &&f) && {
             assert(mCore);
-            assert(!mCore->onSuccess);
-            assert(!mCore->onFailure);
+            assert(!mCore->callback);
             assert(mCore->status != ONLY_CALLBACK);
             assert(mCore->status != DONE);
 
             const auto promise = std::make_shared<Promise<T, E>>();
 
-            mCore->onSuccess = [=, &result = mCore->result] {
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> result) {
+                if (!result) {
+                    f();
+                    promise->reject(std::move(result).error());
+                    return;
+                }
+
                 f();
 
                 if constexpr (std::is_void_v<T>) {
                     promise->resolve();
                 }
                 else {
-                    promise->resolve(*std::move(*result));
+                    promise->resolve(*std::move(result));
                 }
-            };
+            });
 
-            mCore->onFailure = [=, &result = mCore->result] {
-                f();
-                promise->reject(std::move(*result).error());
-            };
-
-            State state = mCore->status;
-
-            if (state == PENDING && mCore->status.compare_exchange_strong(state, ONLY_CALLBACK))
-                return promise->getFuture();
-
-            if (state != ONLY_RESULT || !mCore->status.compare_exchange_strong(state, DONE))
-                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
-
-            mCore->trigger();
             return promise->getFuture();
         }
 
@@ -527,7 +518,7 @@ namespace zero::async::promise {
 
     template<typename... Ts>
     using futures_result_t = std::conditional_t<
-        detail::is_elements_same_v<detail::first_element_t<Ts...>, Ts...>,
+        detail::all_same_v<Ts...>,
         std::conditional_t<
             std::is_void_v<detail::first_element_t<Ts...>>,
             void,
@@ -576,7 +567,7 @@ namespace zero::async::promise {
         return promise.getFuture();
     }
 
-    template<typename T, typename E, std::enable_if_t<std::is_void_v<T>, void *>  = nullptr>
+    template<typename T, typename E, std::enable_if_t<std::is_void_v<T>>* = nullptr>
     Future<T, E> resolve() {
         Promise<T, E> promise;
         promise.resolve();
@@ -587,7 +578,7 @@ namespace zero::async::promise {
         typename T,
         typename E,
         typename... Ts,
-        std::enable_if_t<!std::is_void_v<T> && (sizeof...(Ts) > 0), void *>  = nullptr
+        std::enable_if_t<!std::is_void_v<T> && (sizeof...(Ts) > 0)>* = nullptr
     >
     Future<T, E> resolve(Ts &&... args) {
         Promise<T, E> promise;
@@ -595,233 +586,918 @@ namespace zero::async::promise {
         return promise.getFuture();
     }
 
-    template<std::size_t... Is, typename... Ts, typename E>
-    Future<futures_result_t<Ts...>, E> all(std::index_sequence<Is...>, Future<Ts, E>... futures) {
-        const auto promise = std::make_shared<Promise<futures_result_t<Ts...>, E>>();
-        const auto remain = std::make_shared<std::atomic<std::size_t>>(sizeof...(Ts));
-        const auto flag = std::make_shared<std::atomic_flag>();
+    template<
+        typename I,
+        typename S,
+        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
+        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr
+    >
+    auto all(I first, S last) {
+        using T = typename ranges::iter_value_t<I>::value_type;
+        using E = typename ranges::iter_value_t<I>::error_type;
 
-        if constexpr (std::is_void_v<futures_result_t<Ts...>>) {
-            ([&] {
-                std::move(futures).then(
-                    [=] {
-                        if (--*remain > 0)
-                            return;
+        if constexpr (std::is_void_v<T>) {
+            struct Context {
+                explicit Context(const std::size_t n) : count(n) {
+                }
 
-                        promise->resolve();
-                    },
-                    [=](E error) {
-                        if (!flag->test_and_set())
-                            promise->reject(std::move(error));
+                Promise<void, E> promise;
+                std::atomic<std::size_t> count;
+                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            };
+
+            const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
+
+            while (first != last) {
+                (*first++).setCallback([=](tl::expected<T, E> result) {
+                    if (!result) {
+                        if (!ctx->flag.test_and_set())
+                            ctx->promise.reject(std::move(result).error());
+
+                        return;
                     }
-                );
-            }(), ...);
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve();
+                });
+            }
+
+            return ctx->promise.getFuture();
         }
         else {
-            const auto values = std::make_shared<futures_result_t<Ts...>>();
+            struct Context {
+                explicit Context(const std::size_t n) : count(n), values(n) {
+                }
+
+                Promise<std::vector<T>, E> promise;
+                std::atomic<std::size_t> count;
+                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+                std::vector<T> values;
+            };
+
+            const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
+
+            for (std::size_t i = 0; first != last; ++first, ++i) {
+                (*first).setCallback([=](tl::expected<T, E> result) {
+                    if (!result) {
+                        if (!ctx->flag.test_and_set())
+                            ctx->promise.reject(std::move(result).error());
+
+                        return;
+                    }
+
+                    ctx->values[i] = *std::move(result);
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve(std::move(ctx->values));
+                });
+            }
+
+            return ctx->promise.getFuture();
+        }
+    }
+
+    template<
+        typename I,
+        typename S,
+        typename O,
+        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
+        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto all(I first, S last, O output) {
+        using T = typename ranges::iter_value_t<I>::value_type;
+        using E = typename ranges::iter_value_t<I>::error_type;
+
+        if constexpr (std::is_void_v<T>) {
+            struct Context {
+                explicit Context(const std::size_t n) : count(n) {
+                }
+
+                Promise<void, E> promise;
+                std::atomic<std::size_t> count;
+                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            };
+
+            const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
+
+            while (first != last) {
+                auto promise = std::make_shared<Promise<void>>();
+                *output++ = promise->getFuture();
+
+                (*first++).setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
+                    DEFER(promise->resolve());
+
+                    if (!result) {
+                        if (!ctx->flag.test_and_set())
+                            ctx->promise.reject(std::move(result).error());
+
+                        return;
+                    }
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve();
+                });
+            }
+
+            return ctx->promise.getFuture();
+        }
+        else {
+            struct Context {
+                explicit Context(const std::size_t n) : count(n), values(n) {
+                }
+
+                Promise<std::vector<T>, E> promise;
+                std::atomic<std::size_t> count;
+                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+                std::vector<T> values;
+            };
+
+            const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
+
+            for (std::size_t i = 0; first != last; ++first, ++output, ++i) {
+                auto promise = std::make_shared<Promise<void>>();
+                *output = promise->getFuture();
+
+                (*first).setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
+                    DEFER(promise->resolve());
+
+                    if (!result) {
+                        if (!ctx->flag.test_and_set())
+                            ctx->promise.reject(std::move(result).error());
+
+                        return;
+                    }
+
+                    ctx->values[i] = *std::move(result);
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve(std::move(ctx->values));
+                });
+            }
+
+            return ctx->promise.getFuture();
+        }
+    }
+
+    template<
+        typename R,
+        std::enable_if_t<ranges::range<R>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr
+    >
+    auto all(R futures) {
+        return all(futures.begin(), futures.end());
+    }
+
+    template<
+        typename R,
+        typename O,
+        std::enable_if_t<ranges::range<R>>* = nullptr,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto all(R futures, O output) {
+        return all(futures.begin(), futures.end(), std::move(output));
+    }
+
+    template<std::size_t... Is, typename... Ts, typename E>
+    auto all(std::index_sequence<Is...>, Future<Ts, E>... futures) {
+        if constexpr (std::is_void_v<futures_result_t<Ts...>>) {
+            struct Context {
+                Promise<void, E> promise;
+                std::atomic<std::size_t> count{sizeof...(Ts)};
+                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            };
+
+            const auto ctx = std::make_shared<Context>();
 
             ([&] {
-                if constexpr (std::is_void_v<Ts>) {
-                    std::move(futures).then(
-                        [=] {
-                            if (--*remain > 0)
-                                return;
+                futures.setCallback([=](tl::expected<Ts, E> result) {
+                    if (!result) {
+                        if (!ctx->flag.test_and_set())
+                            ctx->promise.reject(std::move(result).error());
 
-                            promise->resolve(std::move(*values));
-                        },
-                        [=](E error) {
-                            if (!flag->test_and_set())
-                                promise->reject(std::move(error));
-                        }
-                    );
-                }
-                else {
-                    std::move(futures).then(
-                        [=](Ts value) {
-                            std::get<Is>(*values) = std::move(value);
+                        return;
+                    }
 
-                            if (--*remain > 0)
-                                return;
+                    if (--ctx->count > 0)
+                        return;
 
-                            promise->resolve(std::move(*values));
-                        },
-                        [=](E error) {
-                            if (!flag->test_and_set())
-                                promise->reject(std::move(error));
-                        }
-                    );
-                }
+                    ctx->promise.resolve();
+                });
             }(), ...);
-        }
 
-        return promise->getFuture();
+            return ctx->promise.getFuture();
+        }
+        else {
+            struct Context {
+                Promise<futures_result_t<Ts...>, E> promise;
+                std::atomic<std::size_t> count{sizeof...(Ts)};
+                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+                futures_result_t<Ts...> values;
+            };
+
+            const auto ctx = std::make_shared<Context>();
+
+            ([&] {
+                futures.setCallback([=](tl::expected<Ts, E> result) {
+                    if (!result) {
+                        if (!ctx->flag.test_and_set())
+                            ctx->promise.reject(std::move(result).error());
+
+                        return;
+                    }
+
+                    if constexpr (std::is_void_v<Ts>) {
+                        if (--ctx->count > 0)
+                            return;
+
+                        ctx->promise.resolve(std::move(ctx->values));
+                    }
+                    else {
+                        std::get<Is>(ctx->values) = *std::move(result);
+
+                        if (--ctx->count > 0)
+                            return;
+
+                        ctx->promise.resolve(std::move(ctx->values));
+                    }
+                });
+            }(), ...);
+
+            return ctx->promise.getFuture();
+        }
+    }
+
+    template<
+        typename O,
+        std::size_t... Is,
+        typename... Ts,
+        typename E,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto all(O output, std::index_sequence<Is...>, Future<Ts, E>... futures) {
+        if constexpr (std::is_void_v<futures_result_t<Ts...>>) {
+            struct Context {
+                Promise<void, E> promise;
+                std::atomic<std::size_t> count{sizeof...(Ts)};
+                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            };
+
+            const auto ctx = std::make_shared<Context>();
+
+            ([&] {
+                auto promise = std::make_shared<Promise<void>>();
+                *output = promise->getFuture();
+
+                futures.setCallback([=, promise = std::move(promise)](tl::expected<Ts, E> result) {
+                    DEFER(promise->resolve());
+
+                    if (!result) {
+                        if (!ctx->flag.test_and_set())
+                            ctx->promise.reject(std::move(result).error());
+
+                        return;
+                    }
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve();
+                });
+            }(), ...);
+
+            return ctx->promise.getFuture();
+        }
+        else {
+            struct Context {
+                Promise<futures_result_t<Ts...>, E> promise;
+                std::atomic<std::size_t> count{sizeof...(Ts)};
+                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+                futures_result_t<Ts...> values;
+            };
+
+            const auto ctx = std::make_shared<Context>();
+
+            ([&] {
+                auto promise = std::make_shared<Promise<void>>();
+                *output = promise->getFuture();
+
+                futures.setCallback([=, promise = std::move(promise)](tl::expected<Ts, E> result) {
+                    DEFER(promise->resolve());
+
+                    if (!result) {
+                        if (!ctx->flag.test_and_set())
+                            ctx->promise.reject(std::move(result).error());
+
+                        return;
+                    }
+
+                    if constexpr (std::is_void_v<Ts>) {
+                        if (--ctx->count > 0)
+                            return;
+
+                        ctx->promise.resolve(std::move(ctx->values));
+                    }
+                    else {
+                        std::get<Is>(ctx->values) = *std::move(result);
+
+                        if (--ctx->count > 0)
+                            return;
+
+                        ctx->promise.resolve(std::move(ctx->values));
+                    }
+                });
+            }(), ...);
+
+            return ctx->promise.getFuture();
+        }
     }
 
     template<typename... Ts, typename E>
-    Future<futures_result_t<Ts...>, E> all(Future<Ts, E>... futures) {
+    auto all(Future<Ts, E>... futures) {
         return all(futures_result_index_sequence_for<Ts...>{}, std::move(futures)...);
     }
 
-    template<std::size_t... Is, typename... Ts, typename... E>
-    Future<std::tuple<tl::expected<Ts, E>...>>
-    allSettled(std::index_sequence<Is...>, Future<Ts, E>... futures) {
-        using T = std::tuple<tl::expected<Ts, E>...>;
-
-        const auto promise = std::make_shared<Promise<T>>();
-        const auto results = std::make_shared<T>();
-        const auto remain = std::make_shared<std::atomic<std::size_t>>(sizeof...(Ts));
-
-        ([&] {
-            if constexpr (std::is_void_v<Ts>) {
-                std::move(futures).then(
-                    [=] {
-                        if (--*remain > 0)
-                            return;
-
-                        promise->resolve(std::move(*results));
-                    },
-                    [=](E error) {
-                        std::get<Is>(*results) = tl::unexpected(std::move(error));
-
-                        if (--*remain > 0)
-                            return;
-
-                        promise->resolve(std::move(*results));
-                    }
-                );
-            }
-            else {
-                std::move(futures).then(
-                    [=](Ts value) {
-                        std::get<Is>(*results) = std::move(value);
-
-                        if (--*remain > 0)
-                            return;
-
-                        promise->resolve(std::move(*results));
-                    },
-                    [=](E error) {
-                        std::get<Is>(*results) = tl::unexpected(std::move(error));
-
-                        if (--*remain > 0)
-                            return;
-
-                        promise->resolve(std::move(*results));
-                    }
-                );
-            }
-        }(), ...);
-
-        return promise->getFuture();
+    template<
+        typename O,
+        typename... Ts,
+        typename E,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto all(O output, Future<Ts, E>... futures) {
+        return all(std::move(output), futures_result_index_sequence_for<Ts...>{}, std::move(futures)...);
     }
 
-    template<typename... Ts, typename... E>
-    Future<std::tuple<tl::expected<Ts, E>...>> allSettled(Future<Ts, E>... promises) {
+    template<
+        typename I,
+        typename S,
+        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
+        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr
+    >
+    auto allSettled(I first, S last) {
+        using T = typename ranges::iter_value_t<I>::value_type;
+        using E = typename ranges::iter_value_t<I>::error_type;
+
+        struct Context {
+            explicit Context(const std::size_t n) : count(n), results(n) {
+            }
+
+            Promise<std::vector<tl::expected<T, E>>> promise;
+            std::atomic<std::size_t> count;
+            std::vector<tl::expected<T, E>> results;
+        };
+
+        const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
+
+        for (std::size_t i = 0; first != last; ++first, ++i) {
+            (*first).setCallback([=](tl::expected<T, E> result) {
+                if (!result) {
+                    ctx->results[i] = tl::unexpected(std::move(result).error());
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve(std::move(ctx->results));
+                    return;
+                }
+
+                if constexpr (std::is_void_v<T>) {
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve(std::move(ctx->results));
+                }
+                else {
+                    ctx->results[i] = *std::move(result);
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve(std::move(ctx->results));
+                }
+            });
+        }
+
+        return ctx->promise.getFuture();
+    }
+
+    template<
+        typename R,
+        std::enable_if_t<ranges::range<R>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr
+    >
+    auto allSettled(R futures) {
+        return allSettled(futures.begin(), futures.end());
+    }
+
+    template<std::size_t... Is, typename... Ts, typename... Es>
+    auto allSettled(std::index_sequence<Is...>, Future<Ts, Es>... futures) {
+        using T = std::conditional_t<
+            detail::all_same_v<Ts...>,
+            std::array<tl::expected<detail::first_element_t<Ts...>, detail::first_element_t<Es...>>, sizeof...(Ts)>,
+            std::tuple<tl::expected<Ts, Es>...>
+        >;
+
+        struct Context {
+            Promise<T> promise;
+            std::atomic<std::size_t> count{sizeof...(Ts)};
+            T results{};
+        };
+
+        const auto ctx = std::make_shared<Context>();
+
+        ([&] {
+            futures.setCallback([=](tl::expected<Ts, Es> result) {
+                if (!result) {
+                    std::get<Is>(ctx->results) = tl::unexpected(std::move(result).error());
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve(std::move(ctx->results));
+                    return;
+                }
+
+                if constexpr (std::is_void_v<Ts>) {
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve(std::move(ctx->results));
+                }
+                else {
+                    std::get<Is>(ctx->results) = *std::move(result);
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.resolve(std::move(ctx->results));
+                }
+            });
+        }(), ...);
+
+        return ctx->promise.getFuture();
+    }
+
+    template<typename... Ts, typename... Es>
+    auto allSettled(Future<Ts, Es>... promises) {
         return allSettled(std::index_sequence_for<Ts...>{}, std::move(promises)...);
+    }
+
+    template<
+        typename I,
+        typename S,
+        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
+        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr
+    >
+    auto any(I first, S last) {
+        using T = typename ranges::iter_value_t<I>::value_type;
+        using E = typename ranges::iter_value_t<I>::error_type;
+
+        struct Context {
+            explicit Context(const std::size_t n) : count(n), errors(n) {
+            }
+
+            Promise<T, std::vector<E>> promise;
+            std::atomic<std::size_t> count;
+            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            std::vector<E> errors;
+        };
+
+        const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
+
+        for (std::size_t i = 0; first != last; ++first, ++i) {
+            (*first).setCallback([=](tl::expected<T, E> result) {
+                if (!result) {
+                    ctx->errors[i] = std::move(result).error();
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.reject(std::move(ctx->errors));
+                    return;
+                }
+
+                if (!ctx->flag.test_and_set()) {
+                    if constexpr (std::is_void_v<T>)
+                        ctx->promise.resolve();
+                    else
+                        ctx->promise.resolve(*std::move(result));
+                }
+            });
+        }
+
+        return ctx->promise.getFuture();
+    }
+
+    template<
+        typename I,
+        typename S,
+        typename O,
+        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
+        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto any(I first, S last, O output) {
+        using T = typename ranges::iter_value_t<I>::value_type;
+        using E = typename ranges::iter_value_t<I>::error_type;
+
+        struct Context {
+            explicit Context(const std::size_t n) : count(n), errors(n) {
+            }
+
+            Promise<T, std::vector<E>> promise;
+            std::atomic<std::size_t> count;
+            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            std::vector<E> errors;
+        };
+
+        const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
+
+        for (std::size_t i = 0; first != last; ++first, ++output, ++i) {
+            auto promise = std::make_shared<Promise<void>>();
+            *output = promise->getFuture();
+
+            (*first).setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
+                DEFER(promise->resolve());
+
+                if (!result) {
+                    ctx->errors[i] = std::move(result).error();
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.reject(std::move(ctx->errors));
+                    return;
+                }
+
+                if (!ctx->flag.test_and_set()) {
+                    if constexpr (std::is_void_v<T>)
+                        ctx->promise.resolve();
+                    else
+                        ctx->promise.resolve(*std::move(result));
+                }
+            });
+        }
+
+        return ctx->promise.getFuture();
+    }
+
+    template<
+        typename R,
+        std::enable_if_t<ranges::range<R>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr
+    >
+    auto any(R futures) {
+        return any(futures.begin(), futures.end());
+    }
+
+    template<
+        typename R,
+        typename O,
+        std::enable_if_t<ranges::range<R>>* = nullptr,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto any(R futures, O output) {
+        return any(futures.begin(), futures.end(), std::move(output));
+    }
+
+    template<std::size_t... Is, typename... Ts, typename E>
+    auto any(std::index_sequence<Is...>, Future<Ts, E>... futures) {
+        constexpr bool Same = detail::all_same_v<Ts...>;
+
+        struct Context {
+            Promise<
+                std::conditional_t<
+                    Same,
+                    detail::first_element_t<Ts...>,
+                    std::any
+                >,
+                std::array<E, sizeof...(Ts)>
+            >
+            promise;
+            std::atomic<std::size_t> count{sizeof...(Ts)};
+            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            std::array<E, sizeof...(Ts)> errors;
+        };
+
+        const auto ctx = std::make_shared<Context>();
+
+        ([&] {
+            futures.setCallback([=](tl::expected<Ts, E> result) {
+                if (!result) {
+                    std::get<Is>(ctx->errors) = std::move(result).error();
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.reject(std::move(ctx->errors));
+                    return;
+                }
+
+                if (!ctx->flag.test_and_set()) {
+                    if constexpr (std::is_void_v<Ts>) {
+                        if constexpr (Same)
+                            ctx->promise.resolve();
+                        else
+                            ctx->promise.resolve(std::any{});
+                    }
+                    else {
+                        ctx->promise.resolve(*std::move(result));
+                    }
+                }
+            });
+        }(), ...);
+
+        return ctx->promise.getFuture();
+    }
+
+    template<
+        typename O,
+        std::size_t ... Is,
+        typename... Ts,
+        typename E,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto any(O output, std::index_sequence<Is...>, Future<Ts, E>... futures) {
+        constexpr bool Same = detail::all_same_v<Ts...>;
+
+        struct Context {
+            Promise<
+                std::conditional_t<
+                    Same,
+                    detail::first_element_t<Ts...>,
+                    std::any>,
+                std::array<E, sizeof...(Ts)>
+            > promise;
+            std::atomic<std::size_t> count{sizeof...(Ts)};
+            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            std::array<E, sizeof...(Ts)> errors;
+        };
+
+        const auto ctx = std::make_shared<Context>();
+
+        ([&] {
+            auto promise = std::make_shared<Promise<void>>();
+            *output = promise->getFuture();
+
+            futures.setCallback([=, promise = std::move(promise)](tl::expected<Ts, E> result) {
+                DEFER(promise->resolve());
+
+                if (!result) {
+                    std::get<Is>(ctx->errors) = std::move(result).error();
+
+                    if (--ctx->count > 0)
+                        return;
+
+                    ctx->promise.reject(std::move(ctx->errors));
+                    return;
+                }
+
+                if (!ctx->flag.test_and_set()) {
+                    if constexpr (std::is_void_v<Ts>) {
+                        if constexpr (Same)
+                            ctx->promise.resolve();
+                        else
+                            ctx->promise.resolve(std::any{});
+                    }
+                    else {
+                        ctx->promise.resolve(*std::move(result));
+                    }
+                }
+            });
+        }(), ...);
+
+        return ctx->promise.getFuture();
     }
 
     template<typename... Ts, typename E>
     auto any(Future<Ts, E>... futures) {
-        using T = detail::first_element_t<Ts...>;
-        constexpr bool Same = detail::is_elements_same_v<T, Ts...>;
+        return any(std::index_sequence_for<Ts...>{}, std::move(futures)...);
+    }
 
-        const auto promise = std::make_shared<Promise<std::conditional_t<Same, T, std::any>, std::list<E>>>();
-        const auto errors = std::make_shared<std::list<E>>();
-        const auto flag = std::make_shared<std::atomic_flag>();
-        const auto mutex = std::make_shared<std::mutex>();
+    template<
+        typename O,
+        typename... Ts,
+        typename E,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto any(O output, Future<Ts, E>... futures) {
+        return any(std::move(output), std::index_sequence_for<Ts...>{}, std::move(futures)...);
+    }
 
-        ([&] {
-            if constexpr (std::is_void_v<Ts>) {
-                std::move(futures).then(
-                    [=] {
-                        if constexpr (Same) {
-                            if (!flag->test_and_set())
-                                promise->resolve();
-                        }
-                        else {
-                            if (!flag->test_and_set())
-                                promise->resolve(std::any{});
-                        }
-                    },
-                    [=](E error) {
-                        {
-                            std::lock_guard guard(*mutex);
-                            errors->push_front(std::move(error));
+    template<
+        typename I,
+        typename S,
+        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
+        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr
+    >
+    auto race(I first, S last) {
+        using T = typename ranges::iter_value_t<I>::value_type;
+        using E = typename ranges::iter_value_t<I>::error_type;
 
-                            if (errors->size() != sizeof...(Ts))
-                                return;
-                        }
+        struct Context {
+            Promise<T, E> promise;
+            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+        };
 
-                        promise->reject(std::move(*errors));
-                    }
-                );
-            }
-            else {
-                std::move(futures).then(
-                    [=](Ts value) {
-                        if (!flag->test_and_set())
-                            promise->resolve(std::move(value));
-                    },
-                    [=](E error) {
-                        {
-                            std::lock_guard guard(*mutex);
-                            errors->push_front(std::move(error));
+        const auto ctx = std::make_shared<Context>();
 
-                            if (errors->size() != sizeof...(Ts))
-                                return;
-                        }
+        while (first != last) {
+            (*first++).setCallback([=](tl::expected<T, E> result) {
+                if (!result) {
+                    if (!ctx->flag.test_and_set())
+                        ctx->promise.reject(std::move(result).error());
 
-                        promise->reject(std::move(*errors));
-                    }
-                );
-            }
-        }(), ...);
+                    return;
+                }
 
-        return promise->getFuture();
+                if (!ctx->flag.test_and_set()) {
+                    if constexpr (std::is_void_v<T>)
+                        ctx->promise.resolve();
+                    else
+                        ctx->promise.resolve(*std::move(result));
+                }
+            });
+        }
+
+        return ctx->promise.getFuture();
+    }
+
+    template<
+        typename I,
+        typename S,
+        typename O,
+        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
+        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto race(I first, S last, O output) {
+        using T = typename ranges::iter_value_t<I>::value_type;
+        using E = typename ranges::iter_value_t<I>::error_type;
+
+        struct Context {
+            Promise<T, E> promise;
+            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+        };
+
+        const auto ctx = std::make_shared<Context>();
+
+        while (first != last) {
+            auto promise = std::make_shared<Promise<void>>();
+            *output = promise->getFuture();
+
+            (*first++).setCallback([=, promise = std::move(promise)](tl::expected<T, E> result) {
+                DEFER(promise->resolve());
+
+                if (!result) {
+                    if (!ctx->flag.test_and_set())
+                        ctx->promise.reject(std::move(result).error());
+
+                    return;
+                }
+
+                if (!ctx->flag.test_and_set()) {
+                    if constexpr (std::is_void_v<T>)
+                        ctx->promise.resolve();
+                    else
+                        ctx->promise.resolve(*std::move(result));
+                }
+            });
+        }
+
+        return ctx->promise.getFuture();
+    }
+
+    template<
+        typename R,
+        std::enable_if_t<ranges::range<R>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr
+    >
+    auto race(R futures) {
+        return race(futures.begin(), futures.end());
+    }
+
+    template<
+        typename R,
+        typename O,
+        std::enable_if_t<ranges::range<R>>* = nullptr,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto race(R futures, O output) {
+        return race(futures.begin(), futures.end(), std::move(output));
     }
 
     template<typename... Ts, typename E>
     auto race(Future<Ts, E>... futures) {
-        using T = detail::first_element_t<Ts...>;
-        constexpr bool Same = detail::is_elements_same_v<T, Ts...>;
+        constexpr bool Same = detail::all_same_v<Ts...>;
 
-        const auto promise = std::make_shared<Promise<std::conditional_t<Same, T, std::any>, E>>();
-        const auto flag = std::make_shared<std::atomic_flag>();
+        struct Context {
+            Promise<std::conditional_t<Same, detail::first_element_t<Ts...>, std::any>, E> promise;
+            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+        };
+
+        const auto ctx = std::make_shared<Context>();
 
         ([&] {
-            if constexpr (std::is_void_v<Ts>) {
-                std::move(futures).then(
-                    [=] {
-                        if constexpr (Same) {
-                            if (!flag->test_and_set())
-                                promise->resolve();
-                        }
-                        else {
-                            if (!flag->test_and_set())
-                                promise->resolve(std::any{});
-                        }
-                    },
-                    [=](E error) {
-                        if (!flag->test_and_set())
-                            promise->reject(std::move(error));
+            futures.setCallback([=](tl::expected<Ts, E> result) {
+                if (!result) {
+                    if (!ctx->flag.test_and_set())
+                        ctx->promise.reject(std::move(result).error());
+
+                    return;
+                }
+
+                if (!ctx->flag.test_and_set()) {
+                    if constexpr (std::is_void_v<Ts>) {
+                        if constexpr (Same)
+                            ctx->promise.resolve();
+                        else
+                            ctx->promise.resolve(std::any{});
                     }
-                );
-            }
-            else {
-                std::move(futures).then(
-                    [=](Ts value) {
-                        if (!flag->test_and_set())
-                            promise->resolve(std::move(value));
-                    },
-                    [=](E error) {
-                        if (!flag->test_and_set())
-                            promise->reject(std::move(error));
+                    else {
+                        ctx->promise.resolve(*std::move(result));
                     }
-                );
-            }
+                }
+            });
         }(), ...);
 
-        return promise->getFuture();
+        return ctx->promise.getFuture();
+    }
+
+    template<
+        typename O,
+        typename... Ts,
+        typename E,
+        std::enable_if_t<ranges::weakly_incrementable<O>>* = nullptr,
+        std::enable_if_t<ranges::indirectly_writable<O, Future<void>>>* = nullptr
+    >
+    auto race(O output, Future<Ts, E>... futures) {
+        constexpr bool Same = detail::all_same_v<Ts...>;
+
+        struct Context {
+            Promise<std::conditional_t<Same, detail::first_element_t<Ts...>, std::any>, E> promise;
+            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+        };
+
+        const auto ctx = std::make_shared<Context>();
+
+        ([&] {
+            auto promise = std::make_shared<Promise<void>>();
+            *output = promise->getFuture();
+
+            futures.setCallback([=, promise = std::move(promise)](tl::expected<Ts, E> result) {
+                DEFER(promise->resolve());
+
+                if (!result) {
+                    if (!ctx->flag.test_and_set())
+                        ctx->promise.reject(std::move(result).error());
+
+                    return;
+                }
+
+                if (!ctx->flag.test_and_set()) {
+                    if constexpr (std::is_void_v<Ts>) {
+                        if constexpr (Same)
+                            ctx->promise.resolve();
+                        else
+                            ctx->promise.resolve(std::any{});
+                    }
+                    else {
+                        ctx->promise.resolve(*std::move(result));
+                    }
+                }
+            });
+        }(), ...);
+
+        return ctx->promise.getFuture();
     }
 }
 
