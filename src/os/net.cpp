@@ -120,7 +120,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
 
         Interface item;
 
-        item.name = std::move(*name);
+        item.name = *std::move(name);
         item.addresses = std::move(addresses);
         memcpy(item.mac.data(), adapter->PhysicalAddress, 6);
 

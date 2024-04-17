@@ -92,7 +92,7 @@ tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::c
         return tl::unexpected(UNEXPECTED_DATA);
 
     content->pop_back();
-    return std::move(*content);
+    return *std::move(content);
 }
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::process::Process::cmdline() const {

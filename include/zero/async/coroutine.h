@@ -151,10 +151,7 @@ namespace zero::async::coroutine {
             if (!frame->cancel)
                 return tl::unexpected(make_error_code(std::errc::operation_not_supported));
 
-            if (const auto result = std::exchange(frame->cancel, nullptr)(); !result)
-                return tl::unexpected(result.error());
-
-            return {};
+            return std::exchange(frame->cancel, nullptr)();
         }
 
         [[nodiscard]] std::vector<std::source_location> traceback() const {

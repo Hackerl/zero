@@ -124,7 +124,7 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             if (!value)
                 throw std::runtime_error(fmt::format("invalid positional argument[{}]", argv[i]));
 
-            it++->value = std::move(*value);
+            it++->value = *std::move(value);
             continue;
         }
 
@@ -144,7 +144,7 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             if (!v)
                 throw std::runtime_error(fmt::format("invalid optional argument[{}]", argv[i]));
 
-            value = std::move(*v);
+            value = *std::move(v);
             continue;
         }
 
@@ -171,7 +171,7 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
         if (!v)
             throw std::runtime_error(fmt::format("invalid optional argument[{}]", argv[i]));
 
-        value = std::move(*v);
+        value = *std::move(v);
     }
 
     if (exist("help")) {
