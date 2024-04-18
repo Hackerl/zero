@@ -50,7 +50,7 @@ void zero::atomic::Event::reset() {
     ResetEvent(mEvent);
 }
 #else
-zero::atomic::Event::Event(const bool manual, const bool initialState) : mState(initialState ? 1 : 0), mManual(manual) {
+zero::atomic::Event::Event(const bool manual, const bool initialState) : mManual(manual), mState(initialState ? 1 : 0) {
 }
 
 tl::expected<void, std::error_code> zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {

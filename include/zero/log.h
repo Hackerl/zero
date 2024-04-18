@@ -14,7 +14,7 @@
 #include <fmt/chrono.h>
 
 namespace zero {
-    constexpr auto LOG_TAGS = std::array{"ERROR", "WARN", "INFO", "DEBUG"};
+    constexpr std::array LOG_TAGS = {"ERROR", "WARN", "INFO", "DEBUG"};
 
     enum LogLevel {
         ERROR_LEVEL,
