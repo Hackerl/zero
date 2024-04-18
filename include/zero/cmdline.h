@@ -1,6 +1,7 @@
 #ifndef ZERO_CMDLINE_H
 #define ZERO_CMDLINE_H
 
+#include "expect.h"
 #include "strings/strings.h"
 #include "detail/type_traits.h"
 #include <any>
@@ -23,10 +24,7 @@ namespace zero {
     tl::expected<std::any, std::error_code> parseValue(const std::string_view input) {
         if constexpr (std::is_arithmetic_v<T>) {
             const auto value = strings::toNumber<T>(input);
-
-            if (!value)
-                return tl::unexpected(value.error());
-
+            EXPECT(value);
             return *value;
         }
         else if constexpr (std::is_same_v<T, std::string>) {
@@ -40,22 +38,16 @@ namespace zero {
 
             for (const auto &token: strings::split(input, ",")) {
                 auto value = parseValue<typename T::value_type>(strings::trim(token));
-
-                if (!value)
-                    return tl::unexpected(value.error());
-
-                v.emplace_back(std::any_cast<typename T::value_type>(std::move(*value)));
+                EXPECT(value);
+                v.emplace_back(std::any_cast<typename T::value_type>(*std::move(value)));
             }
 
             return v;
         }
         else {
             auto value = scan<T>(input);
-
-            if (!value)
-                return tl::unexpected(value.error());
-
-            return *value;
+            EXPECT(value);
+            return *std::move(value);
         }
     }
 

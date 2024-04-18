@@ -726,7 +726,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
     if (fds[STDERR_READER] >= 0)
         stdio[2] = std::exchange(fds[STDERR_READER], -1);
 
-    return ChildProcess{std::move(*process), stdio};
+    return ChildProcess{*std::move(process), stdio};
 #endif
 }
 
@@ -1060,7 +1060,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         return tl::unexpected(process.error());
     }
 
-    return ChildProcess{std::move(*process), {}};
+    return ChildProcess{*std::move(process), {}};
 #endif
 }
 
@@ -1133,7 +1133,7 @@ zero::os::process::Command::output() const {
 
     return Output{
         *status,
-        std::move(*out),
-        std::move(*err)
+        *std::move(out),
+        *std::move(err)
     };
 }

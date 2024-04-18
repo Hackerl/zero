@@ -261,7 +261,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
             break;
         }
 
-        result->push_back(std::move(*arg));
+        result->push_back(*std::move(arg));
     }
 
     return result;
