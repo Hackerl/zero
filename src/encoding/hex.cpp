@@ -2,7 +2,7 @@
 #include <zero/strings/strings.h>
 #include <array>
 
-constexpr auto HEX_MAP = std::array{
+constexpr std::array HEX_MAP = {
     '0', '1', '2', '3', '4', '5', '6', '7',
     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
 };

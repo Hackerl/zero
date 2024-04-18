@@ -31,7 +31,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
         }
         catch (const std::system_error &error) {
             REQUIRE(error.code() == std::errc::invalid_argument);
-        };
+        }
     }
 
     SECTION("cancel") {
@@ -58,7 +58,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
         }
         catch (const std::system_error &error) {
             REQUIRE(error.code() == std::errc::operation_canceled);
-        };
+        }
     }
 
     SECTION("check cancelled") {
@@ -83,7 +83,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
             }
             catch (const std::system_error &error) {
                 REQUIRE(error.code() == std::errc::operation_canceled);
-            };
+            }
 
             cancelled = co_await zero::async::coroutine::cancelled;
             REQUIRE(cancelled);
@@ -118,27 +118,27 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
             const auto promise1 = std::make_shared<zero::async::promise::Promise<void, std::exception_ptr>>();
             const auto promise2 = std::make_shared<zero::async::promise::Promise<void, std::exception_ptr>>();
 
-            std::array tasks{
-                from(zero::async::coroutine::Cancellable{
-                    promise1->getFuture(),
-                    [=]() -> tl::expected<void, std::error_code> {
-                        promise1->reject(
-                            std::make_exception_ptr(std::system_error(make_error_code(std::errc::operation_canceled))));
-                        return {};
-                    }
-                }),
-                from(zero::async::coroutine::Cancellable{
-                    promise2->getFuture(),
-                    [=]() -> tl::expected<void, std::error_code> {
-                        promise2->reject(
-                            std::make_exception_ptr(std::system_error(make_error_code(std::errc::operation_canceled))));
-                        return {};
-                    }
-                })
-            };
-
             SECTION("all") {
-                auto task = all(std::move(tasks));
+                auto task = all(std::array{
+                    from(zero::async::coroutine::Cancellable{
+                        promise1->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise1->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    }),
+                    from(zero::async::coroutine::Cancellable{
+                        promise2->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise2->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    })
+                });
                 REQUIRE(!task.done());
 
                 SECTION("success") {
@@ -166,7 +166,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -183,12 +183,31 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
 
             SECTION("allSettled") {
-                auto task = allSettled(std::move(tasks));
+                auto task = allSettled(std::array{
+                    from(zero::async::coroutine::Cancellable{
+                        promise1->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise1->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    }),
+                    from(zero::async::coroutine::Cancellable{
+                        promise2->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise2->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    })
+                });
                 REQUIRE(!task.done());
 
                 SECTION("success") {
@@ -222,7 +241,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -241,12 +260,31 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
 
             SECTION("any") {
-                auto task = any(std::move(tasks));
+                auto task = any(std::array{
+                    from(zero::async::coroutine::Cancellable{
+                        promise1->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise1->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    }),
+                    from(zero::async::coroutine::Cancellable{
+                        promise2->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise2->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    })
+                });
                 REQUIRE(!task.done());
 
                 SECTION("success") {
@@ -275,14 +313,14 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
 
                     try {
                         std::rethrow_exception(result.error().at(1));
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::io_error);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -300,19 +338,38 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
 
                     try {
                         std::rethrow_exception(result.error().at(1));
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
 
             SECTION("race") {
-                auto task = race(std::move(tasks));
+                auto task = race(std::array{
+                    from(zero::async::coroutine::Cancellable{
+                        promise1->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise1->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    }),
+                    from(zero::async::coroutine::Cancellable{
+                        promise2->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise2->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    })
+                });
                 REQUIRE(!task.done());
 
                 SECTION("success") {
@@ -336,7 +393,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -351,7 +408,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
         }
@@ -360,27 +417,27 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
             const auto promise1 = std::make_shared<zero::async::promise::Promise<int, std::exception_ptr>>();
             const auto promise2 = std::make_shared<zero::async::promise::Promise<int, std::exception_ptr>>();
 
-            std::array tasks{
-                from(zero::async::coroutine::Cancellable{
-                    promise1->getFuture(),
-                    [=]() -> tl::expected<void, std::error_code> {
-                        promise1->reject(
-                            std::make_exception_ptr(std::system_error(make_error_code(std::errc::operation_canceled))));
-                        return {};
-                    }
-                }),
-                from(zero::async::coroutine::Cancellable{
-                    promise2->getFuture(),
-                    [=]() -> tl::expected<void, std::error_code> {
-                        promise2->reject(
-                            std::make_exception_ptr(std::system_error(make_error_code(std::errc::operation_canceled))));
-                        return {};
-                    }
-                })
-            };
-
             SECTION("all") {
-                auto task = all(std::move(tasks));
+                auto task = all(std::array{
+                    from(zero::async::coroutine::Cancellable{
+                        promise1->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise1->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    }),
+                    from(zero::async::coroutine::Cancellable{
+                        promise2->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise2->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    })
+                });
                 REQUIRE(!task.done());
 
                 SECTION("success") {
@@ -412,7 +469,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -429,12 +486,31 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
 
             SECTION("allSettled") {
-                auto task = allSettled(std::move(tasks));
+                auto task = allSettled(std::array{
+                    from(zero::async::coroutine::Cancellable{
+                        promise1->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise1->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    }),
+                    from(zero::async::coroutine::Cancellable{
+                        promise2->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise2->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    })
+                });
                 REQUIRE(!task.done());
 
                 SECTION("success") {
@@ -471,7 +547,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -490,12 +566,31 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
 
             SECTION("any") {
-                auto task = any(std::move(tasks));
+                auto task = any(std::array{
+                    from(zero::async::coroutine::Cancellable{
+                        promise1->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise1->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    }),
+                    from(zero::async::coroutine::Cancellable{
+                        promise2->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise2->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    })
+                });
                 REQUIRE(!task.done());
 
                 SECTION("success") {
@@ -527,14 +622,14 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
 
                     try {
                         std::rethrow_exception(result.error().at(1));
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::io_error);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -552,19 +647,38 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
 
                     try {
                         std::rethrow_exception(result.error().at(1));
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
 
             SECTION("race") {
-                auto task = race(std::move(tasks));
+                auto task = race(std::array{
+                    from(zero::async::coroutine::Cancellable{
+                        promise1->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise1->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    }),
+                    from(zero::async::coroutine::Cancellable{
+                        promise2->getFuture(),
+                        [=]() -> tl::expected<void, std::error_code> {
+                            promise2->reject(
+                                std::make_exception_ptr(
+                                    std::system_error(make_error_code(std::errc::operation_canceled))));
+                            return {};
+                        }
+                    })
+                });
                 REQUIRE(!task.done());
 
                 SECTION("success") {
@@ -591,7 +705,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -606,7 +720,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
         }
@@ -666,7 +780,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
                     }
 
                     SECTION("cancel") {
@@ -683,7 +797,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
-                        };
+                        }
                     }
                 }
 
@@ -741,7 +855,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
                     }
 
                     SECTION("cancel") {
@@ -760,7 +874,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
-                        };
+                        }
                     }
                 }
 
@@ -814,14 +928,14 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
 
                         try {
                             std::rethrow_exception(result.error().at(1));
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::io_error);
-                        };
+                        }
                     }
 
                     SECTION("cancel") {
@@ -839,14 +953,14 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
 
                         try {
                             std::rethrow_exception(result.error().at(1));
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
-                        };
+                        }
                     }
                 }
 
@@ -894,7 +1008,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
                     }
 
                     SECTION("cancel") {
@@ -909,7 +1023,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
-                        };
+                        }
                     }
                 }
             }
@@ -970,7 +1084,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
                     }
 
                     SECTION("cancel") {
@@ -987,7 +1101,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
-                        };
+                        }
                     }
                 }
 
@@ -1048,7 +1162,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
                     }
 
                     SECTION("cancel") {
@@ -1067,7 +1181,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
-                        };
+                        }
                     }
                 }
 
@@ -1124,14 +1238,14 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
 
                         try {
                             std::rethrow_exception(result.error().at(1));
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::io_error);
-                        };
+                        }
                     }
 
                     SECTION("cancel") {
@@ -1149,14 +1263,14 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
 
                         try {
                             std::rethrow_exception(result.error().at(1));
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
-                        };
+                        }
                     }
                 }
 
@@ -1207,7 +1321,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::invalid_argument);
-                        };
+                        }
                     }
 
                     SECTION("cancel") {
@@ -1222,7 +1336,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         }
                         catch (const std::system_error &error) {
                             REQUIRE(error.code() == std::errc::operation_canceled);
-                        };
+                        }
                     }
                 }
             }
@@ -1300,7 +1414,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -1317,7 +1431,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
 
@@ -1397,7 +1511,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -1417,7 +1531,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                     REQUIRE(!std::get<2>(*result));
 
                     try {
@@ -1425,7 +1539,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
 
@@ -1520,21 +1634,21 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::io_error);
-                    };
+                    }
 
                     try {
                         std::rethrow_exception(result.error().at(1));
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
 
                     try {
                         std::rethrow_exception(result.error().at(2));
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::bad_message);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -1552,21 +1666,21 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
 
                     try {
                         std::rethrow_exception(result.error().at(1));
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
 
                     try {
                         std::rethrow_exception(result.error().at(2));
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
 
@@ -1646,7 +1760,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::invalid_argument);
-                    };
+                    }
                 }
 
                 SECTION("cancel") {
@@ -1661,7 +1775,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                     }
                     catch (const std::system_error &error) {
                         REQUIRE(error.code() == std::errc::operation_canceled);
-                    };
+                    }
                 }
             }
         }

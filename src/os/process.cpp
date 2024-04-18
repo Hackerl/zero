@@ -193,7 +193,7 @@ tl::expected<zero::os::process::Process, std::error_code> zero::os::process::sel
     });
 }
 
-tl::expected<zero::os::process::Process, std::error_code> zero::os::process::open(pid_t pid) {
+tl::expected<zero::os::process::Process, std::error_code> zero::os::process::open(const pid_t pid) {
     return procfs::process::open(pid).transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
@@ -703,7 +703,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
 
     int error;
 
-    if (const int n = read(fds[NOTIFY_READER], &error, sizeof(int)); n != 0) {
+    if (const ssize_t n = read(fds[NOTIFY_READER], &error, sizeof(int)); n != 0) {
         assert(n == sizeof(int));
         waitpid(pid, nullptr, 0);
         return tl::unexpected<std::error_code>(error, std::system_category());
@@ -1046,7 +1046,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
     int error;
 
-    if (const int n = read(fds[0], &error, sizeof(int)); n != 0) {
+    if (const ssize_t n = read(fds[0], &error, sizeof(int)); n != 0) {
         assert(n == sizeof(int));
         waitpid(pid, nullptr, 0);
         return tl::unexpected<std::error_code>(error, std::system_category());
