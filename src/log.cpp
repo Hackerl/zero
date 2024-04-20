@@ -64,19 +64,22 @@ bool zero::FileProvider::init() {
 
 bool zero::FileProvider::rotate() {
     std::error_code ec;
-    auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
+    const auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
 
     if (ec)
         return false;
 
     const std::string prefix = fmt::format("%s.%d", mName, mPID);
-    auto v = iterator
-        | std::views::filter([&](const auto &entry) { return entry.is_regular_file(ec); })
-        | std::views::transform(&std::filesystem::directory_entry::path)
-        | std::views::filter([&](const auto &path) { return path.filename().string().starts_with(prefix); });
 
     std::list<std::filesystem::path> logs;
-    std::ranges::copy(v, std::back_inserter(logs));
+    std::ranges::copy(
+        iterator
+        | std::views::filter([&](const auto &entry) { return entry.is_regular_file(ec); })
+        | std::views::transform(&std::filesystem::directory_entry::path)
+        | std::views::filter([&](const auto &path) { return path.filename().string().starts_with(prefix); }),
+        std::back_inserter(logs)
+    );
+
     logs.sort();
 
     if (!std::ranges::all_of(

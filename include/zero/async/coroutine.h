@@ -568,6 +568,14 @@ namespace zero::async::coroutine {
         std::shared_ptr<promise::Promise<void, std::exception_ptr>> mPromise;
     };
 
+    struct WaitContext {
+        explicit WaitContext(const std::size_t n) : count(n) {
+        }
+
+        promise::Promise<void> promise;
+        std::atomic<std::size_t> count;
+    };
+
     template<std::input_iterator I, std::sentinel_for<I> S>
         requires detail::is_specialization<std::iter_value_t<I>, Task>
     auto all(I first, S last) {
@@ -585,14 +593,18 @@ namespace zero::async::coroutine {
         );
 
         return [](auto taskPtrs) -> Task<std::conditional_t<std::is_void_v<T>, void, std::vector<T>>, E> {
-            std::list<promise::Future<void>> futures;
+            const auto ctx = std::make_shared<WaitContext>(taskPtrs.size());
 
             auto result = co_await Cancellable{
                 promise::all(
-                    taskPtrs | std::views::transform([](auto &taskPtr) {
-                        return taskPtr->future();
-                    }),
-                    std::back_inserter(futures)
+                    taskPtrs | std::views::transform([&](auto &taskPtr) {
+                        return taskPtr->future().finally([=] {
+                            if (--ctx->count > 0)
+                                return;
+
+                            ctx->promise.resolve();
+                        });
+                    })
                 ),
                 [=]() -> tl::expected<void, std::error_code> {
                     std::error_code ec;
@@ -621,7 +633,7 @@ namespace zero::async::coroutine {
                 }
             }
 
-            co_await allSettled(std::move(futures));
+            co_await ctx->promise.getFuture();
 
             if constexpr (std::is_same_v<E, std::exception_ptr>) {
                 if (!result)
@@ -647,10 +659,17 @@ namespace zero::async::coroutine {
         using T = promise::futures_result_t<Ts...>;
 
         return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, E> {
-            std::list<promise::Future<void>> futures;
+            const auto ctx = std::make_shared<WaitContext>(sizeof...(Ts));
 
             auto result = co_await Cancellable{
-                promise::all(std::back_inserter(futures), taskPtrs->future()...),
+                promise::all(
+                    taskPtrs->future().finally([=] {
+                        if (--ctx->count > 0)
+                            return;
+
+                        ctx->promise.resolve();
+                    })...
+                ),
                 [=]() -> tl::expected<void, std::error_code> {
                     std::error_code ec;
 
@@ -678,7 +697,7 @@ namespace zero::async::coroutine {
                 }(), ...);
             }
 
-            co_await allSettled(std::move(futures));
+            co_await ctx->promise.getFuture();
 
             if constexpr (std::is_same_v<E, std::exception_ptr>) {
                 if (!result)
@@ -786,14 +805,18 @@ namespace zero::async::coroutine {
         );
 
         return [](auto taskPtrs) -> Task<T, std::vector<E>> {
-            std::list<promise::Future<void>> futures;
+            const auto ctx = std::make_shared<WaitContext>(taskPtrs.size());
 
             auto result = co_await Cancellable{
                 promise::any(
-                    taskPtrs | std::views::transform([](auto &taskPtr) {
-                        return taskPtr->future();
-                    }),
-                    std::back_inserter(futures)
+                    taskPtrs | std::views::transform([&](auto &taskPtr) {
+                        return taskPtr->future().finally([=] {
+                            if (--ctx->count > 0)
+                                return;
+
+                            ctx->promise.resolve();
+                        });
+                    })
                 ),
                 [=]() -> tl::expected<void, std::error_code> {
                     std::error_code ec;
@@ -822,7 +845,7 @@ namespace zero::async::coroutine {
                 }
             }
 
-            co_await allSettled(std::move(futures));
+            co_await ctx->promise.getFuture();
             co_return std::move(result);
         }(std::move(ptrs));
     }
@@ -838,10 +861,17 @@ namespace zero::async::coroutine {
         using T = std::conditional_t<detail::all_same_v<Ts...>, detail::first_element_t<Ts...>, std::any>;
 
         return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, std::array<E, sizeof...(Ts)>> {
-            std::list<promise::Future<void>> futures;
+            const auto ctx = std::make_shared<WaitContext>(sizeof...(Ts));
 
             auto result = co_await Cancellable{
-                promise::any(std::back_inserter(futures), taskPtrs->future()...),
+                promise::any(
+                    taskPtrs->future().finally([=] {
+                        if (--ctx->count > 0)
+                            return;
+
+                        ctx->promise.resolve();
+                    })...
+                ),
                 [=]() -> tl::expected<void, std::error_code> {
                     std::error_code ec;
 
@@ -869,7 +899,7 @@ namespace zero::async::coroutine {
                 }(), ...);
             }
 
-            co_await allSettled(std::move(futures));
+            co_await ctx->promise.getFuture();
             co_return std::move(result);
         }(std::make_shared<Task<Ts, E>>(std::move(tasks))...);
     }
@@ -891,14 +921,18 @@ namespace zero::async::coroutine {
         );
 
         return [](auto taskPtrs) -> Task<T, E> {
-            std::list<promise::Future<void>> futures;
+            const auto ctx = std::make_shared<WaitContext>(taskPtrs.size());
 
             auto result = co_await Cancellable{
                 promise::race(
-                    taskPtrs | std::views::transform([](auto &taskPtr) {
-                        return taskPtr->future();
-                    }),
-                    std::back_inserter(futures)
+                    taskPtrs | std::views::transform([&](auto &taskPtr) {
+                        return taskPtr->future().finally([=] {
+                            if (--ctx->count > 0)
+                                return;
+
+                            ctx->promise.resolve();
+                        });
+                    })
                 ),
                 [=]() -> tl::expected<void, std::error_code> {
                     std::error_code ec;
@@ -925,7 +959,7 @@ namespace zero::async::coroutine {
                 taskPtr->cancel();
             }
 
-            co_await allSettled(std::move(futures));
+            co_await ctx->promise.getFuture();
 
             if constexpr (std::is_same_v<E, std::exception_ptr>) {
                 if (!result)
@@ -951,10 +985,17 @@ namespace zero::async::coroutine {
         using T = std::conditional_t<detail::all_same_v<Ts...>, detail::first_element_t<Ts...>, std::any>;
 
         return [](std::shared_ptr<Task<Ts, E>>... taskPtrs) -> Task<T, E> {
-            std::list<promise::Future<void>> futures;
+            const auto ctx = std::make_shared<WaitContext>(sizeof...(Ts));
 
             auto result = co_await Cancellable{
-                promise::race(std::back_inserter(futures), taskPtrs->future()...),
+                promise::race(
+                    taskPtrs->future().finally([=] {
+                        if (--ctx->count > 0)
+                            return;
+
+                        ctx->promise.resolve();
+                    })...
+                ),
                 [=]() -> tl::expected<void, std::error_code> {
                     std::error_code ec;
 
@@ -980,7 +1021,7 @@ namespace zero::async::coroutine {
                 taskPtrs->cancel();
             }(), ...);
 
-            co_await allSettled(std::move(futures));
+            co_await ctx->promise.getFuture();
 
             if constexpr (std::is_same_v<E, std::exception_ptr>) {
                 if (!result)
