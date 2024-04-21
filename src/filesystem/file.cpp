@@ -5,7 +5,7 @@ tl::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(con
     std::ifstream stream(path, std::ios::binary);
 
     if (!stream.is_open())
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
 
     tl::expected<std::vector<std::byte>, std::error_code> result;
 
@@ -17,7 +17,7 @@ tl::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(con
 
         if (stream.fail()) {
             if (!stream.eof()) {
-                result = tl::unexpected<std::error_code>(errno, std::system_category());
+                result = tl::unexpected<std::error_code>(errno, std::generic_category());
                 break;
             }
 
@@ -32,7 +32,7 @@ tl::expected<std::string, std::error_code> zero::filesystem::readString(const st
     std::ifstream stream(path, std::ios::binary);
 
     if (!stream.is_open())
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
 
     tl::expected<std::string, std::error_code> result;
 
@@ -44,7 +44,7 @@ tl::expected<std::string, std::error_code> zero::filesystem::readString(const st
 
         if (stream.fail()) {
             if (!stream.eof()) {
-                result = tl::unexpected<std::error_code>(errno, std::system_category());
+                result = tl::unexpected<std::error_code>(errno, std::generic_category());
                 break;
             }
 
@@ -60,10 +60,10 @@ zero::filesystem::write(const std::filesystem::path &path, const std::span<const
     std::ofstream stream(path, std::ios::binary);
 
     if (!stream.is_open())
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
 
     if (!stream.write(reinterpret_cast<const char *>(content.data()), static_cast<std::streamsize>(content.size())))
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
 
     return {};
 }

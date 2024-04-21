@@ -31,7 +31,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplic
         return tl::unexpected<std::error_code>(errno, std::system_category());
 
     std::error_code ec;
-    auto path = std::filesystem::canonical(buffer, ec);
+    auto path = std::filesystem::weakly_canonical(buffer, ec);
 
     if (ec)
         return tl::unexpected(ec);
