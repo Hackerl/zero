@@ -1,4 +1,5 @@
 #include <zero/async/promise.h>
+#include <zero/defer.h>
 #include <zero/concurrent/channel.h>
 #include <catch2/catch_test_macros.hpp>
 #include <cstring>
@@ -299,350 +300,153 @@ TEST_CASE("promise", "[async]") {
 
     SECTION("promise::all") {
         SECTION("ranges") {
-            SECTION("output") {
-                std::list<zero::async::promise::Future<void>> futures;
-
-                SECTION("void") {
-                    SECTION("resolve") {
-                        const auto result = all(
-                            std::array{
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                resolve<void, int>()
-                            },
-                            ranges::back_inserter(futures)
-                        ).get();
-                        REQUIRE(result);
-                        REQUIRE(futures.size() == 5);
-                    }
-
-                    SECTION("reject") {
-                        const auto result = all(
-                            std::array{
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                reject<void, int>(-1),
-                                resolve<void, int>(),
-                                resolve<void, int>()
-                            },
-                            ranges::back_inserter(futures)
-                        ).get();
-                        REQUIRE(!result);
-                        REQUIRE(futures.size() == 5);
-                        REQUIRE(result.error() == -1);
-                    }
+            SECTION("void") {
+                SECTION("resolve") {
+                    const auto result = all(std::array{
+                        resolve<void, int>(),
+                        resolve<void, int>(),
+                        resolve<void, int>(),
+                        resolve<void, int>(),
+                        resolve<void, int>()
+                    }).get();
+                    REQUIRE(result);
                 }
 
-                SECTION("not void") {
-                    SECTION("resolve") {
-                        const auto result = all(
-                            std::array{
-                                resolve<int, int>(1),
-                                resolve<int, int>(2),
-                                resolve<int, int>(3),
-                                resolve<int, int>(4),
-                                resolve<int, int>(5)
-                            },
-                            ranges::back_inserter(futures)
-                        ).get();
-                        REQUIRE(result);
-                        REQUIRE(futures.size() == 5);
-
-                        REQUIRE(result->at(0) == 1);
-                        REQUIRE(result->at(1) == 2);
-                        REQUIRE(result->at(2) == 3);
-                        REQUIRE(result->at(3) == 4);
-                        REQUIRE(result->at(4) == 5);
-                    }
-
-                    SECTION("reject") {
-                        const auto result = all(
-                            std::array{
-                                resolve<int, int>(1),
-                                resolve<int, int>(2),
-                                reject<int, int>(-1),
-                                resolve<int, int>(4),
-                                resolve<int, int>(5)
-                            },
-                            ranges::back_inserter(futures)
-                        ).get();
-                        REQUIRE(!result);
-                        REQUIRE(futures.size() == 5);
-                        REQUIRE(result.error() == -1);
-                    }
-                }
-
-                for (auto &future: futures) {
-                    REQUIRE(future.wait());
+                SECTION("reject") {
+                    const auto result = all(std::array{
+                        resolve<void, int>(),
+                        resolve<void, int>(),
+                        reject<void, int>(-1),
+                        resolve<void, int>(),
+                        resolve<void, int>()
+                    }).get();
+                    REQUIRE(!result);
+                    REQUIRE(result.error() == -1);
                 }
             }
 
-            SECTION("without output") {
-                SECTION("void") {
-                    SECTION("resolve") {
-                        const auto result = all(std::array{
-                            resolve<void, int>(),
-                            resolve<void, int>(),
-                            resolve<void, int>(),
-                            resolve<void, int>(),
-                            resolve<void, int>()
-                        }).get();
-                        REQUIRE(result);
-                    }
+            SECTION("not void") {
+                SECTION("resolve") {
+                    const auto result = all(std::array{
+                        resolve<int, int>(1),
+                        resolve<int, int>(2),
+                        resolve<int, int>(3),
+                        resolve<int, int>(4),
+                        resolve<int, int>(5)
+                    }).get();
+                    REQUIRE(result);
 
-                    SECTION("reject") {
-                        const auto result = all(std::array{
-                            resolve<void, int>(),
-                            resolve<void, int>(),
-                            reject<void, int>(-1),
-                            resolve<void, int>(),
-                            resolve<void, int>()
-                        }).get();
-                        REQUIRE(!result);
-                        REQUIRE(result.error() == -1);
-                    }
+                    REQUIRE(result->at(0) == 1);
+                    REQUIRE(result->at(1) == 2);
+                    REQUIRE(result->at(2) == 3);
+                    REQUIRE(result->at(3) == 4);
+                    REQUIRE(result->at(4) == 5);
                 }
 
-                SECTION("not void") {
-                    SECTION("resolve") {
-                        const auto result = all(std::array{
-                            resolve<int, int>(1),
-                            resolve<int, int>(2),
-                            resolve<int, int>(3),
-                            resolve<int, int>(4),
-                            resolve<int, int>(5)
-                        }).get();
-                        REQUIRE(result);
-
-                        REQUIRE(result->at(0) == 1);
-                        REQUIRE(result->at(1) == 2);
-                        REQUIRE(result->at(2) == 3);
-                        REQUIRE(result->at(3) == 4);
-                        REQUIRE(result->at(4) == 5);
-                    }
-
-                    SECTION("reject") {
-                        const auto result = all(std::array{
-                            resolve<int, int>(1),
-                            resolve<int, int>(2),
-                            reject<int, int>(-1),
-                            resolve<int, int>(4),
-                            resolve<int, int>(5)
-                        }).get();
-                        REQUIRE(!result);
-                        REQUIRE(result.error() == -1);
-                    }
+                SECTION("reject") {
+                    const auto result = all(std::array{
+                        resolve<int, int>(1),
+                        resolve<int, int>(2),
+                        reject<int, int>(-1),
+                        resolve<int, int>(4),
+                        resolve<int, int>(5)
+                    }).get();
+                    REQUIRE(!result);
+                    REQUIRE(result.error() == -1);
                 }
             }
         }
 
         SECTION("variadic") {
-            SECTION("output") {
-                std::list<zero::async::promise::Future<void>> futures;
-
-                SECTION("same types") {
-                    SECTION("void") {
-                        SECTION("resolve") {
-                            const auto result = all(
-                                ranges::back_inserter(futures),
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                resolve<void, int>()
-                            ).get();
-                            REQUIRE(result);
-                            REQUIRE(futures.size() == 5);
-                        }
-
-                        SECTION("reject") {
-                            const auto result = all(
-                                ranges::back_inserter(futures),
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                reject<void, int>(-1),
-                                resolve<void, int>(),
-                                resolve<void, int>()
-                            ).get();
-                            REQUIRE(!result);
-                            REQUIRE(futures.size() == 5);
-                            REQUIRE(result.error() == -1);
-                        }
-                    }
-
-                    SECTION("not void") {
-                        SECTION("resolve") {
-                            const auto result = all(
-                                ranges::back_inserter(futures),
-                                resolve<int, int>(1),
-                                resolve<int, int>(2),
-                                resolve<int, int>(3),
-                                resolve<int, int>(4),
-                                resolve<int, int>(5)
-                            ).get();
-                            REQUIRE(result);
-                            REQUIRE(futures.size() == 5);
-
-                            const auto [r1, r2, r3, r4, r5] = *result;
-                            REQUIRE(r1 == 1);
-                            REQUIRE(r2 == 2);
-                            REQUIRE(r3 == 3);
-                            REQUIRE(r4 == 4);
-                            REQUIRE(r5 == 5);
-                        }
-
-                        SECTION("reject") {
-                            const auto result = all(
-                                ranges::back_inserter(futures),
-                                resolve<int, int>(1),
-                                resolve<int, int>(2),
-                                reject<int, int>(-1),
-                                resolve<int, int>(4),
-                                resolve<int, int>(5)
-                            ).get();
-                            REQUIRE(!result);
-                            REQUIRE(futures.size() == 5);
-                            REQUIRE(result.error() == -1);
-                        }
-                    }
-                }
-
-                SECTION("different types") {
+            SECTION("same types") {
+                SECTION("void") {
                     SECTION("resolve") {
                         const auto result = all(
-                            ranges::back_inserter(futures),
-                            resolve<int, int>(1),
                             resolve<void, int>(),
-                            resolve<long, int>(2),
-                            resolve<long, int>(3),
-                            resolve<long, int>(4)
+                            resolve<void, int>(),
+                            resolve<void, int>(),
+                            resolve<void, int>(),
+                            resolve<void, int>()
                         ).get();
                         REQUIRE(result);
-                        REQUIRE(futures.size() == 5);
-
-                        const auto [r1, r2, r3, r4] = *result;
-                        REQUIRE(r1 == 1);
-                        REQUIRE(r2 == 2);
-                        REQUIRE(r3 == 3);
-                        REQUIRE(r4 == 4);
                     }
 
                     SECTION("reject") {
                         const auto result = all(
-                            ranges::back_inserter(futures),
-                            resolve<int, int>(1),
+                            resolve<void, int>(),
+                            resolve<void, int>(),
                             reject<void, int>(-1),
-                            reject<void, int>(-2),
-                            reject<void, int>(-3),
-                            resolve<int, int>(2),
-                            resolve<int, int>(3)
+                            resolve<void, int>(),
+                            resolve<void, int>()
                         ).get();
                         REQUIRE(!result);
-                        REQUIRE(futures.size() == 6);
-
-                        const int error = result.error();
-                        REQUIRE((error == -1 || error == -2 || error == -3));
+                        REQUIRE(result.error() == -1);
                     }
                 }
 
-                for (auto &future: futures) {
-                    REQUIRE(future.wait());
+                SECTION("not void") {
+                    SECTION("resolve") {
+                        const auto result = all(
+                            resolve<int, int>(1),
+                            resolve<int, int>(2),
+                            resolve<int, int>(3),
+                            resolve<int, int>(4),
+                            resolve<int, int>(5)
+                        ).get();
+                        REQUIRE(result);
+
+                        const auto [r1, r2, r3, r4, r5] = *result;
+                        REQUIRE(r1 == 1);
+                        REQUIRE(r2 == 2);
+                        REQUIRE(r3 == 3);
+                        REQUIRE(r4 == 4);
+                        REQUIRE(r5 == 5);
+                    }
+
+                    SECTION("reject") {
+                        const auto result = all(
+                            resolve<int, int>(1),
+                            resolve<int, int>(2),
+                            reject<int, int>(-1),
+                            resolve<int, int>(4),
+                            resolve<int, int>(5)
+                        ).get();
+                        REQUIRE(!result);
+                        REQUIRE(result.error() == -1);
+                    }
                 }
             }
 
-            SECTION("without output") {
-                SECTION("same types") {
-                    SECTION("void") {
-                        SECTION("resolve") {
-                            const auto result = all(
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                resolve<void, int>()
-                            ).get();
-                            REQUIRE(result);
-                        }
+            SECTION("different types") {
+                SECTION("resolve") {
+                    const auto result = all(
+                        resolve<int, int>(1),
+                        resolve<void, int>(),
+                        resolve<long, int>(2),
+                        resolve<long, int>(3),
+                        resolve<long, int>(4)
+                    ).get();
+                    REQUIRE(result);
+                    const auto [r1, r2, r3, r4] = *result;
 
-                        SECTION("reject") {
-                            const auto result = all(
-                                resolve<void, int>(),
-                                resolve<void, int>(),
-                                reject<void, int>(-1),
-                                resolve<void, int>(),
-                                resolve<void, int>()
-                            ).get();
-                            REQUIRE(!result);
-                            REQUIRE(result.error() == -1);
-                        }
-                    }
-
-                    SECTION("not void") {
-                        SECTION("resolve") {
-                            const auto result = all(
-                                resolve<int, int>(1),
-                                resolve<int, int>(2),
-                                resolve<int, int>(3),
-                                resolve<int, int>(4),
-                                resolve<int, int>(5)
-                            ).get();
-                            REQUIRE(result);
-
-                            const auto [r1, r2, r3, r4, r5] = *result;
-                            REQUIRE(r1 == 1);
-                            REQUIRE(r2 == 2);
-                            REQUIRE(r3 == 3);
-                            REQUIRE(r4 == 4);
-                            REQUIRE(r5 == 5);
-                        }
-
-                        SECTION("reject") {
-                            const auto result = all(
-                                resolve<int, int>(1),
-                                resolve<int, int>(2),
-                                reject<int, int>(-1),
-                                resolve<int, int>(4),
-                                resolve<int, int>(5)
-                            ).get();
-                            REQUIRE(!result);
-                            REQUIRE(result.error() == -1);
-                        }
-                    }
+                    REQUIRE(r1 == 1);
+                    REQUIRE(r2 == 2);
+                    REQUIRE(r3 == 3);
+                    REQUIRE(r4 == 4);
                 }
 
-                SECTION("different types") {
-                    SECTION("resolve") {
-                        const auto result = all(
-                            resolve<int, int>(1),
-                            resolve<void, int>(),
-                            resolve<long, int>(2),
-                            resolve<long, int>(3),
-                            resolve<long, int>(4)
-                        ).get();
-                        REQUIRE(result);
-                        const auto [r1, r2, r3, r4] = *result;
-
-                        REQUIRE(r1 == 1);
-                        REQUIRE(r2 == 2);
-                        REQUIRE(r3 == 3);
-                        REQUIRE(r4 == 4);
-                    }
-
-                    SECTION("reject") {
-                        const auto result = all(
-                            resolve<int, int>(1),
-                            reject<void, int>(-1),
-                            reject<void, int>(-2),
-                            reject<void, int>(-3),
-                            resolve<int, int>(2),
-                            resolve<int, int>(3)
-                        ).get();
-                        REQUIRE(!result);
-                        const int error = result.error();
-                        REQUIRE((error == -1 || error == -2 || error == -3));
-                    }
+                SECTION("reject") {
+                    const auto result = all(
+                        resolve<int, int>(1),
+                        reject<void, int>(-1),
+                        reject<void, int>(-2),
+                        reject<void, int>(-3),
+                        resolve<int, int>(2),
+                        resolve<int, int>(3)
+                    ).get();
+                    REQUIRE(!result);
+                    const int error = result.error();
+                    REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
         }
@@ -748,109 +552,87 @@ TEST_CASE("promise", "[async]") {
 
     SECTION("promise::any") {
         SECTION("ranges") {
-            SECTION("output") {
-                std::list<zero::async::promise::Future<void>> futures;
-
-                SECTION("void") {
-                    SECTION("resolve") {
-                        const auto result = any(
-                            std::array{
-                                reject<void, int>(-1),
-                                reject<void, int>(-2),
-                                reject<void, int>(-3),
-                                reject<void, int>(-4),
-                                reject<void, int>(-5),
-                                reject<void, int>(-6),
-                                resolve<void, int>()
-                            },
-                            ranges::back_inserter(futures)
-                        ).get();
-                        REQUIRE(result);
-                        REQUIRE(futures.size() == 7);
-                    }
-
-                    SECTION("reject") {
-                        const auto result = any(
-                            std::array{
-                                reject<void, int>(-1),
-                                reject<void, int>(-2),
-                                reject<void, int>(-3),
-                                reject<void, int>(-4),
-                                reject<void, int>(-5),
-                                reject<void, int>(-6),
-                                reject<void, int>(-7)
-                            },
-                            ranges::back_inserter(futures)
-                        ).get();
-                        REQUIRE(!result);
-                        REQUIRE(futures.size() == 7);
-
-                        const auto &errors = result.error();
-                        REQUIRE(errors[0] == -1);
-                        REQUIRE(errors[1] == -2);
-                        REQUIRE(errors[2] == -3);
-                        REQUIRE(errors[3] == -4);
-                        REQUIRE(errors[4] == -5);
-                        REQUIRE(errors[5] == -6);
-                        REQUIRE(errors[6] == -7);
-                    }
+            SECTION("void") {
+                SECTION("resolve") {
+                    const auto result = any(std::array{
+                        reject<void, int>(-1),
+                        reject<void, int>(-2),
+                        reject<void, int>(-3),
+                        reject<void, int>(-4),
+                        reject<void, int>(-5),
+                        reject<void, int>(-6),
+                        resolve<void, int>()
+                    }).get();
+                    REQUIRE(result);
                 }
 
-                SECTION("not void") {
-                    SECTION("resolve") {
-                        const auto result = any(
-                            std::array{
-                                reject<int, int>(-1),
-                                reject<int, int>(-2),
-                                reject<int, int>(-3),
-                                reject<int, int>(-4),
-                                reject<int, int>(-5),
-                                reject<int, int>(-6),
-                                resolve<int, int>(1),
-                            },
-                            ranges::back_inserter(futures)
-                        ).get();
-                        REQUIRE(result);
-                        REQUIRE(futures.size() == 7);
-                        REQUIRE(*result == 1);
-                    }
+                SECTION("reject") {
+                    const auto result = any(std::array{
+                        reject<void, int>(-1),
+                        reject<void, int>(-2),
+                        reject<void, int>(-3),
+                        reject<void, int>(-4),
+                        reject<void, int>(-5),
+                        reject<void, int>(-6),
+                        reject<void, int>(-7)
+                    }).get();
+                    REQUIRE(!result);
 
-                    SECTION("reject") {
-                        const auto result = any(
-                            std::array{
-                                reject<int, int>(-1),
-                                reject<int, int>(-2),
-                                reject<int, int>(-3),
-                                reject<int, int>(-4),
-                                reject<int, int>(-5),
-                                reject<int, int>(-6),
-                                reject<int, int>(-7)
-                            },
-                            ranges::back_inserter(futures)
-                        ).get();
-                        REQUIRE(!result);
-                        REQUIRE(futures.size() == 7);
-
-                        const auto &errors = result.error();
-                        REQUIRE(errors[0] == -1);
-                        REQUIRE(errors[1] == -2);
-                        REQUIRE(errors[2] == -3);
-                        REQUIRE(errors[3] == -4);
-                        REQUIRE(errors[4] == -5);
-                        REQUIRE(errors[5] == -6);
-                        REQUIRE(errors[6] == -7);
-                    }
-                }
-
-                for (auto &future: futures) {
-                    REQUIRE(future.wait());
+                    const auto &errors = result.error();
+                    REQUIRE(errors[0] == -1);
+                    REQUIRE(errors[1] == -2);
+                    REQUIRE(errors[2] == -3);
+                    REQUIRE(errors[3] == -4);
+                    REQUIRE(errors[4] == -5);
+                    REQUIRE(errors[5] == -6);
+                    REQUIRE(errors[6] == -7);
                 }
             }
 
-            SECTION("without output") {
+            SECTION("not void") {
+                SECTION("resolve") {
+                    const auto result = any(std::array{
+                        reject<int, int>(-1),
+                        reject<int, int>(-2),
+                        reject<int, int>(-3),
+                        reject<int, int>(-4),
+                        reject<int, int>(-5),
+                        reject<int, int>(-6),
+                        resolve<int, int>(1)
+                    }).get();
+                    REQUIRE(result);
+                    REQUIRE(*result == 1);
+                }
+
+                SECTION("reject") {
+                    const auto result = any(std::array{
+                        reject<int, int>(-1),
+                        reject<int, int>(-2),
+                        reject<int, int>(-3),
+                        reject<int, int>(-4),
+                        reject<int, int>(-5),
+                        reject<int, int>(-6),
+                        reject<int, int>(-7)
+                    }).get();
+                    REQUIRE(!result);
+
+                    const auto &errors = result.error();
+                    REQUIRE(errors[0] == -1);
+                    REQUIRE(errors[1] == -2);
+                    REQUIRE(errors[2] == -3);
+                    REQUIRE(errors[3] == -4);
+                    REQUIRE(errors[4] == -5);
+                    REQUIRE(errors[5] == -6);
+                    REQUIRE(errors[6] == -7);
+                }
+            }
+        }
+
+        SECTION("variadic") {
+            SECTION("same types") {
                 SECTION("void") {
                     SECTION("resolve") {
-                        const auto result = any(std::array{
+                        const auto result = any(
                             reject<void, int>(-1),
                             reject<void, int>(-2),
                             reject<void, int>(-3),
@@ -858,20 +640,102 @@ TEST_CASE("promise", "[async]") {
                             reject<void, int>(-5),
                             reject<void, int>(-6),
                             resolve<void, int>()
-                        }).get();
+                        ).get();
                         REQUIRE(result);
                     }
 
                     SECTION("reject") {
-                        const auto result = any(std::array{
+                        SECTION("resolve") {
+                            const auto result = any(
+                                reject<void, int>(-1),
+                                reject<void, int>(-2),
+                                reject<void, int>(-3),
+                                reject<void, int>(-4),
+                                reject<void, int>(-5),
+                                reject<void, int>(-6),
+                                reject<void, int>(-7)
+                            ).get();
+                            REQUIRE(!result);
+
+                            const auto &errors = result.error();
+                            REQUIRE(errors[0] == -1);
+                            REQUIRE(errors[1] == -2);
+                            REQUIRE(errors[2] == -3);
+                            REQUIRE(errors[3] == -4);
+                            REQUIRE(errors[4] == -5);
+                            REQUIRE(errors[5] == -6);
+                            REQUIRE(errors[6] == -7);
+                        }
+                    }
+                }
+
+                SECTION("not void") {
+                    SECTION("resolve") {
+                        const auto result = any(
+                            reject<int, int>(-1),
+                            reject<int, int>(-2),
+                            reject<int, int>(-3),
+                            reject<int, int>(-4),
+                            reject<int, int>(-5),
+                            reject<int, int>(-6),
+                            resolve<int, int>(1)
+                        ).get();
+                        REQUIRE(result);
+                        REQUIRE(*result == 1);
+                    }
+
+                    SECTION("reject") {
+                        SECTION("resolve") {
+                            const auto result = any(
+                                reject<int, int>(-1),
+                                reject<int, int>(-2),
+                                reject<int, int>(-3),
+                                reject<int, int>(-4),
+                                reject<int, int>(-5),
+                                reject<int, int>(-6),
+                                reject<int, int>(-7)
+                            ).get();
+                            REQUIRE(!result);
+
+                            const auto &errors = result.error();
+                            REQUIRE(errors[0] == -1);
+                            REQUIRE(errors[1] == -2);
+                            REQUIRE(errors[2] == -3);
+                            REQUIRE(errors[3] == -4);
+                            REQUIRE(errors[4] == -5);
+                            REQUIRE(errors[5] == -6);
+                            REQUIRE(errors[6] == -7);
+                        }
+                    }
+                }
+            }
+
+            SECTION("different types") {
+                SECTION("void") {
+                    SECTION("resolve") {
+                        const auto result = any(
                             reject<void, int>(-1),
-                            reject<void, int>(-2),
+                            reject<long, int>(-2),
                             reject<void, int>(-3),
-                            reject<void, int>(-4),
+                            reject<long, int>(-4),
                             reject<void, int>(-5),
-                            reject<void, int>(-6),
+                            reject<long, int>(-6),
+                            resolve<void, int>()
+                        ).get();
+                        REQUIRE(result);
+                        REQUIRE(!result->has_value());
+                    }
+
+                    SECTION("reject") {
+                        const auto result = any(
+                            reject<void, int>(-1),
+                            reject<long, int>(-2),
+                            reject<void, int>(-3),
+                            reject<long, int>(-4),
+                            reject<void, int>(-5),
+                            reject<long, int>(-6),
                             reject<void, int>(-7)
-                        }).get();
+                        ).get();
                         REQUIRE(!result);
 
                         const auto &errors = result.error();
@@ -887,29 +751,34 @@ TEST_CASE("promise", "[async]") {
 
                 SECTION("not void") {
                     SECTION("resolve") {
-                        const auto result = any(std::array{
-                            reject<int, int>(-1),
-                            reject<int, int>(-2),
-                            reject<int, int>(-3),
-                            reject<int, int>(-4),
-                            reject<int, int>(-5),
-                            reject<int, int>(-6),
+                        const auto result = any(
+                            reject<void, int>(-1),
+                            reject<long, int>(-2),
+                            reject<void, int>(-3),
+                            reject<long, int>(-4),
+                            reject<void, int>(-5),
+                            reject<long, int>(-6),
                             resolve<int, int>(1)
-                        }).get();
+                        ).get();
+
                         REQUIRE(result);
-                        REQUIRE(*result == 1);
+                        const auto &any = *result;
+#if _CPPRTTI || __GXX_RTTI
+                        REQUIRE(any.type() == typeid(int));
+#endif
+                        REQUIRE(std::any_cast<int>(any) == 1);
                     }
 
                     SECTION("reject") {
-                        const auto result = any(std::array{
-                            reject<int, int>(-1),
-                            reject<int, int>(-2),
-                            reject<int, int>(-3),
-                            reject<int, int>(-4),
-                            reject<int, int>(-5),
-                            reject<int, int>(-6),
+                        const auto result = any(
+                            reject<void, int>(-1),
+                            reject<long, int>(-2),
+                            reject<void, int>(-3),
+                            reject<long, int>(-4),
+                            reject<void, int>(-5),
+                            reject<long, int>(-6),
                             reject<int, int>(-7)
-                        }).get();
+                        ).get();
                         REQUIRE(!result);
 
                         const auto &errors = result.error();
@@ -920,362 +789,6 @@ TEST_CASE("promise", "[async]") {
                         REQUIRE(errors[4] == -5);
                         REQUIRE(errors[5] == -6);
                         REQUIRE(errors[6] == -7);
-                    }
-                }
-            }
-        }
-
-        SECTION("variadic") {
-            SECTION("output") {
-                std::list<zero::async::promise::Future<void>> futures;
-
-                SECTION("same types") {
-                    SECTION("void") {
-                        SECTION("resolve") {
-                            const auto result = any(
-                                ranges::back_inserter(futures),
-                                reject<void, int>(-1),
-                                reject<void, int>(-2),
-                                reject<void, int>(-3),
-                                reject<void, int>(-4),
-                                reject<void, int>(-5),
-                                reject<void, int>(-6),
-                                resolve<void, int>()
-                            ).get();
-                            REQUIRE(result);
-                            REQUIRE(futures.size() == 7);
-                        }
-
-                        SECTION("reject") {
-                            SECTION("resolve") {
-                                const auto result = any(
-                                    ranges::back_inserter(futures),
-                                    reject<void, int>(-1),
-                                    reject<void, int>(-2),
-                                    reject<void, int>(-3),
-                                    reject<void, int>(-4),
-                                    reject<void, int>(-5),
-                                    reject<void, int>(-6),
-                                    reject<void, int>(-7)
-                                ).get();
-                                REQUIRE(!result);
-                                REQUIRE(futures.size() == 7);
-
-                                const auto &errors = result.error();
-                                REQUIRE(errors[0] == -1);
-                                REQUIRE(errors[1] == -2);
-                                REQUIRE(errors[2] == -3);
-                                REQUIRE(errors[3] == -4);
-                                REQUIRE(errors[4] == -5);
-                                REQUIRE(errors[5] == -6);
-                                REQUIRE(errors[6] == -7);
-                            }
-                        }
-                    }
-
-                    SECTION("not void") {
-                        SECTION("resolve") {
-                            const auto result = any(
-                                ranges::back_inserter(futures),
-                                reject<int, int>(-1),
-                                reject<int, int>(-2),
-                                reject<int, int>(-3),
-                                reject<int, int>(-4),
-                                reject<int, int>(-5),
-                                reject<int, int>(-6),
-                                resolve<int, int>(1)
-                            ).get();
-                            REQUIRE(result);
-                            REQUIRE(futures.size() == 7);
-                            REQUIRE(*result == 1);
-                        }
-
-                        SECTION("reject") {
-                            SECTION("resolve") {
-                                const auto result = any(
-                                    ranges::back_inserter(futures),
-                                    reject<int, int>(-1),
-                                    reject<int, int>(-2),
-                                    reject<int, int>(-3),
-                                    reject<int, int>(-4),
-                                    reject<int, int>(-5),
-                                    reject<int, int>(-6),
-                                    reject<int, int>(-7)
-                                ).get();
-                                REQUIRE(!result);
-                                REQUIRE(futures.size() == 7);
-
-                                const auto &errors = result.error();
-                                REQUIRE(errors[0] == -1);
-                                REQUIRE(errors[1] == -2);
-                                REQUIRE(errors[2] == -3);
-                                REQUIRE(errors[3] == -4);
-                                REQUIRE(errors[4] == -5);
-                                REQUIRE(errors[5] == -6);
-                                REQUIRE(errors[6] == -7);
-                            }
-                        }
-                    }
-                }
-
-                SECTION("different types") {
-                    SECTION("void") {
-                        SECTION("resolve") {
-                            const auto result = any(
-                                ranges::back_inserter(futures),
-                                reject<void, int>(-1),
-                                reject<long, int>(-2),
-                                reject<void, int>(-3),
-                                reject<long, int>(-4),
-                                reject<void, int>(-5),
-                                reject<long, int>(-6),
-                                resolve<void, int>()
-                            ).get();
-                            REQUIRE(result);
-                            REQUIRE(futures.size() == 7);
-                            REQUIRE(!result->has_value());
-                        }
-
-                        SECTION("reject") {
-                            const auto result = any(
-                                ranges::back_inserter(futures),
-                                reject<void, int>(-1),
-                                reject<long, int>(-2),
-                                reject<void, int>(-3),
-                                reject<long, int>(-4),
-                                reject<void, int>(-5),
-                                reject<long, int>(-6),
-                                reject<void, int>(-7)
-                            ).get();
-                            REQUIRE(!result);
-                            REQUIRE(futures.size() == 7);
-
-                            const auto &errors = result.error();
-                            REQUIRE(errors[0] == -1);
-                            REQUIRE(errors[1] == -2);
-                            REQUIRE(errors[2] == -3);
-                            REQUIRE(errors[3] == -4);
-                            REQUIRE(errors[4] == -5);
-                            REQUIRE(errors[5] == -6);
-                            REQUIRE(errors[6] == -7);
-                        }
-                    }
-
-                    SECTION("not void") {
-                        SECTION("resolve") {
-                            const auto result = any(
-                                ranges::back_inserter(futures),
-                                reject<void, int>(-1),
-                                reject<long, int>(-2),
-                                reject<void, int>(-3),
-                                reject<long, int>(-4),
-                                reject<void, int>(-5),
-                                reject<long, int>(-6),
-                                resolve<int, int>(1)
-                            ).get();
-                            REQUIRE(result);
-                            REQUIRE(futures.size() == 7);
-
-                            const auto &any = *result;
-#if _CPPRTTI || __GXX_RTTI
-                            REQUIRE(any.type() == typeid(int));
-#endif
-                            REQUIRE(std::any_cast<int>(any) == 1);
-                        }
-
-                        SECTION("reject") {
-                            const auto result = any(
-                                ranges::back_inserter(futures),
-                                reject<void, int>(-1),
-                                reject<long, int>(-2),
-                                reject<void, int>(-3),
-                                reject<long, int>(-4),
-                                reject<void, int>(-5),
-                                reject<long, int>(-6),
-                                reject<int, int>(-7)
-                            ).get();
-                            REQUIRE(!result);
-                            REQUIRE(futures.size() == 7);
-
-                            const auto &errors = result.error();
-                            REQUIRE(errors[0] == -1);
-                            REQUIRE(errors[1] == -2);
-                            REQUIRE(errors[2] == -3);
-                            REQUIRE(errors[3] == -4);
-                            REQUIRE(errors[4] == -5);
-                            REQUIRE(errors[5] == -6);
-                            REQUIRE(errors[6] == -7);
-                        }
-                    }
-                }
-
-                for (auto &future: futures) {
-                    REQUIRE(future.wait());
-                }
-            }
-
-            SECTION("without output") {
-                SECTION("same types") {
-                    SECTION("void") {
-                        SECTION("resolve") {
-                            const auto result = any(
-                                reject<void, int>(-1),
-                                reject<void, int>(-2),
-                                reject<void, int>(-3),
-                                reject<void, int>(-4),
-                                reject<void, int>(-5),
-                                reject<void, int>(-6),
-                                resolve<void, int>()
-                            ).get();
-                            REQUIRE(result);
-                        }
-
-                        SECTION("reject") {
-                            SECTION("resolve") {
-                                const auto result = any(
-                                    reject<void, int>(-1),
-                                    reject<void, int>(-2),
-                                    reject<void, int>(-3),
-                                    reject<void, int>(-4),
-                                    reject<void, int>(-5),
-                                    reject<void, int>(-6),
-                                    reject<void, int>(-7)
-                                ).get();
-                                REQUIRE(!result);
-
-                                const auto &errors = result.error();
-                                REQUIRE(errors[0] == -1);
-                                REQUIRE(errors[1] == -2);
-                                REQUIRE(errors[2] == -3);
-                                REQUIRE(errors[3] == -4);
-                                REQUIRE(errors[4] == -5);
-                                REQUIRE(errors[5] == -6);
-                                REQUIRE(errors[6] == -7);
-                            }
-                        }
-                    }
-
-                    SECTION("not void") {
-                        SECTION("resolve") {
-                            const auto result = any(
-                                reject<int, int>(-1),
-                                reject<int, int>(-2),
-                                reject<int, int>(-3),
-                                reject<int, int>(-4),
-                                reject<int, int>(-5),
-                                reject<int, int>(-6),
-                                resolve<int, int>(1)
-                            ).get();
-                            REQUIRE(result);
-                            REQUIRE(*result == 1);
-                        }
-
-                        SECTION("reject") {
-                            SECTION("resolve") {
-                                const auto result = any(
-                                    reject<int, int>(-1),
-                                    reject<int, int>(-2),
-                                    reject<int, int>(-3),
-                                    reject<int, int>(-4),
-                                    reject<int, int>(-5),
-                                    reject<int, int>(-6),
-                                    reject<int, int>(-7)
-                                ).get();
-                                REQUIRE(!result);
-
-                                const auto &errors = result.error();
-                                REQUIRE(errors[0] == -1);
-                                REQUIRE(errors[1] == -2);
-                                REQUIRE(errors[2] == -3);
-                                REQUIRE(errors[3] == -4);
-                                REQUIRE(errors[4] == -5);
-                                REQUIRE(errors[5] == -6);
-                                REQUIRE(errors[6] == -7);
-                            }
-                        }
-                    }
-                }
-
-                SECTION("different types") {
-                    SECTION("void") {
-                        SECTION("resolve") {
-                            const auto result = any(
-                                reject<void, int>(-1),
-                                reject<long, int>(-2),
-                                reject<void, int>(-3),
-                                reject<long, int>(-4),
-                                reject<void, int>(-5),
-                                reject<long, int>(-6),
-                                resolve<void, int>()
-                            ).get();
-                            REQUIRE(result);
-                            REQUIRE(!result->has_value());
-                        }
-
-                        SECTION("reject") {
-                            const auto result = any(
-                                reject<void, int>(-1),
-                                reject<long, int>(-2),
-                                reject<void, int>(-3),
-                                reject<long, int>(-4),
-                                reject<void, int>(-5),
-                                reject<long, int>(-6),
-                                reject<void, int>(-7)
-                            ).get();
-                            REQUIRE(!result);
-
-                            const auto &errors = result.error();
-                            REQUIRE(errors[0] == -1);
-                            REQUIRE(errors[1] == -2);
-                            REQUIRE(errors[2] == -3);
-                            REQUIRE(errors[3] == -4);
-                            REQUIRE(errors[4] == -5);
-                            REQUIRE(errors[5] == -6);
-                            REQUIRE(errors[6] == -7);
-                        }
-                    }
-
-                    SECTION("not void") {
-                        SECTION("resolve") {
-                            const auto result = any(
-                                reject<void, int>(-1),
-                                reject<long, int>(-2),
-                                reject<void, int>(-3),
-                                reject<long, int>(-4),
-                                reject<void, int>(-5),
-                                reject<long, int>(-6),
-                                resolve<int, int>(1)
-                            ).get();
-
-                            REQUIRE(result);
-                            const auto &any = *result;
-#if _CPPRTTI || __GXX_RTTI
-                            REQUIRE(any.type() == typeid(int));
-#endif
-                            REQUIRE(std::any_cast<int>(any) == 1);
-                        }
-
-                        SECTION("reject") {
-                            const auto result = any(
-                                reject<void, int>(-1),
-                                reject<long, int>(-2),
-                                reject<void, int>(-3),
-                                reject<long, int>(-4),
-                                reject<void, int>(-5),
-                                reject<long, int>(-6),
-                                reject<int, int>(-7)
-                            ).get();
-                            REQUIRE(!result);
-
-                            const auto &errors = result.error();
-                            REQUIRE(errors[0] == -1);
-                            REQUIRE(errors[1] == -2);
-                            REQUIRE(errors[2] == -3);
-                            REQUIRE(errors[3] == -4);
-                            REQUIRE(errors[4] == -5);
-                            REQUIRE(errors[5] == -6);
-                            REQUIRE(errors[6] == -7);
-                        }
                     }
                 }
             }
@@ -1284,80 +797,64 @@ TEST_CASE("promise", "[async]") {
 
     SECTION("promise::race") {
         SECTION("ranges") {
-            SECTION("output") {
-                std::list<zero::async::promise::Future<void>> futures;
-
-                SECTION("void") {
-                    if (const auto result = race(
-                        std::array{
-                            resolve<void, int>(),
-                            reject<void, int>(-1),
-                            resolve<void, int>(),
-                            reject<void, int>(-2),
-                            resolve<void, int>(),
-                            reject<void, int>(-3)
-                        },
-                        ranges::back_inserter(futures)
-                    ).get(); !result) {
-                        const int error = result.error();
-                        REQUIRE((error == -1 || error == -2 || error == -3));
-                    }
-
-                    REQUIRE(futures.size() == 6);
-                }
-
-                SECTION("not void") {
-                    if (const auto result = race(
-                        std::array{
-                            resolve<int, int>(1),
-                            reject<int, int>(-1),
-                            resolve<int, int>(2),
-                            reject<int, int>(-2),
-                            resolve<int, int>(3),
-                            reject<int, int>(-3)
-                        },
-                        ranges::back_inserter(futures)
-                    ).get(); result) {
-                        const int value = *result;
-                        REQUIRE((value == 1 || value == 2 || value == 3));
-                    }
-                    else {
-                        const int error = result.error();
-                        REQUIRE((error == -1 || error == -2 || error == -3));
-                    }
-
-                    REQUIRE(futures.size() == 6);
-                }
-
-                for (auto &future: futures) {
-                    REQUIRE(future.wait());
+            SECTION("void") {
+                if (const auto result = race(std::array{
+                    resolve<void, int>(),
+                    reject<void, int>(-1),
+                    resolve<void, int>(),
+                    reject<void, int>(-2),
+                    resolve<void, int>(),
+                    reject<void, int>(-3)
+                }).get(); !result) {
+                    const int error = result.error();
+                    REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
 
-            SECTION("without output") {
+            SECTION("not void") {
+                if (const auto result = race(std::array{
+                    resolve<int, int>(1),
+                    reject<int, int>(-1),
+                    resolve<int, int>(2),
+                    reject<int, int>(-2),
+                    resolve<int, int>(3),
+                    reject<int, int>(-3)
+                }).get(); result) {
+                    const int value = *result;
+                    REQUIRE((value == 1 || value == 2 || value == 3));
+                }
+                else {
+                    const int error = result.error();
+                    REQUIRE((error == -1 || error == -2 || error == -3));
+                }
+            }
+        }
+
+        SECTION("variadic") {
+            SECTION("same types") {
                 SECTION("void") {
-                    if (const auto result = race(std::array{
+                    if (const auto result = race(
                         resolve<void, int>(),
                         reject<void, int>(-1),
                         resolve<void, int>(),
                         reject<void, int>(-2),
                         resolve<void, int>(),
                         reject<void, int>(-3)
-                    }).get(); !result) {
+                    ).get(); !result) {
                         const int error = result.error();
                         REQUIRE((error == -1 || error == -2 || error == -3));
                     }
                 }
 
                 SECTION("not void") {
-                    if (const auto result = race(std::array{
+                    if (const auto result = race(
                         resolve<int, int>(1),
                         reject<int, int>(-1),
                         resolve<int, int>(2),
                         reject<int, int>(-2),
                         resolve<int, int>(3),
                         reject<int, int>(-3)
-                    }).get(); result) {
+                    ).get(); result) {
                         const int value = *result;
                         REQUIRE((value == 1 || value == 2 || value == 3));
                     }
@@ -1367,137 +864,26 @@ TEST_CASE("promise", "[async]") {
                     }
                 }
             }
-        }
 
-        SECTION("variadic") {
-            SECTION("output") {
-                std::list<zero::async::promise::Future<void>> futures;
-
-                SECTION("same types") {
-                    SECTION("void") {
-                        if (const auto result = race(
-                            ranges::back_inserter(futures),
-                            resolve<void, int>(),
-                            reject<void, int>(-1),
-                            resolve<void, int>(),
-                            reject<void, int>(-2),
-                            resolve<void, int>(),
-                            reject<void, int>(-3)
-                        ).get(); !result) {
-                            const int error = result.error();
-                            REQUIRE((error == -1 || error == -2 || error == -3));
-                        }
-
-                        REQUIRE(futures.size() == 6);
-                    }
-
-                    SECTION("not void") {
-                        if (const auto result = race(
-                            ranges::back_inserter(futures),
-                            resolve<int, int>(1),
-                            reject<int, int>(-1),
-                            resolve<int, int>(2),
-                            reject<int, int>(-2),
-                            resolve<int, int>(3),
-                            reject<int, int>(-3)
-                        ).get(); result) {
-                            const int value = *result;
-                            REQUIRE((value == 1 || value == 2 || value == 3));
-                        }
-                        else {
-                            const int error = result.error();
-                            REQUIRE((error == -1 || error == -2 || error == -3));
-                        }
-
-                        REQUIRE(futures.size() == 6);
-                    }
-                }
-
-                SECTION("different types") {
-                    if (const auto result = race(
-                        ranges::back_inserter(futures),
-                        resolve<int, int>(1),
-                        reject<long, int>(-1),
-                        resolve<int, int>(2),
-                        reject<long, int>(-2),
-                        resolve<int, int>(3),
-                        reject<long, int>(-3)
-                    ).get(); result) {
-                        const auto &any = *result;
+            SECTION("different types") {
+                if (const auto result = race(
+                    resolve<int, int>(1),
+                    reject<long, int>(-1),
+                    resolve<int, int>(2),
+                    reject<long, int>(-2),
+                    resolve<int, int>(3),
+                    reject<long, int>(-3)
+                ).get(); result) {
+                    const auto &any = *result;
 #if _CPPRTTI || __GXX_RTTI
-                        REQUIRE(any.type() == typeid(int));
+                    REQUIRE(any.type() == typeid(int));
 #endif
-                        const int value = std::any_cast<int>(any);
-                        REQUIRE((value == 1 || value == 2 || value == 3));
-                    }
-                    else {
-                        const int error = result.error();
-                        REQUIRE((error == -1 || error == -2 || error == -3));
-                    }
-
-                    REQUIRE(futures.size() == 6);
+                    const int value = std::any_cast<int>(any);
+                    REQUIRE((value == 1 || value == 2 || value == 3));
                 }
-
-                for (auto &future: futures) {
-                    REQUIRE(future.wait());
-                }
-            }
-
-            SECTION("without output") {
-                SECTION("same types") {
-                    SECTION("void") {
-                        if (const auto result = race(
-                            resolve<void, int>(),
-                            reject<void, int>(-1),
-                            resolve<void, int>(),
-                            reject<void, int>(-2),
-                            resolve<void, int>(),
-                            reject<void, int>(-3)
-                        ).get(); !result) {
-                            const int error = result.error();
-                            REQUIRE((error == -1 || error == -2 || error == -3));
-                        }
-                    }
-
-                    SECTION("not void") {
-                        if (const auto result = race(
-                            resolve<int, int>(1),
-                            reject<int, int>(-1),
-                            resolve<int, int>(2),
-                            reject<int, int>(-2),
-                            resolve<int, int>(3),
-                            reject<int, int>(-3)
-                        ).get(); result) {
-                            const int value = *result;
-                            REQUIRE((value == 1 || value == 2 || value == 3));
-                        }
-                        else {
-                            const int error = result.error();
-                            REQUIRE((error == -1 || error == -2 || error == -3));
-                        }
-                    }
-                }
-
-                SECTION("different types") {
-                    if (const auto result = race(
-                        resolve<int, int>(1),
-                        reject<long, int>(-1),
-                        resolve<int, int>(2),
-                        reject<long, int>(-2),
-                        resolve<int, int>(3),
-                        reject<long, int>(-3)
-                    ).get(); result) {
-                        const auto &any = *result;
-#if _CPPRTTI || __GXX_RTTI
-                        REQUIRE(any.type() == typeid(int));
-#endif
-                        const int value = std::any_cast<int>(any);
-                        REQUIRE((value == 1 || value == 2 || value == 3));
-                    }
-                    else {
-                        const int error = result.error();
-                        REQUIRE((error == -1 || error == -2 || error == -3));
-                    }
+                else {
+                    const int error = result.error();
+                    REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
         }

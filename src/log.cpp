@@ -63,21 +63,24 @@ bool zero::FileProvider::init() {
 
 bool zero::FileProvider::rotate() {
     std::error_code ec;
-    auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
+    const auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
 
     if (ec)
         return false;
 
     const std::string prefix = fmt::format("%s.%d", mName, mPID);
-    auto v = iterator
+
+    std::list<std::filesystem::path> logs;
+    ranges::copy(
+        iterator
         | ranges::views::filter([&](const auto &entry) { return entry.is_regular_file(ec); })
         | ranges::views::transform(&std::filesystem::directory_entry::path)
         | ranges::views::filter([&](const auto &path) {
             return strings::startsWith(path.filename().string(), prefix);
-        });
+        }),
+        ranges::back_inserter(logs)
+    );
 
-    std::list<std::filesystem::path> logs;
-    ranges::copy(v, ranges::back_inserter(logs));
     logs.sort();
 
     if (!ranges::all_of(
