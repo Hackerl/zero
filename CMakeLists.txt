@@ -25,6 +25,7 @@ add_library(
         src/os/process.cpp
         src/strings/strings.cpp
         src/atomic/event.cpp
+        src/async/coroutine.cpp
         src/concurrent/channel.cpp
         src/filesystem/path.cpp
         src/filesystem/file.cpp

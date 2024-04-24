@@ -45,13 +45,9 @@ TEST_CASE("windows process", "[nt]") {
 
     const auto code = process->exitCode();
     REQUIRE(!code);
-    REQUIRE(code.error() == zero::os::nt::process::Error::PROCESS_STILL_ACTIVE);
+    REQUIRE(code.error() == zero::os::nt::process::Process::Error::PROCESS_STILL_ACTIVE);
 
-    auto result = process->wait(10ms);
+    const auto result = process->wait(10ms);
     REQUIRE(!result);
     REQUIRE(result.error() == std::errc::timed_out);
-
-    result = process->tryWait();
-    REQUIRE(!result);
-    REQUIRE(result.error() == std::errc::operation_would_block);
 }

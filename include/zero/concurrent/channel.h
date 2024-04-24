@@ -26,15 +26,8 @@ namespace zero::concurrent {
         [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
     };
 
-    const std::error_category &channelErrorCategory();
     std::error_code make_error_code(ChannelError e);
-}
 
-template<>
-struct std::is_error_code_enum<zero::concurrent::ChannelError> : std::true_type {
-};
-
-namespace zero::concurrent {
     template<typename T>
     class Channel {
         static constexpr auto SENDER = 0;
@@ -60,7 +53,7 @@ namespace zero::concurrent {
         }
 
     public:
-        tl::expected<T, std::error_code> tryReceive() {
+        tl::expected<T, ChannelError> tryReceive() {
             const auto index = mBuffer.acquire();
 
             if (!index)
@@ -74,7 +67,7 @@ namespace zero::concurrent {
         }
 
         template<typename U>
-        tl::expected<void, std::error_code> trySend(U &&element) {
+        tl::expected<void, ChannelError> trySend(U &&element) {
             if (mClosed)
                 return tl::unexpected(BROKEN_CHANNEL);
 
@@ -90,9 +83,8 @@ namespace zero::concurrent {
             return {};
         }
 
-        tl::expected<T, std::error_code>
-        receive(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
-            tl::expected<T, std::error_code> result;
+        tl::expected<T, ChannelError> receive(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
+            tl::expected<T, ChannelError> result;
 
             while (true) {
                 const auto index = mBuffer.acquire();
@@ -101,7 +93,7 @@ namespace zero::concurrent {
                     std::unique_lock lock(mMutex);
 
                     if (mClosed) {
-                        result = tl::unexpected<std::error_code>(CHANNEL_EOF);
+                        result = tl::unexpected(CHANNEL_EOF);
                         break;
                     }
 
@@ -116,7 +108,7 @@ namespace zero::concurrent {
                     }
 
                     if (mCVs[RECEIVER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected<std::error_code>(RECEIVE_TIMEOUT);
+                        result = tl::unexpected(RECEIVE_TIMEOUT);
                         break;
                     }
 
@@ -134,12 +126,12 @@ namespace zero::concurrent {
         }
 
         template<typename U>
-        tl::expected<void, std::error_code>
+        tl::expected<void, ChannelError>
         send(U &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
             if (mClosed)
                 return tl::unexpected(BROKEN_CHANNEL);
 
-            tl::expected<void, std::error_code> result;
+            tl::expected<void, ChannelError> result;
 
             while (true) {
                 const auto index = mBuffer.reserve();
@@ -148,7 +140,7 @@ namespace zero::concurrent {
                     std::unique_lock lock(mMutex);
 
                     if (mClosed) {
-                        result = tl::unexpected<std::error_code>(BROKEN_CHANNEL);
+                        result = tl::unexpected(BROKEN_CHANNEL);
                         break;
                     }
 
@@ -163,7 +155,7 @@ namespace zero::concurrent {
                     }
 
                     if (mCVs[SENDER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected<std::error_code>(SEND_TIMEOUT);
+                        result = tl::unexpected(SEND_TIMEOUT);
                         break;
                     }
 
@@ -224,5 +216,9 @@ namespace zero::concurrent {
         std::array<std::condition_variable, 2> mCVs;
     };
 }
+
+template<>
+struct std::is_error_code_enum<zero::concurrent::ChannelError> : std::true_type {
+};
 
 #endif //ZERO_CHANNEL_H

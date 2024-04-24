@@ -9,13 +9,7 @@ TEST_CASE("get hostname", "[os]") {
 
     const auto output = zero::os::process::Command("hostname").output();
     REQUIRE(output);
-
-#ifdef _WIN32
-    REQUIRE(output->status == 0);
-#else
-    REQUIRE(WIFEXITED(output->status));
-    REQUIRE(WEXITSTATUS(output->status) == 0);
-#endif
+    REQUIRE(output->status.success());
 
     const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
     REQUIRE(zero::strings::trim(result) == *hostname);
@@ -27,13 +21,7 @@ TEST_CASE("get username", "[os]") {
 
     const auto output = zero::os::process::Command("whoami").output();
     REQUIRE(output);
-
-#ifdef _WIN32
-    REQUIRE(output->status == 0);
-#else
-    REQUIRE(WIFEXITED(output->status));
-    REQUIRE(WEXITSTATUS(output->status) == 0);
-#endif
+    REQUIRE(output->status.success());
 
     const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
     REQUIRE(zero::strings::trim(result).find(*username) != std::string::npos);

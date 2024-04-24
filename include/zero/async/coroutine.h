@@ -10,6 +10,20 @@
 #include <source_location>
 
 namespace zero::async::coroutine {
+    enum Error {
+        CANCELLED = 1,
+        CANCELLATION_NOT_SUPPORTED
+    };
+
+    class ErrorCategory final : public std::error_category {
+    public:
+        [[nodiscard]] const char *name() const noexcept override;
+        [[nodiscard]] std::string message(int value) const override;
+        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+    };
+
+    std::error_code make_error_code(Error e);
+
     template<typename T, typename E>
     struct Awaitable {
         [[nodiscard]] bool await_ready() {
@@ -149,7 +163,7 @@ namespace zero::async::coroutine {
             }
 
             if (!frame->cancel)
-                return tl::unexpected(make_error_code(std::errc::operation_not_supported));
+                return tl::unexpected(make_error_code(CANCELLATION_NOT_SUPPORTED));
 
             return std::exchange(frame->cancel, nullptr)();
         }
@@ -1068,5 +1082,9 @@ namespace zero::async::coroutine {
         }
     }
 }
+
+template<>
+struct std::is_error_code_enum<zero::async::coroutine::Error> : std::true_type {
+};
 
 #endif //ZERO_COROUTINE_H

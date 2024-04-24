@@ -11,22 +11,6 @@
 #include <tl/expected.hpp>
 
 namespace zero::os::nt::process {
-    enum Error {
-        API_NOT_AVAILABLE = 1,
-        PROCESS_STILL_ACTIVE,
-        UNEXPECTED_DATA
-    };
-
-    class ErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-    };
-
-    const std::error_category &errorCategory();
-    std::error_code make_error_code(Error e);
-
     struct CPUTime {
         double user;
         double system;
@@ -46,6 +30,20 @@ namespace zero::os::nt::process {
 
     class Process {
     public:
+        enum Error {
+            API_NOT_AVAILABLE = 1,
+            PROCESS_STILL_ACTIVE,
+            UNEXPECTED_DATA,
+            WAIT_PROCESS_TIMEOUT
+        };
+
+        class ErrorCategory final : public std::error_category {
+        public:
+            [[nodiscard]] const char *name() const noexcept override;
+            [[nodiscard]] std::string message(int value) const override;
+            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+        };
+
         Process(HANDLE handle, DWORD pid);
         Process(Process &&rhs) noexcept;
         Process &operator=(Process &&rhs) noexcept;
@@ -75,9 +73,7 @@ namespace zero::os::nt::process {
         [[nodiscard]] tl::expected<DWORD, std::error_code> exitCode() const;
 
         [[nodiscard]] tl::expected<void, std::error_code>
-        wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt) const;
-
-        [[nodiscard]] tl::expected<void, std::error_code> tryWait() const;
+        wait(const std::optional<std::chrono::milliseconds> &timeout) const;
 
         tl::expected<void, std::error_code> terminate(DWORD code);
 
@@ -86,13 +82,15 @@ namespace zero::os::nt::process {
         HANDLE mHandle;
     };
 
+    std::error_code make_error_code(Process::Error e);
+
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(DWORD pid);
     tl::expected<std::list<DWORD>, std::error_code> all();
 }
 
 template<>
-struct std::is_error_code_enum<zero::os::nt::process::Error> : std::true_type {
+struct std::is_error_code_enum<zero::os::nt::process::Process::Error> : std::true_type {
 };
 
 #endif //ZERO_NT_PROCESS_H
