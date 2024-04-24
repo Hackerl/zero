@@ -64,8 +64,8 @@ TEST_CASE("process", "[os]") {
 
         SECTION("spawn") {
             auto child = command
-                               .stdOutput(zero::os::process::Command::StdioType::NUL)
-                               .spawn();
+                         .stdOutput(zero::os::process::Command::StdioType::NUL)
+                         .spawn();
             REQUIRE(child);
 
             const auto name = child->name();
@@ -114,9 +114,9 @@ TEST_CASE("process", "[os]") {
         SECTION("set cwd") {
             const auto temp = std::filesystem::temp_directory_path();
             auto child = command
-                               .currentDirectory(temp)
-                               .stdOutput(zero::os::process::Command::StdioType::NUL)
-                               .spawn();
+                         .currentDirectory(temp)
+                         .stdOutput(zero::os::process::Command::StdioType::NUL)
+                         .spawn();
             REQUIRE(child);
 
             const auto cwd = child->cwd();
@@ -149,8 +149,8 @@ TEST_CASE("process", "[os]") {
 #endif
 
                 auto child = command
-                                   .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                   .spawn();
+                             .stdOutput(zero::os::process::Command::StdioType::NUL)
+                             .spawn();
                 REQUIRE(child);
 
                 const auto envs = child->envs();
@@ -171,9 +171,9 @@ TEST_CASE("process", "[os]") {
             SECTION("without inherit") {
                 SECTION("empty") {
                     auto child = command
-                                       .clearEnv()
-                                       .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                       .spawn();
+                                 .clearEnv()
+                                 .stdOutput(zero::os::process::Command::StdioType::NUL)
+                                 .spawn();
                     REQUIRE(child);
 
                     const auto envs = child->envs();
@@ -186,10 +186,10 @@ TEST_CASE("process", "[os]") {
 
                 SECTION("not empty") {
                     auto child = command
-                                       .clearEnv()
-                                       .env("ZERO_PROCESS_TESTS", "1")
-                                       .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                       .spawn();
+                                 .clearEnv()
+                                 .env("ZERO_PROCESS_TESTS", "1")
+                                 .stdOutput(zero::os::process::Command::StdioType::NUL)
+                                 .spawn();
                     REQUIRE(child);
 
                     const auto envs = child->envs();
@@ -204,9 +204,9 @@ TEST_CASE("process", "[os]") {
 
             SECTION("add env") {
                 auto child = command
-                                   .env("ZERO_PROCESS_TESTS", "1")
-                                   .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                   .spawn();
+                             .env("ZERO_PROCESS_TESTS", "1")
+                             .stdOutput(zero::os::process::Command::StdioType::NUL)
+                             .spawn();
                 REQUIRE(child);
 
                 const auto envs = child->envs();
@@ -226,9 +226,9 @@ TEST_CASE("process", "[os]") {
 #endif
 
                 auto child = command
-                                   .removeEnv("ZERO_PROCESS_TESTS")
-                                   .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                   .spawn();
+                             .removeEnv("ZERO_PROCESS_TESTS")
+                             .stdOutput(zero::os::process::Command::StdioType::NUL)
+                             .spawn();
                 REQUIRE(child);
 
                 const auto envs = child->envs();
@@ -247,9 +247,9 @@ TEST_CASE("process", "[os]") {
 
             SECTION("set envs") {
                 auto child = command
-                                   .envs({{"ZERO_PROCESS_TESTS", "1"}})
-                                   .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                   .spawn();
+                             .envs({{"ZERO_PROCESS_TESTS", "1"}})
+                             .stdOutput(zero::os::process::Command::StdioType::NUL)
+                             .spawn();
                 REQUIRE(child);
 
                 const auto envs = child->envs();
@@ -394,7 +394,7 @@ TEST_CASE("process", "[os]") {
 
             const auto result = child->wait();
             REQUIRE(result);
-            REQUIRE(pc->close());
+            pc->close();
 
             const auto content = future.get();
             REQUIRE(content);

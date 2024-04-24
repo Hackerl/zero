@@ -231,14 +231,14 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(!cmdline);
-        REQUIRE(cmdline.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
+        REQUIRE(cmdline.error() == zero::os::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto env = process->environ();
         REQUIRE((!env || env->empty()));
 
         const auto mappings = process->maps();
         REQUIRE(!mappings);
-        REQUIRE(mappings.error() == zero::os::procfs::Error::MAYBE_ZOMBIE_PROCESS);
+        REQUIRE(mappings.error() == zero::os::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto exe = process->exe();
         REQUIRE(!exe);

@@ -12,7 +12,8 @@
 namespace zero::async::coroutine {
     enum Error {
         CANCELLED = 1,
-        CANCELLATION_NOT_SUPPORTED
+        CANCELLATION_NOT_SUPPORTED,
+        LOCKED
     };
 
     class ErrorCategory final : public std::error_category {
@@ -115,6 +116,7 @@ namespace zero::async::coroutine {
         std::shared_ptr<Frame> next;
         std::optional<std::source_location> location;
         std::function<tl::expected<void, std::error_code>()> cancel;
+        bool locked{};
         bool cancelled{};
     };
 
@@ -130,7 +132,15 @@ namespace zero::async::coroutine {
     struct Cancelled {
     };
 
+    struct Lock {
+    };
+
+    struct Unlock {
+    };
+
     inline constexpr Cancelled cancelled;
+    inline constexpr Lock lock;
+    inline constexpr Unlock unlock;
 
     template<typename T, typename E = std::exception_ptr>
     class Task {
@@ -155,11 +165,17 @@ namespace zero::async::coroutine {
         // ReSharper disable once CppMemberFunctionMayBeConst
         tl::expected<void, std::error_code> cancel() {
             auto frame = mFrame;
-            frame->cancelled = true;
 
-            while (frame->next) {
-                frame = frame->next;
+            while (true) {
                 frame->cancelled = true;
+
+                if (frame->locked)
+                    return tl::unexpected(make_error_code(LOCKED));
+
+                if (!frame->next)
+                    break;
+
+                frame = frame->next;
             }
 
             if (!frame->cancel)
@@ -319,6 +335,10 @@ namespace zero::async::coroutine {
             return mFrame->cancelled;
         }
 
+        [[nodiscard]] bool locked() const {
+            return mFrame->locked;
+        }
+
         promise::Future<T, E> future() {
             return mPromise->getFuture();
         }
@@ -360,6 +380,17 @@ namespace zero::async::coroutine {
             return {promise::resolve<bool, std::exception_ptr>(mFrame->cancelled)};
         }
 
+        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(Lock) const {
+            mFrame->locked = true;
+            return {promise::resolve<void, std::exception_ptr>()};
+        }
+
+        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(Unlock) const {
+            assert(mFrame->locked);
+            mFrame->locked = false;
+            return {promise::resolve<void, std::exception_ptr>()};
+        }
+
         template<typename Result, typename Error>
         NoExceptAwaitable<Result, Error>
         await_transform(
@@ -368,7 +399,12 @@ namespace zero::async::coroutine {
         ) {
             mFrame->next.reset();
             mFrame->location = location;
-            mFrame->cancel = std::move(cancellable.cancel);
+            mFrame->cancel = nullptr;
+
+            if (mFrame->cancelled && !mFrame->locked)
+                cancellable.cancel();
+            else
+                mFrame->cancel = std::move(cancellable.cancel);
 
             return {std::move(cancellable.future)};
         }
@@ -396,6 +432,9 @@ namespace zero::async::coroutine {
             mFrame->location = location;
             mFrame->cancel = nullptr;
 
+            if (mFrame->cancelled && !mFrame->locked)
+                task.cancel();
+
             return {task.future()};
         }
 
@@ -408,6 +447,9 @@ namespace zero::async::coroutine {
             mFrame->next = task.mFrame;
             mFrame->location = location;
             mFrame->cancel = nullptr;
+
+            if (mFrame->cancelled && !mFrame->locked)
+                task.cancel();
 
             return {task.future()};
         }
@@ -511,10 +553,18 @@ namespace zero::async::coroutine {
         }
 
         [[nodiscard]] Awaitable<bool, std::exception_ptr> await_transform(Cancelled) const {
-            if (!mFrame->cancelled)
-                return {promise::resolve<bool, std::exception_ptr>(false)};
+            return {promise::resolve<bool, std::exception_ptr>(mFrame->cancelled)};
+        }
 
-            return {promise::resolve<bool, std::exception_ptr>(true)};
+        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(Lock) const {
+            mFrame->locked = true;
+            return {promise::resolve<void, std::exception_ptr>()};
+        }
+
+        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(Unlock) const {
+            assert(mFrame->locked);
+            mFrame->locked = false;
+            return {promise::resolve<void, std::exception_ptr>()};
         }
 
         template<typename Result, typename Error>
@@ -525,7 +575,12 @@ namespace zero::async::coroutine {
         ) {
             mFrame->next.reset();
             mFrame->location = location;
-            mFrame->cancel = std::move(cancellable.cancel);
+            mFrame->cancel = nullptr;
+
+            if (mFrame->cancelled && !mFrame->locked)
+                cancellable.cancel();
+            else
+                mFrame->cancel = std::move(cancellable.cancel);
 
             return {std::move(cancellable.future)};
         }
@@ -553,6 +608,9 @@ namespace zero::async::coroutine {
             mFrame->location = location;
             mFrame->cancel = nullptr;
 
+            if (mFrame->cancelled && !mFrame->locked)
+                task.cancel();
+
             return {task.future()};
         }
 
@@ -565,6 +623,9 @@ namespace zero::async::coroutine {
             mFrame->next = task.mFrame;
             mFrame->location = location;
             mFrame->cancel = nullptr;
+
+            if (mFrame->cancelled && !mFrame->locked)
+                task.cancel();
 
             return {task.future()};
         }

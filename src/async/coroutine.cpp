@@ -17,6 +17,10 @@ std::string zero::async::coroutine::ErrorCategory::message(const int value) cons
         msg = "task does not support cancellation";
         break;
 
+    case LOCKED:
+        msg = "task has been locked";
+        break;
+
     default:
         msg = "unknown";
         break;
@@ -35,6 +39,10 @@ std::error_condition zero::async::coroutine::ErrorCategory::default_error_condit
 
     case CANCELLATION_NOT_SUPPORTED:
         condition = std::errc::operation_not_supported;
+        break;
+
+    case LOCKED:
+        condition = std::errc::resource_unavailable_try_again;
         break;
 
     default:

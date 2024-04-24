@@ -75,6 +75,58 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
         REQUIRE(task.done());
     }
 
+    SECTION("lock") {
+        const auto promise1 = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
+        const auto promise2 = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
+
+        auto task = [](auto p1, auto p2) -> zero::async::coroutine::Task<void> {
+            bool cancelled = co_await zero::async::coroutine::cancelled;
+            REQUIRE(!cancelled);
+
+            co_await zero::async::coroutine::lock;
+
+            auto result = co_await zero::async::coroutine::Cancellable{
+                p1->getFuture(),
+                [=]() -> tl::expected<void, std::error_code> {
+                    p1->reject(zero::async::coroutine::Error::CANCELLED);
+                    return {};
+                }
+            };
+            REQUIRE(result);
+            REQUIRE(*result == 10);
+
+            co_await zero::async::coroutine::unlock;
+
+            cancelled = co_await zero::async::coroutine::cancelled;
+            REQUIRE(cancelled);
+
+            result = co_await zero::async::coroutine::Cancellable{
+                p2->getFuture(),
+                [=]() -> tl::expected<void, std::error_code> {
+                    p2->reject(zero::async::coroutine::Error::CANCELLED);
+                    return {};
+                }
+            };
+            REQUIRE(!result);
+            REQUIRE(result.error() == std::errc::operation_canceled);
+
+            cancelled = co_await zero::async::coroutine::cancelled;
+            REQUIRE(cancelled);
+        }(promise1, promise2);
+        REQUIRE(!task.done());
+        REQUIRE(task.locked());
+        REQUIRE(!task.cancelled());
+
+        const auto result = task.cancel();
+        REQUIRE(!result);
+        REQUIRE(result.error() == zero::async::coroutine::Error::LOCKED);
+        REQUIRE(task.cancelled());
+        REQUIRE(!task.done());
+
+        promise1->resolve(10);
+        REQUIRE(task.done());
+    }
+
     SECTION("traceback") {
         zero::async::promise::Promise<int, std::error_code> promise;
         auto task = zero::async::coroutine::from(promise.getFuture());

@@ -135,7 +135,7 @@ namespace zero::os::process {
 
         static tl::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
-        tl::expected<void, std::error_code> close();
+        void close();
         tl::expected<void, std::error_code> resize(short rows, short columns);
 
         HANDLE &input();

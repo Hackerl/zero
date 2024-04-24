@@ -446,10 +446,9 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     return PseudoConsole{hPC, std::exchange(handles, {})};
 }
 
-tl::expected<void, std::error_code> zero::os::process::PseudoConsole::close() {
+void zero::os::process::PseudoConsole::close() {
     assert(mPC);
     closePseudoConsole(std::exchange(mPC, nullptr));
-    return {};
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst

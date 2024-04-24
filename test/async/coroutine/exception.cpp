@@ -39,8 +39,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
         auto task = from(zero::async::coroutine::Cancellable{
             promise->getFuture(),
             [=]() -> tl::expected<void, std::error_code> {
-                promise->reject(
-                    std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                promise->reject(std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                 return {};
             }
         });
@@ -70,8 +69,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
             const auto result = co_await zero::async::coroutine::Cancellable{
                 p->getFuture(),
                 [=]() -> tl::expected<void, std::error_code> {
-                    p->reject(
-                        std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                    p->reject(std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                     return {};
                 }
             };
@@ -92,6 +90,64 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
         REQUIRE(!task.cancelled());
         REQUIRE(task.cancel());
         REQUIRE(task.cancelled());
+        REQUIRE(task.done());
+    }
+
+    SECTION("lock") {
+        const auto promise1 = std::make_shared<zero::async::promise::Promise<int, std::exception_ptr>>();
+        const auto promise2 = std::make_shared<zero::async::promise::Promise<int, std::exception_ptr>>();
+
+        auto task = [](auto p1, auto p2) -> zero::async::coroutine::Task<void> {
+            bool cancelled = co_await zero::async::coroutine::cancelled;
+            REQUIRE(!cancelled);
+
+            co_await zero::async::coroutine::lock;
+
+            auto result = co_await zero::async::coroutine::Cancellable{
+                p1->getFuture(),
+                [=]() -> tl::expected<void, std::error_code> {
+                    p1->reject(std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                    return {};
+                }
+            };
+            REQUIRE(result);
+            REQUIRE(*result == 10);
+
+            co_await zero::async::coroutine::unlock;
+
+            cancelled = co_await zero::async::coroutine::cancelled;
+            REQUIRE(cancelled);
+
+            result = co_await zero::async::coroutine::Cancellable{
+                p2->getFuture(),
+                [=]() -> tl::expected<void, std::error_code> {
+                    p2->reject(std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                    return {};
+                }
+            };
+            REQUIRE(!result);
+
+            try {
+                std::rethrow_exception(result.error());
+            }
+            catch (const std::system_error &error) {
+                REQUIRE(error.code() == std::errc::operation_canceled);
+            }
+
+            cancelled = co_await zero::async::coroutine::cancelled;
+            REQUIRE(cancelled);
+        }(promise1, promise2);
+        REQUIRE(!task.done());
+        REQUIRE(task.locked());
+        REQUIRE(!task.cancelled());
+
+        const auto result = task.cancel();
+        REQUIRE(!result);
+        REQUIRE(result.error() == zero::async::coroutine::Error::LOCKED);
+        REQUIRE(task.cancelled());
+        REQUIRE(!task.done());
+
+        promise1->resolve(10);
         REQUIRE(task.done());
     }
 
@@ -124,8 +180,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -133,8 +188,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -193,8 +247,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -202,8 +255,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -270,8 +322,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -279,8 +330,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -355,8 +405,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -364,8 +413,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -423,8 +471,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -432,8 +479,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -496,8 +542,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -505,8 +550,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -576,8 +620,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -585,8 +628,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -664,8 +706,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -673,8 +714,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -1353,8 +1393,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -1362,8 +1401,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -1371,8 +1409,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise3->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise3->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -1441,8 +1478,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -1450,8 +1486,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -1459,8 +1494,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise3->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise3->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -1549,8 +1583,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -1558,8 +1591,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -1567,8 +1599,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise3->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise3->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
@@ -1690,8 +1721,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise1->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise1->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -1699,8 +1729,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise2->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise2->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     }),
@@ -1708,8 +1737,7 @@ TEST_CASE("C++20 coroutines with exception", "[coroutine]") {
                         promise3->getFuture(),
                         [=]() -> tl::expected<void, std::error_code> {
                             promise3->reject(
-                                std::make_exception_ptr(
-                                    std::system_error(zero::async::coroutine::Error::CANCELLED)));
+                                std::make_exception_ptr(std::system_error(zero::async::coroutine::Error::CANCELLED)));
                             return {};
                         }
                     })
