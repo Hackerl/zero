@@ -19,6 +19,7 @@
 #include <linux/if.h>
 #if __ANDROID_API__ < 24
 #include <dlfcn.h>
+#include <zero/singleton.h>
 #endif
 #endif
 #elif __APPLE__
@@ -28,6 +29,30 @@
 #include <arpa/inet.h>
 #include <net/if_dl.h>
 #include <zero/defer.h>
+#endif
+
+#if __ANDROID__ && __ANDROID_API__ < 24
+const char *zero::os::net::ErrorCategory::name() const noexcept {
+    return "zero::os::net";
+}
+
+std::string zero::os::net::ErrorCategory::message(const int value) const {
+    if (value == API_NOT_AVAILABLE)
+        return "api not available";
+
+    return "unknown";
+}
+
+std::error_condition zero::os::net::ErrorCategory::default_error_condition(const int value) const noexcept {
+    if (value == API_NOT_AVAILABLE)
+        return std::errc::function_not_supported;
+
+    return error_category::default_error_condition(value);
+}
+
+std::error_code zero::os::net::make_error_code(const Error e) {
+    return {e, Singleton<ErrorCategory>::getInstance()};
+}
 #endif
 
 std::string zero::os::net::stringify(const nonstd::span<const std::byte, 4> ip) {
@@ -134,7 +159,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
     static const auto freeifaddrs = reinterpret_cast<void (*)(ifaddrs *)>(dlsym(RTLD_DEFAULT, "freeifaddrs"));
 
     if (!getifaddrs || !freeifaddrs)
-        return tl::unexpected(make_error_code(std::errc::function_not_supported));
+        return tl::unexpected(API_NOT_AVAILABLE);
 #endif
     ifaddrs *addr;
 

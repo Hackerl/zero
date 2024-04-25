@@ -164,6 +164,16 @@ namespace zero::os::procfs::process {
 
     class Process {
     public:
+        enum Error {
+            MAYBE_ZOMBIE_PROCESS = 1
+        };
+
+        class ErrorCategory final : public std::error_category {
+        public:
+            [[nodiscard]] const char *name() const noexcept override;
+            [[nodiscard]] std::string message(int value) const override;
+        };
+
         Process(int fd, pid_t pid);
         Process(Process &&rhs) noexcept;
         Process &operator=(Process &&rhs) noexcept;
@@ -193,9 +203,15 @@ namespace zero::os::procfs::process {
         pid_t mPID;
     };
 
+    std::error_code make_error_code(Process::Error e);
+
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);
     tl::expected<std::list<pid_t>, std::error_code> all();
 }
+
+template<>
+struct std::is_error_code_enum<zero::os::procfs::process::Process::Error> : std::true_type {
+};
 
 #endif //ZERO_PROCFS_PROCESS_H

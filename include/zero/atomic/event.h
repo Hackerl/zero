@@ -16,6 +16,17 @@ namespace zero::atomic {
 #ifdef _WIN32
     class Event {
     public:
+        enum Error {
+            WAIT_EVENT_TIMEOUT = 1,
+        };
+
+        class ErrorCategory final : public std::error_category {
+        public:
+            [[nodiscard]] const char *name() const noexcept override;
+            [[nodiscard]] std::string message(int value) const override;
+            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+        };
+
         explicit Event(bool manual = false, bool initialState = false);
         Event(const Event &) = delete;
         Event &operator=(const Event &) = delete;
@@ -29,6 +40,8 @@ namespace zero::atomic {
     private:
         HANDLE mEvent;
     };
+
+    std::error_code make_error_code(Event::Error e);
 #else
     class Event {
 #ifdef __APPLE__
@@ -51,5 +64,11 @@ namespace zero::atomic {
     };
 #endif
 }
+
+#ifdef _WIN32
+template<>
+struct std::is_error_code_enum<zero::atomic::Event::Error> : std::true_type {
+};
+#endif
 
 #endif //ZERO_EVENT_H

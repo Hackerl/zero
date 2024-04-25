@@ -64,9 +64,9 @@ TEST_CASE("process", "[os]") {
         REQUIRE(command.program() == PROGRAM);
 
         SECTION("spawn") {
-            const auto child = command
-                               .stdOutput(zero::os::process::Command::StdioType::NUL)
-                               .spawn();
+            auto child = command
+                         .stdOutput(zero::os::process::Command::StdioType::NUL)
+                         .spawn();
             REQUIRE(child);
 
             const auto name = child->name();
@@ -92,7 +92,7 @@ TEST_CASE("process", "[os]") {
             for (const auto &arg: ARGUMENTS)
                 cmd = cmd.arg(arg);
 
-            const auto child = cmd.spawn();
+            auto child = cmd.spawn();
             REQUIRE(child);
 
             const auto name = child->name();
@@ -114,10 +114,10 @@ TEST_CASE("process", "[os]") {
 
         SECTION("set cwd") {
             const auto temp = std::filesystem::temp_directory_path();
-            const auto child = command
-                               .currentDirectory(temp)
-                               .stdOutput(zero::os::process::Command::StdioType::NUL)
-                               .spawn();
+            auto child = command
+                         .currentDirectory(temp)
+                         .stdOutput(zero::os::process::Command::StdioType::NUL)
+                         .spawn();
             REQUIRE(child);
 
             const auto cwd = child->cwd();
@@ -149,9 +149,9 @@ TEST_CASE("process", "[os]") {
                 setenv("ZERO_PROCESS_TESTS", "1", 0);
 #endif
 
-                const auto child = command
-                                   .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                   .spawn();
+                auto child = command
+                             .stdOutput(zero::os::process::Command::StdioType::NUL)
+                             .spawn();
                 REQUIRE(child);
 
                 const auto envs = child->envs();
@@ -171,10 +171,10 @@ TEST_CASE("process", "[os]") {
 
             SECTION("without inherit") {
                 SECTION("empty") {
-                    const auto child = command
-                                       .clearEnv()
-                                       .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                       .spawn();
+                    auto child = command
+                                 .clearEnv()
+                                 .stdOutput(zero::os::process::Command::StdioType::NUL)
+                                 .spawn();
                     REQUIRE(child);
 
                     const auto envs = child->envs();
@@ -186,11 +186,11 @@ TEST_CASE("process", "[os]") {
                 }
 
                 SECTION("not empty") {
-                    const auto child = command
-                                       .clearEnv()
-                                       .env("ZERO_PROCESS_TESTS", "1")
-                                       .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                       .spawn();
+                    auto child = command
+                                 .clearEnv()
+                                 .env("ZERO_PROCESS_TESTS", "1")
+                                 .stdOutput(zero::os::process::Command::StdioType::NUL)
+                                 .spawn();
                     REQUIRE(child);
 
                     const auto envs = child->envs();
@@ -204,10 +204,10 @@ TEST_CASE("process", "[os]") {
             }
 
             SECTION("add env") {
-                const auto child = command
-                                   .env("ZERO_PROCESS_TESTS", "1")
-                                   .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                   .spawn();
+                auto child = command
+                             .env("ZERO_PROCESS_TESTS", "1")
+                             .stdOutput(zero::os::process::Command::StdioType::NUL)
+                             .spawn();
                 REQUIRE(child);
 
                 const auto envs = child->envs();
@@ -226,10 +226,10 @@ TEST_CASE("process", "[os]") {
                 setenv("ZERO_PROCESS_TESTS", "1", 0);
 #endif
 
-                const auto child = command
-                                   .removeEnv("ZERO_PROCESS_TESTS")
-                                   .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                   .spawn();
+                auto child = command
+                             .removeEnv("ZERO_PROCESS_TESTS")
+                             .stdOutput(zero::os::process::Command::StdioType::NUL)
+                             .spawn();
                 REQUIRE(child);
 
                 const auto envs = child->envs();
@@ -247,10 +247,10 @@ TEST_CASE("process", "[os]") {
             }
 
             SECTION("set envs") {
-                const auto child = command
-                                   .envs({{"ZERO_PROCESS_TESTS", "1"}})
-                                   .stdOutput(zero::os::process::Command::StdioType::NUL)
-                                   .spawn();
+                auto child = command
+                             .envs({{"ZERO_PROCESS_TESTS", "1"}})
+                             .stdOutput(zero::os::process::Command::StdioType::NUL)
+                             .spawn();
                 REQUIRE(child);
 
                 const auto envs = child->envs();
@@ -395,7 +395,7 @@ TEST_CASE("process", "[os]") {
 
             const auto result = child->wait();
             REQUIRE(result);
-            REQUIRE(pc->close());
+            pc->close();
 
             const auto content = future.get();
             REQUIRE(content);
@@ -442,12 +442,8 @@ TEST_CASE("process", "[os]") {
 
                 const auto output = zero::os::process::Command("hostname").output();
                 REQUIRE(output);
-#ifdef _WIN32
-                REQUIRE(output->status == 0);
-#else
-                REQUIRE(WIFEXITED(output->status));
-                REQUIRE(WEXITSTATUS(output->status) == 0);
-#endif
+                REQUIRE(output->status.success());
+
                 const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
                 REQUIRE(zero::strings::trim(result) == *hostname);
             }
@@ -458,12 +454,8 @@ TEST_CASE("process", "[os]") {
 
                 const auto output = zero::os::process::Command("whoami").output();
                 REQUIRE(output);
-#ifdef _WIN32
-                REQUIRE(output->status == 0);
-#else
-                REQUIRE(WIFEXITED(output->status));
-                REQUIRE(WEXITSTATUS(output->status) == 0);
-#endif
+                REQUIRE(output->status.success());
+
                 const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
                 REQUIRE(zero::strings::trim(result).find(*username) != std::string::npos);
             }

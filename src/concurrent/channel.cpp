@@ -1,7 +1,8 @@
 #include <zero/concurrent/channel.h>
+#include <zero/singleton.h>
 
 const char *zero::concurrent::ChannelErrorCategory::name() const noexcept {
-    return "zero::concurrent::channel";
+    return "zero::concurrent::Channel";
 }
 
 std::string zero::concurrent::ChannelErrorCategory::message(const int value) const {
@@ -66,11 +67,6 @@ std::error_condition zero::concurrent::ChannelErrorCategory::default_error_condi
     return condition;
 }
 
-const std::error_category &zero::concurrent::channelErrorCategory() {
-    static ChannelErrorCategory instance;
-    return instance;
-}
-
 std::error_code zero::concurrent::make_error_code(const ChannelError e) {
-    return {static_cast<int>(e), channelErrorCategory()};
+    return {static_cast<int>(e), Singleton<ChannelErrorCategory>::getInstance()};
 }

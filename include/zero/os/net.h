@@ -12,6 +12,20 @@
 #include <range/v3/view.hpp>
 
 namespace zero::os::net {
+#if __ANDROID__ && __ANDROID_API__ < 24
+    enum Error {
+        API_NOT_AVAILABLE = 1,
+    };
+
+    class ErrorCategory final : public std::error_category {
+    public:
+        [[nodiscard]] const char *name() const noexcept override;
+        [[nodiscard]] std::string message(int value) const override;
+        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+    };
+
+    std::error_code make_error_code(Error e);
+#endif
     using MAC = std::array<std::byte, 6>;
     using IPv4 = std::array<std::byte, 4>;
     using IPv6 = std::array<std::byte, 16>;
@@ -101,5 +115,11 @@ struct fmt::formatter<zero::os::net::Interface, Char> {
         );
     }
 };
+
+#if __ANDROID__ && __ANDROID_API__ < 24
+template<>
+struct std::is_error_code_enum<zero::os::net::Error> : std::true_type {
+};
+#endif
 
 #endif //ZERO_NET_H

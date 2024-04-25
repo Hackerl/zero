@@ -13,30 +13,17 @@
 
 namespace zero::os::process {
 #ifdef _WIN32
-    using Process = nt::process::Process;
-    using CPUTime = nt::process::CPUTime;
-    using MemoryStat = nt::process::MemoryStat;
-    using IOStat = nt::process::IOStat;
-
-    constexpr auto all = nt::process::all;
-    constexpr auto self = nt::process::self;
-    constexpr auto open = nt::process::open;
+    using ProcessImpl = nt::process::Process;
 #elif __APPLE__
-    using Process = darwin::process::Process;
-    using CPUTime = darwin::process::CPUTime;
-    using MemoryStat = darwin::process::MemoryStat;
-    using IOStat = darwin::process::IOStat;
-
-    constexpr auto all = darwin::process::all;
-    constexpr auto self = darwin::process::self;
-    constexpr auto open = darwin::process::open;
+    using ProcessImpl = darwin::process::Process;
 #elif __linux__
-    constexpr auto all = procfs::process::all;
+    using ProcessImpl = procfs::process::Process;
+#endif
+    using ID = int;
 
     struct CPUTime {
-        double user{};
-        double system{};
-        std::optional<double> ioWait;
+        double user;
+        double system;
     };
 
     struct MemoryStat {
@@ -44,17 +31,20 @@ namespace zero::os::process {
         std::uint64_t vms;
     };
 
-    using IOStat = procfs::process::IOStat;
+    struct IOStat {
+        std::uint64_t readBytes;
+        std::uint64_t writeBytes;
+    };
 
     class Process {
     public:
-        explicit Process(procfs::process::Process impl);
+        explicit Process(ProcessImpl impl);
 
-        procfs::process::Process &impl();
-        [[nodiscard]] const procfs::process::Process &impl() const;
+        ProcessImpl &impl();
+        [[nodiscard]] const ProcessImpl &impl() const;
 
-        [[nodiscard]] pid_t pid() const;
-        [[nodiscard]] tl::expected<pid_t, std::error_code> ppid() const;
+        [[nodiscard]] ID pid() const;
+        [[nodiscard]] tl::expected<ID, std::error_code> ppid() const;
 
         [[nodiscard]] tl::expected<std::string, std::error_code> name() const;
         [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
@@ -66,15 +56,40 @@ namespace zero::os::process {
         [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
-        tl::expected<void, std::error_code> kill(int sig);
+        tl::expected<void, std::error_code> kill();
 
     private:
-        procfs::process::Process mImpl;
+        ProcessImpl mImpl;
     };
 
     tl::expected<Process, std::error_code> self();
-    tl::expected<Process, std::error_code> open(pid_t pid);
+    tl::expected<Process, std::error_code> open(ID pid);
+    tl::expected<std::list<ID>, std::error_code> all();
+
+    class ExitStatus {
+#ifdef _WIN32
+        using Status = DWORD;
+#else
+        using Status = int;
 #endif
+
+    public:
+        explicit ExitStatus(Status status);
+
+        [[nodiscard]] bool success() const;
+        [[nodiscard]] std::optional<int> code() const;
+
+#ifdef __unix__
+        [[nodiscard]] std::optional<int> signal() const;
+        [[nodiscard]] std::optional<int> stoppedSignal() const;
+
+        [[nodiscard]] bool coreDumped() const;
+        [[nodiscard]] bool continued() const;
+#endif
+
+    private:
+        Status mStatus;
+    };
 
     class ChildProcess final : public Process {
     public:
@@ -92,10 +107,8 @@ namespace zero::os::process {
         std::optional<StdioFile> &stdOutput();
         std::optional<StdioFile> &stdError();
 
-#ifndef _WIN32
-        [[nodiscard]] tl::expected<int, std::error_code> wait() const;
-        [[nodiscard]] tl::expected<int, std::error_code> tryWait() const;
-#endif
+        tl::expected<ExitStatus, std::error_code> wait();
+        tl::expected<std::optional<ExitStatus>, std::error_code> tryWait();
 
     private:
         std::array<std::optional<StdioFile>, 3> mStdio;
@@ -104,6 +117,17 @@ namespace zero::os::process {
 #ifdef _WIN32
     class PseudoConsole {
     public:
+        enum Error {
+            API_NOT_AVAILABLE = 1,
+        };
+
+        class ErrorCategory final : public std::error_category {
+        public:
+            [[nodiscard]] const char *name() const noexcept override;
+            [[nodiscard]] std::string message(int value) const override;
+            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+        };
+
         PseudoConsole(HPCON pc, const std::array<HANDLE, 4> &handles);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
@@ -111,7 +135,7 @@ namespace zero::os::process {
 
         static tl::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
-        tl::expected<void, std::error_code> close();
+        void close();
         tl::expected<void, std::error_code> resize(short rows, short columns);
 
         HANDLE &input();
@@ -126,6 +150,18 @@ namespace zero::os::process {
 #else
     class PseudoConsole {
     public:
+#if __ANDROID__ && __ANDROID_API__ < 23
+        enum Error {
+            API_NOT_AVAILABLE = 1,
+        };
+
+        class ErrorCategory final : public std::error_category {
+        public:
+            [[nodiscard]] const char *name() const noexcept override;
+            [[nodiscard]] std::string message(int value) const override;
+            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+        };
+#endif
         PseudoConsole(int master, int slave);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
@@ -144,12 +180,12 @@ namespace zero::os::process {
     };
 #endif
 
-    struct Output {
-#ifdef _WIN32
-        DWORD status;
-#else
-        int status;
+#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
+    std::error_code make_error_code(PseudoConsole::Error e);
 #endif
+
+    struct Output {
+        ExitStatus status;
         std::vector<std::byte> out;
         std::vector<std::byte> err;
     };
@@ -197,5 +233,11 @@ namespace zero::os::process {
         std::array<std::optional<StdioType>, 3> mStdioTypes;
     };
 }
+
+#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
+template<>
+struct std::is_error_code_enum<zero::os::process::PseudoConsole::Error> : std::true_type {
+};
+#endif
 
 #endif //ZERO_PROCESS_H

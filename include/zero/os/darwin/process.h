@@ -8,19 +8,6 @@
 #include <tl/expected.hpp>
 
 namespace zero::os::darwin::process {
-    enum Error {
-        UNEXPECTED_DATA = 1
-    };
-
-    class ErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-    };
-
-    const std::error_category &errorCategory();
-    std::error_code make_error_code(Error e);
-
     struct CPUTime {
         double user;
         double system;
@@ -39,6 +26,16 @@ namespace zero::os::darwin::process {
 
     class Process {
     public:
+        enum Error {
+            UNEXPECTED_DATA = 1
+        };
+
+        class ErrorCategory final : public std::error_category {
+        public:
+            [[nodiscard]] const char *name() const noexcept override;
+            [[nodiscard]] std::string message(int value) const override;
+        };
+
         explicit Process(pid_t pid);
         Process(Process &&rhs) noexcept;
         Process &operator=(Process &&rhs) noexcept;
@@ -67,13 +64,15 @@ namespace zero::os::darwin::process {
         pid_t mPID;
     };
 
+    std::error_code make_error_code(Process::Error e);
+
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);
     tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
 template<>
-struct std::is_error_code_enum<zero::os::darwin::process::Error> : std::true_type {
+struct std::is_error_code_enum<zero::os::darwin::process::Process::Error> : std::true_type {
 };
 
 #endif //ZERO_DARWIN_PROCESS_H

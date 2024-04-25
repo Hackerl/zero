@@ -7,7 +7,9 @@
 #include <cassert>
 #include <future>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <zero/singleton.h>
+#else
 #include <csignal>
 #include <fcntl.h>
 #include <unistd.h>
@@ -19,6 +21,7 @@
 #include <pty.h>
 #if __ANDROID__ && __ANDROID_API__ < 23
 #include <dlfcn.h>
+#include <zero/singleton.h>
 #endif
 #endif
 #endif
@@ -35,6 +38,8 @@ constexpr auto STDERR_READER = 4;
 constexpr auto STDERR_WRITER = 5;
 
 #ifdef _WIN32
+using namespace std::chrono_literals;
+
 constexpr auto PTY_MASTER_READER = 0;
 constexpr auto PTY_SLAVE_WRITER = 1;
 constexpr auto PTY_SLAVE_READER = 2;
@@ -96,28 +101,43 @@ static std::string quote(const std::string &arg) {
 }
 #endif
 
-#ifdef __linux__
-zero::os::process::Process::Process(procfs::process::Process impl): mImpl(std::move(impl)) {
+zero::os::process::Process::Process(ProcessImpl impl): mImpl(std::move(impl)) {
 }
 
-zero::os::procfs::process::Process &zero::os::process::Process::impl() {
+zero::os::process::ProcessImpl &zero::os::process::Process::impl() {
     return mImpl;
 }
 
-const zero::os::procfs::process::Process &zero::os::process::Process::impl() const {
+const zero::os::process::ProcessImpl &zero::os::process::Process::impl() const {
     return mImpl;
 }
 
-pid_t zero::os::process::Process::pid() const {
+zero::os::process::ID zero::os::process::Process::pid() const {
+#ifdef _WIN32
+    return static_cast<ID>(mImpl.pid());
+#else
     return mImpl.pid();
+#endif
 }
 
-tl::expected<pid_t, std::error_code> zero::os::process::Process::ppid() const {
+tl::expected<zero::os::process::ID, std::error_code> zero::os::process::Process::ppid() const {
+#ifdef _WIN32
+    return mImpl.ppid().transform([](const DWORD id) {
+        return static_cast<ID>(id);
+    });
+#elif __APPLE__
+    return mImpl.ppid();
+#elif __linux__
     return mImpl.stat().transform(&procfs::process::Stat::ppid);
+#endif
 }
 
 tl::expected<std::string, std::error_code> zero::os::process::Process::name() const {
+#ifdef _WIN32
+    return mImpl.name();
+#else
     return mImpl.comm();
+#endif
 }
 
 tl::expected<std::filesystem::path, std::error_code> zero::os::process::Process::cwd() const {
@@ -133,10 +153,15 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::process::Proce
 }
 
 tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::process::Process::envs() const {
+#ifdef __linux__
     return mImpl.environ();
+#else
+    return mImpl.envs();
+#endif
 }
 
 tl::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Process::cpu() const {
+#ifdef __linux__
     const long result = sysconf(_SC_CLK_TCK);
 
     if (result < 0)
@@ -146,18 +171,19 @@ tl::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Pro
     const auto stat = mImpl.stat();
     EXPECT(stat);
 
-    CPUTime time = {
+    return CPUTime{
         static_cast<double>(stat->uTime) / ticks,
         static_cast<double>(stat->sTime) / ticks
     };
-
-    if (stat->delayAcctBlkIOTicks)
-        time.ioWait = static_cast<double>(*stat->delayAcctBlkIOTicks) / ticks;
-
-    return time;
+#else
+    return mImpl.cpu().transform([](const auto &cpu) {
+        return CPUTime{cpu.user, cpu.system};
+    });
+#endif
 }
 
 tl::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::Process::memory() const {
+#ifdef __linux__
     const long result = sysconf(_SC_PAGE_SIZE);
 
     if (result < 0)
@@ -171,30 +197,122 @@ tl::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::
         statM->resident * pageSize,
         statM->size * pageSize
     };
+#else
+    return mImpl.memory().transform([](const auto &memory) {
+        return MemoryStat{memory.rss, memory.vms};
+    });
+#endif
 }
 
 tl::expected<zero::os::process::IOStat, std::error_code> zero::os::process::Process::io() const {
-    return mImpl.io();
+    return mImpl.io().transform([](const auto &io) {
+        return IOStat{io.readBytes, io.writeBytes};
+    });
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-tl::expected<void, std::error_code> zero::os::process::Process::kill(const int sig) {
-    if (::kill(mImpl.pid(), sig) < 0)
+tl::expected<void, std::error_code> zero::os::process::Process::kill() {
+#ifdef _WIN32
+    return mImpl.terminate(EXIT_FAILURE);
+#else
+    if (::kill(mImpl.pid(), SIGKILL) < 0)
         return tl::unexpected<std::error_code>(errno, std::system_category());
 
     return {};
+#endif
 }
 
 tl::expected<zero::os::process::Process, std::error_code> zero::os::process::self() {
+#ifdef _WIN32
+    return nt::process::self().transform([](nt::process::Process &&process) {
+        return Process{std::move(process)};
+    });
+#elif __APPLE__
+    return darwin::process::self().transform([](darwin::process::Process &&process) {
+        return Process{std::move(process)};
+    });
+#elif __linux__
     return procfs::process::self().transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
+#endif
 }
 
-tl::expected<zero::os::process::Process, std::error_code> zero::os::process::open(const pid_t pid) {
+tl::expected<zero::os::process::Process, std::error_code> zero::os::process::open(const ID pid) {
+#ifdef _WIN32
+    return nt::process::open(static_cast<DWORD>(pid)).transform([](nt::process::Process &&process) {
+        return Process{std::move(process)};
+    });
+#elif __APPLE__
+    return darwin::process::open(pid).transform([](darwin::process::Process &&process) {
+        return Process{std::move(process)};
+    });
+#elif __linux__
     return procfs::process::open(pid).transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
+#endif
+}
+
+tl::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::process::all() {
+#ifdef _WIN32
+    return nt::process::all().transform([](const auto &ids) {
+        const auto v = ids | ranges::views::transform([](const DWORD pid) {
+            return static_cast<ID>(pid);
+        });
+
+        return std::list<ID>{v.begin(), v.end()};
+    });
+#elif __APPLE__
+    return darwin::process::all();
+#elif __linux__
+    return procfs::process::all();
+#endif
+}
+
+zero::os::process::ExitStatus::ExitStatus(const Status status) : mStatus(status) {
+}
+
+bool zero::os::process::ExitStatus::success() const {
+#ifdef _WIN32
+    return mStatus == EXIT_SUCCESS;
+#else
+    return WIFEXITED(mStatus) && WEXITSTATUS(mStatus) == 0;
+#endif
+}
+
+std::optional<int> zero::os::process::ExitStatus::code() const {
+#ifdef _WIN32
+    return static_cast<int>(mStatus);
+#else
+    if (!(WIFEXITED(mStatus)))
+        return std::nullopt;
+
+    return WEXITSTATUS(mStatus);
+#endif
+}
+
+#ifdef __unix__
+std::optional<int> zero::os::process::ExitStatus::signal() const {
+    if (!(WIFSIGNALED(mStatus)))
+        return std::nullopt;
+
+    return WTERMSIG(mStatus);
+}
+
+std::optional<int> zero::os::process::ExitStatus::stoppedSignal() const {
+    if (!(WIFSTOPPED(mStatus)))
+        return std::nullopt;
+
+    return WSTOPSIG(mStatus);
+}
+
+bool zero::os::process::ExitStatus::coreDumped() const {
+    return WIFSIGNALED(mStatus) && WCOREDUMP(mStatus);
+}
+
+bool zero::os::process::ExitStatus::continued() const {
+    return WIFCONTINUED(mStatus);
 }
 #endif
 
@@ -237,6 +355,31 @@ std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::Ch
     return mStdio[2];
 }
 
+#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
+const char *zero::os::process::PseudoConsole::ErrorCategory::name() const noexcept {
+    return "zero::os::process::PseudoConsole";
+}
+
+std::string zero::os::process::PseudoConsole::ErrorCategory::message(const int value) const {
+    if (value == API_NOT_AVAILABLE)
+        return "api not available";
+
+    return "unknown";
+}
+
+std::error_condition
+zero::os::process::PseudoConsole::ErrorCategory::default_error_condition(const int value) const noexcept {
+    if (value == API_NOT_AVAILABLE)
+        return std::errc::function_not_supported;
+
+    return error_category::default_error_condition(value);
+}
+
+std::error_code zero::os::process::make_error_code(const PseudoConsole::Error e) {
+    return {e, Singleton<PseudoConsole::ErrorCategory>::getInstance()};
+}
+#endif
+
 #ifdef _WIN32
 zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, const std::array<HANDLE, 4> &handles)
     : mPC(pc), mHandles(handles) {
@@ -269,7 +412,7 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
 tl::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
-        return tl::unexpected(make_error_code(std::errc::function_not_supported));
+        return tl::unexpected(API_NOT_AVAILABLE);
 
     std::array<HANDLE, 4> handles = {};
 
@@ -302,12 +445,9 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     return PseudoConsole{hPC, std::exchange(handles, {})};
 }
 
-tl::expected<void, std::error_code> zero::os::process::PseudoConsole::close() {
-    if (!mPC)
-        return tl::unexpected(make_error_code(std::errc::bad_file_descriptor));
-
+void zero::os::process::PseudoConsole::close() {
+    assert(mPC);
     closePseudoConsole(std::exchange(mPC, nullptr));
-    return {};
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
@@ -355,7 +495,7 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     );
 
     if (!openpty)
-        return tl::unexpected(make_error_code(std::errc::function_not_supported));
+        return tl::unexpected(API_NOT_AVAILABLE);
 #endif
     int master, slave;
 
@@ -386,30 +526,54 @@ int &zero::os::process::PseudoConsole::fd() {
 }
 #endif
 
-#ifndef _WIN32
-tl::expected<int, std::error_code> zero::os::process::ChildProcess::wait() const {
+// ReSharper disable once CppMemberFunctionMayBeConst
+tl::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::ChildProcess::wait() {
+#ifdef _WIN32
+    const auto &impl = this->impl();
+
+    EXPECT(impl.wait(std::nullopt));
+    return impl.exitCode().transform([](const DWORD code) {
+        return ExitStatus{code};
+    });
+#else
     int s;
 
     if (const pid_t pid = this->pid(); waitpid(pid, &s, 0) != pid)
         return tl::unexpected<std::error_code>(errno, std::system_category());
 
-    return s;
+    return ExitStatus{s};
+#endif
 }
 
-tl::expected<int, std::error_code> zero::os::process::ChildProcess::tryWait() const {
+// ReSharper disable once CppMemberFunctionMayBeConst
+tl::expected<std::optional<zero::os::process::ExitStatus>, std::error_code> zero::os::process::ChildProcess::tryWait() {
+#ifdef _WIN32
+    const auto &impl = this->impl();
+
+    if (const auto result = impl.wait(0ms); !result) {
+        if (result.error() == std::errc::timed_out)
+            return std::nullopt;
+
+        return tl::unexpected(result.error());
+    }
+
+    return impl.exitCode().transform([](const DWORD code) {
+        return ExitStatus{code};
+    });
+#else
     const pid_t pid = this->pid();
     int s;
 
     if (const int result = waitpid(pid, &s, WNOHANG); result != pid) {
         if (result == 0)
-            return tl::unexpected(make_error_code(std::errc::operation_would_block));
+            return std::nullopt;
 
         return tl::unexpected<std::error_code>(errno, std::system_category());
     }
 
-    return s;
-}
+    return ExitStatus{s};
 #endif
+}
 
 zero::os::process::Command::Command(std::filesystem::path path)
     : mInheritEnv(true), mPath(std::move(path)) {
@@ -564,7 +728,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
     if (handles[STDERR_READER])
         stdio[2] = std::exchange(handles[STDERR_READER], nullptr);
 
-    return ChildProcess{Process{info.hProcess, info.dwProcessId}, stdio};
+    return ChildProcess{Process{nt::process::Process{info.hProcess, info.dwProcessId}}, stdio};
 #else
     int fds[8];
     ranges::fill(fds, -1);
@@ -915,7 +1079,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     CloseHandle(std::exchange(pc.mHandles[PTY_SLAVE_READER], nullptr));
     CloseHandle(std::exchange(pc.mHandles[PTY_SLAVE_WRITER], nullptr));
 
-    return ChildProcess{Process{info.hProcess, info.dwProcessId}, {}};
+    return ChildProcess{Process{nt::process::Process{info.hProcess, info.dwProcessId}}, {}};
 #else
     int fds[2];
     ranges::fill(fds, -1);
@@ -1069,9 +1233,17 @@ zero::os::process::Command::output() const {
     auto child = spawn({NUL, PIPED, PIPED});
     EXPECT(child);
 
+    if (const auto input = std::exchange(child->stdInput(), std::nullopt)) {
+#ifdef _WIN32
+        CloseHandle(*input);
+#else
+        close(*input);
+#endif
+    }
+
     const auto readAll = [](const auto &fd) -> tl::expected<std::vector<std::byte>, std::error_code> {
         if (!fd)
-            return tl::unexpected(make_error_code(std::errc::bad_file_descriptor));
+            return {};
 
         tl::expected<std::vector<std::byte>, std::error_code> result;
 
@@ -1120,16 +1292,8 @@ zero::os::process::Command::output() const {
     auto err = future.get();
     EXPECT(err);
 
-#ifdef _WIN32
-    const auto result = child->wait();
-    EXPECT(result);
-
-    const auto status = child->exitCode();
-    EXPECT(status);
-#else
     const auto status = child->wait();
     EXPECT(status);
-#endif
 
     return Output{
         *status,

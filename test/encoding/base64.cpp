@@ -20,7 +20,7 @@ TEST_CASE("base64 encoding", "[encoding]") {
 
     result = zero::encoding::base64::decode("aGVsbG8");
     REQUIRE(!result);
-    REQUIRE(result.error() == std::errc::invalid_argument);
+    REQUIRE(result.error() == zero::encoding::base64::DecodeError::INVALID_LENGTH);
 
     result = zero::encoding::base64::decode("aGVsbG8=");
     REQUIRE(result);

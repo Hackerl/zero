@@ -6,8 +6,7 @@
 
 namespace zero::os::procfs {
     enum Error {
-        UNEXPECTED_DATA = 1,
-        MAYBE_ZOMBIE_PROCESS
+        UNEXPECTED_DATA = 1
     };
 
     class ErrorCategory final : public std::error_category {
@@ -16,7 +15,6 @@ namespace zero::os::procfs {
         [[nodiscard]] std::string message(int value) const override;
     };
 
-    const std::error_category &errorCategory();
     std::error_code make_error_code(Error e);
 }
 

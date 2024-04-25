@@ -1,6 +1,8 @@
 #include <zero/atomic/event.h>
 
-#ifdef __linux__
+#ifdef _WIN32
+#include <zero/singleton.h>
+#elif __linux__
 #include <cerrno>
 #include <climits>
 #include <unistd.h>
@@ -15,6 +17,28 @@ extern "C" int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value)
 #endif
 
 #ifdef _WIN32
+const char *zero::atomic::Event::ErrorCategory::name() const noexcept {
+    return "zero::atomic::Event";
+}
+
+std::string zero::atomic::Event::ErrorCategory::message(const int value) const {
+    if (value == WAIT_EVENT_TIMEOUT)
+        return "wait event timeout";
+
+    return "unknown";
+}
+
+std::error_condition zero::atomic::Event::ErrorCategory::default_error_condition(const int value) const noexcept {
+    if (value == WAIT_EVENT_TIMEOUT)
+        return std::errc::timed_out;
+
+    return error_category::default_error_condition(value);
+}
+
+std::error_code zero::atomic::make_error_code(const Event::Error e) {
+    return {e, Singleton<Event::ErrorCategory>::getInstance()};
+}
+
 zero::atomic::Event::Event(const bool manual, const bool initialState) {
     mEvent = CreateEventA(nullptr, manual, initialState, nullptr);
 
@@ -32,7 +56,7 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optiona
         rc != WAIT_OBJECT_0) {
         return tl::unexpected(
             rc == WAIT_TIMEOUT
-                ? make_error_code(std::errc::timed_out)
+                ? make_error_code(WAIT_EVENT_TIMEOUT)
                 : std::error_code(static_cast<int>(GetLastError()), std::system_category())
         );
     }

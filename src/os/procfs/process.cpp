@@ -1,6 +1,7 @@
 #include <zero/os/procfs/process.h>
 #include <zero/os/procfs/procfs.h>
 #include <zero/strings/strings.h>
+#include <zero/singleton.h>
 #include <zero/defer.h>
 #include <zero/expect.h>
 #include <climits>
@@ -13,6 +14,21 @@
 constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
+
+const char *zero::os::procfs::process::Process::ErrorCategory::name() const noexcept {
+    return "zero::os::procfs::process::Process";
+}
+
+std::string zero::os::procfs::process::Process::ErrorCategory::message(const int value) const {
+    if (value == MAYBE_ZOMBIE_PROCESS)
+        return "maybe zombie process";
+
+    return "unknown";
+}
+
+std::error_code zero::os::procfs::process::make_error_code(const Process::Error e) {
+    return {static_cast<int>(e), Singleton<Process::ErrorCategory>::getInstance()};
+}
 
 zero::os::procfs::process::Process::Process(const int fd, const pid_t pid) : mFD(fd), mPID(pid) {
 }

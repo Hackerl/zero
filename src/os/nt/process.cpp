@@ -1,5 +1,6 @@
 #include <zero/os/nt/process.h>
 #include <zero/strings/strings.h>
+#include <zero/singleton.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
 #include <winternl.h>
@@ -19,11 +20,11 @@ static const auto queryInformationProcess = reinterpret_cast<decltype(NtQueryInf
     GetProcAddress(GetModuleHandleA("ntdll"), "NtQueryInformationProcess")
 );
 
-const char *zero::os::nt::process::ErrorCategory::name() const noexcept {
-    return "zero::os::nt::process";
+const char *zero::os::nt::process::Process::ErrorCategory::name() const noexcept {
+    return "zero::os::nt::process::Process";
 }
 
-std::string zero::os::nt::process::ErrorCategory::message(const int value) const {
+std::string zero::os::nt::process::Process::ErrorCategory::message(const int value) const {
     std::string msg;
 
     switch (value) {
@@ -39,6 +40,10 @@ std::string zero::os::nt::process::ErrorCategory::message(const int value) const
         msg = "unexpected data";
         break;
 
+    case WAIT_PROCESS_TIMEOUT:
+        msg = "wait process timeout";
+        break;
+
     default:
         msg = "unknown";
         break;
@@ -47,7 +52,8 @@ std::string zero::os::nt::process::ErrorCategory::message(const int value) const
     return msg;
 }
 
-std::error_condition zero::os::nt::process::ErrorCategory::default_error_condition(const int value) const noexcept {
+std::error_condition
+zero::os::nt::process::Process::ErrorCategory::default_error_condition(const int value) const noexcept {
     std::error_condition condition;
 
     switch (value) {
@@ -59,21 +65,16 @@ std::error_condition zero::os::nt::process::ErrorCategory::default_error_conditi
         condition = std::errc::operation_would_block;
         break;
 
+    case WAIT_PROCESS_TIMEOUT:
+        condition = std::errc::timed_out;
+        break;
+
     default:
         condition = error_category::default_error_condition(value);
         break;
     }
 
     return condition;
-}
-
-const std::error_category &zero::os::nt::process::errorCategory() {
-    static ErrorCategory instance;
-    return instance;
-}
-
-std::error_code zero::os::nt::process::make_error_code(const Error e) {
-    return {static_cast<int>(e), errorCategory()};
 }
 
 zero::os::nt::process::Process::Process(const HANDLE handle, const DWORD pid) : mPID(pid), mHandle(handle) {
@@ -304,7 +305,11 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
     ))
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
+#ifdef _WIN64
     const auto str = strings::encode({buffer.get(), size / sizeof(WCHAR)});
+#else
+    const auto str = strings::encode({buffer.get(), static_cast<std::size_t>(size / sizeof(WCHAR))});
+#endif
     EXPECT(str);
 
     tl::expected<std::map<std::string, std::string>, std::error_code> result;
@@ -380,25 +385,16 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() 
 }
 
 tl::expected<void, std::error_code>
-zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
+zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> &timeout) const {
     if (const DWORD result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         if (result == WAIT_TIMEOUT)
-            return tl::unexpected(make_error_code(std::errc::timed_out));
+            return tl::unexpected(WAIT_PROCESS_TIMEOUT);
 
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
     }
 
     return {};
-}
-
-tl::expected<void, std::error_code> zero::os::nt::process::Process::tryWait() const {
-    return wait(std::chrono::milliseconds{0}).transform_error([](const auto &ec) {
-        if (ec == std::errc::timed_out)
-            return make_error_code(std::errc::operation_would_block);
-
-        return ec;
-    });
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
@@ -407,6 +403,10 @@ tl::expected<void, std::error_code> zero::os::nt::process::Process::terminate(co
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return {};
+}
+
+std::error_code zero::os::nt::process::make_error_code(const Process::Error e) {
+    return {static_cast<int>(e), Singleton<Process::ErrorCategory>::getInstance()};
 }
 
 tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {
