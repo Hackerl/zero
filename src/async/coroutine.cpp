@@ -21,6 +21,10 @@ std::string zero::async::coroutine::ErrorCategory::message(const int value) cons
         msg = "task has been locked";
         break;
 
+    case WILL_BE_DONE:
+        msg = "operation will be done soon";
+        break;
+
     default:
         msg = "unknown";
         break;

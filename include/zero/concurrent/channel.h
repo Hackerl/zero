@@ -83,7 +83,7 @@ namespace zero::concurrent {
             return {};
         }
 
-        tl::expected<T, ChannelError> receive(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
+        tl::expected<T, ChannelError> receive(const std::optional<std::chrono::milliseconds> &timeout = std::nullopt) {
             tl::expected<T, ChannelError> result;
 
             while (true) {
@@ -127,7 +127,7 @@ namespace zero::concurrent {
 
         template<typename U>
         tl::expected<void, ChannelError>
-        send(U &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
+        send(U &&element, const std::optional<std::chrono::milliseconds> &timeout = std::nullopt) {
             if (mClosed)
                 return tl::unexpected(BROKEN_CHANNEL);
 

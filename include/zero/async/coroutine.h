@@ -13,7 +13,8 @@ namespace zero::async::coroutine {
     enum Error {
         CANCELLED = 1,
         CANCELLATION_NOT_SUPPORTED,
-        LOCKED
+        LOCKED,
+        WILL_BE_DONE
     };
 
     class ErrorCategory final : public std::error_category {
