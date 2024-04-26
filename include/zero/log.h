@@ -23,12 +23,6 @@ namespace zero {
         DEBUG_LEVEL
     };
 
-    enum LogResult {
-        FAILED,
-        SUCCEEDED,
-        ROTATED
-    };
-
     struct LogMessage {
         LogLevel level{};
         int line{};
@@ -39,18 +33,18 @@ namespace zero {
 
     class ILogProvider : public Interface {
     public:
-        virtual bool init() = 0;
-        virtual bool rotate() = 0;
-        virtual bool flush() = 0;
-        virtual LogResult write(const LogMessage &message) = 0;
+        virtual tl::expected<void, std::error_code> init() = 0;
+        virtual tl::expected<void, std::error_code> rotate() = 0;
+        virtual tl::expected<void, std::error_code> flush() = 0;
+        virtual tl::expected<void, std::error_code> write(const LogMessage &message) = 0;
     };
 
     class ConsoleProvider final : public ILogProvider {
     public:
-        bool init() override;
-        bool rotate() override;
-        bool flush() override;
-        LogResult write(const LogMessage &message) override;
+        tl::expected<void, std::error_code> init() override;
+        tl::expected<void, std::error_code> rotate() override;
+        tl::expected<void, std::error_code> flush() override;
+        tl::expected<void, std::error_code> write(const LogMessage &message) override;
     };
 
     class FileProvider final : public ILogProvider {
@@ -62,11 +56,10 @@ namespace zero {
             int remain = 10
         );
 
-        bool init() override;
-        bool rotate() override;
-        bool flush() override;
-
-        LogResult write(const LogMessage &message) override;
+        tl::expected<void, std::error_code> init() override;
+        tl::expected<void, std::error_code> rotate() override;
+        tl::expected<void, std::error_code> flush() override;
+        tl::expected<void, std::error_code> write(const LogMessage &message) override;
 
     private:
         int mPID;
