@@ -7,7 +7,8 @@
 zero::Cmdline::Cmdline() : mOptionals{{"help", '?', "print help message", false}} {
 }
 
-zero::Optional &zero::Cmdline::find(char shortName) {
+// ReSharper disable once CppDFALocalValueEscapesFunction
+zero::Optional &zero::Cmdline::find(const char shortName) {
     const auto it = std::ranges::find_if(
         mOptionals,
         [=](const auto &optional) {
@@ -21,7 +22,8 @@ zero::Optional &zero::Cmdline::find(char shortName) {
     return *it;
 }
 
-zero::Optional &zero::Cmdline::find(std::string_view name) {
+// ReSharper disable once CppDFALocalValueEscapesFunction
+zero::Optional &zero::Cmdline::find(const std::string_view name) {
     const auto it = std::ranges::find_if(
         mOptionals,
         [=](const auto &optional) {
@@ -35,7 +37,8 @@ zero::Optional &zero::Cmdline::find(std::string_view name) {
     return *it;
 }
 
-const zero::Optional &zero::Cmdline::find(std::string_view name) const {
+// ReSharper disable once CppDFALocalValueEscapesFunction
+const zero::Optional &zero::Cmdline::find(const std::string_view name) const {
     const auto it = std::ranges::find_if(
         mOptionals,
         [=](const auto &optional) {
@@ -93,7 +96,7 @@ void zero::Cmdline::help() const {
     }
 }
 
-void zero::Cmdline::addOptional(const char *name, char shortName, const char *desc) {
+void zero::Cmdline::addOptional(const char *name, const char shortName, const char *desc) {
     mOptionals.emplace_back(name, shortName, desc, false);
 }
 

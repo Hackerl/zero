@@ -124,7 +124,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     std::map<std::string, std::uint64_t> map;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        const auto tokens = strings::split(line, ":", 1);
+        auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
             return tl::unexpected(procfs::UNEXPECTED_DATA);
@@ -132,7 +132,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         const auto n = strings::toNumber<std::uint64_t>(strings::trim(tokens[1]));
         EXPECT(n);
 
-        map[tokens[0]] = *n * 1024;
+        map.emplace(std::move(tokens[0]), *n * 1024);
     }
 
     if (!map.contains("MemTotal") || !map.contains("MemFree") || !map.contains("Buffers") || !map.contains("Cached"))

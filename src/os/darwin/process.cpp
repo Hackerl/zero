@@ -194,7 +194,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
             break;
         }
 
-        result->operator[](item.substr(0, pos)) = item.substr(pos + 1);
+        result->emplace(item.substr(0, pos), item.substr(pos + 1));
     }
 
     return result;

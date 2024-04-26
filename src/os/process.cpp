@@ -581,7 +581,7 @@ zero::os::process::Command::Command(std::filesystem::path path)
 }
 
 tl::expected<zero::os::process::ChildProcess, std::error_code>
-zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
+zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) const {
 #ifdef _WIN32
     SECURITY_ATTRIBUTES saAttr = {};
 
@@ -669,7 +669,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
             if (tokens[0].empty())
                 continue;
 
-            envs[std::move(tokens[0])] = std::move(tokens[1]);
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
         }
     }
 
@@ -787,7 +787,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
             if (tokens.size() != 2)
                 continue;
 
-            envs[std::move(tokens[0])] = std::move(tokens[1]);
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
         }
     }
 
@@ -915,9 +915,9 @@ zero::os::process::Command &zero::os::process::Command::env(std::string key, std
     return *this;
 }
 
-zero::os::process::Command &zero::os::process::Command::envs(const std::map<std::string, std::string> &envs) {
-    for (const auto &[key, value]: envs)
-        mEnviron[key] = value;
+zero::os::process::Command &zero::os::process::Command::envs(std::map<std::string, std::string> envs) {
+    for (auto &[key, value]: envs)
+        mEnviron[key] = std::move(value);
 
     return *this;
 }
@@ -1029,7 +1029,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
             if (tokens[0].empty())
                 continue;
 
-            envs[std::move(tokens[0])] = std::move(tokens[1]);
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
         }
     }
 
@@ -1118,7 +1118,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
             if (tokens.size() != 2)
                 continue;
 
-            envs[std::move(tokens[0])] = std::move(tokens[1]);
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
         }
     }
 

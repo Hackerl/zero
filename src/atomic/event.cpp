@@ -51,7 +51,7 @@ zero::atomic::Event::~Event() {
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> &timeout) {
+tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
     if (const DWORD rc = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         rc != WAIT_OBJECT_0) {
         return tl::unexpected(
@@ -77,7 +77,7 @@ void zero::atomic::Event::reset() {
 zero::atomic::Event::Event(const bool manual, const bool initialState) : mManual(manual), mState(initialState ? 1 : 0) {
 }
 
-tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> &timeout) {
+tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
     tl::expected<void, std::error_code> result;
 
     while (true) {

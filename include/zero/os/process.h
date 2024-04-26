@@ -208,7 +208,7 @@ namespace zero::os::process {
         Command &args(std::vector<std::string> args);
         Command &currentDirectory(std::filesystem::path path);
         Command &env(std::string key, std::string value);
-        Command &envs(const std::map<std::string, std::string> &envs);
+        Command &envs(std::map<std::string, std::string> envs);
         Command &clearEnv();
         Command &removeEnv(const std::string &key);
         Command &stdInput(StdioType type);

@@ -377,16 +377,16 @@ namespace zero::async::coroutine {
             return {mFrame, mPromise};
         }
 
-        [[nodiscard]] Awaitable<bool, std::exception_ptr> await_transform(Cancelled) const {
+        [[nodiscard]] Awaitable<bool, std::exception_ptr> await_transform(const Cancelled) const {
             return {promise::resolve<bool, std::exception_ptr>(mFrame->cancelled)};
         }
 
-        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(Lock) const {
+        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(const Lock) const {
             mFrame->locked = true;
             return {promise::resolve<void, std::exception_ptr>()};
         }
 
-        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(Unlock) const {
+        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(const Unlock) const {
             assert(mFrame->locked);
             mFrame->locked = false;
             return {promise::resolve<void, std::exception_ptr>()};
@@ -537,10 +537,12 @@ namespace zero::async::coroutine {
                    mPromise(std::make_shared<promise::Promise<void, std::exception_ptr>>()) {
         }
 
+        // ReSharper disable once CppMemberFunctionMayBeStatic
         std::suspend_never initial_suspend() {
             return {};
         }
 
+        // ReSharper disable once CppMemberFunctionMayBeStatic
         std::suspend_never final_suspend() noexcept {
             return {};
         }
@@ -553,16 +555,16 @@ namespace zero::async::coroutine {
             return {mFrame, mPromise};
         }
 
-        [[nodiscard]] Awaitable<bool, std::exception_ptr> await_transform(Cancelled) const {
+        [[nodiscard]] Awaitable<bool, std::exception_ptr> await_transform(const Cancelled) const {
             return {promise::resolve<bool, std::exception_ptr>(mFrame->cancelled)};
         }
 
-        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(Lock) const {
+        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(const Lock) const {
             mFrame->locked = true;
             return {promise::resolve<void, std::exception_ptr>()};
         }
 
-        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(Unlock) const {
+        [[nodiscard]] Awaitable<void, std::exception_ptr> await_transform(const Unlock) const {
             assert(mFrame->locked);
             mFrame->locked = false;
             return {promise::resolve<void, std::exception_ptr>()};

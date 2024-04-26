@@ -12,14 +12,23 @@ TEST_CASE("LRU cache", "[cache]") {
         cache.set(0, "hello");
 
         REQUIRE(cache.size() == 1);
-        REQUIRE(*cache.get(0) == "hello");
+
+        auto value = cache.get(0);
+        REQUIRE(value);
+        REQUIRE(value->get() == "hello");
 
         cache.set(0, "world");
         cache.set(1, "hello");
 
         REQUIRE(cache.size() == 2);
-        REQUIRE(*cache.get(0) == "world");
-        REQUIRE(*cache.get(1) == "hello");
+
+        value = cache.get(0);
+        REQUIRE(value);
+        REQUIRE(value->get() == "world");
+
+        value = cache.get(1);
+        REQUIRE(value);
+        REQUIRE(value->get() == "hello");
     }
 
     SECTION("evict cache") {
@@ -39,7 +48,10 @@ TEST_CASE("LRU cache", "[cache]") {
         cache.set(6, "6");
 
         REQUIRE(cache.size() == 5);
-        REQUIRE(*cache.get(1) == "1!");
+
+        const auto value = cache.get(1);
+        REQUIRE(value);
+        REQUIRE(value->get() == "1!");
         REQUIRE(!cache.get(2));
     }
 }

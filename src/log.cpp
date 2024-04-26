@@ -34,11 +34,11 @@ zero::LogResult zero::ConsoleProvider::write(const LogMessage &message) {
 
 zero::FileProvider::FileProvider(
     const char *name,
-    const std::optional<std::filesystem::path> &directory,
+    std::optional<std::filesystem::path> directory,
     const std::size_t limit,
     const int remain
 ) : mRemain(remain), mLimit(limit), mPosition(0), mName(name),
-    mDirectory(directory.value_or(std::filesystem::temp_directory_path())) {
+    mDirectory(std::move(directory).value_or(std::filesystem::temp_directory_path())) {
 #ifndef _WIN32
     mPID = getpid();
 #else
@@ -204,9 +204,9 @@ bool zero::Logger::enabled(const LogLevel level) const {
 }
 
 void zero::Logger::addProvider(
-    LogLevel level,
+    const LogLevel level,
     std::unique_ptr<ILogProvider> provider,
-    std::chrono::milliseconds interval
+    const std::chrono::milliseconds interval
 ) {
     std::call_once(mOnceFlag, [=, this] {
         const auto getEnv = [](const char *name) -> std::optional<int> {

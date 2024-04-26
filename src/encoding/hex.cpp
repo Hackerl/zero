@@ -18,7 +18,7 @@ std::string zero::encoding::hex::DecodeErrorCategory::message(const int value) c
 
     switch (value) {
     case INVALID_LENGTH:
-        msg = "invalid length for a hex string";;
+        msg = "invalid length for a hex string";
         break;
 
     case INVALID_HEX_CHARACTER:

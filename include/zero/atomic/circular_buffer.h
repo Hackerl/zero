@@ -45,7 +45,7 @@ namespace zero::atomic {
             return index;
         }
 
-        void commit(std::size_t index) {
+        void commit(const std::size_t index) {
             mState[index] = VALID;
         }
 
@@ -68,11 +68,11 @@ namespace zero::atomic {
             return index;
         }
 
-        void release(std::size_t index) {
+        void release(const std::size_t index) {
             mState[index] = IDLE;
         }
 
-        T &operator[](std::size_t index) {
+        T &operator[](const std::size_t index) {
             return mBuffer[index];
         }
 

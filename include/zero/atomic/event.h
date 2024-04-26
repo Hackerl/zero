@@ -32,8 +32,7 @@ namespace zero::atomic {
         Event &operator=(const Event &) = delete;
         ~Event();
 
-        tl::expected<void, std::error_code>
-        wait(const std::optional<std::chrono::milliseconds> &timeout = std::nullopt);
+        tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
         void set();
         void reset();
@@ -54,8 +53,7 @@ namespace zero::atomic {
     public:
         explicit Event(bool manual = false, bool initialState = false);
 
-        tl::expected<void, std::error_code>
-        wait(const std::optional<std::chrono::milliseconds> &timeout = std::nullopt);
+        tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
         void set();
         void reset();

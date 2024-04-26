@@ -341,12 +341,12 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     std::map<std::string, std::string> map;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        const auto tokens = strings::split(line, ":");
+        auto tokens = strings::split(line, ":");
 
         if (tokens.size() != 2)
             return tl::unexpected(UNEXPECTED_DATA);
 
-        map[tokens[0]] = strings::trim(tokens[1]);
+        map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
 
     Status status = {};
@@ -651,12 +651,12 @@ tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procf
     std::map<std::string, std::string> map;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        const auto tokens = strings::split(line, ":");
+        auto tokens = strings::split(line, ":");
 
         if (tokens.size() != 2)
             return tl::unexpected(UNEXPECTED_DATA);
 
-        map[tokens[0]] = strings::trim(tokens[1]);
+        map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
 
     const auto readCharacters = strings::toNumber<unsigned long long>(map["rchar"]);

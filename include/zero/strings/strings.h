@@ -22,7 +22,7 @@ namespace zero::strings {
     tl::expected<std::wstring, std::error_code> decode(std::string_view str, const char *encoding = "UTF-8");
 
     template<typename T>
-    tl::expected<T, std::error_code> toNumber(std::string_view str, int base = 10) {
+    tl::expected<T, std::error_code> toNumber(const std::string_view str, const int base = 10) {
         T value;
 
         if (const auto result = std::from_chars(str.data(), str.data() + str.length(), value, base);

@@ -10,11 +10,11 @@ tl::expected<std::unique_ptr<int>, std::error_code> func2(const int value) {
     return std::make_unique<int>(value * 4);
 }
 
-tl::expected<std::unique_ptr<int>, std::error_code> func3(int) {
+tl::expected<std::unique_ptr<int>, std::error_code> func3(const int) {
     return tl::unexpected(make_error_code(std::errc::operation_canceled));
 }
 
-tl::expected<std::unique_ptr<int>, std::error_code> func4(int) {
+tl::expected<std::unique_ptr<int>, std::error_code> func4(const int) {
     return tl::unexpected(make_error_code(std::errc::timed_out));
 }
 
@@ -26,11 +26,11 @@ zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func6(const 
     co_return std::make_unique<int>(value * 4);
 }
 
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func7(int) {
+zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func7(const int) {
     co_return tl::unexpected(make_error_code(std::errc::operation_canceled));
 }
 
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func8(int) {
+zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func8(const int) {
     co_return tl::unexpected(make_error_code(std::errc::timed_out));
 }
 

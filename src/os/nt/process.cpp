@@ -159,7 +159,11 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() cons
     ))))
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
+#ifdef _WIN64
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
+#else
+    return reinterpret_cast<std::uintptr_t>(info.Reserved3);
+#endif
 }
 
 tl::expected<std::string, std::error_code> zero::os::nt::process::Process::name() const {
@@ -328,7 +332,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
         if (pos == 0)
             continue;
 
-        result->operator[](token.substr(0, pos)) = token.substr(pos + 1);
+        result->emplace(token.substr(0, pos), token.substr(pos + 1));
     }
 
     return result;
@@ -385,7 +389,7 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() 
 }
 
 tl::expected<void, std::error_code>
-zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> &timeout) const {
+zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
     if (const DWORD result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         if (result == WAIT_TIMEOUT)
