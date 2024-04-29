@@ -10,162 +10,166 @@
 #include <zero/atomic/circular_buffer.h>
 
 namespace zero::concurrent {
-    enum ChannelError {
-        CHANNEL_EOF = 1,
-        BROKEN_CHANNEL,
-        SEND_TIMEOUT,
-        RECEIVE_TIMEOUT,
-        EMPTY,
+    static constexpr auto SENDER = 0;
+    static constexpr auto RECEIVER = 1;
+
+    template<typename T>
+    struct ChannelCore {
+        explicit ChannelCore(const std::size_t capacity) : buffer(capacity) {
+        }
+
+        std::mutex mutex;
+        std::atomic<bool> closed;
+        atomic::CircularBuffer<T> buffer;
+        std::array<std::atomic<bool>, 2> waiting;
+        std::array<std::condition_variable, 2> cvs;
+        std::array<std::atomic<std::size_t>, 2> counters;
+
+        void trigger(const std::size_t index) {
+            {
+                std::lock_guard guard(mutex);
+
+                if (!waiting[index])
+                    return;
+
+                waiting[index] = false;
+            }
+
+            cvs[index].notify_all();
+        }
+
+        void close() {
+            {
+                std::lock_guard guard(mutex);
+
+                if (closed)
+                    return;
+
+                closed = true;
+            }
+
+            trigger(SENDER);
+            trigger(RECEIVER);
+        }
+    };
+
+    enum class TrySendError {
+        DISCONNECTED = 1,
         FULL
     };
 
-    class ChannelErrorCategory final : public std::error_category {
+    class TrySendErrorCategory final : public std::error_category {
     public:
         [[nodiscard]] const char *name() const noexcept override;
         [[nodiscard]] std::string message(int value) const override;
         [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
     };
 
-    std::error_code make_error_code(ChannelError e);
+    std::error_code make_error_code(TrySendError e);
+
+    enum class SendError {
+        DISCONNECTED = 1,
+        TIMEOUT
+    };
+
+    class SendErrorCategory final : public std::error_category {
+    public:
+        [[nodiscard]] const char *name() const noexcept override;
+        [[nodiscard]] std::string message(int value) const override;
+        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+    };
+
+    std::error_code make_error_code(SendError e);
 
     template<typename T>
-    class Channel {
-        static constexpr auto SENDER = 0;
-        static constexpr auto RECEIVER = 1;
-
+    class Sender {
     public:
-        explicit Channel(const std::size_t capacity) : mClosed(false), mBuffer(capacity), mWaiting{false, false} {
+        explicit Sender(std::shared_ptr<ChannelCore<T>> core) : mCore(std::move(core)) {
+            ++mCore->counters[SENDER];
         }
 
-    private:
-        template<int Index>
-        void trigger() {
-            {
-                std::lock_guard guard(mMutex);
-
-                if (!mWaiting[Index])
-                    return;
-
-                mWaiting[Index] = false;
-            }
-
-            mCVs[Index].notify_all();
+        Sender(const Sender &rhs) : mCore(rhs.mCore) {
+            ++mCore->counters[SENDER];
         }
 
-    public:
-        tl::expected<T, ChannelError> tryReceive() {
-            const auto index = mBuffer.acquire();
+        Sender(Sender &&rhs) = default;
 
-            if (!index)
-                return tl::unexpected(mClosed ? CHANNEL_EOF : EMPTY);
+        Sender &operator=(const Sender &rhs) {
+            mCore = rhs.mCore;
+            ++mCore->counters[SENDER];
+            return *this;
+        }
 
-            T element = std::move(mBuffer[*index]);
-            mBuffer.release(*index);
+        Sender &operator=(Sender &&rhs) noexcept = default;
 
-            trigger<SENDER>();
-            return element;
+        ~Sender() {
+            if (!mCore)
+                return;
+
+            if (--mCore->counters[SENDER] > 0)
+                return;
+
+            mCore->close();
         }
 
         template<typename U>
-        tl::expected<void, ChannelError> trySend(U &&element) {
-            if (mClosed)
-                return tl::unexpected(BROKEN_CHANNEL);
+        tl::expected<void, TrySendError> trySend(U &&element) {
+            if (mCore->closed)
+                return tl::unexpected(TrySendError::DISCONNECTED);
 
-            const auto index = mBuffer.reserve();
+            const auto index = mCore->buffer.reserve();
 
             if (!index)
-                return tl::unexpected(FULL);
+                return tl::unexpected(TrySendError::FULL);
 
-            mBuffer[*index] = std::forward<U>(element);
-            mBuffer.commit(*index);
+            mCore->buffer[*index] = std::forward<U>(element);
+            mCore->buffer.commit(*index);
 
-            trigger<RECEIVER>();
+            mCore->trigger(RECEIVER);
             return {};
         }
 
-        tl::expected<T, ChannelError> receive(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
-            tl::expected<T, ChannelError> result;
-
-            while (true) {
-                const auto index = mBuffer.acquire();
-
-                if (!index) {
-                    std::unique_lock lock(mMutex);
-
-                    if (mClosed) {
-                        result = tl::unexpected(CHANNEL_EOF);
-                        break;
-                    }
-
-                    if (!mBuffer.empty())
-                        continue;
-
-                    mWaiting[RECEIVER] = true;
-
-                    if (!timeout) {
-                        mCVs[RECEIVER].wait(lock);
-                        continue;
-                    }
-
-                    if (mCVs[RECEIVER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected(RECEIVE_TIMEOUT);
-                        break;
-                    }
-
-                    continue;
-                }
-
-                result = std::move(mBuffer[*index]);
-                mBuffer.release(*index);
-
-                trigger<SENDER>();
-                break;
-            }
-
-            return result;
-        }
-
         template<typename U>
-        tl::expected<void, ChannelError>
+        tl::expected<void, SendError>
         send(U &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
-            if (mClosed)
-                return tl::unexpected(BROKEN_CHANNEL);
+            if (mCore->closed)
+                return tl::unexpected(SendError::DISCONNECTED);
 
-            tl::expected<void, ChannelError> result;
+            tl::expected<void, SendError> result;
 
             while (true) {
-                const auto index = mBuffer.reserve();
+                const auto index = mCore->buffer.reserve();
 
                 if (!index) {
-                    std::unique_lock lock(mMutex);
+                    std::unique_lock lock(mCore->mutex);
 
-                    if (mClosed) {
-                        result = tl::unexpected(BROKEN_CHANNEL);
+                    if (mCore->closed) {
+                        result = tl::unexpected(SendError::DISCONNECTED);
                         break;
                     }
 
-                    if (!mBuffer.full())
+                    if (!mCore->buffer.full())
                         continue;
 
-                    mWaiting[SENDER] = true;
+                    mCore->waiting[SENDER] = true;
 
                     if (!timeout) {
-                        mCVs[SENDER].wait(lock);
+                        mCore->cvs[SENDER].wait(lock);
                         continue;
                     }
 
-                    if (mCVs[SENDER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected(SEND_TIMEOUT);
+                    if (mCore->cvs[SENDER].wait_for(lock, *timeout) == std::cv_status::timeout) {
+                        result = tl::unexpected(SendError::TIMEOUT);
                         break;
                     }
 
                     continue;
                 }
 
-                mBuffer[*index] = std::forward<U>(element);
-                mBuffer.commit(*index);
+                mCore->buffer[*index] = std::forward<U>(element);
+                mCore->buffer.commit(*index);
 
-                trigger<RECEIVER>();
+                mCore->trigger(RECEIVER);
                 break;
             }
 
@@ -173,52 +177,193 @@ namespace zero::concurrent {
         }
 
         void close() {
-            assert(!mClosed);
-
-            {
-                std::lock_guard guard(mMutex);
-
-                if (mClosed)
-                    return;
-
-                mClosed = true;
-            }
-
-            trigger<SENDER>();
-            trigger<RECEIVER>();
+            mCore->close();
         }
 
         [[nodiscard]] std::size_t size() const {
-            return mBuffer.size();
+            return mCore->buffer.size();
         }
 
         [[nodiscard]] std::size_t capacity() const {
-            return mBuffer.capacity();
+            return mCore->buffer.capacity();
         }
 
         [[nodiscard]] bool empty() const {
-            return mBuffer.empty();
+            return mCore->buffer.empty();
         }
 
         [[nodiscard]] bool full() const {
-            return mBuffer.full();
+            return mCore->buffer.full();
         }
 
         [[nodiscard]] bool closed() const {
-            return mClosed;
+            return mCore->closed;
         }
 
     private:
-        std::mutex mMutex;
-        std::atomic<bool> mClosed;
-        atomic::CircularBuffer<T> mBuffer;
-        std::array<std::atomic<bool>, 2> mWaiting;
-        std::array<std::condition_variable, 2> mCVs;
+        std::shared_ptr<ChannelCore<T>> mCore;
     };
+
+    enum class TryReceiveError {
+        DISCONNECTED = 1,
+        EMPTY
+    };
+
+    class TryReceiveErrorCategory final : public std::error_category {
+    public:
+        [[nodiscard]] const char *name() const noexcept override;
+        [[nodiscard]] std::string message(int value) const override;
+        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+    };
+
+    std::error_code make_error_code(TryReceiveError e);
+
+    enum class ReceiveError {
+        DISCONNECTED = 1,
+        TIMEOUT
+    };
+
+    class ReceiveErrorCategory final : public std::error_category {
+    public:
+        [[nodiscard]] const char *name() const noexcept override;
+        [[nodiscard]] std::string message(int value) const override;
+        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
+    };
+
+    std::error_code make_error_code(ReceiveError e);
+
+    template<typename T>
+    class Receiver {
+    public:
+        explicit Receiver(std::shared_ptr<ChannelCore<T>> core) : mCore(std::move(core)) {
+            ++mCore->counters[RECEIVER];
+        }
+
+        Receiver(const Receiver &rhs) : mCore(rhs.mCore) {
+            ++mCore->counters[RECEIVER];
+        }
+
+        Receiver(Receiver &&rhs) = default;
+
+        Receiver &operator=(const Receiver &rhs) {
+            mCore = rhs.mCore;
+            ++mCore->counters[RECEIVER];
+            return *this;
+        }
+
+        Receiver &operator=(Receiver &&rhs) noexcept = default;
+
+        ~Receiver() {
+            if (!mCore)
+                return;
+
+            if (--mCore->counters[RECEIVER] > 0)
+                return;
+
+            mCore->close();
+        }
+
+        tl::expected<T, TryReceiveError> tryReceive() {
+            const auto index = mCore->buffer.acquire();
+
+            if (!index)
+                return tl::unexpected(mCore->closed ? TryReceiveError::DISCONNECTED : TryReceiveError::EMPTY);
+
+            T element = std::move(mCore->buffer[*index]);
+            mCore->buffer.release(*index);
+
+            mCore->trigger(SENDER);
+            return element;
+        }
+
+        tl::expected<T, ReceiveError> receive(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
+            tl::expected<T, ReceiveError> result = tl::unexpected(ReceiveError::DISCONNECTED);
+
+            while (true) {
+                const auto index = mCore->buffer.acquire();
+
+                if (!index) {
+                    std::unique_lock lock(mCore->mutex);
+
+                    if (mCore->closed)
+                        break;
+
+                    if (!mCore->buffer.empty())
+                        continue;
+
+                    mCore->waiting[RECEIVER] = true;
+
+                    if (!timeout) {
+                        mCore->cvs[RECEIVER].wait(lock);
+                        continue;
+                    }
+
+                    if (mCore->cvs[RECEIVER].wait_for(lock, *timeout) == std::cv_status::timeout) {
+                        result = tl::unexpected(ReceiveError::TIMEOUT);
+                        break;
+                    }
+
+                    continue;
+                }
+
+                result = std::move(mCore->buffer[*index]);
+                mCore->buffer.release(*index);
+
+                mCore->trigger(SENDER);
+                break;
+            }
+
+            return result;
+        }
+
+        [[nodiscard]] std::size_t size() const {
+            return mCore->buffer.size();
+        }
+
+        [[nodiscard]] std::size_t capacity() const {
+            return mCore->buffer.capacity();
+        }
+
+        [[nodiscard]] bool empty() const {
+            return mCore->buffer.empty();
+        }
+
+        [[nodiscard]] bool full() const {
+            return mCore->buffer.full();
+        }
+
+        [[nodiscard]] bool closed() const {
+            return mCore->closed;
+        }
+
+    private:
+        std::shared_ptr<ChannelCore<T>> mCore;
+    };
+
+    template<typename T>
+    using Channel = std::pair<Sender<T>, Receiver<T>>;
+
+    template<typename T>
+    Channel<T> channel(const std::size_t capacity) {
+        const auto core = std::make_shared<ChannelCore<T>>(capacity);
+        return {Sender<T>{core}, Receiver<T>{core}};
+    }
 }
 
 template<>
-struct std::is_error_code_enum<zero::concurrent::ChannelError> : std::true_type {
+struct std::is_error_code_enum<zero::concurrent::TrySendError> : std::true_type {
+};
+
+template<>
+struct std::is_error_code_enum<zero::concurrent::SendError> : std::true_type {
+};
+
+template<>
+struct std::is_error_code_enum<zero::concurrent::TryReceiveError> : std::true_type {
+};
+
+template<>
+struct std::is_error_code_enum<zero::concurrent::ReceiveError> : std::true_type {
 };
 
 #endif //ZERO_CHANNEL_H

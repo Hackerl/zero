@@ -16,7 +16,7 @@ namespace zero::atomic {
 #ifdef _WIN32
     class Event {
     public:
-        enum Error {
+        enum class Error {
             WAIT_EVENT_TIMEOUT = 1,
         };
 

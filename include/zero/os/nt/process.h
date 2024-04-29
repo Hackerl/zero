@@ -30,7 +30,7 @@ namespace zero::os::nt::process {
 
     class Process {
     public:
-        enum Error {
+        enum class Error {
             API_NOT_AVAILABLE = 1,
             PROCESS_STILL_ACTIVE,
             UNEXPECTED_DATA,

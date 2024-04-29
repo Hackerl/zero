@@ -53,11 +53,11 @@ TEST_CASE("logging module", "[log]") {
     const auto tp = std::chrono::system_clock::now();
 
     SECTION("enable") {
-        REQUIRE(!logger.enabled(zero::INFO_LEVEL));
-        logger.addProvider(zero::INFO_LEVEL, std::move(provider), 50ms);
+        REQUIRE(!logger.enabled(zero::LogLevel::INFO_LEVEL));
+        logger.addProvider(zero::LogLevel::INFO_LEVEL, std::move(provider), 50ms);
 
-        REQUIRE(logger.enabled(zero::INFO_LEVEL));
-        logger.log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
+        REQUIRE(logger.enabled(zero::LogLevel::INFO_LEVEL));
+        logger.log(zero::LogLevel::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
 
         REQUIRE(event->wait());
         REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
@@ -68,11 +68,11 @@ TEST_CASE("logging module", "[log]") {
     }
 
     SECTION("disable") {
-        REQUIRE(!logger.enabled(zero::INFO_LEVEL));
-        logger.addProvider(zero::ERROR_LEVEL, std::move(provider), 50ms);
+        REQUIRE(!logger.enabled(zero::LogLevel::INFO_LEVEL));
+        logger.addProvider(zero::LogLevel::ERROR_LEVEL, std::move(provider), 50ms);
 
-        REQUIRE(!logger.enabled(zero::INFO_LEVEL));
-        logger.log(zero::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
+        REQUIRE(!logger.enabled(zero::LogLevel::INFO_LEVEL));
+        logger.log(zero::LogLevel::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
 
         REQUIRE(event->wait());
         REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
@@ -89,11 +89,11 @@ TEST_CASE("logging module", "[log]") {
 #else
             setenv("ZERO_LOG_LEVEL", "3", 0);
 #endif
-            REQUIRE(!logger.enabled(zero::DEBUG_LEVEL));
-            logger.addProvider(zero::ERROR_LEVEL, std::move(provider), 50ms);
+            REQUIRE(!logger.enabled(zero::LogLevel::DEBUG_LEVEL));
+            logger.addProvider(zero::LogLevel::ERROR_LEVEL, std::move(provider), 50ms);
 
-            REQUIRE(logger.enabled(zero::DEBUG_LEVEL));
-            logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
+            REQUIRE(logger.enabled(zero::LogLevel::DEBUG_LEVEL));
+            logger.log(zero::LogLevel::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
 
             REQUIRE(event->wait());
             REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
@@ -114,12 +114,12 @@ TEST_CASE("logging module", "[log]") {
 #else
             setenv("ZERO_LOG_LEVEL", "2", 0);
 #endif
-            REQUIRE(!logger.enabled(zero::INFO_LEVEL));
-            logger.addProvider(zero::ERROR_LEVEL, std::move(provider), 50ms);
+            REQUIRE(!logger.enabled(zero::LogLevel::INFO_LEVEL));
+            logger.addProvider(zero::LogLevel::ERROR_LEVEL, std::move(provider), 50ms);
 
-            REQUIRE(logger.enabled(zero::INFO_LEVEL));
-            REQUIRE(!logger.enabled(zero::DEBUG_LEVEL));
-            logger.log(zero::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
+            REQUIRE(logger.enabled(zero::LogLevel::INFO_LEVEL));
+            REQUIRE(!logger.enabled(zero::LogLevel::DEBUG_LEVEL));
+            logger.log(zero::LogLevel::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
 
             REQUIRE(event->wait());
             REQUIRE(std::chrono::system_clock::now() - tp > 45ms);

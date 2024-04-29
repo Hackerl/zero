@@ -4,7 +4,7 @@
 #include <system_error>
 
 namespace zero::os::darwin {
-    enum Error {
+    enum class Error {
     };
 
     class ErrorCategory final : public std::error_category {

@@ -26,7 +26,7 @@ namespace zero::os::darwin::process {
 
     class Process {
     public:
-        enum Error {
+        enum class Error {
             UNEXPECTED_DATA = 1
         };
 

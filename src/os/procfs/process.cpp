@@ -21,7 +21,7 @@ const char *zero::os::procfs::process::Process::ErrorCategory::name() const noex
 }
 
 std::string zero::os::procfs::process::Process::ErrorCategory::message(const int value) const {
-    if (value == MAYBE_ZOMBIE_PROCESS)
+    if (static_cast<Error>(value) == Error::MAYBE_ZOMBIE_PROCESS)
         return "maybe zombie process";
 
     return "unknown";
@@ -105,7 +105,7 @@ tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::c
     EXPECT(content);
 
     if (content->size() < 2)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     content->pop_back();
     return *std::move(content);
@@ -116,13 +116,13 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::proces
     EXPECT(content);
 
     if (content->empty())
-        return tl::unexpected(MAYBE_ZOMBIE_PROCESS);
+        return tl::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
 
     content->pop_back();
     auto tokens = strings::split(*content, {"\0", 1});
 
     if (tokens.empty())
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     return tokens;
 }
@@ -141,7 +141,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
         auto tokens = strings::split(env, "=", 1);
 
         if (tokens.size() != 2) {
-            result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
+            result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -159,7 +159,7 @@ tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs:
     const std::size_t end = content->rfind(')');
 
     if (start == std::string::npos || end == std::string::npos)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     Stat stat = {};
 
@@ -169,7 +169,7 @@ tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs:
     const auto tokens = strings::split(content->substr(end + 2), " ");
 
     if (tokens.size() < STAT_BASIC_FIELDS - 2)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     auto it = tokens.begin();
 
@@ -294,7 +294,7 @@ tl::expected<zero::os::procfs::process::StatM, std::error_code> zero::os::procfs
     const auto tokens = strings::split(*content, " ");
 
     if (tokens.size() != 7)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     const auto size = strings::toNumber<std::uint64_t>(tokens[0]);
     const auto resident = strings::toNumber<std::uint64_t>(tokens[1]);
@@ -344,7 +344,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
         auto tokens = strings::split(line, ":");
 
         if (tokens.size() != 2)
-            return tl::unexpected(UNEXPECTED_DATA);
+            return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
@@ -363,7 +363,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     auto tokens = strings::split(map["Uid"]);
 
     if (tokens.size() != 4)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     for (std::size_t i = 0; i < 4; i++)
         status.uid[i] = *strings::toNumber<uid_t>(tokens[i]);
@@ -371,7 +371,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     tokens = strings::split(map["Gid"]);
 
     if (tokens.size() != 4)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     for (std::size_t i = 0; i < 4; i++)
         status.gid[i] = *strings::toNumber<pid_t>(tokens[i]);
@@ -407,7 +407,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     tokens = strings::split(map["SigQ"], "/");
 
     if (tokens.size() != 2)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     status.sigQ[0] = *strings::toNumber<int>(tokens[0]);
     status.sigQ[1] = *strings::toNumber<int>(tokens[1]);
@@ -558,7 +558,7 @@ zero::os::procfs::process::Process::maps() const {
     EXPECT(content);
 
     if (content->empty())
-        return tl::unexpected(MAYBE_ZOMBIE_PROCESS);
+        return tl::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
 
     tl::expected<std::list<MemoryMapping>, std::error_code> result;
 
@@ -566,14 +566,14 @@ zero::os::procfs::process::Process::maps() const {
         const auto fields = strings::split(line);
 
         if (fields.size() < MAPPING_BASIC_FIELDS) {
-            result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
+            result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
             break;
         }
 
         const auto tokens = strings::split(fields[0], "-");
 
         if (tokens.size() != 2) {
-            result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
+            result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -619,7 +619,7 @@ zero::os::procfs::process::Process::maps() const {
         const auto &permissions = fields[1];
 
         if (permissions.length() < MAPPING_PERMISSIONS_LENGTH) {
-            result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
+            result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -654,7 +654,7 @@ tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procf
         auto tokens = strings::split(line, ":");
 
         if (tokens.size() != 2)
-            return tl::unexpected(UNEXPECTED_DATA);
+            return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }

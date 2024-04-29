@@ -14,7 +14,7 @@ const char *zero::os::darwin::process::Process::ErrorCategory::name() const noex
 }
 
 std::string zero::os::darwin::process::Process::ErrorCategory::message(const int value) const {
-    if (value == UNEXPECTED_DATA)
+    if (static_cast<Error>(value) == Error::UNEXPECTED_DATA)
         return "unexpected data";
 
     return "unknown";
@@ -104,13 +104,13 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::proces
     EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     const auto argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     it = std::find_if(
         it,
@@ -121,12 +121,12 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::proces
     );
 
     if (it == arguments->end())
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     auto tokens = strings::split({it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     tokens.pop_back();
     return tokens;
@@ -137,13 +137,13 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
     EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     const int argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     it = std::find_if(
         it,
@@ -154,12 +154,12 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
     );
 
     if (it == arguments->end())
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     const auto tokens = strings::split({it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     const auto &str = tokens[argc];
 
@@ -171,7 +171,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
 
     while (true) {
         if (str.length() <= prev) {
-            result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
+            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -181,7 +181,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
         std::size_t pos = str.find('\0', prev);
 
         if (pos == std::string::npos) {
-            result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
+            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -190,7 +190,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
         pos = item.find('=');
 
         if (pos == std::string::npos) {
-            result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
+            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 

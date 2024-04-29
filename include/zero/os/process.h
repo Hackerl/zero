@@ -117,7 +117,7 @@ namespace zero::os::process {
 #ifdef _WIN32
     class PseudoConsole {
     public:
-        enum Error {
+        enum class Error {
             API_NOT_AVAILABLE = 1,
         };
 
@@ -151,7 +151,7 @@ namespace zero::os::process {
     class PseudoConsole {
     public:
 #if __ANDROID__ && __ANDROID_API__ < 23
-        enum Error {
+        enum class Error {
             API_NOT_AVAILABLE = 1,
         };
 
@@ -192,7 +192,7 @@ namespace zero::os::process {
 
     class Command {
     public:
-        enum StdioType {
+        enum class StdioType {
             NUL,
             INHERIT,
             PIPED

@@ -16,7 +16,7 @@
 namespace zero {
     constexpr std::array LOG_TAGS = {"ERROR", "WARN", "INFO", "DEBUG"};
 
-    enum LogLevel {
+    enum class LogLevel {
         ERROR_LEVEL,
         WARNING_LEVEL,
         INFO_LEVEL,
@@ -96,7 +96,7 @@ namespace zero {
         );
 
         void log(const LogLevel level, const std::string_view filename, const int line, std::string content) {
-            mChannel.send(
+            mChannel.first.send(
                 LogMessage{
                     level,
                     line,
@@ -143,7 +143,7 @@ struct fmt::formatter<zero::LogMessage, Char> {
             ctx.out(),
             "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
             localtime(std::chrono::system_clock::to_time_t(message.timestamp)),
-            zero::LOG_TAGS[message.level],
+            zero::LOG_TAGS[static_cast<int>(message.level)],
             message.filename,
             message.line,
             message.content

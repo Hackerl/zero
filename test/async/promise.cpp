@@ -12,13 +12,14 @@ constexpr auto CHANNEL_CAPACITY = 32;
 
 class ThreadPool {
 public:
-    ThreadPool(const std::size_t number, const std::size_t capacity): mChannel(capacity) {
+    ThreadPool(const std::size_t number, const std::size_t capacity)
+        : mChannel(zero::concurrent::channel<std::function<void()>>(capacity)) {
         for (int i = 0; i < number; i++)
             mThreads.emplace_back(&ThreadPool::dispatch, this);
     }
 
     ~ThreadPool() {
-        mChannel.close();
+        mChannel.first.close();
 
         for (auto &thread: mThreads)
             thread.join();
@@ -26,7 +27,7 @@ public:
 
     void dispatch() {
         while (true) {
-            const auto task = mChannel.receive();
+            const auto task = mChannel.second.receive();
 
             if (!task)
                 break;
@@ -37,7 +38,7 @@ public:
 
     template<typename F>
     void post(F &&f) {
-        mChannel.send(std::forward<F>(f));
+        mChannel.first.send(std::forward<F>(f));
     }
 
 private:

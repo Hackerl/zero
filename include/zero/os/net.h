@@ -14,7 +14,7 @@
 
 namespace zero::os::net {
 #if __ANDROID__ && __ANDROID_API__ < 24
-    enum Error {
+    enum class Error {
         API_NOT_AVAILABLE = 1,
     };
 

@@ -19,7 +19,7 @@ const char *zero::encoding::base64::DecodeErrorCategory::name() const noexcept {
 }
 
 std::string zero::encoding::base64::DecodeErrorCategory::message(const int value) const {
-    if (value == INVALID_LENGTH)
+    if (static_cast<DecodeError>(value) == DecodeError::INVALID_LENGTH)
         return "invalid length for a base64 string";
 
     return "unknown";
@@ -27,14 +27,14 @@ std::string zero::encoding::base64::DecodeErrorCategory::message(const int value
 
 std::error_condition
 zero::encoding::base64::DecodeErrorCategory::default_error_condition(const int value) const noexcept {
-    if (value == INVALID_LENGTH)
+    if (static_cast<DecodeError>(value) == DecodeError::INVALID_LENGTH)
         return std::errc::invalid_argument;
 
     return error_category::default_error_condition(value);
 }
 
 std::error_code zero::encoding::base64::make_error_code(const DecodeError e) {
-    return {e, Singleton<DecodeErrorCategory>::getInstance()};
+    return {static_cast<int>(e), Singleton<DecodeErrorCategory>::getInstance()};
 }
 
 std::string zero::encoding::base64::encode(const std::span<const std::byte> buffer) {
@@ -74,7 +74,7 @@ std::string zero::encoding::base64::encode(const std::span<const std::byte> buff
 tl::expected<std::vector<std::byte>, zero::encoding::base64::DecodeError>
 zero::encoding::base64::decode(const std::string_view encoded) {
     if (encoded.length() % 4)
-        return tl::unexpected(INVALID_LENGTH);
+        return tl::unexpected(DecodeError::INVALID_LENGTH);
 
     const std::size_t size = encoded.size();
 

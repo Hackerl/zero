@@ -16,12 +16,12 @@ const char *zero::encoding::hex::DecodeErrorCategory::name() const noexcept {
 std::string zero::encoding::hex::DecodeErrorCategory::message(const int value) const {
     std::string msg;
 
-    switch (value) {
-    case INVALID_LENGTH:
+    switch (static_cast<DecodeError>(value)) {
+    case DecodeError::INVALID_LENGTH:
         msg = "invalid length for a hex string";
         break;
 
-    case INVALID_HEX_CHARACTER:
+    case DecodeError::INVALID_HEX_CHARACTER:
         msg = "invalid hex character";
         break;
 
@@ -35,14 +35,15 @@ std::string zero::encoding::hex::DecodeErrorCategory::message(const int value) c
 
 std::error_condition
 zero::encoding::hex::DecodeErrorCategory::default_error_condition(const int value) const noexcept {
-    if (value == INVALID_LENGTH || value == INVALID_HEX_CHARACTER)
+    if (const auto e = static_cast<DecodeError>(value);
+        e == DecodeError::INVALID_LENGTH || e == DecodeError::INVALID_HEX_CHARACTER)
         return std::errc::invalid_argument;
 
     return error_category::default_error_condition(value);
 }
 
 std::error_code zero::encoding::hex::make_error_code(const DecodeError e) {
-    return {e, Singleton<DecodeErrorCategory>::getInstance()};
+    return {static_cast<int>(e), Singleton<DecodeErrorCategory>::getInstance()};
 }
 
 std::string zero::encoding::hex::encode(const std::span<const std::byte> buffer) {
@@ -59,7 +60,7 @@ std::string zero::encoding::hex::encode(const std::span<const std::byte> buffer)
 tl::expected<std::vector<std::byte>, zero::encoding::hex::DecodeError>
 zero::encoding::hex::decode(const std::string_view encoded) {
     if (encoded.length() % 2)
-        return tl::unexpected(INVALID_LENGTH);
+        return tl::unexpected(DecodeError::INVALID_LENGTH);
 
     tl::expected<std::vector<std::byte>, DecodeError> result;
 
@@ -68,7 +69,7 @@ zero::encoding::hex::decode(const std::string_view encoded) {
 
         if (!n) {
             assert(n.error() == std::errc::invalid_argument);
-            result = tl::unexpected(INVALID_HEX_CHARACTER);
+            result = tl::unexpected(DecodeError::INVALID_HEX_CHARACTER);
             break;
         }
 

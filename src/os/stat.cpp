@@ -48,12 +48,12 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     );
 
     if (it == lines.end())
-        return tl::unexpected(procfs::UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     const auto tokens = strings::split(*it);
 
     if (tokens.size() != 11)
-        return tl::unexpected(procfs::UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     const auto user = strings::toNumber<std::uint64_t>(tokens[1]);
     const auto system = strings::toNumber<std::uint64_t>(tokens[3]);
@@ -127,7 +127,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
-            return tl::unexpected(procfs::UNEXPECTED_DATA);
+            return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
         const auto n = strings::toNumber<std::uint64_t>(strings::trim(tokens[1]));
         EXPECT(n);
@@ -136,7 +136,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     }
 
     if (!map.contains("MemTotal") || !map.contains("MemFree") || !map.contains("Buffers") || !map.contains("Cached"))
-        return tl::unexpected(procfs::UNEXPECTED_DATA);
+        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     MemoryStat stat = {};
 

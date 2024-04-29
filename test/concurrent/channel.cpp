@@ -5,114 +5,164 @@
 using namespace std::chrono_literals;
 
 TEST_CASE("atomic channel", "[concurrent]") {
-    SECTION("error handling") {
-        zero::concurrent::Channel<int> channel(5);
+    SECTION("errors") {
+        auto [sender, recevier] = zero::concurrent::channel<int>(5);
+        REQUIRE(sender.capacity() == 5);
+        REQUIRE(sender.empty());
+        REQUIRE(!sender.full());
+        REQUIRE(!sender.closed());
 
         SECTION("try receive") {
-            const auto result = channel.tryReceive();
+            const auto result = recevier.tryReceive();
             REQUIRE(!result);
-            REQUIRE(result.error() == zero::concurrent::ChannelError::EMPTY);
+            REQUIRE(result.error() == zero::concurrent::TryReceiveError::EMPTY);
         }
 
         SECTION("try send") {
-            auto result = channel.trySend(0);
-            REQUIRE(result);
+            REQUIRE(sender.trySend(0));
+            REQUIRE(sender.trySend(1));
+            REQUIRE(sender.trySend(2));
+            REQUIRE(sender.trySend(3));
+            REQUIRE(sender.size() == 4);
+            REQUIRE(sender.full());
 
-            result = channel.trySend(1);
-            REQUIRE(result);
-
-            result = channel.trySend(2);
-            REQUIRE(result);
-
-            result = channel.trySend(3);
-            REQUIRE(result);
-
-            result = channel.trySend(4);
+            const auto result = sender.trySend(4);
             REQUIRE(!result);
-            REQUIRE(result.error() == zero::concurrent::ChannelError::FULL);
+            REQUIRE(result.error() == zero::concurrent::TrySendError::FULL);
         }
 
         SECTION("close") {
             SECTION("receive after closed") {
                 SECTION("empty") {
-                    channel.close();
-                    const auto result = channel.receive();
+                    sender.close();
+                    REQUIRE(sender.empty());
+                    REQUIRE(sender.closed());
+
+                    const auto result = recevier.receive();
                     REQUIRE(!result);
-                    REQUIRE(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
+                    REQUIRE(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
                 }
 
                 SECTION("no empty") {
-                    channel.send(0);
-                    channel.send(1);
-                    channel.close();
+                    REQUIRE(sender.send(0));
+                    REQUIRE(sender.send(1));
 
-                    auto result = channel.receive();
+                    sender.close();
+                    REQUIRE(sender.size() == 2);
+                    REQUIRE(sender.closed());
+
+                    auto result = recevier.receive();
                     REQUIRE(result);
                     REQUIRE(*result == 0);
 
-                    result = channel.receive();
+                    result = recevier.receive();
                     REQUIRE(result);
                     REQUIRE(*result == 1);
 
-                    result = channel.receive();
+                    result = recevier.receive();
                     REQUIRE(!result);
-                    REQUIRE(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
+                    REQUIRE(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
                 }
             }
 
             SECTION("send after closed") {
-                channel.send(0);
-                channel.send(1);
-                channel.close();
-                const auto result = channel.send(2);
+                REQUIRE(sender.send(0));
+                REQUIRE(sender.send(1));
+
+                sender.close();
+                REQUIRE(sender.size() == 2);
+                REQUIRE(sender.closed());
+
+                const auto result = sender.send(2);
                 REQUIRE(!result);
-                REQUIRE(result.error() == zero::concurrent::ChannelError::BROKEN_CHANNEL);
+                REQUIRE(result.error() == zero::concurrent::SendError::DISCONNECTED);
             }
         }
 
         SECTION("receive timeout") {
-            const auto result = channel.receive(50ms);
+            const auto result = recevier.receive(50ms);
             REQUIRE(!result);
-            REQUIRE(result.error() == zero::concurrent::ChannelError::RECEIVE_TIMEOUT);
+            REQUIRE(result.error() == zero::concurrent::ReceiveError::TIMEOUT);
         }
 
         SECTION("send timeout") {
-            auto result = channel.send(0);
-            REQUIRE(result);
+            REQUIRE(sender.trySend(0));
+            REQUIRE(sender.trySend(1));
+            REQUIRE(sender.trySend(2));
+            REQUIRE(sender.trySend(3));
+            REQUIRE(sender.size() == 4);
+            REQUIRE(sender.full());
 
-            result = channel.send(1);
-            REQUIRE(result);
-
-            result = channel.send(2);
-            REQUIRE(result);
-
-            result = channel.send(3);
-            REQUIRE(result);
-
-            result = channel.send(4, 50ms);
+            const auto result = sender.send(4, 50ms);
             REQUIRE(!result);
-            REQUIRE(result.error() == zero::concurrent::ChannelError::SEND_TIMEOUT);
+            REQUIRE(result.error() == zero::concurrent::SendError::TIMEOUT);
         }
+    }
+
+    SECTION("receiver disconnect") {
+        auto [sender, recevier] = zero::concurrent::channel<int>(5);
+        REQUIRE(!sender.closed());
+
+        std::thread thread(
+            [](zero::concurrent::Receiver<int> r) {
+                const auto result = r.receive();
+                assert(result);
+                assert(*result == 0);
+            },
+            std::move(recevier)
+        );
+
+        REQUIRE(sender.trySend(0));
+        thread.join();
+        REQUIRE(sender.closed());
+
+        const auto result = sender.send(2);
+        REQUIRE(!result);
+        REQUIRE(result.error() == zero::concurrent::SendError::DISCONNECTED);
+    }
+
+    SECTION("sender disconnect") {
+        auto [sender, recevier] = zero::concurrent::channel<int>(5);
+        REQUIRE(!recevier.closed());
+
+        std::thread thread(
+            [](zero::concurrent::Sender<int> s) {
+                const auto result = s.trySend(0);
+                assert(result);
+            },
+            std::move(sender)
+        );
+
+        auto result = recevier.receive();
+        REQUIRE(result);
+        REQUIRE(*result == 0);
+
+        thread.join();
+        REQUIRE(recevier.closed());
+
+        result = recevier.receive();
+        REQUIRE(!result);
+        REQUIRE(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
     }
 
     SECTION("concurrent") {
         std::atomic<int> counters[2] = {};
-        zero::concurrent::Channel<int> channel(100);
+        auto [sender, recevier] = zero::concurrent::channel<int>(5);
 
         auto produce = [&] {
             while (true) {
                 if (counters[0] > 100000)
                     break;
 
-                const auto result = channel.send(counters[0]++);
+                const auto result = sender.send(counters[0]++);
                 assert(result);
             }
         };
 
         auto consume = [&] {
             while (true) {
-                if (const auto result = channel.receive(); !result) {
-                    assert(result.error() == zero::concurrent::ChannelError::CHANNEL_EOF);
+                if (const auto result = recevier.receive(); !result) {
+                    assert(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
                     break;
                 }
 
@@ -139,7 +189,7 @@ TEST_CASE("atomic channel", "[concurrent]") {
         for (auto &producer: producers)
             producer.join();
 
-        channel.close();
+        sender.close();
 
         for (auto &consumer: consumers)
             consumer.join();

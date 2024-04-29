@@ -10,7 +10,7 @@
 #include <source_location>
 
 namespace zero::async::coroutine {
-    enum Error {
+    enum class Error {
         CANCELLED = 1,
         CANCELLATION_NOT_SUPPORTED,
         LOCKED,
@@ -171,7 +171,7 @@ namespace zero::async::coroutine {
                 frame->cancelled = true;
 
                 if (frame->locked)
-                    return tl::unexpected(make_error_code(LOCKED));
+                    return tl::unexpected(make_error_code(Error::LOCKED));
 
                 if (!frame->next)
                     break;
@@ -180,7 +180,7 @@ namespace zero::async::coroutine {
             }
 
             if (!frame->cancel)
-                return tl::unexpected(make_error_code(CANCELLATION_NOT_SUPPORTED));
+                return tl::unexpected(make_error_code(Error::CANCELLATION_NOT_SUPPORTED));
 
             return std::exchange(frame->cancel, nullptr)();
         }

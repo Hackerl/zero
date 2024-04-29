@@ -5,7 +5,7 @@
 #include <tl/expected.hpp>
 
 namespace zero::os::procfs {
-    enum Error {
+    enum class Error {
         UNEXPECTED_DATA = 1
     };
 
