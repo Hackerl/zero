@@ -11,11 +11,11 @@ tl::expected<std::unique_ptr<int>, std::error_code> func2(const int value) {
     return std::make_unique<int>(value * 4);
 }
 
-tl::expected<std::unique_ptr<int>, std::error_code> func3(int) {
+tl::expected<std::unique_ptr<int>, std::error_code> func3(const int) {
     return tl::unexpected(make_error_code(std::errc::operation_canceled));
 }
 
-tl::expected<std::unique_ptr<int>, std::error_code> func4(int) {
+tl::expected<std::unique_ptr<int>, std::error_code> func4(const int) {
     return tl::unexpected(make_error_code(std::errc::timed_out));
 }
 

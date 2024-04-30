@@ -19,7 +19,7 @@ bool zero::strings::endsWith(const std::string_view str, const std::string_view 
     return str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0;
 }
 
-std::string zero::strings::trim(std::string_view str) {
+std::string zero::strings::trim(const std::string_view str) {
     auto v = str
         | ranges::views::drop_while(isspace)
         | ranges::views::reverse
@@ -29,14 +29,14 @@ std::string zero::strings::trim(std::string_view str) {
     return {v.begin(), v.end()};
 }
 
-std::string zero::strings::ltrim(std::string_view str) {
+std::string zero::strings::ltrim(const std::string_view str) {
     auto v = str
         | ranges::views::drop_while(isspace);
 
     return {v.begin(), v.end()};
 }
 
-std::string zero::strings::rtrim(std::string_view str) {
+std::string zero::strings::rtrim(const std::string_view str) {
     auto v = str
         | ranges::views::reverse
         | ranges::views::drop_while(isspace)
@@ -45,21 +45,21 @@ std::string zero::strings::rtrim(std::string_view str) {
     return {v.begin(), v.end()};
 }
 
-std::string zero::strings::tolower(std::string_view str) {
+std::string zero::strings::tolower(const std::string_view str) {
     const auto v = str
         | ranges::views::transform(::tolower);
 
     return {v.begin(), v.end()};
 }
 
-std::string zero::strings::toupper(std::string_view str) {
+std::string zero::strings::toupper(const std::string_view str) {
     const auto v = str
         | ranges::views::transform(::toupper);
 
     return {v.begin(), v.end()};
 }
 
-std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
+std::vector<std::string> zero::strings::split(const std::string_view str, int limit) {
     std::vector<std::string> tokens;
     auto prev = ranges::find_if(str, std::not_fn(isspace));
 
@@ -89,7 +89,7 @@ std::vector<std::string> zero::strings::split(std::string_view str, int limit) {
     return tokens;
 }
 
-std::vector<std::string> zero::strings::split(std::string_view str, const std::string_view delimiter, int limit) {
+std::vector<std::string> zero::strings::split(const std::string_view str, const std::string_view delimiter, int limit) {
     std::vector<std::string> tokens;
 
     if (delimiter.empty()) {
@@ -119,7 +119,7 @@ std::vector<std::string> zero::strings::split(std::string_view str, const std::s
     return tokens;
 }
 
-tl::expected<std::string, std::error_code> zero::strings::encode(std::wstring_view str, const char *encoding) {
+tl::expected<std::string, std::error_code> zero::strings::encode(const std::wstring_view str, const char *encoding) {
     const auto cd = iconv_open(encoding, "WCHAR_T");
 
     if (cd == reinterpret_cast<iconv_t>(-1))
@@ -148,7 +148,7 @@ tl::expected<std::string, std::error_code> zero::strings::encode(std::wstring_vi
     return output;
 }
 
-tl::expected<std::wstring, std::error_code> zero::strings::decode(std::string_view str, const char *encoding) {
+tl::expected<std::wstring, std::error_code> zero::strings::decode(const std::string_view str, const char *encoding) {
     const auto cd = iconv_open("WCHAR_T", encoding);
 
     if (cd == reinterpret_cast<iconv_t>(-1))

@@ -12,26 +12,27 @@ namespace zero::cache {
         explicit LRUCache(const std::size_t capacity) : mCapacity(capacity) {
         }
 
-        void set(const K &key, const V &value) {
+        template<typename T>
+        void set(const K &key, T &&value) {
             const auto it = mMap.find(key);
 
             if (it != mMap.end()) {
                 if (it->second.second == mKeys.begin()) {
-                    it->second.first = value;
+                    it->second.first = std::forward<T>(value);
                     return;
                 }
 
                 mKeys.erase(it->second.second);
                 mKeys.push_front(key);
 
-                it->second.first = value;
+                it->second.first = std::forward<T>(value);
                 it->second.second = mKeys.begin();
 
                 return;
             }
 
             mKeys.push_front(key);
-            mMap[key] = {value, mKeys.begin()};
+            mMap.emplace(key, std::pair{std::forward<T>(value), mKeys.begin()});
 
             if (size() > mCapacity) {
                 mMap.erase(mKeys.back());
@@ -39,7 +40,7 @@ namespace zero::cache {
             }
         }
 
-        std::optional<V> get(const K &key) {
+        std::optional<std::reference_wrapper<V>> get(const K &key) {
             const auto it = mMap.find(key);
 
             if (it == mMap.end())

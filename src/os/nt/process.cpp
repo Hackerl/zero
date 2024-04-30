@@ -27,20 +27,20 @@ const char *zero::os::nt::process::Process::ErrorCategory::name() const noexcept
 std::string zero::os::nt::process::Process::ErrorCategory::message(const int value) const {
     std::string msg;
 
-    switch (value) {
-    case API_NOT_AVAILABLE:
+    switch (static_cast<Error>(value)) {
+    case Error::API_NOT_AVAILABLE:
         msg = "api not available";
         break;
 
-    case PROCESS_STILL_ACTIVE:
+    case Error::PROCESS_STILL_ACTIVE:
         msg = "process still active";
         break;
 
-    case UNEXPECTED_DATA:
+    case Error::UNEXPECTED_DATA:
         msg = "unexpected data";
         break;
 
-    case WAIT_PROCESS_TIMEOUT:
+    case Error::WAIT_PROCESS_TIMEOUT:
         msg = "wait process timeout";
         break;
 
@@ -56,16 +56,16 @@ std::error_condition
 zero::os::nt::process::Process::ErrorCategory::default_error_condition(const int value) const noexcept {
     std::error_condition condition;
 
-    switch (value) {
-    case API_NOT_AVAILABLE:
+    switch (static_cast<Error>(value)) {
+    case Error::API_NOT_AVAILABLE:
         condition = std::errc::function_not_supported;
         break;
 
-    case PROCESS_STILL_ACTIVE:
+    case Error::PROCESS_STILL_ACTIVE:
         condition = std::errc::operation_would_block;
         break;
 
-    case WAIT_PROCESS_TIMEOUT:
+    case Error::WAIT_PROCESS_TIMEOUT:
         condition = std::errc::timed_out;
         break;
 
@@ -109,7 +109,7 @@ zero::os::nt::process::Process::from(const HANDLE handle) {
 
 tl::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::parameters() const {
     if (!queryInformationProcess)
-        return tl::unexpected(API_NOT_AVAILABLE);
+        return tl::unexpected(Error::API_NOT_AVAILABLE);
 
     PROCESS_BASIC_INFORMATION info = {};
 
@@ -146,7 +146,7 @@ DWORD zero::os::nt::process::Process::pid() const {
 
 tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() const {
     if (!queryInformationProcess)
-        return tl::unexpected(API_NOT_AVAILABLE);
+        return tl::unexpected(Error::API_NOT_AVAILABLE);
 
     PROCESS_BASIC_INFORMATION info = {};
 
@@ -159,7 +159,11 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() cons
     ))))
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
+#ifdef _WIN64
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
+#else
+    return reinterpret_cast<std::uintptr_t>(info.Reserved3);
+#endif
 }
 
 tl::expected<std::string, std::error_code> zero::os::nt::process::Process::name() const {
@@ -184,7 +188,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     if (!str.Buffer || str.Length == 0)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -232,7 +236,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     if (!str.Buffer || str.Length == 0)
-        return tl::unexpected(UNEXPECTED_DATA);
+        return tl::unexpected(Error::UNEXPECTED_DATA);
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -321,14 +325,14 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
         const size_t pos = token.find('=');
 
         if (pos == std::string::npos) {
-            result = tl::unexpected<std::error_code>(UNEXPECTED_DATA);
+            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 
         if (pos == 0)
             continue;
 
-        result->operator[](token.substr(0, pos)) = token.substr(pos + 1);
+        result->emplace(token.substr(0, pos), token.substr(pos + 1));
     }
 
     return result;
@@ -379,17 +383,17 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() 
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     if (code == STILL_ACTIVE)
-        return tl::unexpected(PROCESS_STILL_ACTIVE);
+        return tl::unexpected(Error::PROCESS_STILL_ACTIVE);
 
     return code;
 }
 
 tl::expected<void, std::error_code>
-zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> &timeout) const {
+zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
     if (const DWORD result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         if (result == WAIT_TIMEOUT)
-            return tl::unexpected(WAIT_PROCESS_TIMEOUT);
+            return tl::unexpected(Error::WAIT_PROCESS_TIMEOUT);
 
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
     }

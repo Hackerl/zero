@@ -9,7 +9,7 @@
 #include <nonstd/span.hpp>
 
 namespace zero::encoding::base64 {
-    enum DecodeError {
+    enum class DecodeError {
         INVALID_LENGTH = 1
     };
 

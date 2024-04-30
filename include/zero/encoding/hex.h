@@ -9,7 +9,7 @@
 #include <nonstd/span.hpp>
 
 namespace zero::encoding::hex {
-    enum DecodeError {
+    enum class DecodeError {
         INVALID_LENGTH = 1,
         INVALID_HEX_CHARACTER
     };

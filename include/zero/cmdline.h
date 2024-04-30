@@ -133,7 +133,7 @@ namespace zero {
                 name,
                 shortName,
                 desc,
-                def ? std::any{*def} : std::any{},
+                def ? std::any{*std::move(def)} : std::any{},
                 TypeInfo{
                     getType<T>(),
                     parseValue<T>

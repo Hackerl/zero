@@ -6,7 +6,7 @@ const char *zero::os::procfs::ErrorCategory::name() const noexcept {
 }
 
 std::string zero::os::procfs::ErrorCategory::message(const int value) const {
-    if (value == UNEXPECTED_DATA)
+    if (static_cast<Error>(value) == Error::UNEXPECTED_DATA)
         return "unexpected data";
 
     return "unknown";

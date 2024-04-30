@@ -30,7 +30,7 @@ namespace zero::os::nt::process {
 
     class Process {
     public:
-        enum Error {
+        enum class Error {
             API_NOT_AVAILABLE = 1,
             PROCESS_STILL_ACTIVE,
             UNEXPECTED_DATA,
@@ -71,9 +71,7 @@ namespace zero::os::nt::process {
         [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
 
         [[nodiscard]] tl::expected<DWORD, std::error_code> exitCode() const;
-
-        [[nodiscard]] tl::expected<void, std::error_code>
-        wait(const std::optional<std::chrono::milliseconds> &timeout) const;
+        [[nodiscard]] tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout) const;
 
         tl::expected<void, std::error_code> terminate(DWORD code);
 

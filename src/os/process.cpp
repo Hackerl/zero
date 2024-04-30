@@ -361,7 +361,7 @@ const char *zero::os::process::PseudoConsole::ErrorCategory::name() const noexce
 }
 
 std::string zero::os::process::PseudoConsole::ErrorCategory::message(const int value) const {
-    if (value == API_NOT_AVAILABLE)
+    if (static_cast<Error>(value) == Error::API_NOT_AVAILABLE)
         return "api not available";
 
     return "unknown";
@@ -369,14 +369,14 @@ std::string zero::os::process::PseudoConsole::ErrorCategory::message(const int v
 
 std::error_condition
 zero::os::process::PseudoConsole::ErrorCategory::default_error_condition(const int value) const noexcept {
-    if (value == API_NOT_AVAILABLE)
+    if (static_cast<Error>(value) == Error::API_NOT_AVAILABLE)
         return std::errc::function_not_supported;
 
     return error_category::default_error_condition(value);
 }
 
 std::error_code zero::os::process::make_error_code(const PseudoConsole::Error e) {
-    return {e, Singleton<PseudoConsole::ErrorCategory>::getInstance()};
+    return {static_cast<int>(e), Singleton<PseudoConsole::ErrorCategory>::getInstance()};
 }
 #endif
 
@@ -412,7 +412,7 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
 tl::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
-        return tl::unexpected(API_NOT_AVAILABLE);
+        return tl::unexpected(Error::API_NOT_AVAILABLE);
 
     std::array<HANDLE, 4> handles = {};
 
@@ -495,7 +495,7 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     );
 
     if (!openpty)
-        return tl::unexpected(API_NOT_AVAILABLE);
+        return tl::unexpected(Error::API_NOT_AVAILABLE);
 #endif
     int master, slave;
 
@@ -580,7 +580,7 @@ zero::os::process::Command::Command(std::filesystem::path path)
 }
 
 tl::expected<zero::os::process::ChildProcess, std::error_code>
-zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
+zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) const {
 #ifdef _WIN32
     SECURITY_ATTRIBUTES saAttr = {};
 
@@ -603,10 +603,10 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
         const bool input = i == 0;
         const StdioType type = mStdioTypes[i].value_or(defaultTypes[i]);
 
-        if (type == INHERIT)
+        if (type == StdioType::INHERIT)
             continue;
 
-        if (type == PIPED) {
+        if (type == StdioType::PIPED) {
             if (!CreatePipe(handles + i * 2, handles + i * 2 + 1, &saAttr, 0))
                 return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
@@ -668,7 +668,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
             if (tokens[0].empty())
                 continue;
 
-            envs[std::move(tokens[0])] = std::move(tokens[1]);
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
         }
     }
 
@@ -752,10 +752,10 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
         const bool input = i == 0;
         const StdioType type = mStdioTypes[i].value_or(defaultTypes[i]);
 
-        if (type == INHERIT)
+        if (type == StdioType::INHERIT)
             continue;
 
-        if (type == PIPED) {
+        if (type == StdioType::PIPED) {
             if (pipe(fds + i * 2) < 0)
                 return tl::unexpected<std::error_code>(errno, std::system_category());
 
@@ -786,7 +786,7 @@ zero::os::process::Command::spawn(std::array<StdioType, 3> defaultTypes) const {
             if (tokens.size() != 2)
                 continue;
 
-            envs[std::move(tokens[0])] = std::move(tokens[1]);
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
         }
     }
 
@@ -914,9 +914,9 @@ zero::os::process::Command &zero::os::process::Command::env(std::string key, std
     return *this;
 }
 
-zero::os::process::Command &zero::os::process::Command::envs(const std::map<std::string, std::string> &envs) {
-    for (const auto &[key, value]: envs)
-        mEnviron[key] = value;
+zero::os::process::Command &zero::os::process::Command::envs(std::map<std::string, std::string> envs) {
+    for (auto &[key, value]: envs)
+        mEnviron[key] = std::move(value);
 
     return *this;
 }
@@ -969,7 +969,7 @@ const std::map<std::string, std::optional<std::string>> &zero::os::process::Comm
 }
 
 tl::expected<zero::os::process::ChildProcess, std::error_code> zero::os::process::Command::spawn() const {
-    return spawn({INHERIT, INHERIT, INHERIT});
+    return spawn({StdioType::INHERIT, StdioType::INHERIT, StdioType::INHERIT});
 }
 
 tl::expected<zero::os::process::ChildProcess, std::error_code>
@@ -1028,7 +1028,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
             if (tokens[0].empty())
                 continue;
 
-            envs[std::move(tokens[0])] = std::move(tokens[1]);
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
         }
     }
 
@@ -1117,7 +1117,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
             if (tokens.size() != 2)
                 continue;
 
-            envs[std::move(tokens[0])] = std::move(tokens[1]);
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
         }
     }
 
@@ -1230,7 +1230,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
 tl::expected<zero::os::process::Output, std::error_code>
 zero::os::process::Command::output() const {
-    auto child = spawn({NUL, PIPED, PIPED});
+    auto child = spawn({StdioType::NUL, StdioType::PIPED, StdioType::PIPED});
     EXPECT(child);
 
     if (const auto input = std::exchange(child->stdInput(), std::nullopt)) {

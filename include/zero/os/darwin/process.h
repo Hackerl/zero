@@ -1,4 +1,4 @@
-#ifndef ZERO_DARWIN_PROCESS_H
+ #ifndef ZERO_DARWIN_PROCESS_H
 #define ZERO_DARWIN_PROCESS_H
 
 #include <map>
@@ -26,7 +26,7 @@ namespace zero::os::darwin::process {
 
     class Process {
     public:
-        enum Error {
+        enum class Error {
             UNEXPECTED_DATA = 1
         };
 

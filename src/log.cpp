@@ -10,34 +10,38 @@
 
 constexpr auto LOGGER_BUFFER_SIZE = 1024;
 
-bool zero::ConsoleProvider::init() {
-    return stderr != nullptr;
+tl::expected<void, std::error_code> zero::ConsoleProvider::init() {
+    assert(stderr);
+    return {};
 }
 
-bool zero::ConsoleProvider::rotate() {
-    return true;
+tl::expected<void, std::error_code> zero::ConsoleProvider::rotate() {
+    return {};
 }
 
-bool zero::ConsoleProvider::flush() {
-    return fflush(stderr) == 0;
+tl::expected<void, std::error_code> zero::ConsoleProvider::flush() {
+    if (fflush(stderr) != 0)
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
+
+    return {};
 }
 
-zero::LogResult zero::ConsoleProvider::write(const LogMessage &message) {
+tl::expected<void, std::error_code> zero::ConsoleProvider::write(const LogMessage &message) {
     const std::string msg = fmt::format("{}\n", message);
 
     if (fwrite(msg.data(), 1, msg.length(), stderr) != msg.length())
-        return FAILED;
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
 
-    return SUCCEEDED;
+    return {};
 }
 
 zero::FileProvider::FileProvider(
     const char *name,
-    const std::optional<std::filesystem::path> &directory,
+    std::optional<std::filesystem::path> directory,
     const std::size_t limit,
     const int remain
 ) : mRemain(remain), mLimit(limit), mPosition(0), mName(name),
-    mDirectory(directory.value_or(std::filesystem::temp_directory_path())) {
+    mDirectory(std::move(directory).value_or(std::filesystem::temp_directory_path())) {
 #ifndef _WIN32
     mPID = getpid();
 #else
@@ -45,7 +49,7 @@ zero::FileProvider::FileProvider(
 #endif
 }
 
-bool zero::FileProvider::init() {
+tl::expected<void, std::error_code> zero::FileProvider::init() {
     const std::string name = fmt::format(
         "{}.{}.{}.log",
         mName,
@@ -56,17 +60,24 @@ bool zero::FileProvider::init() {
     mStream.open(mDirectory / name);
 
     if (!mStream.is_open())
-        return false;
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
 
-    return true;
+    return {};
 }
 
-bool zero::FileProvider::rotate() {
+tl::expected<void, std::error_code> zero::FileProvider::rotate() {
+    if (mPosition < mLimit)
+        return {};
+
+    mPosition = 0;
+    mStream.close();
+    mStream.clear();
+
     std::error_code ec;
     const auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
 
     if (ec)
-        return false;
+        return tl::unexpected(ec);
 
     const std::string prefix = fmt::format("%s.%d", mName, mPID);
 
@@ -89,49 +100,46 @@ bool zero::FileProvider::rotate() {
             return std::filesystem::remove(path, ec);
         }
     ))
-        return false;
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
 
     return init();
 }
 
-bool zero::FileProvider::flush() {
-    return mStream.flush().good();
+tl::expected<void, std::error_code> zero::FileProvider::flush() {
+    if (!mStream.flush().good())
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
+
+    return {};
 }
 
-zero::LogResult zero::FileProvider::write(const LogMessage &message) {
+tl::expected<void, std::error_code> zero::FileProvider::write(const LogMessage &message) {
     const std::string msg = fmt::format("{}\n", message);
 
     if (!mStream.write(msg.c_str(), static_cast<std::streamsize>(msg.length())))
-        return FAILED;
+        return tl::unexpected<std::error_code>(errno, std::generic_category());
 
     mPosition += msg.length();
-
-    if (mPosition >= mLimit) {
-        mPosition = 0;
-        mStream.close();
-        mStream.clear();
-        return ROTATED;
-    }
-
-    return SUCCEEDED;
+    return {};
 }
 
-zero::Logger::Logger() : mChannel(LOGGER_BUFFER_SIZE) {
+zero::Logger::Logger() : mChannel(concurrent::channel<LogMessage>(LOGGER_BUFFER_SIZE)) {
 }
 
 zero::Logger::~Logger() {
-    mChannel.close();
+    mChannel.first.close();
 
     if (mThread.joinable())
         mThread.join();
 }
 
 void zero::Logger::consume() {
+    auto &recevier = mChannel.second;
+
     while (true) {
-        auto message = mChannel.tryReceive();
+        tl::expected<LogMessage, std::error_code> message = recevier.tryReceive();
 
         if (!message) {
-            if (message.error() == concurrent::ChannelError::CHANNEL_EOF)
+            if (message.error() == concurrent::TryReceiveError::DISCONNECTED)
                 break;
 
             std::list<std::chrono::milliseconds> durations;
@@ -163,9 +171,9 @@ void zero::Logger::consume() {
             }
 
             if (durations.empty())
-                message = mChannel.receive();
+                message = recevier.receive();
             else
-                message = mChannel.receive(*ranges::min_element(durations));
+                message = recevier.receive(*ranges::min_element(durations));
 
             if (!message)
                 continue;
@@ -177,9 +185,8 @@ void zero::Logger::consume() {
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (message->level <= (std::max)(it->level, mMinLogLevel.value_or(ERROR_LEVEL))) {
-                if (const auto result = it->provider->write(*message);
-                    result == FAILED || (result == ROTATED && !it->provider->rotate())) {
+            if (message->level <= (std::max)(it->level, mMinLogLevel.value_or(LogLevel::ERROR_LEVEL))) {
+                if (!it->provider->write(*message) || !it->provider->rotate()) {
                     it = mConfigs.erase(it);
                     continue;
                 }
@@ -205,9 +212,9 @@ bool zero::Logger::enabled(const LogLevel level) const {
 }
 
 void zero::Logger::addProvider(
-    LogLevel level,
+    const LogLevel level,
     std::unique_ptr<ILogProvider> provider,
-    std::chrono::milliseconds interval
+    const std::chrono::milliseconds interval
 ) {
     std::call_once(mOnceFlag, [=] {
         const auto getEnv = [](const char *name) -> std::optional<int> {
@@ -232,7 +239,7 @@ void zero::Logger::addProvider(
         };
 
         if (const auto value = getEnv("ZERO_LOG_LEVEL")) {
-            if (*value < ERROR_LEVEL || *value > DEBUG_LEVEL)
+            if (const auto lv = static_cast<LogLevel>(*value); lv < LogLevel::ERROR_LEVEL || lv > LogLevel::DEBUG_LEVEL)
                 return;
 
             mMinLogLevel = static_cast<LogLevel>(*value);
@@ -256,7 +263,7 @@ void zero::Logger::addProvider(
 
     std::lock_guard guard(mMutex);
 
-    mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(ERROR_LEVEL));
+    mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(LogLevel::ERROR_LEVEL));
 
     mConfigs.push_back({
         level,

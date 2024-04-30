@@ -64,7 +64,7 @@ namespace zero::async::promise {
     template<typename T, typename E>
     inline constexpr bool is_future_v<Future<T, E>> = true;
 
-    enum State {
+    enum class State {
         PENDING,
         ONLY_CALLBACK,
         ONLY_RESULT,
@@ -74,18 +74,18 @@ namespace zero::async::promise {
     template<typename T, typename E>
     struct Core {
         atomic::Event event{true};
-        std::atomic<State> status{PENDING};
+        std::atomic<State> status{State::PENDING};
         std::optional<tl::expected<T, E>> result;
         std::function<void(tl::expected<T, E>)> callback;
 
         void trigger() {
-            assert(status == DONE);
+            assert(status == State::DONE);
             std::exchange(callback, nullptr)(std::move(*result));
         }
 
         bool hasResult() const {
             const State state = status;
-            return state == ONLY_RESULT || state == DONE;
+            return state == State::ONLY_RESULT || state == State::DONE;
         }
     };
 
@@ -134,8 +134,8 @@ namespace zero::async::promise {
         void resolve(Ts &&... args) {
             assert(mCore);
             assert(!mCore->result);
-            assert(mCore->status != ONLY_RESULT);
-            assert(mCore->status != DONE);
+            assert(mCore->status != State::ONLY_RESULT);
+            assert(mCore->status != State::DONE);
 
             if constexpr (std::is_void_v<T>) {
                 static_assert(sizeof...(Ts) == 0);
@@ -148,12 +148,12 @@ namespace zero::async::promise {
 
             State state = mCore->status;
 
-            if (state == PENDING && mCore->status.compare_exchange_strong(state, ONLY_RESULT)) {
+            if (state == State::PENDING && mCore->status.compare_exchange_strong(state, State::ONLY_RESULT)) {
                 mCore->event.set();
                 return;
             }
 
-            if (state != ONLY_CALLBACK || !mCore->status.compare_exchange_strong(state, DONE))
+            if (state != State::ONLY_CALLBACK || !mCore->status.compare_exchange_strong(state, State::DONE))
                 throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
 
             mCore->event.set();
@@ -165,18 +165,18 @@ namespace zero::async::promise {
             static_assert(sizeof...(Ts) > 0);
             assert(mCore);
             assert(!mCore->result);
-            assert(mCore->status != ONLY_RESULT);
-            assert(mCore->status != DONE);
+            assert(mCore->status != State::ONLY_RESULT);
+            assert(mCore->status != State::DONE);
 
             mCore->result.emplace(tl::unexpected<E>(std::forward<Ts>(args)...));
             State state = mCore->status;
 
-            if (state == PENDING && mCore->status.compare_exchange_strong(state, ONLY_RESULT)) {
+            if (state == State::PENDING && mCore->status.compare_exchange_strong(state, State::ONLY_RESULT)) {
                 mCore->event.set();
                 return;
             }
 
-            if (state != ONLY_CALLBACK || !mCore->status.compare_exchange_strong(state, DONE))
+            if (state != State::ONLY_CALLBACK || !mCore->status.compare_exchange_strong(state, State::DONE))
                 throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
 
             mCore->event.set();
@@ -239,7 +239,7 @@ namespace zero::async::promise {
         }
 
         [[nodiscard]] tl::expected<void, std::error_code>
-        wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt) const {
+        wait(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) const {
             assert(mCore);
 
             if (mCore->hasResult())
@@ -259,16 +259,16 @@ namespace zero::async::promise {
         void setCallback(F &&f) {
             assert(mCore);
             assert(!mCore->callback);
-            assert(mCore->status != ONLY_CALLBACK);
-            assert(mCore->status != DONE);
+            assert(mCore->status != State::ONLY_CALLBACK);
+            assert(mCore->status != State::DONE);
             mCore->callback = std::forward<F>(f);
 
             State state = mCore->status;
 
-            if (state == PENDING && mCore->status.compare_exchange_strong(state, ONLY_CALLBACK))
+            if (state == State::PENDING && mCore->status.compare_exchange_strong(state, State::ONLY_CALLBACK))
                 return;
 
-            if (state != ONLY_RESULT || !mCore->status.compare_exchange_strong(state, DONE))
+            if (state != State::ONLY_RESULT || !mCore->status.compare_exchange_strong(state, State::DONE))
                 throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
 
             mCore->trigger();
@@ -284,8 +284,8 @@ namespace zero::async::promise {
 
             assert(mCore);
             assert(!mCore->callback);
-            assert(mCore->status != ONLY_CALLBACK);
-            assert(mCore->status != DONE);
+            assert(mCore->status != State::ONLY_CALLBACK);
+            assert(mCore->status != State::DONE);
 
             const auto promise = std::make_shared<Promise<NextValue, NextError>>();
 
@@ -385,8 +385,8 @@ namespace zero::async::promise {
 
             assert(mCore);
             assert(!mCore->callback);
-            assert(mCore->status != ONLY_CALLBACK);
-            assert(mCore->status != DONE);
+            assert(mCore->status != State::ONLY_CALLBACK);
+            assert(mCore->status != State::DONE);
 
             const auto promise = std::make_shared<Promise<NextValue, NextError>>();
 
@@ -481,8 +481,8 @@ namespace zero::async::promise {
         auto finally(F &&f) && {
             assert(mCore);
             assert(!mCore->callback);
-            assert(mCore->status != ONLY_CALLBACK);
-            assert(mCore->status != DONE);
+            assert(mCore->status != State::ONLY_CALLBACK);
+            assert(mCore->status != State::DONE);
 
             const auto promise = std::make_shared<Promise<T, E>>();
 

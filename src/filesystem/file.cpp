@@ -69,6 +69,6 @@ zero::filesystem::write(const std::filesystem::path &path, const nonstd::span<co
 }
 
 tl::expected<void, std::error_code>
-zero::filesystem::writeString(const std::filesystem::path &path, std::string_view content) {
+zero::filesystem::writeString(const std::filesystem::path &path, const std::string_view content) {
     return write(path, nonstd::as_bytes(nonstd::span{content.begin(), content.end()}));
 }

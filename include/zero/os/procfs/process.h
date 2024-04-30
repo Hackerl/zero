@@ -164,7 +164,7 @@ namespace zero::os::procfs::process {
 
     class Process {
     public:
-        enum Error {
+        enum class Error {
             MAYBE_ZOMBIE_PROCESS = 1
         };
 

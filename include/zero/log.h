@@ -16,17 +16,11 @@
 namespace zero {
     constexpr std::array LOG_TAGS = {"ERROR", "WARN", "INFO", "DEBUG"};
 
-    enum LogLevel {
+    enum class LogLevel {
         ERROR_LEVEL,
         WARNING_LEVEL,
         INFO_LEVEL,
         DEBUG_LEVEL
-    };
-
-    enum LogResult {
-        FAILED,
-        SUCCEEDED,
-        ROTATED
     };
 
     struct LogMessage {
@@ -39,34 +33,33 @@ namespace zero {
 
     class ILogProvider : public Interface {
     public:
-        virtual bool init() = 0;
-        virtual bool rotate() = 0;
-        virtual bool flush() = 0;
-        virtual LogResult write(const LogMessage &message) = 0;
+        virtual tl::expected<void, std::error_code> init() = 0;
+        virtual tl::expected<void, std::error_code> rotate() = 0;
+        virtual tl::expected<void, std::error_code> flush() = 0;
+        virtual tl::expected<void, std::error_code> write(const LogMessage &message) = 0;
     };
 
     class ConsoleProvider final : public ILogProvider {
     public:
-        bool init() override;
-        bool rotate() override;
-        bool flush() override;
-        LogResult write(const LogMessage &message) override;
+        tl::expected<void, std::error_code> init() override;
+        tl::expected<void, std::error_code> rotate() override;
+        tl::expected<void, std::error_code> flush() override;
+        tl::expected<void, std::error_code> write(const LogMessage &message) override;
     };
 
     class FileProvider final : public ILogProvider {
     public:
         explicit FileProvider(
             const char *name,
-            const std::optional<std::filesystem::path> &directory = std::nullopt,
+            std::optional<std::filesystem::path> directory = std::nullopt,
             std::size_t limit = 10 * 1024 * 1024,
             int remain = 10
         );
 
-        bool init() override;
-        bool rotate() override;
-        bool flush() override;
-
-        LogResult write(const LogMessage &message) override;
+        tl::expected<void, std::error_code> init() override;
+        tl::expected<void, std::error_code> rotate() override;
+        tl::expected<void, std::error_code> flush() override;
+        tl::expected<void, std::error_code> write(const LogMessage &message) override;
 
     private:
         int mPID;
@@ -103,7 +96,7 @@ namespace zero {
         );
 
         void log(const LogLevel level, const std::string_view filename, const int line, std::string content) {
-            mChannel.send(
+            mChannel.first.send(
                 LogMessage{
                     level,
                     line,
@@ -126,6 +119,7 @@ namespace zero {
         concurrent::Channel<LogMessage> mChannel;
     };
 
+    // ReSharper disable once CppDFALocalValueEscapesFunction
     static constexpr std::string_view sourceFilename(const std::string_view path) {
         const auto pos = path.find_last_of("/\\");
 
@@ -149,7 +143,7 @@ struct fmt::formatter<zero::LogMessage, Char> {
             ctx.out(),
             "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
             localtime(std::chrono::system_clock::to_time_t(message.timestamp)),
-            zero::LOG_TAGS[message.level],
+            zero::LOG_TAGS[static_cast<int>(message.level)],
             message.filename,
             message.line,
             message.content

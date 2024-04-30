@@ -22,21 +22,21 @@ const char *zero::atomic::Event::ErrorCategory::name() const noexcept {
 }
 
 std::string zero::atomic::Event::ErrorCategory::message(const int value) const {
-    if (value == WAIT_EVENT_TIMEOUT)
+    if (static_cast<Error>(value) == Error::WAIT_EVENT_TIMEOUT)
         return "wait event timeout";
 
     return "unknown";
 }
 
 std::error_condition zero::atomic::Event::ErrorCategory::default_error_condition(const int value) const noexcept {
-    if (value == WAIT_EVENT_TIMEOUT)
+    if (static_cast<Error>(value) == Error::WAIT_EVENT_TIMEOUT)
         return std::errc::timed_out;
 
     return error_category::default_error_condition(value);
 }
 
 std::error_code zero::atomic::make_error_code(const Event::Error e) {
-    return {e, Singleton<Event::ErrorCategory>::getInstance()};
+    return {static_cast<int>(e), Singleton<Event::ErrorCategory>::getInstance()};
 }
 
 zero::atomic::Event::Event(const bool manual, const bool initialState) {
@@ -56,7 +56,7 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optiona
         rc != WAIT_OBJECT_0) {
         return tl::unexpected(
             rc == WAIT_TIMEOUT
-                ? make_error_code(WAIT_EVENT_TIMEOUT)
+                ? make_error_code(Error::WAIT_EVENT_TIMEOUT)
                 : std::error_code(static_cast<int>(GetLastError()), std::system_category())
         );
     }
@@ -77,7 +77,7 @@ void zero::atomic::Event::reset() {
 zero::atomic::Event::Event(const bool manual, const bool initialState) : mManual(manual), mState(initialState ? 1 : 0) {
 }
 
-tl::expected<void, std::error_code> zero::atomic::Event::wait(std::optional<std::chrono::milliseconds> timeout) {
+tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
     tl::expected<void, std::error_code> result;
 
     while (true) {

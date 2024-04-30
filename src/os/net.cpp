@@ -33,25 +33,25 @@
 
 #if __ANDROID__ && __ANDROID_API__ < 24
 const char *zero::os::net::ErrorCategory::name() const noexcept {
-    return "zero::os::net";
+    return "zero::os::net::interfaces";
 }
 
 std::string zero::os::net::ErrorCategory::message(const int value) const {
-    if (value == API_NOT_AVAILABLE)
+    if (static_cast<GetInterfacesError>(value) == GetInterfacesError::API_NOT_AVAILABLE)
         return "api not available";
 
     return "unknown";
 }
 
 std::error_condition zero::os::net::ErrorCategory::default_error_condition(const int value) const noexcept {
-    if (value == API_NOT_AVAILABLE)
+    if (static_cast<GetInterfacesError>(value) == GetInterfacesError::API_NOT_AVAILABLE)
         return std::errc::function_not_supported;
 
     return error_category::default_error_condition(value);
 }
 
-std::error_code zero::os::net::make_error_code(const Error e) {
-    return {e, Singleton<ErrorCategory>::getInstance()};
+std::error_code zero::os::net::make_error_code(const GetInterfacesError e) {
+    return {static_cast<int>(e), Singleton<ErrorCategory>::getInstance()};
 }
 #endif
 
@@ -159,7 +159,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
     static const auto freeifaddrs = reinterpret_cast<void (*)(ifaddrs *)>(dlsym(RTLD_DEFAULT, "freeifaddrs"));
 
     if (!getifaddrs || !freeifaddrs)
-        return tl::unexpected(API_NOT_AVAILABLE);
+        return tl::unexpected(GetInterfacesError::API_NOT_AVAILABLE);
 #endif
     ifaddrs *addr;
 
