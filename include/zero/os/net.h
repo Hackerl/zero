@@ -14,7 +14,7 @@
 
 namespace zero::os::net {
 #if __ANDROID__ && __ANDROID_API__ < 24
-    enum class Error {
+    enum class GetInterfacesError {
         API_NOT_AVAILABLE = 1,
     };
 
@@ -25,7 +25,7 @@ namespace zero::os::net {
         [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
     };
 
-    std::error_code make_error_code(Error e);
+    std::error_code make_error_code(GetInterfacesError e);
 #endif
     using MAC = std::array<std::byte, 6>;
     using IPv4 = std::array<std::byte, 4>;
@@ -118,7 +118,7 @@ struct fmt::formatter<zero::os::net::Interface, Char> {
 
 #if __ANDROID__ && __ANDROID_API__ < 24
 template<>
-struct std::is_error_code_enum<zero::os::net::Error> : std::true_type {
+struct std::is_error_code_enum<zero::os::net::GetInterfacesError> : std::true_type {
 };
 #endif
 
