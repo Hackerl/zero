@@ -112,7 +112,7 @@ namespace zero::concurrent {
             mCore->close();
         }
 
-        template<typename U>
+        template<typename U = T>
         tl::expected<void, TrySendError> trySend(U &&element) {
             if (mCore->closed)
                 return tl::unexpected(TrySendError::DISCONNECTED);
@@ -129,7 +129,7 @@ namespace zero::concurrent {
             return {};
         }
 
-        template<typename U>
+        template<typename U = T>
         tl::expected<void, SendError>
         send(U &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
             if (mCore->closed)

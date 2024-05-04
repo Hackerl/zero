@@ -455,13 +455,8 @@ namespace zero::async::coroutine {
             return {task.future()};
         }
 
-        template<typename U>
-            requires (
-                !std::is_void_v<T> &&
-                std::is_constructible_v<T, U &&> &&
-                !std::is_same_v<tl::expected<T, E>, std::decay_t<U>> &&
-                !detail::is_specialization<std::decay_t<U>, tl::unexpected>
-            )
+        template<typename U = T>
+            requires std::is_same_v<E, std::exception_ptr>
         void return_value(U &&value) {
             mFrame->next.reset();
             mFrame->location.reset();
@@ -470,39 +465,40 @@ namespace zero::async::coroutine {
             mPromise->resolve(std::forward<U>(value));
         }
 
-        template<typename U>
-            requires (
-                !std::is_same_v<E, std::exception_ptr> &&
-                detail::is_specialization<std::decay_t<U>, tl::unexpected>
-            )
-        void return_value(U &&error) {
-            mFrame->next.reset();
-            mFrame->location.reset();
-            mFrame->cancel = nullptr;
-
-            mPromise->reject(std::forward<U>(error).value());
-        }
-
-        template<typename U>
-            requires (
-                !std::is_same_v<E, std::exception_ptr> &&
-                detail::is_specialization<std::decay_t<U>, tl::expected> &&
-                std::is_constructible_v<tl::expected<T, E>, U &&>
-            )
-        void return_value(U &&result) {
+        template<typename = void>
+            requires (!std::is_same_v<E, std::exception_ptr>)
+        void return_value(tl::expected<T, E> &&result) {
             mFrame->next.reset();
             mFrame->location.reset();
             mFrame->cancel = nullptr;
 
             if (!result) {
-                mPromise->reject(std::forward<U>(result).error());
+                mPromise->reject(std::move(result).error());
                 return;
             }
 
             if constexpr (std::is_void_v<T>)
                 mPromise->resolve();
             else
-                mPromise->resolve(std::forward<U>(result).value());
+                mPromise->resolve(std::move(result).value());
+        }
+
+        template<typename = void>
+            requires (!std::is_same_v<E, std::exception_ptr>)
+        void return_value(const tl::expected<T, E> &result) {
+            mFrame->next.reset();
+            mFrame->location.reset();
+            mFrame->cancel = nullptr;
+
+            if (!result) {
+                mPromise->reject(result.error());
+                return;
+            }
+
+            if constexpr (std::is_void_v<T>)
+                mPromise->resolve();
+            else
+                mPromise->resolve(result.value());
         }
 
     private:

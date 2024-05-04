@@ -12,7 +12,7 @@ namespace zero::cache {
         explicit LRUCache(const std::size_t capacity) : mCapacity(capacity) {
         }
 
-        template<typename T>
+        template<typename T = V>
         void set(const K &key, T &&value) {
             const auto it = mMap.find(key);
 
