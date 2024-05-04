@@ -74,9 +74,9 @@ static std::string quote(const std::string &arg) {
 
     int bsCount = 0;
 
-    for (const char *p = str; *p != '\0'; p++) {
+    for (const char *p = str; *p != '\0'; ++p) {
         if (*p == '\\') {
-            bsCount++;
+            ++bsCount;
         }
         else if (*p == '\"') {
             result.append(bsCount * 2 + 1, '\\');
@@ -600,7 +600,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
         }
     );
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; ++i) {
         const bool input = i == 0;
         const StdioType type = mStdioTypes[i].value_or(defaultTypes[i]);
 
@@ -749,7 +749,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
     if (fcntl(fds[NOTIFY_WRITER], F_SETFD, FD_CLOEXEC) < 0)
         return tl::unexpected<std::error_code>(errno, std::system_category());
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; ++i) {
         const bool input = i == 0;
         const StdioType type = mStdioTypes[i].value_or(defaultTypes[i]);
 
@@ -781,7 +781,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
     std::map<std::string, std::string> envs;
 
     if (mInheritEnv) {
-        for (char **ptr = environ; *ptr != nullptr; ptr++) {
+        for (char **ptr = environ; *ptr != nullptr; ++ptr) {
             auto tokens = strings::split(*ptr, "=", 1);
 
             if (tokens.size() != 2)
@@ -832,7 +832,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
 
         const auto max = static_cast<int>(sysconf(_SC_OPEN_MAX));
 
-        for (int i = STDERR_FILENO + 1; i < max; i++) {
+        for (int i = STDERR_FILENO + 1; i < max; ++i) {
             if (i == fds[NOTIFY_WRITER])
                 continue;
 
@@ -1112,7 +1112,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     std::map<std::string, std::string> envs;
 
     if (mInheritEnv) {
-        for (char **ptr = environ; *ptr != nullptr; ptr++) {
+        for (char **ptr = environ; *ptr != nullptr; ++ptr) {
             auto tokens = strings::split(*ptr, "=", 1);
 
             if (tokens.size() != 2)
@@ -1175,7 +1175,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
         const auto max = static_cast<int>(sysconf(_SC_OPEN_MAX));
 
-        for (int i = STDERR_FILENO + 1; i < max; i++) {
+        for (int i = STDERR_FILENO + 1; i < max; ++i) {
             if (i == fds[1])
                 continue;
 

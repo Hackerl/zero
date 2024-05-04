@@ -69,7 +69,7 @@ struct fmt::formatter<zero::os::net::IfAddress4, Char> {
         for (auto b: address.mask) {
             while (std::to_integer<int>(b)) {
                 if (std::to_integer<int>(b & std::byte{1}))
-                    mask++;
+                    ++mask;
 
                 b >>= 1;
             }

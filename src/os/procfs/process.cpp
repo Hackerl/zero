@@ -365,7 +365,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     if (tokens.size() != 4)
         return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
-    for (std::size_t i = 0; i < 4; i++)
+    for (std::size_t i = 0; i < 4; ++i)
         status.uid[i] = *strings::toNumber<uid_t>(tokens[i]);
 
     tokens = strings::split(map["Gid"]);
@@ -373,7 +373,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     if (tokens.size() != 4)
         return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
 
-    for (std::size_t i = 0; i < 4; i++)
+    for (std::size_t i = 0; i < 4; ++i)
         status.gid[i] = *strings::toNumber<pid_t>(tokens[i]);
 
     status.fdSize = *strings::toNumber<int>(map["FDSize"]);

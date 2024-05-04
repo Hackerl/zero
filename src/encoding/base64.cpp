@@ -65,7 +65,7 @@ std::string zero::encoding::base64::encode(const std::span<const std::byte> buff
         encoded.push_back(ENCODE_MAP[std::to_integer<unsigned char>(b4[3])]);
     }
 
-    for (std::size_t i = 0; i < missing; i++)
+    for (std::size_t i = 0; i < missing; ++i)
         encoded[size - i - 1] = '=';
 
     return encoded;

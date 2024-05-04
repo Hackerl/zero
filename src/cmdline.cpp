@@ -115,7 +115,7 @@ void zero::Cmdline::footer(const char *message) {
 void zero::Cmdline::from(const int argc, const char *const *argv) {
     auto it = mPositionals.begin();
 
-    for (int i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; ++i) {
         if (*argv[i] != '-') {
             if (it == mPositionals.end()) {
                 mRest.emplace_back(argv[i]);
