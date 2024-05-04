@@ -4,7 +4,15 @@
 
 using namespace std::chrono_literals;
 
-TEST_CASE("atomic channel", "[concurrent]") {
+TEST_CASE("channel", "[concurrent]") {
+    SECTION("error condition") {
+        const std::error_condition condition = zero::concurrent::ChannelError::DISCONNECTED;
+        REQUIRE(condition == zero::concurrent::TrySendError::DISCONNECTED);
+        REQUIRE(condition == zero::concurrent::SendError::DISCONNECTED);
+        REQUIRE(condition == zero::concurrent::TryReceiveError::DISCONNECTED);
+        REQUIRE(condition == zero::concurrent::ReceiveError::DISCONNECTED);
+    }
+
     SECTION("errors") {
         auto [sender, recevier] = zero::concurrent::channel<int>(5);
         REQUIRE(sender.capacity() == 5);

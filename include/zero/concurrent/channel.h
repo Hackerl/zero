@@ -10,6 +10,19 @@
 #include <zero/atomic/circular_buffer.h>
 
 namespace zero::concurrent {
+    enum class ChannelError {
+        DISCONNECTED = 1
+    };
+
+    class ChannelErrorCategory final : public std::error_category {
+    public:
+        [[nodiscard]] const char *name() const noexcept override;
+        [[nodiscard]] std::string message(int value) const override;
+        [[nodiscard]] bool equivalent(const std::error_code &code, int value) const noexcept override;
+    };
+
+    std::error_condition make_error_condition(ChannelError e);
+
     static constexpr auto SENDER = 0;
     static constexpr auto RECEIVER = 1;
 
@@ -349,6 +362,10 @@ namespace zero::concurrent {
         return {Sender<T>{core}, Receiver<T>{core}};
     }
 }
+
+template<>
+struct std::is_error_condition_enum<zero::concurrent::ChannelError> : std::true_type {
+};
 
 template<>
 struct std::is_error_code_enum<zero::concurrent::TrySendError> : std::true_type {

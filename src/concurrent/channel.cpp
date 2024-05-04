@@ -1,6 +1,31 @@
 #include <zero/concurrent/channel.h>
 #include <zero/singleton.h>
 
+const char *zero::concurrent::ChannelErrorCategory::name() const noexcept {
+    return "zero::concurrent::channel";
+}
+
+std::string zero::concurrent::ChannelErrorCategory::message(const int value) const {
+    if (static_cast<ChannelError>(value) == ChannelError::DISCONNECTED)
+        return "channel disconnected";
+
+    return "unknown";
+}
+
+bool zero::concurrent::ChannelErrorCategory::equivalent(const std::error_code &code, const int value) const noexcept {
+    if (static_cast<ChannelError>(value) == ChannelError::DISCONNECTED)
+        return code == TrySendError::DISCONNECTED ||
+            code == SendError::DISCONNECTED ||
+            code == TryReceiveError::DISCONNECTED ||
+            code == ReceiveError::DISCONNECTED;
+
+    return error_category::equivalent(code, value);
+}
+
+std::error_condition zero::concurrent::make_error_condition(const ChannelError e) {
+    return {static_cast<int>(e), Singleton<ChannelErrorCategory>::getInstance()};
+}
+
 const char *zero::concurrent::TrySendErrorCategory::name() const noexcept {
     return "zero::concurrent::Sender::trySend";
 }
