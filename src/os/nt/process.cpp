@@ -258,7 +258,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
     DEFER(LocalFree(args));
     tl::expected<std::vector<std::string>, std::error_code> result;
 
-    for (int i = 0; i < num; i++) {
+    for (int i = 0; i < num; ++i) {
         auto arg = strings::encode(args[i]);
 
         if (!arg) {
