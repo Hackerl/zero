@@ -3,6 +3,7 @@
 #include <zero/strings/strings.h>
 #include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
+#include <fmt/format.h>
 
 #ifdef _WIN32
 #include <future>
@@ -134,9 +135,8 @@ TEST_CASE("process", "[os]") {
                                 .env("ZERO_PROCESS_TESTS", "1")
                                 .output();
             REQUIRE(output);
-
-            REQUIRE(WIFEXITED(output->status));
-            REQUIRE(WEXITSTATUS(output->status) == 0);
+            REQUIRE(output->status.success());
+            REQUIRE(fmt::to_string(output->status) == "exit code(0)");
 
             const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
             REQUIRE(result.find("ZERO_PROCESS_TESTS") != std::string::npos);
@@ -442,6 +442,7 @@ TEST_CASE("process", "[os]") {
                 const auto output = zero::os::process::Command("hostname").output();
                 REQUIRE(output);
                 REQUIRE(output->status.success());
+                REQUIRE(fmt::to_string(output->status) == "exit code(0)");
 
                 const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
                 REQUIRE(zero::strings::trim(result) == *hostname);
@@ -454,6 +455,7 @@ TEST_CASE("process", "[os]") {
                 const auto output = zero::os::process::Command("whoami").output();
                 REQUIRE(output);
                 REQUIRE(output->status.success());
+                REQUIRE(fmt::to_string(output->status) == "exit code(0)");
 
                 const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
                 REQUIRE(zero::strings::trim(result).find(*username) != std::string::npos);

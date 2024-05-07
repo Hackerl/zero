@@ -274,6 +274,10 @@ tl::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::proces
 zero::os::process::ExitStatus::ExitStatus(const Status status) : mStatus(status) {
 }
 
+zero::os::process::ExitStatus::Status zero::os::process::ExitStatus::raw() const {
+    return mStatus;
+}
+
 bool zero::os::process::ExitStatus::success() const {
 #ifdef _WIN32
     return mStatus == EXIT_SUCCESS;
@@ -293,7 +297,7 @@ std::optional<int> zero::os::process::ExitStatus::code() const {
 #endif
 }
 
-#ifdef __unix__
+#ifndef _WIN32
 std::optional<int> zero::os::process::ExitStatus::signal() const {
     if (!(WIFSIGNALED(mStatus)))
         return std::nullopt;

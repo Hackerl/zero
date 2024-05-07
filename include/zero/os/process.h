@@ -2,6 +2,7 @@
 #define ZERO_PROCESS_H
 
 #include <array>
+#include <fmt/core.h>
 
 #ifdef _WIN32
 #include "nt/process.h"
@@ -67,19 +68,20 @@ namespace zero::os::process {
     tl::expected<std::list<ID>, std::error_code> all();
 
     class ExitStatus {
+    public:
 #ifdef _WIN32
         using Status = DWORD;
 #else
         using Status = int;
 #endif
 
-    public:
         explicit ExitStatus(Status status);
 
+        [[nodiscard]] Status raw() const;
         [[nodiscard]] bool success() const;
         [[nodiscard]] std::optional<int> code() const;
 
-#ifdef __unix__
+#ifndef _WIN32
         [[nodiscard]] std::optional<int> signal() const;
         [[nodiscard]] std::optional<int> stoppedSignal() const;
 
@@ -239,5 +241,36 @@ template<>
 struct std::is_error_code_enum<zero::os::process::PseudoConsole::Error> : std::true_type {
 };
 #endif
+
+template<typename Char>
+struct fmt::formatter<zero::os::process::ExitStatus, Char> {
+    template<typename ParseContext>
+    static constexpr auto parse(ParseContext &ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FmtContext>
+    auto format(const zero::os::process::ExitStatus &status, FmtContext &ctx) const {
+        if (const auto code = status.code())
+            return fmt::format_to(ctx.out(), "exit code({})", *code);
+
+#ifndef _WIN32
+        if (const auto signal = status.signal()) {
+            if (status.coreDumped())
+                return fmt::format_to(ctx.out(), "core dumped({})", strsignal(*signal));
+
+            return fmt::format_to(ctx.out(), "signal({})", strsignal(*signal));
+        }
+
+        if (const auto signal = status.stoppedSignal())
+            return fmt::format_to(ctx.out(), "stopped({})", strsignal(*signal));
+
+        if (status.continued())
+            return std::ranges::copy(std::string_view{"continued(WIFCONTINUED)"}, ctx.out()).out;
+#endif
+
+        return fmt::format_to(ctx.out(), "unrecognised wait status()", status.raw());
+    }
+};
 
 #endif //ZERO_PROCESS_H
