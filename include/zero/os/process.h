@@ -265,8 +265,10 @@ struct fmt::formatter<zero::os::process::ExitStatus, Char> {
         if (const auto signal = status.stoppedSignal())
             return fmt::format_to(ctx.out(), "stopped({})", strsignal(*signal));
 
+        using namespace std::string_view_literals;
+
         if (status.continued())
-            return std::ranges::copy(std::string_view{"continued(WIFCONTINUED)"}, ctx.out()).out;
+            return std::ranges::copy("continued(WIFCONTINUED)"sv, ctx.out()).out;
 #endif
 
         return fmt::format_to(ctx.out(), "unrecognised wait status()", status.raw());

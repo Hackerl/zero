@@ -2,9 +2,9 @@
 #include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
 
-using namespace std::chrono_literals;
-
 TEST_CASE("windows process", "[nt]") {
+    using namespace std::chrono_literals;
+
     const auto ids = zero::os::nt::process::all();
     REQUIRE(ids);
 

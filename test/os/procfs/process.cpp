@@ -8,8 +8,6 @@
 #include <sys/wait.h>
 #include <sys/prctl.h>
 
-using namespace std::chrono_literals;
-
 TEST_CASE("procfs process", "[procfs]") {
     char name[16] = {};
     prctl(PR_GET_NAME, name);
@@ -109,6 +107,8 @@ TEST_CASE("procfs process", "[procfs]") {
     }
 
     SECTION("child") {
+        using namespace std::chrono_literals;
+
         const pid_t pid = fork();
 
         if (pid == 0) {
@@ -206,6 +206,8 @@ TEST_CASE("procfs process", "[procfs]") {
     }
 
     SECTION("zombie") {
+        using namespace std::chrono_literals;
+
         const pid_t pid = fork();
 
         if (pid == 0) {

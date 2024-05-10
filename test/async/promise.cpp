@@ -5,8 +5,6 @@
 #include <cstring>
 #include <thread>
 
-using namespace std::chrono_literals;
-
 constexpr auto THREAD_NUMBER = 16;
 constexpr auto CHANNEL_CAPACITY = 32;
 
@@ -96,6 +94,8 @@ TEST_CASE("promise", "[async]") {
     DEFER(pool.reset());
 
     SECTION("basic") {
+        using namespace std::chrono_literals;
+
         zero::async::promise::Promise<int, int> promise;
         REQUIRE(promise.valid());
         REQUIRE(!promise.isFulfilled());

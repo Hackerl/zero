@@ -2,10 +2,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <thread>
 
-using namespace std::chrono_literals;
-
 TEST_CASE("notify event", "[atomic]") {
     SECTION("auto") {
+        using namespace std::chrono_literals;
+
         zero::atomic::Event event;
 
         auto result = event.wait(10ms);
@@ -34,6 +34,8 @@ TEST_CASE("notify event", "[atomic]") {
 
     SECTION("manual") {
         SECTION("not set initially") {
+            using namespace std::chrono_literals;
+
             zero::atomic::Event event(true);
 
             auto result = event.wait(10ms);
@@ -64,6 +66,8 @@ TEST_CASE("notify event", "[atomic]") {
         }
 
         SECTION("initial set") {
+            using namespace std::chrono_literals;
+
             zero::atomic::Event event(true, true);
             REQUIRE(event.wait());
             event.reset();

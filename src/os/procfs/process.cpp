@@ -341,7 +341,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     std::map<std::string, std::string> map;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        auto tokens = strings::split(line, ":");
+        auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
             return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
@@ -404,7 +404,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     status.hugeTLBPages = statusIntegerField<unsigned long>(map, "HugetlbPages");
     status.threads = *statusIntegerField<int>(map, "Threads");
 
-    tokens = strings::split(map["SigQ"], "/");
+    tokens = strings::split(map["SigQ"], "/", 1);
 
     if (tokens.size() != 2)
         return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
@@ -452,7 +452,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
                 break;
             }
 
-            tokens = strings::split(token, "-");
+            tokens = strings::split(token, "-", 1);
 
             if (tokens.size() != 2)
                 continue;
@@ -486,7 +486,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
                 break;
             }
 
-            tokens = strings::split(token, "-");
+            tokens = strings::split(token, "-", 1);
 
             if (tokens.size() != 2)
                 continue;
@@ -570,7 +570,7 @@ zero::os::procfs::process::Process::maps() const {
             break;
         }
 
-        const auto tokens = strings::split(fields[0], "-");
+        const auto tokens = strings::split(fields[0], "-", 1);
 
         if (tokens.size() != 2) {
             result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
@@ -651,7 +651,7 @@ tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procf
     std::map<std::string, std::string> map;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        auto tokens = strings::split(line, ":");
+        auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
             return tl::unexpected(procfs::Error::UNEXPECTED_DATA);

@@ -286,6 +286,8 @@ TEST_CASE("process", "[os]") {
 #endif
 
         SECTION("redirect") {
+            using namespace std::string_view_literals;
+
 #ifdef _WIN32
             auto child = zero::os::process::Command("findstr")
                          .arg("hello")
@@ -302,7 +304,7 @@ TEST_CASE("process", "[os]") {
             const auto output = std::exchange(child->stdOutput(), std::nullopt);
             REQUIRE(output);
 
-            constexpr std::string_view data = "hello wolrd";
+            constexpr auto data = "hello wolrd"sv;
 
             DWORD n;
             REQUIRE(WriteFile(*input, data.data(), data.size(), &n, nullptr));
@@ -331,7 +333,7 @@ TEST_CASE("process", "[os]") {
             const auto output = std::exchange(child->stdOutput(), std::nullopt);
             REQUIRE(output);
 
-            constexpr std::string_view data = "hello wolrd";
+            constexpr auto data = "hello wolrd"sv;
             ssize_t n = write(*input, data.data(), data.size());
             REQUIRE(n == data.size());
             close(*input);
@@ -348,11 +350,13 @@ TEST_CASE("process", "[os]") {
         }
 
         SECTION("pseudo console") {
+            using namespace std::string_view_literals;
+
             auto pc = zero::os::process::PseudoConsole::make(80, 32);
             REQUIRE(pc);
 
-            constexpr std::string_view data = "echo hello\rexit\r";
-            constexpr std::string_view keyword = "hello";
+            constexpr auto data = "echo hello\rexit\r"sv;
+            constexpr auto keyword = "hello"sv;
 
 #ifdef _WIN32
             auto child = zero::os::process::Command("cmd").spawn(*pc);

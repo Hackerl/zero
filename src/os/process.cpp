@@ -39,8 +39,6 @@ constexpr auto STDERR_READER = 4;
 constexpr auto STDERR_WRITER = 5;
 
 #ifdef _WIN32
-using namespace std::chrono_literals;
-
 constexpr auto PTY_MASTER_READER = 0;
 constexpr auto PTY_SLAVE_WRITER = 1;
 constexpr auto PTY_SLAVE_READER = 2;
@@ -553,6 +551,8 @@ tl::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<std::optional<zero::os::process::ExitStatus>, std::error_code> zero::os::process::ChildProcess::tryWait() {
 #ifdef _WIN32
+    using namespace std::chrono_literals;
+
     const auto &impl = this->impl();
 
     if (const auto result = impl.wait(0ms); !result) {

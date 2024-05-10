@@ -23,7 +23,7 @@ namespace zero::encoding::hex {
 
     std::error_code make_error_code(DecodeError e);
 
-    std::string encode(std::span<const std::byte> buffer);
+    std::string encode(std::span<const std::byte> data);
     tl::expected<std::vector<std::byte>, DecodeError> decode(std::string_view encoded);
 }
 

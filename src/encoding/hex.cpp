@@ -46,10 +46,10 @@ std::error_code zero::encoding::hex::make_error_code(const DecodeError e) {
     return {static_cast<int>(e), Singleton<DecodeErrorCategory>::getInstance()};
 }
 
-std::string zero::encoding::hex::encode(const std::span<const std::byte> buffer) {
+std::string zero::encoding::hex::encode(const std::span<const std::byte> data) {
     std::string encoded;
 
-    for (const auto &byte: buffer) {
+    for (const auto &byte: data) {
         encoded.push_back(HEX_MAP[std::to_integer<unsigned char>((byte & std::byte{0xf0}) >> 4)]);
         encoded.push_back(HEX_MAP[std::to_integer<unsigned char>(byte & std::byte{0x0f})]);
     }

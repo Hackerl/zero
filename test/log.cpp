@@ -7,8 +7,6 @@
 #include <windows.h>
 #endif
 
-using namespace std::chrono_literals;
-
 class Provider final : public zero::ILogProvider {
 public:
     Provider(std::shared_ptr<std::bitset<4>> bitset, std::shared_ptr<zero::atomic::Event> event)
@@ -53,6 +51,8 @@ TEST_CASE("logging module", "[log]") {
     const auto tp = std::chrono::system_clock::now();
 
     SECTION("enable") {
+        using namespace std::chrono_literals;
+
         REQUIRE(!logger.enabled(zero::LogLevel::INFO_LEVEL));
         logger.addProvider(zero::LogLevel::INFO_LEVEL, std::move(provider), 50ms);
 
@@ -68,6 +68,8 @@ TEST_CASE("logging module", "[log]") {
     }
 
     SECTION("disable") {
+        using namespace std::chrono_literals;
+
         REQUIRE(!logger.enabled(zero::LogLevel::INFO_LEVEL));
         logger.addProvider(zero::LogLevel::ERROR_LEVEL, std::move(provider), 50ms);
 
@@ -84,6 +86,8 @@ TEST_CASE("logging module", "[log]") {
 
     SECTION("override") {
         SECTION("enable") {
+            using namespace std::chrono_literals;
+
 #ifdef _WIN32
             SetEnvironmentVariableA("ZERO_LOG_LEVEL", "3");
 #else
@@ -109,6 +113,8 @@ TEST_CASE("logging module", "[log]") {
         }
 
         SECTION("disable") {
+            using namespace std::chrono_literals;
+
 #ifdef _WIN32
             SetEnvironmentVariableA("ZERO_LOG_LEVEL", "2");
 #else
