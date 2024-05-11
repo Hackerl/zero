@@ -1,5 +1,4 @@
 #include <zero/encoding/base64.h>
-#include <zero/singleton.h>
 #include <array>
 
 constexpr auto ENCODE_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -14,31 +13,8 @@ constexpr std::array DECODE_MAP = {
     41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 255, 255, 255, 255, 255
 };
 
-const char *zero::encoding::base64::DecodeErrorCategory::name() const noexcept {
-    return "zero::encoding::base64::decode";
-}
-
-std::string zero::encoding::base64::DecodeErrorCategory::message(const int value) const {
-    if (static_cast<DecodeError>(value) == DecodeError::INVALID_LENGTH)
-        return "invalid length for a base64 string";
-
-    return "unknown";
-}
-
-std::error_condition
-zero::encoding::base64::DecodeErrorCategory::default_error_condition(const int value) const noexcept {
-    if (static_cast<DecodeError>(value) == DecodeError::INVALID_LENGTH)
-        return std::errc::invalid_argument;
-
-    return error_category::default_error_condition(value);
-}
-
-std::error_code zero::encoding::base64::make_error_code(const DecodeError e) {
-    return {static_cast<int>(e), Singleton<DecodeErrorCategory>::getInstance()};
-}
-
-std::string zero::encoding::base64::encode(const nonstd::span<const std::byte> buffer) {
-    const std::size_t length = buffer.size();
+std::string zero::encoding::base64::encode(const nonstd::span<const std::byte> data) {
+    const std::size_t length = data.size();
     const std::size_t missing = (length + 2) / 3 * 3 - length;
     const std::size_t size = (length + missing) * 4 / 3;
 
@@ -48,9 +24,9 @@ std::string zero::encoding::base64::encode(const nonstd::span<const std::byte> b
     for (std::size_t i = 0; i < length; i += 3) {
         std::byte b3[3] = {};
 
-        b3[0] = buffer[i];
-        b3[1] = i + 1 < length ? buffer[i + 1] : std::byte{0};
-        b3[2] = i + 2 < length ? buffer[i + 2] : std::byte{0};
+        b3[0] = data[i];
+        b3[1] = i + 1 < length ? data[i + 1] : std::byte{0};
+        b3[2] = i + 2 < length ? data[i + 2] : std::byte{0};
 
         std::byte b4[4] = {};
 

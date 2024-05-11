@@ -7,9 +7,7 @@
 #include <cassert>
 #include <future>
 
-#ifdef _WIN32
-#include <zero/singleton.h>
-#else
+#ifndef _WIN32
 #include <csignal>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,7 +19,6 @@
 #include <pty.h>
 #if __ANDROID__ && __ANDROID_API__ < 23
 #include <dlfcn.h>
-#include <zero/singleton.h>
 #endif
 #endif
 #endif
@@ -38,8 +35,6 @@ constexpr auto STDERR_READER = 4;
 constexpr auto STDERR_WRITER = 5;
 
 #ifdef _WIN32
-using namespace std::chrono_literals;
-
 constexpr auto PTY_MASTER_READER = 0;
 constexpr auto PTY_SLAVE_WRITER = 1;
 constexpr auto PTY_SLAVE_READER = 2;
@@ -273,6 +268,10 @@ tl::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::proces
 zero::os::process::ExitStatus::ExitStatus(const Status status) : mStatus(status) {
 }
 
+zero::os::process::ExitStatus::Status zero::os::process::ExitStatus::raw() const {
+    return mStatus;
+}
+
 bool zero::os::process::ExitStatus::success() const {
 #ifdef _WIN32
     return mStatus == EXIT_SUCCESS;
@@ -292,7 +291,7 @@ std::optional<int> zero::os::process::ExitStatus::code() const {
 #endif
 }
 
-#ifdef __unix__
+#ifndef _WIN32
 std::optional<int> zero::os::process::ExitStatus::signal() const {
     if (!(WIFSIGNALED(mStatus)))
         return std::nullopt;
@@ -354,31 +353,6 @@ std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::Ch
 std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::ChildProcess::stdError() {
     return mStdio[2];
 }
-
-#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
-const char *zero::os::process::PseudoConsole::ErrorCategory::name() const noexcept {
-    return "zero::os::process::PseudoConsole";
-}
-
-std::string zero::os::process::PseudoConsole::ErrorCategory::message(const int value) const {
-    if (static_cast<Error>(value) == Error::API_NOT_AVAILABLE)
-        return "api not available";
-
-    return "unknown";
-}
-
-std::error_condition
-zero::os::process::PseudoConsole::ErrorCategory::default_error_condition(const int value) const noexcept {
-    if (static_cast<Error>(value) == Error::API_NOT_AVAILABLE)
-        return std::errc::function_not_supported;
-
-    return error_category::default_error_condition(value);
-}
-
-std::error_code zero::os::process::make_error_code(const PseudoConsole::Error e) {
-    return {static_cast<int>(e), Singleton<PseudoConsole::ErrorCategory>::getInstance()};
-}
-#endif
 
 #ifdef _WIN32
 zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, const std::array<HANDLE, 4> &handles)
@@ -548,6 +522,8 @@ tl::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<std::optional<zero::os::process::ExitStatus>, std::error_code> zero::os::process::ChildProcess::tryWait() {
 #ifdef _WIN32
+    using namespace std::chrono_literals;
+
     const auto &impl = this->impl();
 
     if (const auto result = impl.wait(0ms); !result) {

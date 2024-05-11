@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <tl/expected.hpp>
 #include <sys/types.h>
+#include <zero/error.h>
 
 namespace zero::os::procfs::process {
     enum MemoryPermission {
@@ -164,15 +165,11 @@ namespace zero::os::procfs::process {
 
     class Process {
     public:
-        enum class Error {
-            MAYBE_ZOMBIE_PROCESS = 1
-        };
-
-        class ErrorCategory final : public std::error_category {
-        public:
-            [[nodiscard]] const char *name() const noexcept override;
-            [[nodiscard]] std::string message(int value) const override;
-        };
+        DEFINE_ERROR_CODE_ONLY(
+            Error,
+            "zero::os::procfs::process::Process",
+            MAYBE_ZOMBIE_PROCESS, "maybe zombie process"
+        )
 
         Process(int fd, pid_t pid);
         Process(Process &&rhs) noexcept;
@@ -203,15 +200,13 @@ namespace zero::os::procfs::process {
         pid_t mPID;
     };
 
-    std::error_code make_error_code(Process::Error e);
+    DEFINE_MAKE_ERROR_CODE(Process::Error)
 
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);
     tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
-template<>
-struct std::is_error_code_enum<zero::os::procfs::process::Process::Error> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::os::procfs::process::Process::Error)
 
 #endif //ZERO_PROCFS_PROCESS_H

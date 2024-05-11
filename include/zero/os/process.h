@@ -2,6 +2,7 @@
 #define ZERO_PROCESS_H
 
 #include <array>
+#include <fmt/core.h>
 
 #ifdef _WIN32
 #include "nt/process.h"
@@ -9,6 +10,10 @@
 #include "darwin/process.h"
 #elif __linux__
 #include "procfs/process.h"
+#endif
+
+#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
+#include <zero/error.h>
 #endif
 
 namespace zero::os::process {
@@ -67,19 +72,20 @@ namespace zero::os::process {
     tl::expected<std::list<ID>, std::error_code> all();
 
     class ExitStatus {
+    public:
 #ifdef _WIN32
         using Status = DWORD;
 #else
         using Status = int;
 #endif
 
-    public:
         explicit ExitStatus(Status status);
 
+        [[nodiscard]] Status raw() const;
         [[nodiscard]] bool success() const;
         [[nodiscard]] std::optional<int> code() const;
 
-#ifdef __unix__
+#ifndef _WIN32
         [[nodiscard]] std::optional<int> signal() const;
         [[nodiscard]] std::optional<int> stoppedSignal() const;
 
@@ -117,16 +123,11 @@ namespace zero::os::process {
 #ifdef _WIN32
     class PseudoConsole {
     public:
-        enum class Error {
-            API_NOT_AVAILABLE = 1,
-        };
-
-        class ErrorCategory final : public std::error_category {
-        public:
-            [[nodiscard]] const char *name() const noexcept override;
-            [[nodiscard]] std::string message(int value) const override;
-            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-        };
+        DEFINE_ERROR_CODE_ONLY_EX(
+            Error,
+            "zero::os::process::PseudoConsole",
+            API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
+        )
 
         PseudoConsole(HPCON pc, const std::array<HANDLE, 4> &handles);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
@@ -151,16 +152,11 @@ namespace zero::os::process {
     class PseudoConsole {
     public:
 #if __ANDROID__ && __ANDROID_API__ < 23
-        enum class Error {
-            API_NOT_AVAILABLE = 1,
-        };
-
-        class ErrorCategory final : public std::error_category {
-        public:
-            [[nodiscard]] const char *name() const noexcept override;
-            [[nodiscard]] std::string message(int value) const override;
-            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-        };
+        DEFINE_ERROR_CODE_ONLY_EX(
+            Error,
+            "zero::os::process::PseudoConsole",
+            API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
+        )
 #endif
         PseudoConsole(int master, int slave);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
@@ -181,7 +177,7 @@ namespace zero::os::process {
 #endif
 
 #if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
-    std::error_code make_error_code(PseudoConsole::Error e);
+    DEFINE_MAKE_ERROR_CODE(PseudoConsole::Error)
 #endif
 
     struct Output {
@@ -235,9 +231,42 @@ namespace zero::os::process {
 }
 
 #if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
-template<>
-struct std::is_error_code_enum<zero::os::process::PseudoConsole::Error> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
 #endif
+
+template<typename Char>
+struct fmt::formatter<zero::os::process::ExitStatus, Char> {
+    template<typename ParseContext>
+    static constexpr auto parse(ParseContext &ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FmtContext>
+    auto format(const zero::os::process::ExitStatus &status, FmtContext &ctx) const {
+        if (const auto code = status.code())
+            return fmt::format_to(ctx.out(), "exit code({})", *code);
+
+#ifndef _WIN32
+        if (const auto signal = status.signal()) {
+            if (status.coreDumped())
+                return fmt::format_to(ctx.out(), "core dumped({})", strsignal(*signal));
+
+            return fmt::format_to(ctx.out(), "signal({})", strsignal(*signal));
+        }
+
+        if (const auto signal = status.stoppedSignal())
+            return fmt::format_to(ctx.out(), "stopped({})", strsignal(*signal));
+
+        using namespace std::string_view_literals;
+
+        if (status.continued()) {
+            constexpr auto result = "continued(WIFCONTINUED)"sv;
+            return std::copy(result.begin(), result.end(), ctx.out());
+        }
+#endif
+
+        return fmt::format_to(ctx.out(), "unrecognised wait status()", status.raw());
+    }
+};
 
 #endif //ZERO_PROCESS_H

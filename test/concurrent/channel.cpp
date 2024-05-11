@@ -2,8 +2,6 @@
 #include <zero/concurrent/channel.h>
 #include <catch2/catch_test_macros.hpp>
 
-using namespace std::chrono_literals;
-
 TEST_CASE("channel", "[concurrent]") {
     SECTION("error condition") {
         const std::error_condition condition = zero::concurrent::ChannelError::DISCONNECTED;
@@ -88,12 +86,15 @@ TEST_CASE("channel", "[concurrent]") {
         }
 
         SECTION("receive timeout") {
+            using namespace std::chrono_literals;
             const auto result = recevier.receive(50ms);
             REQUIRE(!result);
             REQUIRE(result.error() == zero::concurrent::ReceiveError::TIMEOUT);
         }
 
         SECTION("send timeout") {
+            using namespace std::chrono_literals;
+
             REQUIRE(sender.trySend(0));
             REQUIRE(sender.trySend(1));
             REQUIRE(sender.trySend(2));

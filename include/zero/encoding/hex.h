@@ -4,31 +4,22 @@
 #include <string>
 #include <vector>
 #include <cstddef>
-#include <system_error>
 #include <tl/expected.hpp>
+#include <zero/error.h>
 #include <nonstd/span.hpp>
 
 namespace zero::encoding::hex {
-    enum class DecodeError {
-        INVALID_LENGTH = 1,
-        INVALID_HEX_CHARACTER
-    };
+    DEFINE_ERROR_CODE_EX(
+        DecodeError,
+        "zero::encoding::hex::decode",
+        INVALID_LENGTH, "invalid length for a hex string", std::errc::invalid_argument,
+        INVALID_HEX_CHARACTER, "invalid hex character", std::errc::invalid_argument
+    )
 
-    class DecodeErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-    };
-
-    std::error_code make_error_code(DecodeError e);
-
-    std::string encode(nonstd::span<const std::byte> buffer);
+    std::string encode(nonstd::span<const std::byte> data);
     tl::expected<std::vector<std::byte>, DecodeError> decode(std::string_view encoded);
 }
 
-template<>
-struct std::is_error_code_enum<zero::encoding::hex::DecodeError> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::encoding::hex::DecodeError)
 
 #endif //ZERO_HEX_H

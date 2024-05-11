@@ -7,8 +7,8 @@
 #include <optional>
 #include <windows.h>
 #include <filesystem>
-#include <system_error>
 #include <tl/expected.hpp>
+#include <zero/error.h>
 
 namespace zero::os::nt::process {
     struct CPUTime {
@@ -30,19 +30,14 @@ namespace zero::os::nt::process {
 
     class Process {
     public:
-        enum class Error {
-            API_NOT_AVAILABLE = 1,
-            PROCESS_STILL_ACTIVE,
-            UNEXPECTED_DATA,
-            WAIT_PROCESS_TIMEOUT
-        };
-
-        class ErrorCategory final : public std::error_category {
-        public:
-            [[nodiscard]] const char *name() const noexcept override;
-            [[nodiscard]] std::string message(int value) const override;
-            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-        };
+        DEFINE_ERROR_CODE_ONLY_EX(
+            Error,
+            "zero::os::nt::process::Process",
+            API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported,
+            PROCESS_STILL_ACTIVE, "process still active", std::errc::operation_would_block,
+            UNEXPECTED_DATA, "unexpected data", DEFAULT_ERROR_CONDITION,
+            WAIT_PROCESS_TIMEOUT, "wait process timeout", std::errc::timed_out
+        )
 
         Process(HANDLE handle, DWORD pid);
         Process(Process &&rhs) noexcept;
@@ -80,15 +75,13 @@ namespace zero::os::nt::process {
         HANDLE mHandle;
     };
 
-    std::error_code make_error_code(Process::Error e);
+    DEFINE_MAKE_ERROR_CODE(Process::Error)
 
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(DWORD pid);
     tl::expected<std::list<DWORD>, std::error_code> all();
 }
 
-template<>
-struct std::is_error_code_enum<zero::os::nt::process::Process::Error> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::os::nt::process::Process::Error)
 
 #endif //ZERO_NT_PROCESS_H

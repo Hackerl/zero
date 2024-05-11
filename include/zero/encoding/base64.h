@@ -4,30 +4,21 @@
 #include <string>
 #include <vector>
 #include <cstddef>
-#include <system_error>
+#include <zero/error.h>
 #include <tl/expected.hpp>
 #include <nonstd/span.hpp>
 
 namespace zero::encoding::base64 {
-    enum class DecodeError {
-        INVALID_LENGTH = 1
-    };
+    DEFINE_ERROR_CODE_EX(
+        DecodeError,
+        "zero::encoding::base64::decode",
+        INVALID_LENGTH, "invalid length for a base64 string", std::errc::invalid_argument
+    )
 
-    class DecodeErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-    };
-
-    std::error_code make_error_code(DecodeError e);
-
-    std::string encode(nonstd::span<const std::byte> buffer);
+    std::string encode(nonstd::span<const std::byte> data);
     tl::expected<std::vector<std::byte>, DecodeError> decode(std::string_view encoded);
 }
 
-template<>
-struct std::is_error_code_enum<zero::encoding::base64::DecodeError> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::encoding::base64::DecodeError)
 
 #endif //ZERO_BASE64_H

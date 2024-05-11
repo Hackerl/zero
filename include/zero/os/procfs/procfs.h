@@ -1,25 +1,16 @@
 #ifndef ZERO_PROCFS_H
 #define ZERO_PROCFS_H
 
-#include <system_error>
-#include <tl/expected.hpp>
+#include <zero/error.h>
 
 namespace zero::os::procfs {
-    enum class Error {
-        UNEXPECTED_DATA = 1
-    };
-
-    class ErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-    };
-
-    std::error_code make_error_code(Error e);
+    DEFINE_ERROR_CODE(
+        Error,
+        "zero::os::procfs",
+        UNEXPECTED_DATA, "unexpected data"
+    )
 }
 
-template<>
-struct std::is_error_code_enum<zero::os::procfs::Error> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::os::procfs::Error)
 
 #endif //ZERO_PROCFS_H

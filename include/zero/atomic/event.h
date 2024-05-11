@@ -8,6 +8,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <zero/error.h>
 #else
 #include <atomic>
 #endif
@@ -16,16 +17,11 @@ namespace zero::atomic {
 #ifdef _WIN32
     class Event {
     public:
-        enum class Error {
-            WAIT_EVENT_TIMEOUT = 1,
-        };
-
-        class ErrorCategory final : public std::error_category {
-        public:
-            [[nodiscard]] const char *name() const noexcept override;
-            [[nodiscard]] std::string message(int value) const override;
-            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-        };
+        DEFINE_ERROR_CODE_EX(
+            Error,
+            "zero::atomic::Event",
+            WAIT_EVENT_TIMEOUT, "wait event timeout", std::errc::timed_out
+        )
 
         explicit Event(bool manual = false, bool initialState = false);
         Event(const Event &) = delete;
@@ -66,9 +62,7 @@ namespace zero::atomic {
 }
 
 #ifdef _WIN32
-template<>
-struct std::is_error_code_enum<zero::atomic::Event::Error> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::atomic::Event::Error)
 #endif
 
 #endif //ZERO_EVENT_H

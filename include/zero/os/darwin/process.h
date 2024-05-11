@@ -6,6 +6,7 @@
 #include <vector>
 #include <filesystem>
 #include <tl/expected.hpp>
+#include <zero/error.h>
 
 namespace zero::os::darwin::process {
     struct CPUTime {
@@ -26,15 +27,11 @@ namespace zero::os::darwin::process {
 
     class Process {
     public:
-        enum class Error {
-            UNEXPECTED_DATA = 1
-        };
-
-        class ErrorCategory final : public std::error_category {
-        public:
-            [[nodiscard]] const char *name() const noexcept override;
-            [[nodiscard]] std::string message(int value) const override;
-        };
+        DEFINE_ERROR_CODE_ONLY(
+            Error,
+            "zero::os::darwin::process::Process",
+            UNEXPECTED_DATA, "unexpected data"
+        )
 
         explicit Process(pid_t pid);
         Process(Process &&rhs) noexcept;
@@ -64,15 +61,13 @@ namespace zero::os::darwin::process {
         pid_t mPID;
     };
 
-    std::error_code make_error_code(Process::Error e);
+    DEFINE_MAKE_ERROR_CODE(Process::Error)
 
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);
     tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
-template<>
-struct std::is_error_code_enum<zero::os::darwin::process::Process::Error> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::os::darwin::process::Process::Error)
 
 #endif //ZERO_DARWIN_PROCESS_H

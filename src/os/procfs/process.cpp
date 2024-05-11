@@ -1,7 +1,6 @@
 #include <zero/os/procfs/process.h>
 #include <zero/os/procfs/procfs.h>
 #include <zero/strings/strings.h>
-#include <zero/singleton.h>
 #include <zero/defer.h>
 #include <zero/expect.h>
 #include <climits>
@@ -14,21 +13,6 @@
 constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
-
-const char *zero::os::procfs::process::Process::ErrorCategory::name() const noexcept {
-    return "zero::os::procfs::process::Process";
-}
-
-std::string zero::os::procfs::process::Process::ErrorCategory::message(const int value) const {
-    if (static_cast<Error>(value) == Error::MAYBE_ZOMBIE_PROCESS)
-        return "maybe zombie process";
-
-    return "unknown";
-}
-
-std::error_code zero::os::procfs::process::make_error_code(const Process::Error e) {
-    return {static_cast<int>(e), Singleton<Process::ErrorCategory>::getInstance()};
-}
 
 zero::os::procfs::process::Process::Process(const int fd, const pid_t pid) : mFD(fd), mPID(pid) {
 }
@@ -340,7 +324,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     std::map<std::string, std::string> map;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        auto tokens = strings::split(line, ":");
+        auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
             return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
@@ -403,7 +387,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     status.hugeTLBPages = statusIntegerField<unsigned long>(map, "HugetlbPages");
     status.threads = *statusIntegerField<int>(map, "Threads");
 
-    tokens = strings::split(map["SigQ"], "/");
+    tokens = strings::split(map["SigQ"], "/", 1);
 
     if (tokens.size() != 2)
         return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
@@ -451,7 +435,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
                 break;
             }
 
-            tokens = strings::split(token, "-");
+            tokens = strings::split(token, "-", 1);
 
             if (tokens.size() != 2)
                 continue;
@@ -485,7 +469,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
                 break;
             }
 
-            tokens = strings::split(token, "-");
+            tokens = strings::split(token, "-", 1);
 
             if (tokens.size() != 2)
                 continue;
@@ -569,7 +553,7 @@ zero::os::procfs::process::Process::maps() const {
             break;
         }
 
-        const auto tokens = strings::split(fields[0], "-");
+        const auto tokens = strings::split(fields[0], "-", 1);
 
         if (tokens.size() != 2) {
             result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
@@ -650,7 +634,7 @@ tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procf
     std::map<std::string, std::string> map;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        auto tokens = strings::split(line, ":");
+        auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
             return tl::unexpected(procfs::Error::UNEXPECTED_DATA);

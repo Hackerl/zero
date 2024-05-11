@@ -4,25 +4,12 @@
 #include <array>
 #include <chrono>
 #include <optional>
-#include <system_error>
 #include <tl/expected.hpp>
 #include <condition_variable>
+#include <zero/error.h>
 #include <zero/atomic/circular_buffer.h>
 
 namespace zero::concurrent {
-    enum class ChannelError {
-        DISCONNECTED = 1
-    };
-
-    class ChannelErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] bool equivalent(const std::error_code &code, int value) const noexcept override;
-    };
-
-    std::error_condition make_error_condition(ChannelError e);
-
     static constexpr auto SENDER = 0;
     static constexpr auto RECEIVER = 1;
 
@@ -66,33 +53,19 @@ namespace zero::concurrent {
         }
     };
 
-    enum class TrySendError {
-        DISCONNECTED = 1,
-        FULL
-    };
+    DEFINE_ERROR_CODE_EX(
+        TrySendError,
+        "zero::concurrent::Sender::trySend",
+        DISCONNECTED, "sending on a disconnected channel", DEFAULT_ERROR_CONDITION,
+        FULL, "sending on a full channel", std::errc::operation_would_block
+    )
 
-    class TrySendErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-    };
-
-    std::error_code make_error_code(TrySendError e);
-
-    enum class SendError {
-        DISCONNECTED = 1,
-        TIMEOUT
-    };
-
-    class SendErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-    };
-
-    std::error_code make_error_code(SendError e);
+    DEFINE_ERROR_CODE_EX(
+        SendError,
+        "zero::concurrent::Sender::send",
+        DISCONNECTED, "sending on a disconnected channel", DEFAULT_ERROR_CONDITION,
+        TIMEOUT, "timed out waiting on send operation", std::errc::timed_out
+    )
 
     template<typename T>
     class Sender {
@@ -217,33 +190,19 @@ namespace zero::concurrent {
         std::shared_ptr<ChannelCore<T>> mCore;
     };
 
-    enum class TryReceiveError {
-        DISCONNECTED = 1,
-        EMPTY
-    };
+    DEFINE_ERROR_CODE_EX(
+        TryReceiveError,
+        "zero::concurrent::Sender::tryReceive",
+        DISCONNECTED, "receiving on an empty and disconnected channel", DEFAULT_ERROR_CONDITION,
+        EMPTY, "receiving on an empty channel", std::errc::operation_would_block
+    )
 
-    class TryReceiveErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-    };
-
-    std::error_code make_error_code(TryReceiveError e);
-
-    enum class ReceiveError {
-        DISCONNECTED = 1,
-        TIMEOUT
-    };
-
-    class ReceiveErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-    };
-
-    std::error_code make_error_code(ReceiveError e);
+    DEFINE_ERROR_CODE_EX(
+        ReceiveError,
+        "zero::concurrent::Sender::receive",
+        DISCONNECTED, "channel is empty and disconnected", DEFAULT_ERROR_CONDITION,
+        TIMEOUT, "timed out waiting on receive operation", std::errc::timed_out
+    )
 
     template<typename T>
     class Receiver {
@@ -363,24 +322,26 @@ namespace zero::concurrent {
     }
 }
 
-template<>
-struct std::is_error_condition_enum<zero::concurrent::ChannelError> : std::true_type {
-};
+DECLARE_ERROR_CODES(
+    zero::concurrent::TrySendError,
+    zero::concurrent::SendError,
+    zero::concurrent::TryReceiveError,
+    zero::concurrent::ReceiveError
+)
 
-template<>
-struct std::is_error_code_enum<zero::concurrent::TrySendError> : std::true_type {
-};
+namespace zero::concurrent {
+    DEFINE_ERROR_CONDITION(
+        ChannelError,
+        "zero::concurrent::channel",
+        DISCONNECTED,
+        "channel disconnected",
+        code == TrySendError::DISCONNECTED ||
+        code == SendError::DISCONNECTED ||
+        code == TryReceiveError::DISCONNECTED ||
+        code == ReceiveError::DISCONNECTED
+    )
+}
 
-template<>
-struct std::is_error_code_enum<zero::concurrent::SendError> : std::true_type {
-};
-
-template<>
-struct std::is_error_code_enum<zero::concurrent::TryReceiveError> : std::true_type {
-};
-
-template<>
-struct std::is_error_code_enum<zero::concurrent::ReceiveError> : std::true_type {
-};
+DECLARE_ERROR_CONDITION(zero::concurrent::ChannelError)
 
 #endif //ZERO_CHANNEL_H

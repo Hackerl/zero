@@ -4,6 +4,7 @@ add_executable(
         zero_test
         log.cpp
         defer.cpp
+        error.cpp
         expect.cpp
         cmdline.cpp
         formatter.cpp

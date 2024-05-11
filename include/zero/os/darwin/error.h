@@ -1,20 +1,19 @@
 #ifndef ZERO_DARWIN_ERROR_H
 #define ZERO_DARWIN_ERROR_H
 
-#include <system_error>
+#include <zero/error.h>
+#include <mach/mach.h>
 
 namespace zero::os::darwin {
-    enum class Error {
-    };
-
-    class ErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-    };
-
-    std::error_code make_error_code(Error e);
+    TRANSFORM_ERROR_CODE_EX(
+        Error,
+        "zero::os::darwin",
+        mach_error_string,
+        KERN_INVALID_ARGUMENT, std::errc::invalid_argument,
+        KERN_OPERATION_TIMED_OUT, std::errc::timed_out
+    )
 }
+
+DECLARE_ERROR_CODE(zero::os::darwin::Error)
 
 #endif //ZERO_DARWIN_ERROR_H

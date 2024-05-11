@@ -84,7 +84,7 @@ tl::expected<int, std::error_code> test4() {
 #endif
 }
 
-TEST_CASE("error handling macro", "[expect]") {
+TEST_CASE("macro for error handling", "[expect]") {
     auto result = test1();
     REQUIRE(result);
     REQUIRE(*result == 160);

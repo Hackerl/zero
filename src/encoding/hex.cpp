@@ -1,6 +1,5 @@
 #include <zero/encoding/hex.h>
 #include <zero/strings/strings.h>
-#include <zero/singleton.h>
 #include <cassert>
 #include <array>
 
@@ -9,47 +8,10 @@ constexpr std::array HEX_MAP = {
     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
 };
 
-const char *zero::encoding::hex::DecodeErrorCategory::name() const noexcept {
-    return "zero::encoding::hex::decode";
-}
-
-std::string zero::encoding::hex::DecodeErrorCategory::message(const int value) const {
-    std::string msg;
-
-    switch (static_cast<DecodeError>(value)) {
-    case DecodeError::INVALID_LENGTH:
-        msg = "invalid length for a hex string";
-        break;
-
-    case DecodeError::INVALID_HEX_CHARACTER:
-        msg = "invalid hex character";
-        break;
-
-    default:
-        msg = "unknown";
-        break;
-    }
-
-    return msg;
-}
-
-std::error_condition
-zero::encoding::hex::DecodeErrorCategory::default_error_condition(const int value) const noexcept {
-    if (const auto e = static_cast<DecodeError>(value);
-        e == DecodeError::INVALID_LENGTH || e == DecodeError::INVALID_HEX_CHARACTER)
-        return std::errc::invalid_argument;
-
-    return error_category::default_error_condition(value);
-}
-
-std::error_code zero::encoding::hex::make_error_code(const DecodeError e) {
-    return {static_cast<int>(e), Singleton<DecodeErrorCategory>::getInstance()};
-}
-
-std::string zero::encoding::hex::encode(const nonstd::span<const std::byte> buffer) {
+std::string zero::encoding::hex::encode(const nonstd::span<const std::byte> data) {
     std::string encoded;
 
-    for (const auto &byte: buffer) {
+    for (const auto &byte: data) {
         encoded.push_back(HEX_MAP[std::to_integer<unsigned char>((byte & std::byte{0xf0}) >> 4)]);
         encoded.push_back(HEX_MAP[std::to_integer<unsigned char>(byte & std::byte{0x0f})]);
     }

@@ -6,8 +6,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-using namespace std::chrono_literals;
-
 TEST_CASE("darwin process", "[darwin]") {
     SECTION("all") {
         const auto ids = zero::os::darwin::process::all();
@@ -58,6 +56,8 @@ TEST_CASE("darwin process", "[darwin]") {
     }
 
     SECTION("child") {
+        using namespace std::chrono_literals;
+
         const pid_t pid = fork();
 
         if (pid == 0) {
@@ -108,6 +108,8 @@ TEST_CASE("darwin process", "[darwin]") {
     }
 
     SECTION("zombie") {
+        using namespace std::chrono_literals;
+
         const pid_t pid = fork();
 
         if (pid == 0) {
