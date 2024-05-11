@@ -12,6 +12,10 @@
 #include "procfs/process.h"
 #endif
 
+#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
+#include <zero/error.h>
+#endif
+
 namespace zero::os::process {
 #ifdef _WIN32
     using ProcessImpl = nt::process::Process;
@@ -119,16 +123,11 @@ namespace zero::os::process {
 #ifdef _WIN32
     class PseudoConsole {
     public:
-        enum class Error {
-            API_NOT_AVAILABLE = 1,
-        };
-
-        class ErrorCategory final : public std::error_category {
-        public:
-            [[nodiscard]] const char *name() const noexcept override;
-            [[nodiscard]] std::string message(int value) const override;
-            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-        };
+        DEFINE_ERROR_CODE_ONLY_EX(
+            Error,
+            "zero::os::process::PseudoConsole",
+            API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
+        )
 
         PseudoConsole(HPCON pc, const std::array<HANDLE, 4> &handles);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
@@ -153,16 +152,11 @@ namespace zero::os::process {
     class PseudoConsole {
     public:
 #if __ANDROID__ && __ANDROID_API__ < 23
-        enum class Error {
-            API_NOT_AVAILABLE = 1,
-        };
-
-        class ErrorCategory final : public std::error_category {
-        public:
-            [[nodiscard]] const char *name() const noexcept override;
-            [[nodiscard]] std::string message(int value) const override;
-            [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-        };
+        DEFINE_ERROR_CODE_ONLY_EX(
+            Error,
+            "zero::os::process::PseudoConsole",
+            API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
+        )
 #endif
         PseudoConsole(int master, int slave);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
@@ -183,7 +177,7 @@ namespace zero::os::process {
 #endif
 
 #if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
-    std::error_code make_error_code(PseudoConsole::Error e);
+    DEFINE_MAKE_ERROR_CODE(PseudoConsole::Error)
 #endif
 
     struct Output {
@@ -237,9 +231,7 @@ namespace zero::os::process {
 }
 
 #if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
-template<>
-struct std::is_error_code_enum<zero::os::process::PseudoConsole::Error> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
 #endif
 
 template<typename Char>

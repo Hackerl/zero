@@ -2,6 +2,7 @@
 #define ZERO_COROUTINE_H
 
 #include "promise.h"
+#include <zero/error.h>
 #include <list>
 #include <optional>
 #include <algorithm>
@@ -10,21 +11,14 @@
 #include <source_location>
 
 namespace zero::async::coroutine {
-    enum class Error {
-        CANCELLED = 1,
-        CANCELLATION_NOT_SUPPORTED,
-        LOCKED,
-        WILL_BE_DONE
-    };
-
-    class ErrorCategory final : public std::error_category {
-    public:
-        [[nodiscard]] const char *name() const noexcept override;
-        [[nodiscard]] std::string message(int value) const override;
-        [[nodiscard]] std::error_condition default_error_condition(int value) const noexcept override;
-    };
-
-    std::error_code make_error_code(Error e);
+    DEFINE_ERROR_CODE_EX(
+        Error,
+        "zero::async::coroutine",
+        CANCELLED, "task has been cancelled", std::errc::operation_canceled,
+        CANCELLATION_NOT_SUPPORTED, "task does not support cancellation", std::errc::operation_not_supported,
+        LOCKED, "task has been locked", std::errc::resource_unavailable_try_again,
+        WILL_BE_DONE, "operation will be done soon", DEFAULT_ERROR_CONDITION
+    )
 
     template<typename T, typename E>
     struct Awaitable {
@@ -1123,8 +1117,6 @@ namespace zero::async::coroutine {
     }
 }
 
-template<>
-struct std::is_error_code_enum<zero::async::coroutine::Error> : std::true_type {
-};
+DECLARE_ERROR_CODE(zero::async::coroutine::Error)
 
 #endif //ZERO_COROUTINE_H

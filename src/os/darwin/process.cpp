@@ -1,28 +1,12 @@
 #include <zero/os/darwin/process.h>
 #include <zero/os/darwin/error.h>
 #include <zero/strings/strings.h>
-#include <zero/singleton.h>
 #include <zero/expect.h>
 #include <mach/mach_time.h>
 #include <sys/sysctl.h>
 #include <libproc.h>
 #include <unistd.h>
 #include <csignal>
-
-const char *zero::os::darwin::process::Process::ErrorCategory::name() const noexcept {
-    return "zero::os::darwin::process:::Process";
-}
-
-std::string zero::os::darwin::process::Process::ErrorCategory::message(const int value) const {
-    if (static_cast<Error>(value) == Error::UNEXPECTED_DATA)
-        return "unexpected data";
-
-    return "unknown";
-}
-
-std::error_code zero::os::darwin::process::make_error_code(const Process::Error e) {
-    return {static_cast<int>(e), Singleton<Process::ErrorCategory>::getInstance()};
-}
 
 zero::os::darwin::process::Process::Process(const pid_t pid) : mPID(pid) {
 }

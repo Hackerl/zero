@@ -1,5 +1,4 @@
 #include <zero/encoding/base64.h>
-#include <zero/singleton.h>
 #include <array>
 
 constexpr auto ENCODE_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -13,29 +12,6 @@ constexpr std::array DECODE_MAP = {
     255, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
     41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 255, 255, 255, 255, 255
 };
-
-const char *zero::encoding::base64::DecodeErrorCategory::name() const noexcept {
-    return "zero::encoding::base64::decode";
-}
-
-std::string zero::encoding::base64::DecodeErrorCategory::message(const int value) const {
-    if (static_cast<DecodeError>(value) == DecodeError::INVALID_LENGTH)
-        return "invalid length for a base64 string";
-
-    return "unknown";
-}
-
-std::error_condition
-zero::encoding::base64::DecodeErrorCategory::default_error_condition(const int value) const noexcept {
-    if (static_cast<DecodeError>(value) == DecodeError::INVALID_LENGTH)
-        return std::errc::invalid_argument;
-
-    return error_category::default_error_condition(value);
-}
-
-std::error_code zero::encoding::base64::make_error_code(const DecodeError e) {
-    return {static_cast<int>(e), Singleton<DecodeErrorCategory>::getInstance()};
-}
 
 std::string zero::encoding::base64::encode(const std::span<const std::byte> data) {
     const std::size_t length = data.size();

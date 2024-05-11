@@ -164,7 +164,7 @@ zero::async::coroutine::Task<int, std::error_code> test8() {
 #endif
 }
 
-TEST_CASE("error handling macro", "[expect]") {
+TEST_CASE("macro for error handling", "[expect]") {
     SECTION("normal") {
         auto result = test1();
         REQUIRE(result);

@@ -8,7 +8,6 @@
 
 #ifdef _WIN32
 #include <ranges>
-#include <zero/singleton.h>
 #else
 #include <csignal>
 #include <algorithm>
@@ -22,7 +21,6 @@
 #include <pty.h>
 #if __ANDROID__ && __ANDROID_API__ < 23
 #include <dlfcn.h>
-#include <zero/singleton.h>
 #endif
 #endif
 #endif
@@ -357,31 +355,6 @@ std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::Ch
 std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::ChildProcess::stdError() {
     return mStdio[2];
 }
-
-#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
-const char *zero::os::process::PseudoConsole::ErrorCategory::name() const noexcept {
-    return "zero::os::process::PseudoConsole";
-}
-
-std::string zero::os::process::PseudoConsole::ErrorCategory::message(const int value) const {
-    if (static_cast<Error>(value) == Error::API_NOT_AVAILABLE)
-        return "api not available";
-
-    return "unknown";
-}
-
-std::error_condition
-zero::os::process::PseudoConsole::ErrorCategory::default_error_condition(const int value) const noexcept {
-    if (static_cast<Error>(value) == Error::API_NOT_AVAILABLE)
-        return std::errc::function_not_supported;
-
-    return error_category::default_error_condition(value);
-}
-
-std::error_code zero::os::process::make_error_code(const PseudoConsole::Error e) {
-    return {static_cast<int>(e), Singleton<PseudoConsole::ErrorCategory>::getInstance()};
-}
-#endif
 
 #ifdef _WIN32
 zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, const std::array<HANDLE, 4> &handles)

@@ -1,6 +1,5 @@
 #include <zero/os/nt/process.h>
 #include <zero/strings/strings.h>
-#include <zero/singleton.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
 #include <winternl.h>
@@ -19,63 +18,6 @@ constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x0290;
 static const auto queryInformationProcess = reinterpret_cast<decltype(NtQueryInformationProcess) *>(
     GetProcAddress(GetModuleHandleA("ntdll"), "NtQueryInformationProcess")
 );
-
-const char *zero::os::nt::process::Process::ErrorCategory::name() const noexcept {
-    return "zero::os::nt::process::Process";
-}
-
-std::string zero::os::nt::process::Process::ErrorCategory::message(const int value) const {
-    std::string msg;
-
-    switch (static_cast<Error>(value)) {
-    case Error::API_NOT_AVAILABLE:
-        msg = "api not available";
-        break;
-
-    case Error::PROCESS_STILL_ACTIVE:
-        msg = "process still active";
-        break;
-
-    case Error::UNEXPECTED_DATA:
-        msg = "unexpected data";
-        break;
-
-    case Error::WAIT_PROCESS_TIMEOUT:
-        msg = "wait process timeout";
-        break;
-
-    default:
-        msg = "unknown";
-        break;
-    }
-
-    return msg;
-}
-
-std::error_condition
-zero::os::nt::process::Process::ErrorCategory::default_error_condition(const int value) const noexcept {
-    std::error_condition condition;
-
-    switch (static_cast<Error>(value)) {
-    case Error::API_NOT_AVAILABLE:
-        condition = std::errc::function_not_supported;
-        break;
-
-    case Error::PROCESS_STILL_ACTIVE:
-        condition = std::errc::operation_would_block;
-        break;
-
-    case Error::WAIT_PROCESS_TIMEOUT:
-        condition = std::errc::timed_out;
-        break;
-
-    default:
-        condition = error_category::default_error_condition(value);
-        break;
-    }
-
-    return condition;
-}
 
 zero::os::nt::process::Process::Process(const HANDLE handle, const DWORD pid) : mPID(pid), mHandle(handle) {
 }
@@ -407,10 +349,6 @@ tl::expected<void, std::error_code> zero::os::nt::process::Process::terminate(co
         return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
     return {};
-}
-
-std::error_code zero::os::nt::process::make_error_code(const Process::Error e) {
-    return {static_cast<int>(e), Singleton<Process::ErrorCategory>::getInstance()};
 }
 
 tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {
