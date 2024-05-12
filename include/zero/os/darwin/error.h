@@ -5,7 +5,7 @@
 #include <mach/mach.h>
 
 namespace zero::os::darwin {
-    TRANSFORM_ERROR_CODE_EX(
+    DEFINE_ERROR_TRANSFORMER_EX(
         Error,
         "zero::os::darwin",
         mach_error_string,

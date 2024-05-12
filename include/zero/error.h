@@ -333,7 +333,7 @@
         return {static_cast<int>(e), zero::Singleton<Type##Category>::getInstance()};                           \
     }                                                                                                           \
 
-#define DEFINE_ERROR_CODE_ONLY(Type, category, ...)                                                             \
+#define DEFINE_ERROR_CODE_TYPES(Type, category, ...)                                                            \
     enum class Type {                                                                                           \
         OK,                                                                                                     \
         ZERO_ERROR_EXPAND(ZERO_ERROR_DOUBLE_PASTE(ERROR_ENUM_ITEM, __VA_ARGS__))                                \
@@ -362,7 +362,7 @@
     };
 
 #define DEFINE_ERROR_CODE(Type, category, ...)                                                                  \
-    DEFINE_ERROR_CODE_ONLY(Type, category, __VA_ARGS__)                                                         \
+    DEFINE_ERROR_CODE_TYPES(Type, category, __VA_ARGS__)                                                        \
     DEFINE_MAKE_ERROR_CODE(Type)
 
 #define ERROR_ENUM_ITEM_EX(v1, v2, v3) v1,
@@ -378,7 +378,7 @@
 
 #define DEFAULT_ERROR_CONDITION error_category::default_error_condition(value)
 
-#define DEFINE_ERROR_CODE_ONLY_EX(Type, category, ...)                                                          \
+#define DEFINE_ERROR_CODE_TYPES_EX(Type, category, ...)                                                         \
     enum class Type {                                                                                           \
         OK,                                                                                                     \
         ZERO_ERROR_EXPAND(ZERO_ERROR_TRIPLE_PASTE(ERROR_ENUM_ITEM_EX, __VA_ARGS__))                             \
@@ -421,7 +421,7 @@
     };
 
 #define DEFINE_ERROR_CODE_EX(Type, category, ...)                                                               \
-    DEFINE_ERROR_CODE_ONLY_EX(Type, category, __VA_ARGS__)                                                      \
+    DEFINE_ERROR_CODE_TYPES_EX(Type, category, __VA_ARGS__)                                                     \
     DEFINE_MAKE_ERROR_CODE(Type)
 
 #define DECLARE_ERROR_CODE(Type)                                                                                \
@@ -440,7 +440,7 @@
         return {static_cast<int>(e), zero::Singleton<Type##Category>::getInstance()};                           \
     }
 
-#define DEFINE_ERROR_CONDITION_ONLY(Type, category, ...)                                                        \
+#define DEFINE_ERROR_CONDITION_TYPES(Type, category, ...)                                                       \
     enum class Type {                                                                                           \
         OK,                                                                                                     \
         ZERO_ERROR_EXPAND(ZERO_ERROR_TRIPLE_PASTE(ERROR_ENUM_ITEM_EX, __VA_ARGS__))                             \
@@ -478,7 +478,7 @@
     };
 
 #define DEFINE_ERROR_CONDITION(Type, category, ...)                                                             \
-    DEFINE_ERROR_CONDITION_ONLY(Type, category, __VA_ARGS__)                                                    \
+    DEFINE_ERROR_CONDITION_TYPES(Type, category, __VA_ARGS__)                                                   \
     DEFINE_MAKE_ERROR_CONDITION(Type)
 
 #define DECLARE_ERROR_CONDITION(Type)                                                                           \
@@ -488,7 +488,7 @@
 
 #define DECLARE_ERROR_CONDITIONS(...) ZERO_ERROR_EXPAND(ZERO_ERROR_PASTE(DECLARE_ERROR_CONDITION, __VA_ARGS__))
 
-#define TRANSFORM_ERROR_CODE_ONLY(Type, category, stringify)                                                    \
+#define DEFINE_ERROR_TRANSFORMER_TYPES(Type, category, stringify)                                               \
     enum class Type {                                                                                           \
     };                                                                                                          \
                                                                                                                 \
@@ -504,8 +504,8 @@
         }                                                                                                       \
     };
 
-#define TRANSFORM_ERROR_CODE(Type, category, stringify)                                                         \
-    TRANSFORM_ERROR_CODE_ONLY(Type, category, stringify)                                                        \
+#define DEFINE_ERROR_TRANSFORMER(Type, category, stringify)                                                     \
+    DEFINE_ERROR_TRANSFORMER_TYPES(Type, category, stringify)                                                   \
     DEFINE_MAKE_ERROR_CODE(Type)                                                                                \
 
 #define DEFAULT_ERROR_CONDITION_SWITCH_BRANCH(v1, v2)                                                           \
@@ -513,7 +513,7 @@
         condition = v2;                                                                                         \
         break;
 
-#define TRANSFORM_ERROR_CODE_ONLY_EX(Type, category, stringify, ...)                                            \
+#define DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, ...)                                       \
     enum class Type {                                                                                           \
     };                                                                                                          \
                                                                                                                 \
@@ -542,8 +542,8 @@
         }                                                                                                       \
     };
 
-#define TRANSFORM_ERROR_CODE_EX(Type, category, stringify, ...)                                                 \
-    TRANSFORM_ERROR_CODE_ONLY_EX(Type, category, stringify, __VA_ARGS__)                                        \
+#define DEFINE_ERROR_TRANSFORMER_EX(Type, category, stringify, ...)                                             \
+    DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, __VA_ARGS__)                                   \
     DEFINE_MAKE_ERROR_CODE(Type)
 
 #endif //ZERO_ERROR_H

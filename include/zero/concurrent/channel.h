@@ -312,6 +312,17 @@ namespace zero::concurrent {
         std::shared_ptr<ChannelCore<T>> mCore;
     };
 
+    DEFINE_ERROR_CONDITION(
+        ChannelError,
+        "zero::concurrent::channel",
+        DISCONNECTED,
+        "channel disconnected",
+        code == make_error_code(TrySendError::DISCONNECTED) ||
+        code == make_error_code(SendError::DISCONNECTED) ||
+        code == make_error_code(TryReceiveError::DISCONNECTED) ||
+        code == make_error_code(ReceiveError::DISCONNECTED)
+    )
+
     template<typename T>
     using Channel = std::pair<Sender<T>, Receiver<T>>;
 
@@ -328,19 +339,6 @@ DECLARE_ERROR_CODES(
     zero::concurrent::TryReceiveError,
     zero::concurrent::ReceiveError
 )
-
-namespace zero::concurrent {
-    DEFINE_ERROR_CONDITION(
-        ChannelError,
-        "zero::concurrent::channel",
-        DISCONNECTED,
-        "channel disconnected",
-        code == TrySendError::DISCONNECTED ||
-        code == SendError::DISCONNECTED ||
-        code == TryReceiveError::DISCONNECTED ||
-        code == ReceiveError::DISCONNECTED
-    )
-}
 
 DECLARE_ERROR_CONDITION(zero::concurrent::ChannelError)
 

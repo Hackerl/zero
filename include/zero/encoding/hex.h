@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 #include <cstddef>
-#include <tl/expected.hpp>
 #include <zero/error.h>
+#include <tl/expected.hpp>
 
 namespace zero::encoding::hex {
     DEFINE_ERROR_CODE_EX(

@@ -30,7 +30,7 @@ namespace zero::os::nt::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_ONLY_EX(
+        DEFINE_ERROR_CODE_TYPES_EX(
             Error,
             "zero::os::nt::process::Process",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported,
