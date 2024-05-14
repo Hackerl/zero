@@ -325,15 +325,15 @@
 #define ERROR_ENUM_ITEM(v1, v2) v1,
 #define MESSAGE_SWITCH_BRANCH(v1, v2)                                                                           \
     case ErrorType::v1: /* NOLINT(*-branch-clone) */                                                            \
-        msg = v2;                                                                                               \
+        _msg = v2;                                                                                              \
         break;                                                                                                  \
 
 #define DEFINE_MAKE_ERROR_CODE(Type)                                                                            \
-    inline std::error_code make_error_code(const Type e) {                                                      \
-        return {static_cast<int>(e), zero::Singleton<Type##Category>::getInstance()};                           \
+    inline std::error_code make_error_code(const Type _e) {                                                     \
+        return {static_cast<int>(_e), zero::Singleton<Type##Category>::getInstance()};                          \
     }                                                                                                           \
 
-#define DEFINE_ERROR_CODE_ONLY(Type, category, ...)                                                             \
+#define DEFINE_ERROR_CODE_TYPES(Type, category, ...)                                                            \
     enum class Type {                                                                                           \
         OK,                                                                                                     \
         ZERO_ERROR_EXPAND(ZERO_ERROR_DOUBLE_PASTE(ERROR_ENUM_ITEM, __VA_ARGS__))                                \
@@ -346,39 +346,39 @@
             return category;                                                                                    \
         }                                                                                                       \
                                                                                                                 \
-        [[nodiscard]] std::string message(const int value) const override {                                     \
-            std::string msg;                                                                                    \
+        [[nodiscard]] std::string message(const int _value) const override {                                    \
+            std::string _msg;                                                                                   \
                                                                                                                 \
-            switch (static_cast<ErrorType>(value)) { /* NOLINT(*-multiway-paths-covered) */                     \
+            switch (static_cast<ErrorType>(_value)) { /* NOLINT(*-multiway-paths-covered) */                    \
             ZERO_ERROR_EXPAND(ZERO_ERROR_DOUBLE_PASTE(MESSAGE_SWITCH_BRANCH, __VA_ARGS__))                      \
                                                                                                                 \
             default:                                                                                            \
-                msg = "unknown";                                                                                \
+                _msg = "unknown";                                                                               \
                 break;                                                                                          \
             }                                                                                                   \
                                                                                                                 \
-            return msg;                                                                                         \
+            return _msg;                                                                                        \
         }                                                                                                       \
     };
 
 #define DEFINE_ERROR_CODE(Type, category, ...)                                                                  \
-    DEFINE_ERROR_CODE_ONLY(Type, category, __VA_ARGS__)                                                         \
+    DEFINE_ERROR_CODE_TYPES(Type, category, __VA_ARGS__)                                                        \
     DEFINE_MAKE_ERROR_CODE(Type)
 
 #define ERROR_ENUM_ITEM_EX(v1, v2, v3) v1,
 #define MESSAGE_SWITCH_BRANCH_EX(v1, v2, v3)                                                                    \
     case ErrorType::v1: /* NOLINT(*-branch-clone) */                                                            \
-        msg = v2;                                                                                               \
+        _msg = v2;                                                                                              \
         break;
 
 #define DEFAULT_ERROR_CONDITION_SWITCH_BRANCH_EX(v1, v2, v3)                                                    \
     case ErrorType::v1: /* NOLINT(*-branch-clone) */                                                            \
-        condition = v3;                                                                                         \
+        _condition = v3;                                                                                        \
         break;
 
-#define DEFAULT_ERROR_CONDITION error_category::default_error_condition(value)
+#define DEFAULT_ERROR_CONDITION error_category::default_error_condition(_value)
 
-#define DEFINE_ERROR_CODE_ONLY_EX(Type, category, ...)                                                          \
+#define DEFINE_ERROR_CODE_TYPES_EX(Type, category, ...)                                                         \
     enum class Type {                                                                                           \
         OK,                                                                                                     \
         ZERO_ERROR_EXPAND(ZERO_ERROR_TRIPLE_PASTE(ERROR_ENUM_ITEM_EX, __VA_ARGS__))                             \
@@ -391,37 +391,37 @@
             return category;                                                                                    \
         }                                                                                                       \
                                                                                                                 \
-        [[nodiscard]] std::string message(const int value) const override {                                     \
-            std::string msg;                                                                                    \
+        [[nodiscard]] std::string message(const int _value) const override {                                    \
+            std::string _msg;                                                                                   \
                                                                                                                 \
-            switch (static_cast<ErrorType>(value)) { /* NOLINT(*-multiway-paths-covered) */                     \
+            switch (static_cast<ErrorType>(_value)) { /* NOLINT(*-multiway-paths-covered) */                    \
             ZERO_ERROR_EXPAND(ZERO_ERROR_TRIPLE_PASTE(MESSAGE_SWITCH_BRANCH_EX, __VA_ARGS__))                   \
                                                                                                                 \
             default:                                                                                            \
-                msg = "unknown";                                                                                \
+                _msg = "unknown";                                                                               \
                 break;                                                                                          \
             }                                                                                                   \
                                                                                                                 \
-            return msg;                                                                                         \
+            return _msg;                                                                                        \
         }                                                                                                       \
                                                                                                                 \
-        [[nodiscard]] std::error_condition default_error_condition(const int value) const noexcept override {   \
-            std::error_condition condition;                                                                     \
+        [[nodiscard]] std::error_condition default_error_condition(const int _value) const noexcept override {  \
+            std::error_condition _condition;                                                                    \
                                                                                                                 \
-            switch (static_cast<ErrorType>(value)) { /* NOLINT(*-multiway-paths-covered) */                     \
+            switch (static_cast<ErrorType>(_value)) { /* NOLINT(*-multiway-paths-covered) */                    \
             ZERO_ERROR_EXPAND(ZERO_ERROR_TRIPLE_PASTE(DEFAULT_ERROR_CONDITION_SWITCH_BRANCH_EX, __VA_ARGS__))   \
                                                                                                                 \
             default:                                                                                            \
-                condition = error_category::default_error_condition(value);                                     \
+                _condition = error_category::default_error_condition(_value);                                   \
                 break;                                                                                          \
             }                                                                                                   \
                                                                                                                 \
-            return condition;                                                                                   \
+            return _condition;                                                                                  \
         }                                                                                                       \
     };
 
 #define DEFINE_ERROR_CODE_EX(Type, category, ...)                                                               \
-    DEFINE_ERROR_CODE_ONLY_EX(Type, category, __VA_ARGS__)                                                      \
+    DEFINE_ERROR_CODE_TYPES_EX(Type, category, __VA_ARGS__)                                                     \
     DEFINE_MAKE_ERROR_CODE(Type)
 
 #define DECLARE_ERROR_CODE(Type)                                                                                \
@@ -433,14 +433,14 @@
 
 #define EQUIVALENT_SWITCH_BRANCH_EX(v1, v2, v3)                                                                 \
     case ErrorType::v1: /* NOLINT(*-branch-clone) */                                                            \
-        return v3;
+        return v3(_code);
 
 #define DEFINE_MAKE_ERROR_CONDITION(Type)                                                                       \
-    inline std::error_condition make_error_condition(const Type e) {                                            \
-        return {static_cast<int>(e), zero::Singleton<Type##Category>::getInstance()};                           \
+    inline std::error_condition make_error_condition(const Type _e) {                                           \
+        return {static_cast<int>(_e), zero::Singleton<Type##Category>::getInstance()};                          \
     }
 
-#define DEFINE_ERROR_CONDITION_ONLY(Type, category, ...)                                                        \
+#define DEFINE_ERROR_CONDITION_TYPES(Type, category, ...)                                                       \
     enum class Type {                                                                                           \
         OK,                                                                                                     \
         ZERO_ERROR_EXPAND(ZERO_ERROR_TRIPLE_PASTE(ERROR_ENUM_ITEM_EX, __VA_ARGS__))                             \
@@ -453,22 +453,22 @@
             return category;                                                                                    \
         }                                                                                                       \
                                                                                                                 \
-        [[nodiscard]] std::string message(const int value) const override {                                     \
-            std::string msg;                                                                                    \
+        [[nodiscard]] std::string message(const int _value) const override {                                    \
+            std::string _msg;                                                                                   \
                                                                                                                 \
-            switch (static_cast<ErrorType>(value)) { /* NOLINT(*-multiway-paths-covered) */                     \
+            switch (static_cast<ErrorType>(_value)) { /* NOLINT(*-multiway-paths-covered) */                    \
             ZERO_ERROR_EXPAND(ZERO_ERROR_TRIPLE_PASTE(MESSAGE_SWITCH_BRANCH_EX, __VA_ARGS__))                   \
                                                                                                                 \
             default:                                                                                            \
-                msg = "unknown";                                                                                \
+                _msg = "unknown";                                                                               \
                 break;                                                                                          \
             }                                                                                                   \
                                                                                                                 \
-            return msg;                                                                                         \
+            return _msg;                                                                                        \
         }                                                                                                       \
                                                                                                                 \
-        [[nodiscard]] bool equivalent(const std::error_code &code, const int value) const noexcept override {   \
-            switch (static_cast<ErrorType>(value)) { /* NOLINT(*-multiway-paths-covered) */                     \
+        [[nodiscard]] bool equivalent(const std::error_code &_code, const int _value) const noexcept override { \
+            switch (static_cast<ErrorType>(_value)) { /* NOLINT(*-multiway-paths-covered) */                    \
             ZERO_ERROR_EXPAND(ZERO_ERROR_TRIPLE_PASTE(EQUIVALENT_SWITCH_BRANCH_EX, __VA_ARGS__))                \
                                                                                                                 \
             default:                                                                                            \
@@ -478,7 +478,7 @@
     };
 
 #define DEFINE_ERROR_CONDITION(Type, category, ...)                                                             \
-    DEFINE_ERROR_CONDITION_ONLY(Type, category, __VA_ARGS__)                                                    \
+    DEFINE_ERROR_CONDITION_TYPES(Type, category, __VA_ARGS__)                                                   \
     DEFINE_MAKE_ERROR_CONDITION(Type)
 
 #define DECLARE_ERROR_CONDITION(Type)                                                                           \
@@ -488,7 +488,7 @@
 
 #define DECLARE_ERROR_CONDITIONS(...) ZERO_ERROR_EXPAND(ZERO_ERROR_PASTE(DECLARE_ERROR_CONDITION, __VA_ARGS__))
 
-#define TRANSFORM_ERROR_CODE_ONLY(Type, category, stringify)                                                    \
+#define DEFINE_ERROR_TRANSFORMER_TYPES(Type, category, stringify)                                               \
     enum class Type {                                                                                           \
     };                                                                                                          \
                                                                                                                 \
@@ -499,21 +499,21 @@
             return category;                                                                                    \
         }                                                                                                       \
                                                                                                                 \
-        [[nodiscard]] std::string message(const int value) const override {                                     \
-            return stringify(value);                                                                            \
+        [[nodiscard]] std::string message(const int _value) const override {                                    \
+            return stringify(_value);                                                                           \
         }                                                                                                       \
     };
 
-#define TRANSFORM_ERROR_CODE(Type, category, stringify)                                                         \
-    TRANSFORM_ERROR_CODE_ONLY(Type, category, stringify)                                                        \
+#define DEFINE_ERROR_TRANSFORMER(Type, category, stringify)                                                     \
+    DEFINE_ERROR_TRANSFORMER_TYPES(Type, category, stringify)                                                   \
     DEFINE_MAKE_ERROR_CODE(Type)                                                                                \
 
 #define DEFAULT_ERROR_CONDITION_SWITCH_BRANCH(v1, v2)                                                           \
     case v1: /* NOLINT(*-branch-clone) */                                                                       \
-        condition = v2;                                                                                         \
+        _condition = v2;                                                                                        \
         break;
 
-#define TRANSFORM_ERROR_CODE_ONLY_EX(Type, category, stringify, ...)                                            \
+#define DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, ...)                                       \
     enum class Type {                                                                                           \
     };                                                                                                          \
                                                                                                                 \
@@ -523,27 +523,27 @@
             return category;                                                                                    \
         }                                                                                                       \
                                                                                                                 \
-        [[nodiscard]] std::string message(const int value) const override {                                     \
-            return stringify(value);                                                                            \
+        [[nodiscard]] std::string message(const int _value) const override {                                    \
+            return stringify(_value);                                                                           \
         }                                                                                                       \
                                                                                                                 \
-        [[nodiscard]] std::error_condition default_error_condition(const int value) const noexcept override {   \
-            std::error_condition condition;                                                                     \
+        [[nodiscard]] std::error_condition default_error_condition(const int _value) const noexcept override {  \
+            std::error_condition _condition;                                                                    \
                                                                                                                 \
-            switch (value) { /* NOLINT(*-multiway-paths-covered) */                                             \
+            switch (_value) { /* NOLINT(*-multiway-paths-covered) */                                            \
             ZERO_ERROR_EXPAND(ZERO_ERROR_DOUBLE_PASTE(DEFAULT_ERROR_CONDITION_SWITCH_BRANCH, __VA_ARGS__))      \
                                                                                                                 \
             default:                                                                                            \
-                condition = error_category::default_error_condition(value);                                     \
+                _condition = error_category::default_error_condition(_value);                                   \
                 break;                                                                                          \
             }                                                                                                   \
                                                                                                                 \
-            return condition;                                                                                   \
+            return _condition;                                                                                  \
         }                                                                                                       \
     };
 
-#define TRANSFORM_ERROR_CODE_EX(Type, category, stringify, ...)                                                 \
-    TRANSFORM_ERROR_CODE_ONLY_EX(Type, category, stringify, __VA_ARGS__)                                        \
+#define DEFINE_ERROR_TRANSFORMER_EX(Type, category, stringify, ...)                                             \
+    DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, __VA_ARGS__)                                   \
     DEFINE_MAKE_ERROR_CODE(Type)
 
 #endif //ZERO_ERROR_H

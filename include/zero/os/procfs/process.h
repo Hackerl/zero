@@ -165,7 +165,7 @@ namespace zero::os::procfs::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_ONLY(
+        DEFINE_ERROR_CODE_TYPES(
             Error,
             "zero::os::procfs::process::Process",
             MAYBE_ZOMBIE_PROCESS, "maybe zombie process"

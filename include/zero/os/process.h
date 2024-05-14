@@ -123,7 +123,7 @@ namespace zero::os::process {
 #ifdef _WIN32
     class PseudoConsole {
     public:
-        DEFINE_ERROR_CODE_ONLY_EX(
+        DEFINE_ERROR_CODE_TYPES_EX(
             Error,
             "zero::os::process::PseudoConsole",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
@@ -152,7 +152,7 @@ namespace zero::os::process {
     class PseudoConsole {
     public:
 #if __ANDROID__ && __ANDROID_API__ < 23
-        DEFINE_ERROR_CODE_ONLY_EX(
+        DEFINE_ERROR_CODE_TYPES_EX(
             Error,
             "zero::os::process::PseudoConsole",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported

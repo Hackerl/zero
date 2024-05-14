@@ -27,7 +27,7 @@ namespace zero::os::darwin::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_ONLY(
+        DEFINE_ERROR_CODE_TYPES(
             Error,
             "zero::os::darwin::process::Process",
             UNEXPECTED_DATA, "unexpected data"

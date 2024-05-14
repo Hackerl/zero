@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 #include <cstddef>
-#include <tl/expected.hpp>
 #include <zero/error.h>
+#include <tl/expected.hpp>
 #include <nonstd/span.hpp>
 
 namespace zero::encoding::hex {

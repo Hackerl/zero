@@ -1,14 +1,24 @@
 #include <zero/error.h>
 #include <catch2/catch_test_macros.hpp>
 
-const char *stringify(const int value) {
-    if (value == EINVAL)
-        return "invalid argument";
+std::string stringify(const int value) {
+    std::string msg;
 
-    if (value == ETIMEDOUT)
-        return "timeout";
+    switch (value) {
+    case EINVAL:
+        msg = "invalid argument";
+        break;
 
-    return "unknown";
+    case ETIMEDOUT:
+        msg = "timeout";
+        break;
+
+    default:
+        msg = "unknown";
+        break;
+    }
+
+    return msg;
 }
 
 DEFINE_ERROR_CODE(
@@ -29,7 +39,7 @@ DEFINE_ERROR_CODE_EX(
 
 DECLARE_ERROR_CODE(B)
 
-TRANSFORM_ERROR_CODE(
+DEFINE_ERROR_TRANSFORMER(
     C,
     "C",
     stringify
@@ -37,7 +47,7 @@ TRANSFORM_ERROR_CODE(
 
 DECLARE_ERROR_CODE(C)
 
-TRANSFORM_ERROR_CODE_EX(
+DEFINE_ERROR_TRANSFORMER_EX(
     D,
     "D",
     stringify,
@@ -52,16 +62,20 @@ DEFINE_ERROR_CONDITION(
     "E",
     INVALID_ARGUMENT,
     "invalid argument",
-    code == A::INVALID_ARGUMENT ||
-    code == B::INVALID_ARGUMENT ||
-    code == static_cast<C>(EINVAL) ||
-    code == static_cast<D>(EINVAL),
+    [](const std::error_code &ec) {
+        return ec == A::INVALID_ARGUMENT ||
+            ec == B::INVALID_ARGUMENT ||
+            ec == static_cast<C>(EINVAL) ||
+            ec == static_cast<D>(EINVAL);
+    },
     TIMEOUT,
     "timeout",
-    code == A::TIMEOUT ||
-    code == B::TIMEOUT ||
-    code == static_cast<C>(ETIMEDOUT) ||
-    code == static_cast<D>(ETIMEDOUT)
+    [](const std::error_code &ec) {
+        return ec == A::TIMEOUT ||
+            ec == B::TIMEOUT ||
+            ec == static_cast<C>(ETIMEDOUT) ||
+            ec == static_cast<D>(ETIMEDOUT);
+    }
 )
 
 DECLARE_ERROR_CONDITION(E)
