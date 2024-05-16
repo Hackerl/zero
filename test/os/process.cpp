@@ -7,6 +7,7 @@
 
 #ifdef _WIN32
 #include <future>
+#include <zero/os/nt/error.h>
 #else
 #include <unistd.h>
 #include <zero/os/unix/error.h>
@@ -386,13 +387,15 @@ TEST_CASE("process", "[os]") {
                     DWORD n;
                     char buffer[1024];
 
-                    if (!ReadFile(output, buffer, sizeof(buffer), &n, nullptr)) {
-                        const DWORD error = GetLastError();
+                    const auto res = zero::os::nt::expected([&] {
+                        return ReadFile(output, buffer, sizeof(buffer), &n, nullptr);
+                    });
 
-                        if (error == ERROR_BROKEN_PIPE)
+                    if (!res) {
+                        if (res.error() == std::errc::broken_pipe)
                             break;
 
-                        result = tl::unexpected<std::error_code>(static_cast<int>(error), std::system_category());
+                        result = tl::unexpected(res.error());
                         break;
                     }
 

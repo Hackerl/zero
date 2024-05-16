@@ -8,6 +8,7 @@
 
 #ifdef _WIN32
 #include <ranges>
+#include <zero/os/nt/error.h>
 #else
 #include <csignal>
 #include <algorithm>
@@ -402,22 +403,24 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
         }
     );
 
-    if (!CreatePipe(handles.data() + PTY_MASTER_READER, handles.data() + PTY_SLAVE_WRITER, nullptr, 0))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return CreatePipe(handles.data() + PTY_MASTER_READER, handles.data() + PTY_SLAVE_WRITER, nullptr, 0);
+    }));
 
-    if (!CreatePipe(handles.data() + PTY_SLAVE_READER, handles.data() + PTY_MASTER_WRITER, nullptr, 0))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return CreatePipe(handles.data() + PTY_SLAVE_READER, handles.data() + PTY_MASTER_WRITER, nullptr, 0);
+    }));
 
     HPCON hPC;
 
-    if (createPseudoConsole(
+    if (const HRESULT result = createPseudoConsole(
         {columns, rows},
         handles[PTY_SLAVE_READER],
         handles[PTY_SLAVE_WRITER],
         0,
         &hPC
-    ) != S_OK)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    ); result != S_OK)
+        return tl::unexpected(static_cast<nt::ResultHandle>(result));
 
     return PseudoConsole{hPC, std::exchange(handles, {})};
 }
@@ -429,8 +432,8 @@ void zero::os::process::PseudoConsole::close() {
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
-    if (resizePseudoConsole(mPC, {columns, rows}) != S_OK)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    if (const HRESULT result = resizePseudoConsole(mPC, {columns, rows}); result != S_OK)
+        return tl::unexpected(static_cast<nt::ResultHandle>(result));
 
     return {};
 }
@@ -590,9 +593,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
             continue;
 
         if (type == StdioType::PIPED) {
-            if (!CreatePipe(handles + i * 2, handles + i * 2 + 1, &saAttr, 0))
-                return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
-
+            EXPECT(nt::expected([&] {
+                return CreatePipe(handles + i * 2, handles + i * 2 + 1, &saAttr, 0);
+            }));
             continue;
         }
 
@@ -684,19 +687,20 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
 
     PROCESS_INFORMATION info;
 
-    if (!CreateProcessW(
-        nullptr,
-        cmd->data(),
-        nullptr,
-        nullptr,
-        redirect,
-        CREATE_UNICODE_ENVIRONMENT,
-        environment->data(),
-        mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
-        &si,
-        &info
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return CreateProcessW(
+            nullptr,
+            cmd->data(),
+            nullptr,
+            nullptr,
+            redirect,
+            CREATE_UNICODE_ENVIRONMENT,
+            environment->data(),
+            mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
+            &si,
+            &info
+        );
+    }));
 
     CloseHandle(info.hThread);
 
@@ -1000,19 +1004,21 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     const auto buffer = std::make_unique<std::byte[]>(size);
     siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 
-    if (!InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
+    }));
 
-    if (!UpdateProcThreadAttribute(
-        siEx.lpAttributeList,
-        0,
-        PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
-        pc.mPC,
-        sizeof(HPCON),
-        nullptr,
-        nullptr
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return UpdateProcThreadAttribute(
+            siEx.lpAttributeList,
+            0,
+            PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+            pc.mPC,
+            sizeof(HPCON),
+            nullptr,
+            nullptr
+        );
+    }));
 
     std::map<std::string, std::string> envs;
 
@@ -1069,19 +1075,20 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
     PROCESS_INFORMATION info;
 
-    if (!CreateProcessW(
-        nullptr,
-        cmd->data(),
-        nullptr,
-        nullptr,
-        false,
-        EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
-        environment->data(),
-        mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
-        &siEx.StartupInfo,
-        &info
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return CreateProcessW(
+            nullptr,
+            cmd->data(),
+            nullptr,
+            nullptr,
+            false,
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+            environment->data(),
+            mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
+            &siEx.StartupInfo,
+            &info
+        );
+    }));
 
     CloseHandle(info.hThread);
     CloseHandle(std::exchange(pc.mHandles[PTY_SLAVE_READER], nullptr));
@@ -1291,13 +1298,13 @@ zero::os::process::Command::output() const {
             DWORD n;
             std::byte buffer[1024];
 
-            if (!ReadFile(*fd, buffer, sizeof(buffer), &n, nullptr)) {
-                const DWORD error = GetLastError();
-
-                if (error == ERROR_BROKEN_PIPE)
+            if (const auto res = nt::expected([&] {
+                return ReadFile(*fd, buffer, sizeof(buffer), &n, nullptr);
+            }); !res) {
+                if (res.error() == std::errc::broken_pipe)
                     break;
 
-                result = tl::unexpected<std::error_code>(static_cast<int>(error), std::system_category());
+                result = tl::unexpected(res.error());
                 break;
             }
 

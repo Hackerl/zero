@@ -8,7 +8,7 @@
 
 namespace zero::os::unix {
     template<typename F>
-    tl::expected<std::invoke_result_t<F>, std::error_code> expect(F &&f) {
+    tl::expected<std::invoke_result_t<F>, std::error_code> expected(F &&f) {
         const auto result = f();
 
         if (result == -1)
@@ -18,9 +18,10 @@ namespace zero::os::unix {
     }
 
     template<typename F>
+        requires std::is_integral_v<std::invoke_result_t<F>>
     tl::expected<std::invoke_result_t<F>, std::error_code> ensure(F &&f) {
         while (true) {
-            const auto result = expect(std::forward<F>(f));
+            const auto result = expected(std::forward<F>(f));
 
             if (!result) {
                 if (result.error() == std::errc::interrupted)

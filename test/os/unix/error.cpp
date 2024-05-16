@@ -4,7 +4,7 @@
 
 TEST_CASE("unix error", "[unix]") {
     char buffer[1024];
-    const auto result = zero::os::unix::expect([&] {
+    const auto result = zero::os::unix::expected([&] {
         return read(-1, buffer, sizeof(buffer));
     });
     REQUIRE(!result);

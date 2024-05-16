@@ -2,6 +2,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <zero/expect.h>
+#include <zero/os/nt/error.h>
 #elif __linux__
 #include <map>
 #include <regex>
@@ -21,8 +23,9 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 #ifdef _WIN32
     FILETIME idle, kernel, user;
 
-    if (!GetSystemTimes(&idle, &kernel, &user))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return GetSystemTimes(&idle, &kernel, &user);
+    }));
 
     CPUTime time{
         static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
@@ -107,8 +110,9 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     MEMORYSTATUSEX status;
     status.dwLength = sizeof(status);
 
-    if (!GlobalMemoryStatusEx(&status))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return GlobalMemoryStatusEx(&status);
+    }));
 
     return MemoryStat{
         status.ullTotalPhys,

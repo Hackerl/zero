@@ -3,6 +3,8 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <Lmcons.h>
+#include <zero/expect.h>
+#include <zero/os/nt/error.h>
 #include <zero/strings/strings.h>
 #elif __linux__
 #include <pwd.h>
@@ -20,8 +22,9 @@ tl::expected<std::string, std::error_code> zero::os::hostname() {
     WCHAR name[MAX_COMPUTERNAME_LENGTH + 1] = {};
     DWORD length = ARRAYSIZE(name);
 
-    if (!GetComputerNameW(name, &length))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return GetComputerNameW(name, &length);
+    }));
 
     return strings::encode(name);
 #elif __linux__
@@ -48,8 +51,9 @@ tl::expected<std::string, std::error_code> zero::os::username() {
     WCHAR name[UNLEN + 1] = {};
     DWORD length = ARRAYSIZE(name);
 
-    if (!GetUserNameW(name, &length))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(nt::expected([&] {
+        return GetUserNameW(name, &length);
+    }));
 
     return strings::encode(name);
 #elif __linux__ || __APPLE__
