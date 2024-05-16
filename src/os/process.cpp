@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
+#include <zero/os/unix/error.h>
 #ifdef __APPLE__
 #include <util.h>
 #else
@@ -514,8 +515,12 @@ tl::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::
 #else
     int s;
 
-    if (const pid_t pid = this->pid(); waitpid(pid, &s, 0) != pid)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    const pid_t pid = this->pid();
+    const auto id = unix::ensure([&] {
+        return waitpid(pid, &s, 0);
+    });
+    EXPECT(id);
+    assert(*id == pid);
 
     return ExitStatus{s};
 #endif
@@ -803,7 +808,10 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
             || (fds[STDOUT_WRITER] > 0 && dup2(fds[STDOUT_WRITER], STDOUT_FILENO) < 0)
             || (fds[STDERR_WRITER] > 0 && dup2(fds[STDERR_WRITER], STDERR_FILENO) < 0)) {
             const int error = errno;
-            write(fds[NOTIFY_WRITER], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[NOTIFY_WRITER], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 
@@ -818,14 +826,20 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
 
         if (mCurrentDirectory && chdir(mCurrentDirectory->string().c_str()) < 0) {
             const int error = errno;
-            write(fds[NOTIFY_WRITER], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[NOTIFY_WRITER], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 
 #ifdef __linux__
         if (execvpe(program.data(), argv.get(), envp.get()) < 0) {
             const int error = errno;
-            write(fds[NOTIFY_WRITER], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[NOTIFY_WRITER], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 #else
@@ -833,7 +847,10 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
 
         if (execvp(program.data(), argv.get()) < 0) {
             const int error = errno;
-            write(fds[NOTIFY_WRITER], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[NOTIFY_WRITER], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 #endif
@@ -843,9 +860,18 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
 
     int error;
 
-    if (const ssize_t n = read(fds[NOTIFY_READER], &error, sizeof(int)); n != 0) {
+    const auto n = unix::ensure([&] {
+        return read(fds[NOTIFY_READER], &error, sizeof(int));
+    });
+    assert(n);
+
+    if (*n != 0) {
         assert(n == sizeof(int));
-        waitpid(pid, nullptr, 0);
+        const auto id = unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        });
+        assert(id);
+        assert(*id == pid);
         return tl::unexpected<std::error_code>(error, std::system_category());
     }
 
@@ -853,7 +879,11 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
 
     if (!process) {
         kill(pid, SIGKILL);
-        waitpid(pid, nullptr, 0);
+        const auto id = unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        });
+        assert(id);
+        assert(*id == pid);
         return tl::unexpected(process.error());
     }
 
@@ -1132,13 +1162,19 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     if (pid == 0) {
         if (setsid() < 0) {
             const int error = errno;
-            write(fds[1], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 
         if (ioctl(pc.mSlave, TIOCSCTTY, nullptr) < 0) {
             const int error = errno;
-            write(fds[1], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 
@@ -1146,7 +1182,10 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
             || dup2(pc.mSlave, STDOUT_FILENO) < 0
             || dup2(pc.mSlave, STDERR_FILENO) < 0) {
             const int error = errno;
-            write(fds[1], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 
@@ -1161,14 +1200,20 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
         if (mCurrentDirectory && chdir(mCurrentDirectory->string().c_str()) < 0) {
             const int error = errno;
-            write(fds[1], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 
 #ifdef __linux__
         if (execvpe(program.data(), argv.get(), envp.get()) < 0) {
             const int error = errno;
-            write(fds[1], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 #else
@@ -1176,7 +1221,10 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
         if (execvp(program.data(), argv.get()) < 0) {
             const int error = errno;
-            write(fds[1], &error, sizeof(int));
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
             std::abort();
         }
 #endif
@@ -1186,9 +1234,18 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
     int error;
 
-    if (const ssize_t n = read(fds[0], &error, sizeof(int)); n != 0) {
+    const auto n = unix::ensure([&] {
+        return read(fds[0], &error, sizeof(int));
+    });
+    assert(n);
+
+    if (*n != 0) {
         assert(n == sizeof(int));
-        waitpid(pid, nullptr, 0);
+        const auto id = unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        });
+        assert(id);
+        assert(*id == pid);
         return tl::unexpected<std::error_code>(error, std::system_category());
     }
 
@@ -1198,7 +1255,11 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
     if (!process) {
         kill(pid, SIGKILL);
-        waitpid(pid, nullptr, 0);
+        const auto id = unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        });
+        assert(id);
+        assert(*id == pid);
         return tl::unexpected(process.error());
     }
 
@@ -1246,17 +1307,15 @@ zero::os::process::Command::output() const {
 #else
         while (true) {
             std::byte buffer[1024];
-            const ssize_t n = read(*fd, buffer, sizeof(buffer));
+            const auto n = unix::ensure([&] {
+                return read(*fd, buffer, sizeof(buffer));
+            });
+            EXPECT(n);
 
-            if (n == 0)
+            if (*n == 0)
                 break;
 
-            if (n < 0) {
-                result = tl::unexpected<std::error_code>(errno, std::system_category());
-                break;
-            }
-
-            std::copy_n(buffer, n, std::back_inserter(*result));
+            std::copy_n(buffer, *n, std::back_inserter(*result));
         }
 #endif
 

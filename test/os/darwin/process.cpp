@@ -1,5 +1,6 @@
 #include <zero/os/darwin/process.h>
 #include <zero/filesystem/path.h>
+#include <zero/os/unix/error.h>
 #include <catch2/catch_test_macros.hpp>
 #include <csignal>
 #include <thread>
@@ -104,7 +105,11 @@ TEST_CASE("darwin process", "[darwin]") {
         REQUIRE(io);
 
         kill(pid, SIGKILL);
-        waitpid(pid, nullptr, 0);
+        const auto id = zero::os::unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        });
+        REQUIRE(id);
+        REQUIRE(*id == pid);
     }
 
     SECTION("zombie") {
@@ -149,7 +154,11 @@ TEST_CASE("darwin process", "[darwin]") {
         REQUIRE(!cwd);
         REQUIRE(cwd.error() == std::errc::no_such_process);
 
-        waitpid(pid, nullptr, 0);
+        const auto id = zero::os::unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        });
+        REQUIRE(id);
+        REQUIRE(*id == pid);
     }
 
     SECTION("no such process") {

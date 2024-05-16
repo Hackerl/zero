@@ -1,6 +1,7 @@
 #include <zero/os/procfs/process.h>
 #include <zero/os/procfs/procfs.h>
 #include <zero/strings/strings.h>
+#include <zero/os/unix/error.h>
 #include <zero/defer.h>
 #include <zero/expect.h>
 #include <climits>
@@ -46,17 +47,19 @@ tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::r
 
     while (true) {
         char buffer[1024];
-        const ssize_t n = read(fd, buffer, sizeof(buffer));
+        const auto n = unix::ensure([&] {
+            return read(fd, buffer, sizeof(buffer));
+        });
 
-        if (n <= 0) {
-            if (n == 0)
-                break;
-
-            result = tl::unexpected<std::error_code>(errno, std::system_category());
+        if (!n) {
+            result = tl::unexpected(n.error());
             break;
         }
 
-        result->append(buffer, n);
+        if (*n == 0)
+            break;
+
+        result->append(buffer, *n);
     }
 
     return result;

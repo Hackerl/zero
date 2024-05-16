@@ -1,6 +1,6 @@
 #include <zero/os/procfs/process.h>
-#include <zero/os/procfs/procfs.h>
 #include <zero/filesystem/path.h>
+#include <zero/os/unix/error.h>
 #include <catch2/catch_test_macros.hpp>
 #include <ranges>
 #include <thread>
@@ -202,7 +202,11 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(io);
 
         kill(pid, SIGKILL);
-        waitpid(pid, nullptr, 0);
+        const auto id = zero::os::unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        });
+        REQUIRE(id);
+        REQUIRE(*id == pid);
     }
 
     SECTION("zombie") {
@@ -273,7 +277,11 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(tasks->size() == 1);
         REQUIRE(tasks->front() == pid);
 
-        waitpid(pid, nullptr, 0);
+        const auto id = zero::os::unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        });
+        REQUIRE(id);
+        REQUIRE(*id == pid);
     }
 
     SECTION("no such process") {

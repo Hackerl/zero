@@ -9,6 +9,7 @@
 #include <future>
 #else
 #include <unistd.h>
+#include <zero/os/unix/error.h>
 #endif
 
 #ifdef _WIN32
@@ -334,13 +335,19 @@ TEST_CASE("process", "[os]") {
             REQUIRE(output);
 
             constexpr auto data = "hello wolrd"sv;
-            ssize_t n = write(*input, data.data(), data.size());
-            REQUIRE(n == data.size());
+            auto n = zero::os::unix::ensure([&] {
+                return write(*input, data.data(), data.size());
+            });
+            REQUIRE(n);
+            REQUIRE(*n == data.size());
             close(*input);
 
             char buffer[64] = {};
-            n = read(*output, buffer, sizeof(buffer));
-            REQUIRE(n == data.size());
+            n = zero::os::unix::ensure([&] {
+                return read(*output, buffer, sizeof(buffer));
+            });
+            REQUIRE(n);
+            REQUIRE(*n == data.size());
             REQUIRE(data == buffer);
             close(*output);
 
@@ -408,27 +415,31 @@ TEST_CASE("process", "[os]") {
             REQUIRE(child);
 
             const int fd = pc->fd();
-            ssize_t n = write(fd, data.data(), data.size());
-            REQUIRE(n == data.size());
+            auto n = zero::os::unix::ensure([&] {
+                return write(fd, data.data(), data.size());
+            });
+            REQUIRE(n);
+            REQUIRE(*n == data.size());
 
             std::vector<char> content;
 
             while (true) {
                 char buffer[1024];
-                n = read(fd, buffer, sizeof(buffer));
+                n = zero::os::unix::ensure([&] {
+                    return read(fd, buffer, sizeof(buffer));
+                });
 
-                if (n == 0)
-                    break;
-
-                if (n < 0) {
-                    if (errno == EIO)
+                if (!n) {
+                    if (n.error() == std::errc::io_error)
                         break;
 
                     FAIL();
                 }
 
-                REQUIRE(n > 0);
-                std::copy_n(buffer, n, std::back_inserter(content));
+                if (*n == 0)
+                    break;
+
+                std::copy_n(buffer, *n, std::back_inserter(content));
             }
 
             REQUIRE(std::ranges::search(content, keyword));
