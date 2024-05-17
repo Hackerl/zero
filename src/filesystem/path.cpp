@@ -5,6 +5,8 @@
 #elif __APPLE__
 #include <mach-o/dyld.h>
 #include <sys/param.h>
+#include <zero/expect.h>
+#include <zero/os/unix/error.h>
 #endif
 
 tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplicationPath() {
@@ -27,8 +29,9 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::getApplic
     char buffer[MAXPATHLEN];
     std::uint32_t size = sizeof(buffer);
 
-    if (_NSGetExecutablePath(buffer, &size) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(os::unix::expected([&] {
+        return _NSGetExecutablePath(buffer, &size);
+    }));
 
     std::error_code ec;
     auto path = std::filesystem::weakly_canonical(buffer, ec);

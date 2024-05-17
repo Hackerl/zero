@@ -1,14 +1,14 @@
 #include <zero/os/stat.h>
+#include <zero/expect.h>
 
 #ifdef _WIN32
 #include <windows.h>
-#include <zero/expect.h>
 #include <zero/os/nt/error.h>
 #elif __linux__
 #include <map>
 #include <regex>
 #include <unistd.h>
-#include <zero/expect.h>
+#include <zero/os/unix/error.h>
 #include <zero/strings/strings.h>
 #include <zero/os/procfs/procfs.h>
 #include <zero/filesystem/file.h>
@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/sysctl.h>
 #include <mach/mach.h>
+#include <zero/os/unix/error.h>
 #include <zero/os/darwin/error.h>
 #endif
 
@@ -66,12 +67,12 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     EXPECT(system);
     EXPECT(idle);
 
-    const long result = sysconf(_SC_CLK_TCK);
+    const auto result = unix::expected([] {
+        return sysconf(_SC_CLK_TCK);
+    });
+    EXPECT(result);
 
-    if (result < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    const auto ticks = static_cast<double>(result);
+    const auto ticks = static_cast<double>(*result);
 
     return CPUTime{
         static_cast<double>(*user) / ticks,
@@ -90,12 +91,12 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     ); status != KERN_SUCCESS)
         return tl::unexpected(make_error_code(static_cast<darwin::Error>(status)));
 
-    const long result = sysconf(_SC_CLK_TCK);
+    const auto result = unix::expected([&] {
+        return sysconf(_SC_CLK_TCK);
+    });
+    EXPECT(result);
 
-    if (result < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    const auto ticks = static_cast<double>(result);
+    const auto ticks = static_cast<double>(*result);
 
     return CPUTime{
         data.cpu_ticks[CPU_STATE_USER] / ticks,
@@ -175,8 +176,10 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     std::uint64_t total;
     std::size_t size = sizeof(total);
 
-    if (int mib[2] = {CTL_HW, HW_MEMSIZE}; sysctl(mib, 2, &total, &size, nullptr, 0) != 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        int mib[2] = {CTL_HW, HW_MEMSIZE};
+        return sysctl(mib, 2, &total, &size, nullptr, 0);
+    }));
 
     MemoryStat stat = {};
 

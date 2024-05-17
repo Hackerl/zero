@@ -1,9 +1,9 @@
 #include <zero/os/os.h>
+#include <zero/expect.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <Lmcons.h>
-#include <zero/expect.h>
 #include <zero/os/nt/error.h>
 #include <zero/strings/strings.h>
 #elif __linux__
@@ -11,10 +11,12 @@
 #include <unistd.h>
 #include <climits>
 #include <memory>
+#include <zero/os/unix/error.h>
 #elif __APPLE__
 #include <pwd.h>
 #include <unistd.h>
 #include <sys/param.h>
+#include <zero/os/unix/error.h>
 #endif
 
 tl::expected<std::string, std::error_code> zero::os::hostname() {
@@ -30,15 +32,17 @@ tl::expected<std::string, std::error_code> zero::os::hostname() {
 #elif __linux__
     char name[HOST_NAME_MAX + 1] = {};
 
-    if (gethostname(name, sizeof(name)) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return gethostname(name, sizeof(name));
+    }));
 
     return name;
 #elif __APPLE__
     char name[MAXHOSTNAMELEN] = {};
 
-    if (gethostname(name, sizeof(name)) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return gethostname(name, sizeof(name));
+    }));
 
     return name;
 #else

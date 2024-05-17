@@ -1,5 +1,6 @@
 #include <zero/os/darwin/process.h>
 #include <zero/os/darwin/error.h>
+#include <zero/os/unix/error.h>
 #include <zero/strings/strings.h>
 #include <zero/expect.h>
 #include <mach/mach_time.h>
@@ -23,13 +24,15 @@ tl::expected<std::vector<char>, std::error_code> zero::os::darwin::process::Proc
     std::size_t size;
     int mib[3] = {CTL_KERN, KERN_PROCARGS2, mPID};
 
-    if (sysctl(mib, 3, nullptr, &size, nullptr, 0) != 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return sysctl(mib, 3, nullptr, &size, nullptr, 0);
+    }));
 
     const auto buffer = std::make_unique<char[]>(size);
 
-    if (sysctl(mib, 3, buffer.get(), &size, nullptr, 0) != 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return sysctl(mib, 3, buffer.get(), &size, nullptr, 0);
+    }));
 
     return std::vector<char>{buffer.get(), buffer.get() + size};
 }
@@ -232,9 +235,9 @@ zero::os::darwin::process::Process::io() const {
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<void, std::error_code> zero::os::darwin::process::Process::kill(const int sig) {
-    if (::kill(mPID, sig) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
+    EXPECT(unix::expected([&] {
+        return ::kill(mPID, sig);
+    }));
     return {};
 }
 
@@ -243,9 +246,9 @@ tl::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darw
 }
 
 tl::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darwin::process::open(const pid_t pid) {
-    if (kill(pid, 0) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
+    EXPECT(unix::expected([&] {
+        return kill(pid, 0);
+    }));
     return Process{pid};
 }
 

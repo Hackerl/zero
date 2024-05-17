@@ -161,12 +161,12 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
 
 tl::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Process::cpu() const {
 #ifdef __linux__
-    const long result = sysconf(_SC_CLK_TCK);
+    const auto result = unix::expected([&] {
+        return sysconf(_SC_CLK_TCK);
+    });
+    EXPECT(result);
 
-    if (result < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    const auto ticks = static_cast<double>(result);
+    const auto ticks = static_cast<double>(*result);
     const auto stat = mImpl.stat();
     EXPECT(stat);
 
@@ -183,12 +183,12 @@ tl::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Pro
 
 tl::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::Process::memory() const {
 #ifdef __linux__
-    const long result = sysconf(_SC_PAGE_SIZE);
+    const auto result = unix::expected([&] {
+        return sysconf(_SC_PAGE_SIZE);
+    });
+    EXPECT(result);
 
-    if (result < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    const auto pageSize = static_cast<std::uint64_t>(result);
+    const auto pageSize = static_cast<std::uint64_t>(*result);
     const auto statM = mImpl.statM();
     EXPECT(statM);
 
@@ -214,9 +214,9 @@ tl::expected<void, std::error_code> zero::os::process::Process::kill() {
 #ifdef _WIN32
     return mImpl.terminate(EXIT_FAILURE);
 #else
-    if (::kill(mImpl.pid(), SIGKILL) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
+    EXPECT(unix::expected([&] {
+        return ::kill(mImpl.pid(), SIGKILL);
+    }));
     return {};
 #endif
 }
@@ -479,8 +479,9 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
 #endif
     int master, slave;
 
-    if (openpty(&master, &slave, nullptr, nullptr, nullptr) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return openpty(&master, &slave, nullptr, nullptr, nullptr);
+    }));
 
     PseudoConsole pc = {master, slave};
     EXPECT(pc.resize(rows, columns));
@@ -495,8 +496,9 @@ tl::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(con
     ws.ws_row = rows;
     ws.ws_col = columns;
 
-    if (ioctl(mMaster, TIOCSWINSZ, &ws) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return ioctl(mMaster, TIOCSWINSZ, &ws);
+    }));
 
     return {};
 }
@@ -550,12 +552,13 @@ tl::expected<std::optional<zero::os::process::ExitStatus>, std::error_code> zero
     const pid_t pid = this->pid();
     int s;
 
-    if (const int result = waitpid(pid, &s, WNOHANG); result != pid) {
-        if (result == 0)
-            return std::nullopt;
+    const auto id = unix::expected([&] {
+        return waitpid(pid, &s, WNOHANG);
+    });
+    EXPECT(id);
 
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-    }
+    if (*id == 0)
+        return std::nullopt;
 
     return ExitStatus{s};
 #endif
@@ -729,11 +732,13 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
         }
     );
 
-    if (pipe(fds + NOTIFY_READER) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return pipe(fds + NOTIFY_READER);
+    }));
 
-    if (fcntl(fds[NOTIFY_WRITER], F_SETFD, FD_CLOEXEC) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return fcntl(fds[NOTIFY_WRITER], F_SETFD, FD_CLOEXEC);
+    }));
 
     for (int i = 0; i < 3; ++i) {
         const bool input = i == 0;
@@ -743,18 +748,18 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
             continue;
 
         if (type == StdioType::PIPED) {
-            if (pipe(fds + i * 2) < 0)
-                return tl::unexpected<std::error_code>(errno, std::system_category());
-
+            EXPECT(unix::expected([&] {
+                return pipe(fds + i * 2);
+            }));
             continue;
         }
 
-        const int fd = ::open("/dev/null", input ? O_RDONLY : O_WRONLY);
+        const auto fd = unix::expected([&] {
+            return ::open("/dev/null", input ? O_RDONLY : O_WRONLY);
+        });
+        EXPECT(fd);
 
-        if (fd < 0)
-            return tl::unexpected<std::error_code>(errno, std::system_category());
-
-        fds[i * 2 + (input ? 0 : 1)] = fd;
+        fds[i * 2 + (input ? 0 : 1)] = *fd;
     }
 
     assert(std::ranges::all_of(fds, [](const auto &fd) {return fd == -1 || fd > STDERR_FILENO;}));
@@ -802,12 +807,12 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
         return str.data();
     });
 
-    const pid_t pid = fork();
+    const auto pid = unix::expected([] {
+        return fork();
+    });
+    EXPECT(pid);
 
-    if (pid < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    if (pid == 0) {
+    if (*pid == 0) {
         if ((fds[STDIN_READER] > 0 && dup2(fds[STDIN_READER], STDIN_FILENO) < 0)
             || (fds[STDOUT_WRITER] > 0 && dup2(fds[STDOUT_WRITER], STDOUT_FILENO) < 0)
             || (fds[STDERR_WRITER] > 0 && dup2(fds[STDERR_WRITER], STDERR_FILENO) < 0)) {
@@ -872,19 +877,19 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
     if (*n != 0) {
         assert(n == sizeof(int));
         const auto id = unix::ensure([&] {
-            return waitpid(pid, nullptr, 0);
+            return waitpid(*pid, nullptr, 0);
         });
         assert(id);
         assert(*id == pid);
         return tl::unexpected<std::error_code>(error, std::system_category());
     }
 
-    auto process = open(pid);
+    auto process = open(*pid);
 
     if (!process) {
-        kill(pid, SIGKILL);
+        kill(*pid, SIGKILL);
         const auto id = unix::ensure([&] {
-            return waitpid(pid, nullptr, 0);
+            return waitpid(*pid, nullptr, 0);
         });
         assert(id);
         assert(*id == pid);
@@ -1108,15 +1113,17 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         }
     );
 
-    if (pipe(fds) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return pipe(fds);
+    }));
 
     assert(pc.mMaster >= 0);
     assert(pc.mSlave > STDERR_FILENO);
     assert(std::ranges::all_of(fds, [](const auto &fd) {return fd > STDERR_FILENO;}));
 
-    if (fcntl(fds[1], F_SETFD, FD_CLOEXEC) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+    }));
 
     const std::string program = mPath.string();
 
@@ -1161,12 +1168,12 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         return str.data();
     });
 
-    const pid_t pid = fork();
+    const auto pid = unix::expected([] {
+        return fork();
+    });
+    EXPECT(pid);
 
-    if (pid < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    if (pid == 0) {
+    if (*pid == 0) {
         if (setsid() < 0) {
             const int error = errno;
             const auto n = unix::ensure([&] {
@@ -1249,7 +1256,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     if (*n != 0) {
         assert(n == sizeof(int));
         const auto id = unix::ensure([&] {
-            return waitpid(pid, nullptr, 0);
+            return waitpid(*pid, nullptr, 0);
         });
         assert(id);
         assert(*id == pid);
@@ -1258,15 +1265,15 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
     close(std::exchange(pc.mSlave, -1));
 
-    auto process = open(pid);
+    auto process = open(*pid);
 
     if (!process) {
-        kill(pid, SIGKILL);
+        kill(*pid, SIGKILL);
         const auto id = unix::ensure([&] {
-            return waitpid(pid, nullptr, 0);
+            return waitpid(*pid, nullptr, 0);
         });
         assert(id);
-        assert(*id == pid);
+        assert(*id == *pid);
         return tl::unexpected(process.error());
     }
 
