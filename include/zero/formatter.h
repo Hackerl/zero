@@ -1,18 +1,18 @@
 #ifndef ZERO_FORMATTER_H
 #define ZERO_FORMATTER_H
 
+#include <expected>
 #include <fmt/std.h>
-#include <tl/expected.hpp>
 
 template<typename Char, typename T, typename E>
-struct fmt::formatter<tl::expected<T, E>, Char> {
+struct fmt::formatter<std::expected<T, E>, Char> {
     template<typename ParseContext>
     static constexpr auto parse(ParseContext &ctx) {
         return ctx.begin();
     }
 
     template<typename FmtContext>
-    static auto format(const tl::expected<T, E> &expected, FmtContext &ctx) {
+    static auto format(const std::expected<T, E> &expected, FmtContext &ctx) {
         using namespace std::string_view_literals;
 
         if (!expected)

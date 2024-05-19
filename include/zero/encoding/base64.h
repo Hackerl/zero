@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 #include <cstddef>
+#include <expected>
 #include <zero/error.h>
-#include <tl/expected.hpp>
 
 namespace zero::encoding::base64 {
     DEFINE_ERROR_CODE_EX(
@@ -16,7 +16,7 @@ namespace zero::encoding::base64 {
     )
 
     std::string encode(std::span<const std::byte> data);
-    tl::expected<std::vector<std::byte>, DecodeError> decode(std::string_view encoded);
+    std::expected<std::vector<std::byte>, DecodeError> decode(std::string_view encoded);
 }
 
 DECLARE_ERROR_CODE(zero::encoding::base64::DecodeError)

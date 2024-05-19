@@ -1,15 +1,16 @@
 #ifndef ZERO_PROMISE_H
 #define ZERO_PROMISE_H
 
-#include <memory>
 #include <any>
 #include <mutex>
+#include <memory>
 #include <ranges>
 #include <cassert>
+#include <utility>
 #include <optional>
+#include <expected>
 #include <stdexcept>
 #include <fmt/core.h>
-#include <tl/expected.hpp>
 #include <zero/atomic/event.h>
 #include <zero/detail/type_traits.h>
 
@@ -28,7 +29,7 @@ namespace zero::async::promise {
     };
 
     template<typename T, typename E>
-    struct future_next_value<tl::expected<T, E>> {
+    struct future_next_value<std::expected<T, E>> {
         using type = T;
     };
 
@@ -46,12 +47,12 @@ namespace zero::async::promise {
     };
 
     template<typename T, typename E>
-    struct future_next_error<tl::expected<T, E>> {
+    struct future_next_error<std::expected<T, E>> {
         using type = E;
     };
 
     template<typename T>
-    struct future_next_error<tl::unexpected<T>> {
+    struct future_next_error<std::unexpected<T>> {
         using type = T;
     };
 
@@ -75,15 +76,15 @@ namespace zero::async::promise {
     struct Core {
         atomic::Event event{true};
         std::atomic<State> state{State::PENDING};
-        std::optional<tl::expected<T, E>> result;
-        std::function<void(tl::expected<T, E>)> callback;
+        std::optional<std::expected<T, E>> result;
+        std::function<void(std::expected<T, E>)> callback;
 
         void trigger() {
             assert(state == State::DONE);
             std::exchange(callback, nullptr)(std::move(*result));
         }
 
-        bool hasResult() const {
+        [[nodiscard]] bool hasResult() const {
             const State s = state;
             return s == State::ONLY_RESULT || s == State::DONE;
         }
@@ -143,7 +144,7 @@ namespace zero::async::promise {
             }
             else {
                 static_assert(sizeof...(Ts) > 0);
-                mCore->result.emplace(tl::in_place, std::forward<Ts>(args)...);
+                mCore->result.emplace(std::in_place, std::forward<Ts>(args)...);
             }
 
             State state = mCore->state;
@@ -168,7 +169,7 @@ namespace zero::async::promise {
             assert(mCore->state != State::ONLY_RESULT);
             assert(mCore->state != State::DONE);
 
-            mCore->result.emplace(tl::unexpected<E>(std::forward<Ts>(args)...));
+            mCore->result.emplace(std::unexpected<E>(std::forward<Ts>(args)...));
             State state = mCore->state;
 
             if (state == State::PENDING && mCore->state.compare_exchange_strong(state, State::ONLY_RESULT)) {
@@ -214,31 +215,31 @@ namespace zero::async::promise {
             return mCore->hasResult();
         }
 
-        tl::expected<T, E> &result() & {
+        std::expected<T, E> &result() & {
             assert(mCore);
             assert(mCore->result);
             return *mCore->result;
         }
 
-        [[nodiscard]] const tl::expected<T, E> &result() const & {
+        [[nodiscard]] const std::expected<T, E> &result() const & {
             assert(mCore);
             assert(mCore->result);
             return *mCore->result;
         }
 
-        tl::expected<T, E> &&result() && {
+        std::expected<T, E> &&result() && {
             assert(mCore);
             assert(mCore->result);
             return std::move(*mCore->result);
         }
 
-        [[nodiscard]] const tl::expected<T, E> &&result() const && {
+        [[nodiscard]] const std::expected<T, E> &&result() const && {
             assert(mCore);
             assert(mCore->result);
             return std::move(*mCore->result);
         }
 
-        [[nodiscard]] tl::expected<void, std::error_code>
+        [[nodiscard]] std::expected<void, std::error_code>
         wait(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) const {
             assert(mCore);
 
@@ -248,7 +249,7 @@ namespace zero::async::promise {
             return mCore->event.wait(timeout);
         }
 
-        tl::expected<T, E> get() && {
+        std::expected<T, E> get() && {
             if (const auto result = wait(); !result)
                 throw std::system_error(result.error());
 
@@ -278,9 +279,9 @@ namespace zero::async::promise {
         auto then(F &&f) && {
             using Next = detail::callable_result_t<F>;
             using NextValue = std::conditional_t<
-                detail::is_specialization<Next, tl::unexpected>, T, future_next_value_t<Next>>;
+                detail::is_specialization<Next, std::unexpected>, T, future_next_value_t<Next>>;
             using NextError = std::conditional_t<
-                detail::is_specialization<Next, tl::unexpected>, future_next_error_t<Next>, E>;
+                detail::is_specialization<Next, std::unexpected>, future_next_error_t<Next>, E>;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -289,7 +290,7 @@ namespace zero::async::promise {
 
             const auto promise = std::make_shared<Promise<NextValue, NextError>>();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> result) {
+            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> result) {
                 if (!result) {
                     static_assert(std::is_same_v<NextError, E>);
                     promise->reject(std::move(result).error());
@@ -323,7 +324,7 @@ namespace zero::async::promise {
                     }();
 
                     if constexpr (!is_future_v<Next>) {
-                        if constexpr (detail::is_specialization<Next, tl::expected>) {
+                        if constexpr (detail::is_specialization<Next, std::expected>) {
                             static_assert(std::is_same_v<future_next_error_t<Next>, E>);
 
                             if (next) {
@@ -338,7 +339,7 @@ namespace zero::async::promise {
                                 promise->reject(std::move(next).error());
                             }
                         }
-                        else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
+                        else if constexpr (detail::is_specialization<Next, std::unexpected>) {
                             promise->reject(std::move(next).value());
                         }
                         else {
@@ -379,9 +380,9 @@ namespace zero::async::promise {
         auto fail(F &&f) && {
             using Next = detail::callable_result_t<F>;
             using NextValue = std::conditional_t<
-                detail::is_specialization<Next, tl::unexpected>, T, future_next_value_t<Next>>;
+                detail::is_specialization<Next, std::unexpected>, T, future_next_value_t<Next>>;
             using NextError = std::conditional_t<
-                detail::is_specialization<Next, tl::unexpected>, future_next_error_t<Next>, E>;
+                detail::is_specialization<Next, std::unexpected>, future_next_error_t<Next>, E>;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -390,7 +391,7 @@ namespace zero::async::promise {
 
             const auto promise = std::make_shared<Promise<NextValue, NextError>>();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> result) {
+            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> result) {
                 if (result) {
                     static_assert(std::is_same_v<NextValue, T>);
 
@@ -425,7 +426,7 @@ namespace zero::async::promise {
                     }();
 
                     if constexpr (!is_future_v<Next>) {
-                        if constexpr (detail::is_specialization<Next, tl::expected>) {
+                        if constexpr (detail::is_specialization<Next, std::expected>) {
                             static_assert(std::is_same_v<future_next_error_t<Next>, E>);
 
                             if (next) {
@@ -440,8 +441,8 @@ namespace zero::async::promise {
                                 promise->reject(std::move(next).error());
                             }
                         }
-                        else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
-                            promise->reject(std::move(next).value());
+                        else if constexpr (detail::is_specialization<Next, std::unexpected>) {
+                            promise->reject(std::move(next).error());
                         }
                         else {
                             promise->resolve(std::move(next));
@@ -486,7 +487,7 @@ namespace zero::async::promise {
 
             const auto promise = std::make_shared<Promise<T, E>>();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> result) {
+            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> result) {
                 if (!result) {
                     f();
                     promise->reject(std::move(result).error());
@@ -601,7 +602,7 @@ namespace zero::async::promise {
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
             while (first != last) {
-                (*first++).setCallback([=](tl::expected<T, E> result) {
+                (*first++).setCallback([=](std::expected<T, E> result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -632,7 +633,7 @@ namespace zero::async::promise {
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
             for (std::size_t i = 0; first != last; ++first, ++i) {
-                (*first).setCallback([=](tl::expected<T, E> result) {
+                (*first).setCallback([=](std::expected<T, E> result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -671,7 +672,7 @@ namespace zero::async::promise {
             const auto ctx = std::make_shared<Context>();
 
             ([&] {
-                futures.setCallback([=](tl::expected<Ts, E> result) {
+                futures.setCallback([=](std::expected<Ts, E> result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -699,7 +700,7 @@ namespace zero::async::promise {
             const auto ctx = std::make_shared<Context>();
 
             ([&] {
-                futures.setCallback([=](tl::expected<Ts, E> result) {
+                futures.setCallback([=](std::expected<Ts, E> result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -743,17 +744,17 @@ namespace zero::async::promise {
             explicit Context(const std::size_t n) : count(n), results(n) {
             }
 
-            Promise<std::vector<tl::expected<T, E>>> promise;
+            Promise<std::vector<std::expected<T, E>>> promise;
             std::atomic<std::size_t> count;
-            std::vector<tl::expected<T, E>> results;
+            std::vector<std::expected<T, E>> results;
         };
 
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
         for (std::size_t i = 0; first != last; ++first, ++i) {
-            (*first).setCallback([=](tl::expected<T, E> result) {
+            (*first).setCallback([=](std::expected<T, E> result) {
                 if (!result) {
-                    ctx->results[i] = tl::unexpected(std::move(result).error());
+                    ctx->results[i] = std::unexpected(std::move(result).error());
 
                     if (--ctx->count > 0)
                         return;
@@ -792,8 +793,8 @@ namespace zero::async::promise {
     auto allSettled(std::index_sequence<Is...>, Future<Ts, Es>... futures) {
         using T = std::conditional_t<
             detail::all_same_v<Ts...>,
-            std::array<tl::expected<detail::first_element_t<Ts...>, detail::first_element_t<Es...>>, sizeof...(Ts)>,
-            std::tuple<tl::expected<Ts, Es>...>
+            std::array<std::expected<detail::first_element_t<Ts...>, detail::first_element_t<Es...>>, sizeof...(Ts)>,
+            std::tuple<std::expected<Ts, Es>...>
         >;
 
         struct Context {
@@ -805,9 +806,9 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>();
 
         ([&] {
-            futures.setCallback([=](tl::expected<Ts, Es> result) {
+            futures.setCallback([=](std::expected<Ts, Es> result) {
                 if (!result) {
-                    std::get<Is>(ctx->results) = tl::unexpected(std::move(result).error());
+                    std::get<Is>(ctx->results) = std::unexpected(std::move(result).error());
 
                     if (--ctx->count > 0)
                         return;
@@ -860,7 +861,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
         for (std::size_t i = 0; first != last; ++first, ++i) {
-            (*first).setCallback([=](tl::expected<T, E> result) {
+            (*first).setCallback([=](std::expected<T, E> result) {
                 if (!result) {
                     ctx->errors[i] = std::move(result).error();
 
@@ -911,7 +912,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>();
 
         ([&] {
-            futures.setCallback([=](tl::expected<Ts, E> result) {
+            futures.setCallback([=](std::expected<Ts, E> result) {
                 if (!result) {
                     std::get<Is>(ctx->errors) = std::move(result).error();
 
@@ -958,7 +959,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>();
 
         while (first != last) {
-            (*first++).setCallback([=](tl::expected<T, E> result) {
+            (*first++).setCallback([=](std::expected<T, E> result) {
                 if (!result) {
                     if (!ctx->flag.test_and_set())
                         ctx->promise.reject(std::move(result).error());
@@ -996,7 +997,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>();
 
         ([&] {
-            futures.setCallback([=](tl::expected<Ts, E> result) {
+            futures.setCallback([=](std::expected<Ts, E> result) {
                 if (!result) {
                     if (!ctx->flag.test_and_set())
                         ctx->promise.reject(std::move(result).error());

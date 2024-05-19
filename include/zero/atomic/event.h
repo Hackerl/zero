@@ -3,8 +3,8 @@
 
 #include <chrono>
 #include <optional>
+#include <expected>
 #include <system_error>
-#include <tl/expected.hpp>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -28,7 +28,7 @@ namespace zero::atomic {
         Event &operator=(const Event &) = delete;
         ~Event();
 
-        tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+        std::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
         void set();
         void reset();
@@ -49,7 +49,7 @@ namespace zero::atomic {
     public:
         explicit Event(bool manual = false, bool initialState = false);
 
-        tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+        std::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
         void set();
         void reset();

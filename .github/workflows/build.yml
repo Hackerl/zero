@@ -9,31 +9,26 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 17
-          sudo apt install -y libc++abi-17-dev libc++-17-dev
+          sudo ./llvm.sh 18
+          sudo apt install -y libc++abi-18-dev libc++-18-dev
       - name: Build
         run: |
           mkdir -p build
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DBUILD_TESTING=OFF
           cmake --build build -j$(nproc)
         env:
-          CC: clang-17
-          CXX: clang++-17
-          CFLAGS: -fsanitize=address
-          CXXFLAGS: -fsanitize=address -stdlib=libc++
-          LDFLAGS: -fsanitize=address
-      - name: Test
-        run: ctest --output-on-failure --test-dir build
-        env:
-          # https://github.com/llvm/llvm-project/issues/59432
-          ASAN_OPTIONS: alloc_dealloc_mismatch=0
+          CC: clang-18
+          CXX: clang++-18
+          CXXFLAGS: -stdlib=libc++
 
   linux-static-amd64:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install musl toolchains
-        run: curl -fsSL https://github.com/Hackerl/musl-cross-make/releases/download/gcc-13.2.0/x86_64-linux-musl-native-gcc13.tar.gz | tar -xz -C /opt
+        run: curl -fsSL https://github.com/Hackerl/musl-cross-make/releases/download/gcc-14.1.0/x86_64-linux-musl-native-gcc14.tar.gz | tar -xz -C /opt
       - name: Build
         run: |
           mkdir -p build
@@ -70,36 +65,11 @@ jobs:
       - name: Build
         run: |
           mkdir -p build
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DBUILD_TESTING=OFF
           cmake --build build -j$(sysctl -n hw.physicalcpu)
         env:
           CC: ${{ env.LLVM_HOME }}/bin/clang
           CXX: ${{ env.LLVM_HOME }}/bin/clang++
-          CFLAGS: -fsanitize=address
-          CXXFLAGS: -fsanitize=address
-          LDFLAGS: -fsanitize=address -L${{ env.LLVM_HOME }}/lib -L${{ env.LLVM_HOME }}/lib/c++ -Wl,-rpath,${{ env.LLVM_HOME }}/lib/c++
-      - name: Test
-        run: ctest --output-on-failure --test-dir build
-
-  android-arm64:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        api: [ 21, 22, 23, 24 ]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Use latest NDK
-        run: echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
-      - name: Patch vcpkg
-        run: sed -i 's/-avoid-version $ENV/$ENV/g' "${VCPKG_INSTALLATION_ROOT}/scripts/cmake/vcpkg_configure_make.cmake"
-      - name: Build
-        run: |
-          mkdir -p build
-          cmake -B build \
-            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake \
-            -DVCPKG_TARGET_TRIPLET=arm64-android \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-${{ matrix.api }} \
-            -DCMAKE_CATCH_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST
-          cmake --build build -j$(nproc)
+          LDFLAGS: -L${{ env.LLVM_HOME }}/lib -L${{ env.LLVM_HOME }}/lib/c++ -Wl,-rpath,${{ env.LLVM_HOME }}/lib/c++

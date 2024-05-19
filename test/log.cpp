@@ -13,23 +13,23 @@ public:
         : mBitset(std::move(bitset)), mEvent(std::move(event)) {
     }
 
-    tl::expected<void, std::error_code> init() override {
+    std::expected<void, std::error_code> init() override {
         mBitset->set(0);
         return {};
     }
 
-    tl::expected<void, std::error_code> rotate() override {
+    std::expected<void, std::error_code> rotate() override {
         mBitset->set(2);
         return {};
     }
 
-    tl::expected<void, std::error_code> flush() override {
+    std::expected<void, std::error_code> flush() override {
         mBitset->set(3);
         mEvent->set();
         return {};
     }
 
-    tl::expected<void, std::error_code> write(const zero::LogMessage &message) override {
+    std::expected<void, std::error_code> write(const zero::LogMessage &message) override {
         if (message.content == "hello world")
             mBitset->set(1);
 

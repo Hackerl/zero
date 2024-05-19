@@ -32,18 +32,18 @@ namespace zero {
 
     class ILogProvider : public Interface {
     public:
-        virtual tl::expected<void, std::error_code> init() = 0;
-        virtual tl::expected<void, std::error_code> rotate() = 0;
-        virtual tl::expected<void, std::error_code> flush() = 0;
-        virtual tl::expected<void, std::error_code> write(const LogMessage &message) = 0;
+        virtual std::expected<void, std::error_code> init() = 0;
+        virtual std::expected<void, std::error_code> rotate() = 0;
+        virtual std::expected<void, std::error_code> flush() = 0;
+        virtual std::expected<void, std::error_code> write(const LogMessage &message) = 0;
     };
 
     class ConsoleProvider final : public ILogProvider {
     public:
-        tl::expected<void, std::error_code> init() override;
-        tl::expected<void, std::error_code> rotate() override;
-        tl::expected<void, std::error_code> flush() override;
-        tl::expected<void, std::error_code> write(const LogMessage &message) override;
+        std::expected<void, std::error_code> init() override;
+        std::expected<void, std::error_code> rotate() override;
+        std::expected<void, std::error_code> flush() override;
+        std::expected<void, std::error_code> write(const LogMessage &message) override;
     };
 
     class FileProvider final : public ILogProvider {
@@ -55,10 +55,10 @@ namespace zero {
             int remain = 10
         );
 
-        tl::expected<void, std::error_code> init() override;
-        tl::expected<void, std::error_code> rotate() override;
-        tl::expected<void, std::error_code> flush() override;
-        tl::expected<void, std::error_code> write(const LogMessage &message) override;
+        std::expected<void, std::error_code> init() override;
+        std::expected<void, std::error_code> rotate() override;
+        std::expected<void, std::error_code> flush() override;
+        std::expected<void, std::error_code> write(const LogMessage &message) override;
 
     private:
         int mPID;

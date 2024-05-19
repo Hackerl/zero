@@ -11,27 +11,27 @@
 
 constexpr auto LOGGER_BUFFER_SIZE = 1024;
 
-tl::expected<void, std::error_code> zero::ConsoleProvider::init() {
+std::expected<void, std::error_code> zero::ConsoleProvider::init() {
     assert(stderr);
     return {};
 }
 
-tl::expected<void, std::error_code> zero::ConsoleProvider::rotate() {
+std::expected<void, std::error_code> zero::ConsoleProvider::rotate() {
     return {};
 }
 
-tl::expected<void, std::error_code> zero::ConsoleProvider::flush() {
+std::expected<void, std::error_code> zero::ConsoleProvider::flush() {
     if (fflush(stderr) != 0)
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
 
-tl::expected<void, std::error_code> zero::ConsoleProvider::write(const LogMessage &message) {
+std::expected<void, std::error_code> zero::ConsoleProvider::write(const LogMessage &message) {
     const std::string msg = fmt::format("{}\n", message);
 
     if (fwrite(msg.data(), 1, msg.length(), stderr) != msg.length())
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
@@ -50,7 +50,7 @@ zero::FileProvider::FileProvider(
 #endif
 }
 
-tl::expected<void, std::error_code> zero::FileProvider::init() {
+std::expected<void, std::error_code> zero::FileProvider::init() {
     const std::string name = fmt::format(
         "{}.{}.{}.log",
         mName,
@@ -61,12 +61,12 @@ tl::expected<void, std::error_code> zero::FileProvider::init() {
     mStream.open(mDirectory / name);
 
     if (!mStream.is_open())
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
 
-tl::expected<void, std::error_code> zero::FileProvider::rotate() {
+std::expected<void, std::error_code> zero::FileProvider::rotate() {
     if (mPosition < mLimit)
         return {};
 
@@ -78,7 +78,7 @@ tl::expected<void, std::error_code> zero::FileProvider::rotate() {
     const auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return std::unexpected(ec);
 
     const std::string prefix = fmt::format("%s.%d", mName, mPID);
 
@@ -99,23 +99,23 @@ tl::expected<void, std::error_code> zero::FileProvider::rotate() {
             return std::filesystem::remove(path, ec);
         }
     ))
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
     return init();
 }
 
-tl::expected<void, std::error_code> zero::FileProvider::flush() {
+std::expected<void, std::error_code> zero::FileProvider::flush() {
     if (!mStream.flush().good())
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
 
-tl::expected<void, std::error_code> zero::FileProvider::write(const LogMessage &message) {
+std::expected<void, std::error_code> zero::FileProvider::write(const LogMessage &message) {
     const std::string msg = fmt::format("{}\n", message);
 
     if (!mStream.write(msg.c_str(), static_cast<std::streamsize>(msg.length())))
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
     mPosition += msg.length();
     return {};
@@ -135,7 +135,7 @@ void zero::Logger::consume() {
     auto &recevier = mChannel.second;
 
     while (true) {
-        tl::expected<LogMessage, std::error_code> message = recevier.tryReceive();
+        std::expected<LogMessage, std::error_code> message = recevier.tryReceive();
 
         if (!message) {
             if (message.error() == concurrent::TryReceiveError::DISCONNECTED)

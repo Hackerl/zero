@@ -1,13 +1,14 @@
 #include <zero/filesystem/file.h>
+#include <algorithm>
 #include <fstream>
 
-tl::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(const std::filesystem::path &path) {
+std::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(const std::filesystem::path &path) {
     std::ifstream stream(path, std::ios::binary);
 
     if (!stream.is_open())
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
-    tl::expected<std::vector<std::byte>, std::error_code> result;
+    std::expected<std::vector<std::byte>, std::error_code> result;
 
     while (true) {
         char buffer[1024] = {};
@@ -17,7 +18,7 @@ tl::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(con
 
         if (stream.fail()) {
             if (!stream.eof()) {
-                result = tl::unexpected<std::error_code>(errno, std::generic_category());
+                result = std::unexpected(std::error_code(errno, std::generic_category()));
                 break;
             }
 
@@ -28,13 +29,13 @@ tl::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(con
     return result;
 }
 
-tl::expected<std::string, std::error_code> zero::filesystem::readString(const std::filesystem::path &path) {
+std::expected<std::string, std::error_code> zero::filesystem::readString(const std::filesystem::path &path) {
     std::ifstream stream(path, std::ios::binary);
 
     if (!stream.is_open())
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
-    tl::expected<std::string, std::error_code> result;
+    std::expected<std::string, std::error_code> result;
 
     while (true) {
         char buffer[1024] = {};
@@ -44,7 +45,7 @@ tl::expected<std::string, std::error_code> zero::filesystem::readString(const st
 
         if (stream.fail()) {
             if (!stream.eof()) {
-                result = tl::unexpected<std::error_code>(errno, std::generic_category());
+                result = std::unexpected(std::error_code(errno, std::generic_category()));
                 break;
             }
 
@@ -55,20 +56,20 @@ tl::expected<std::string, std::error_code> zero::filesystem::readString(const st
     return result;
 }
 
-tl::expected<void, std::error_code>
+std::expected<void, std::error_code>
 zero::filesystem::write(const std::filesystem::path &path, const std::span<const std::byte> content) {
     std::ofstream stream(path, std::ios::binary);
 
     if (!stream.is_open())
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
     if (!stream.write(reinterpret_cast<const char *>(content.data()), static_cast<std::streamsize>(content.size())))
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return std::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
 
-tl::expected<void, std::error_code>
+std::expected<void, std::error_code>
 zero::filesystem::writeString(const std::filesystem::path &path, const std::string_view content) {
     return write(path, std::as_bytes(std::span{content}));
 }

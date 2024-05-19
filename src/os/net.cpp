@@ -52,12 +52,12 @@ std::string zero::os::net::stringify(const std::span<const std::byte, 16> ip) {
     return address;
 }
 
-tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::net::interfaces() {
+std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::net::interfaces() {
 #ifdef _WIN32
     ULONG length = 0;
 
     if (GetAdaptersAddresses(AF_UNSPEC, 0, nullptr, nullptr, &length) != ERROR_BUFFER_OVERFLOW)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     if (length == 0)
         return {};
@@ -71,7 +71,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
         reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.get()),
         &length
     ) != ERROR_SUCCESS)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     std::vector<Interface> interfaces;
 
@@ -138,7 +138,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
     static const auto freeifaddrs = reinterpret_cast<void (*)(ifaddrs *)>(dlsym(RTLD_DEFAULT, "freeifaddrs"));
 
     if (!getifaddrs || !freeifaddrs)
-        return tl::unexpected(GetInterfacesError::API_NOT_AVAILABLE);
+        return std::unexpected(GetInterfacesError::API_NOT_AVAILABLE);
 #endif
     ifaddrs *addr;
 
@@ -225,7 +225,7 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
     }
 #endif
 
-    return std::vector(v.begin(), v.end());
+    return std::ranges::to<std::vector<Interface>>(v);
 #else
 #error "unsupported platform"
 #endif

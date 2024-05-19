@@ -5,8 +5,8 @@
 #include <list>
 #include <vector>
 #include <optional>
+#include <expected>
 #include <filesystem>
-#include <tl/expected.hpp>
 #include <sys/types.h>
 #include <zero/error.h>
 
@@ -177,23 +177,23 @@ namespace zero::os::procfs::process {
         ~Process();
 
     private:
-        [[nodiscard]] tl::expected<std::string, std::error_code> readFile(const char *filename) const;
+        [[nodiscard]] std::expected<std::string, std::error_code> readFile(const char *filename) const;
 
     public:
         [[nodiscard]] pid_t pid() const;
 
-        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
-        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
-        [[nodiscard]] tl::expected<std::string, std::error_code> comm() const;
-        [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
-        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> environ() const;
+        [[nodiscard]] std::expected<std::filesystem::path, std::error_code> exe() const;
+        [[nodiscard]] std::expected<std::filesystem::path, std::error_code> cwd() const;
+        [[nodiscard]] std::expected<std::string, std::error_code> comm() const;
+        [[nodiscard]] std::expected<std::vector<std::string>, std::error_code> cmdline() const;
+        [[nodiscard]] std::expected<std::map<std::string, std::string>, std::error_code> environ() const;
 
-        [[nodiscard]] tl::expected<Stat, std::error_code> stat() const;
-        [[nodiscard]] tl::expected<StatM, std::error_code> statM() const;
-        [[nodiscard]] tl::expected<Status, std::error_code> status() const;
-        [[nodiscard]] tl::expected<std::list<pid_t>, std::error_code> tasks() const;
-        [[nodiscard]] tl::expected<std::list<MemoryMapping>, std::error_code> maps() const;
-        [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
+        [[nodiscard]] std::expected<Stat, std::error_code> stat() const;
+        [[nodiscard]] std::expected<StatM, std::error_code> statM() const;
+        [[nodiscard]] std::expected<Status, std::error_code> status() const;
+        [[nodiscard]] std::expected<std::list<pid_t>, std::error_code> tasks() const;
+        [[nodiscard]] std::expected<std::list<MemoryMapping>, std::error_code> maps() const;
+        [[nodiscard]] std::expected<IOStat, std::error_code> io() const;
 
     private:
         int mFD;
@@ -202,9 +202,9 @@ namespace zero::os::procfs::process {
 
     DEFINE_MAKE_ERROR_CODE(Process::Error)
 
-    tl::expected<Process, std::error_code> self();
-    tl::expected<Process, std::error_code> open(pid_t pid);
-    tl::expected<std::list<pid_t>, std::error_code> all();
+    std::expected<Process, std::error_code> self();
+    std::expected<Process, std::error_code> open(pid_t pid);
+    std::expected<std::list<pid_t>, std::error_code> all();
 }
 
 DECLARE_ERROR_CODE(zero::os::procfs::process::Process::Error)

@@ -18,19 +18,19 @@ std::string zero::encoding::hex::encode(const std::span<const std::byte> data) {
     return encoded;
 }
 
-tl::expected<std::vector<std::byte>, zero::encoding::hex::DecodeError>
+std::expected<std::vector<std::byte>, zero::encoding::hex::DecodeError>
 zero::encoding::hex::decode(const std::string_view encoded) {
     if (encoded.length() % 2)
-        return tl::unexpected(DecodeError::INVALID_LENGTH);
+        return std::unexpected(DecodeError::INVALID_LENGTH);
 
-    tl::expected<std::vector<std::byte>, DecodeError> result;
+    std::expected<std::vector<std::byte>, DecodeError> result;
 
     for (std::size_t i = 0; i < encoded.size(); i += 2) {
         auto n = strings::toNumber<unsigned int>(encoded.substr(i, 2), 16);
 
         if (!n) {
             assert(n.error() == std::errc::invalid_argument);
-            result = tl::unexpected(DecodeError::INVALID_HEX_CHARACTER);
+            result = std::unexpected(DecodeError::INVALID_HEX_CHARACTER);
             break;
         }
 

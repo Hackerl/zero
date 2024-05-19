@@ -2,12 +2,13 @@
 #define ZERO_NT_PROCESS_H
 
 #include <map>
+#include <list>
 #include <vector>
 #include <chrono>
 #include <optional>
+#include <expected>
 #include <windows.h>
 #include <filesystem>
-#include <tl/expected.hpp>
 #include <zero/error.h>
 
 namespace zero::os::nt::process {
@@ -44,31 +45,31 @@ namespace zero::os::nt::process {
         Process &operator=(Process &&rhs) noexcept;
         ~Process();
 
-        static tl::expected<Process, std::error_code> from(HANDLE handle);
+        static std::expected<Process, std::error_code> from(HANDLE handle);
 
     private:
-        [[nodiscard]] tl::expected<std::uintptr_t, std::error_code> parameters() const;
+        [[nodiscard]] std::expected<std::uintptr_t, std::error_code> parameters() const;
 
     public:
         [[nodiscard]] HANDLE handle() const;
 
         [[nodiscard]] DWORD pid() const;
-        [[nodiscard]] tl::expected<DWORD, std::error_code> ppid() const;
+        [[nodiscard]] std::expected<DWORD, std::error_code> ppid() const;
 
-        [[nodiscard]] tl::expected<std::string, std::error_code> name() const;
-        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
-        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
-        [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
-        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> envs() const;
+        [[nodiscard]] std::expected<std::string, std::error_code> name() const;
+        [[nodiscard]] std::expected<std::filesystem::path, std::error_code> cwd() const;
+        [[nodiscard]] std::expected<std::filesystem::path, std::error_code> exe() const;
+        [[nodiscard]] std::expected<std::vector<std::string>, std::error_code> cmdline() const;
+        [[nodiscard]] std::expected<std::map<std::string, std::string>, std::error_code> envs() const;
 
-        [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
-        [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
-        [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
+        [[nodiscard]] std::expected<CPUTime, std::error_code> cpu() const;
+        [[nodiscard]] std::expected<MemoryStat, std::error_code> memory() const;
+        [[nodiscard]] std::expected<IOStat, std::error_code> io() const;
 
-        [[nodiscard]] tl::expected<DWORD, std::error_code> exitCode() const;
-        [[nodiscard]] tl::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout) const;
+        [[nodiscard]] std::expected<DWORD, std::error_code> exitCode() const;
+        [[nodiscard]] std::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout) const;
 
-        tl::expected<void, std::error_code> terminate(DWORD code);
+        std::expected<void, std::error_code> terminate(DWORD code);
 
     private:
         DWORD mPID;
@@ -77,9 +78,9 @@ namespace zero::os::nt::process {
 
     DEFINE_MAKE_ERROR_CODE(Process::Error)
 
-    tl::expected<Process, std::error_code> self();
-    tl::expected<Process, std::error_code> open(DWORD pid);
-    tl::expected<std::list<DWORD>, std::error_code> all();
+    std::expected<Process, std::error_code> self();
+    std::expected<Process, std::error_code> open(DWORD pid);
+    std::expected<std::list<DWORD>, std::error_code> all();
 }
 
 DECLARE_ERROR_CODE(zero::os::nt::process::Process::Error)

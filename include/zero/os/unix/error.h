@@ -1,25 +1,25 @@
 #ifndef ZERO_UNIX_ERROR_H
 #define ZERO_UNIX_ERROR_H
 
+#include <expected>
 #include <system_error>
-#include <tl/expected.hpp>
 
 #undef unix
 
 namespace zero::os::unix {
     template<typename F>
-    tl::expected<std::invoke_result_t<F>, std::error_code> expected(F &&f) {
+    std::expected<std::invoke_result_t<F>, std::error_code> expected(F &&f) {
         const auto result = f();
 
         if (result == -1)
-            return tl::unexpected<std::error_code>(errno, std::system_category());
+            return std::unexpected(std::error_code(errno, std::system_category()));
 
         return result;
     }
 
     template<typename F>
         requires std::is_integral_v<std::invoke_result_t<F>>
-    tl::expected<std::invoke_result_t<F>, std::error_code> ensure(F &&f) {
+    std::expected<std::invoke_result_t<F>, std::error_code> ensure(F &&f) {
         while (true) {
             const auto result = expected(std::forward<F>(f));
 
@@ -27,7 +27,7 @@ namespace zero::os::unix {
                 if (result.error() == std::errc::interrupted)
                     continue;
 
-                return tl::unexpected(result.error());
+                return std::unexpected(result.error());
             }
 
             return *result;

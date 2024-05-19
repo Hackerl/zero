@@ -7,6 +7,7 @@
 #include <optional>
 #include <algorithm>
 #include <coroutine>
+#include <exception>
 #include <system_error>
 #include <source_location>
 
@@ -31,9 +32,9 @@ namespace zero::async::coroutine {
         }
 
         void await_suspend(const std::coroutine_handle<> handle) {
-            future.setCallback([=, this](tl::expected<T, E> res) {
+            future.setCallback([=, this](std::expected<T, E> res) {
                 if (!res) {
-                    result.emplace(tl::unexpected(std::move(res).error()));
+                    result.emplace(std::unexpected(std::move(res).error()));
                     handle.resume();
                     return;
                 }
@@ -49,7 +50,7 @@ namespace zero::async::coroutine {
 
         template<typename = void>
             requires (!std::is_same_v<E, std::exception_ptr>)
-        tl::expected<T, E> await_resume() {
+        std::expected<T, E> await_resume() {
             return std::move(*result);
         }
 
@@ -66,7 +67,7 @@ namespace zero::async::coroutine {
         }
 
         promise::Future<T, E> future;
-        std::optional<tl::expected<T, E>> result;
+        std::optional<std::expected<T, E>> result;
     };
 
     template<typename T, typename E>
@@ -80,9 +81,9 @@ namespace zero::async::coroutine {
         }
 
         void await_suspend(const std::coroutine_handle<> handle) {
-            future.setCallback([=, this](tl::expected<T, E> res) {
+            future.setCallback([=, this](std::expected<T, E> res) {
                 if (!res) {
-                    result.emplace(tl::unexpected(std::move(res).error()));
+                    result.emplace(std::unexpected(std::move(res).error()));
                     handle.resume();
                     return;
                 }
@@ -96,12 +97,12 @@ namespace zero::async::coroutine {
             });
         }
 
-        tl::expected<T, E> await_resume() {
+        std::expected<T, E> await_resume() {
             return std::move(*result);
         }
 
         promise::Future<T, E> future;
-        std::optional<tl::expected<T, E>> result;
+        std::optional<std::expected<T, E>> result;
     };
 
     template<typename T, typename E>
@@ -110,7 +111,7 @@ namespace zero::async::coroutine {
     struct Frame {
         std::shared_ptr<Frame> next;
         std::optional<std::source_location> location;
-        std::function<tl::expected<void, std::error_code>()> cancel;
+        std::function<std::expected<void, std::error_code>()> cancel;
         bool locked{};
         bool cancelled{};
     };
@@ -118,7 +119,7 @@ namespace zero::async::coroutine {
     template<typename T, typename E>
     struct Cancellable {
         promise::Future<T, E> future;
-        std::function<tl::expected<void, std::error_code>()> cancel;
+        std::function<std::expected<void, std::error_code>()> cancel;
     };
 
     template<typename T, typename E>
@@ -158,14 +159,14 @@ namespace zero::async::coroutine {
         }
 
         // ReSharper disable once CppMemberFunctionMayBeConst
-        tl::expected<void, std::error_code> cancel() {
+        std::expected<void, std::error_code> cancel() {
             auto frame = mFrame;
 
             while (true) {
                 frame->cancelled = true;
 
                 if (frame->locked)
-                    return tl::unexpected(make_error_code(Error::LOCKED));
+                    return std::unexpected(make_error_code(Error::LOCKED));
 
                 if (!frame->next)
                     break;
@@ -174,7 +175,7 @@ namespace zero::async::coroutine {
             }
 
             if (!frame->cancel)
-                return tl::unexpected(make_error_code(Error::CANCELLATION_NOT_SUPPORTED));
+                return std::unexpected(make_error_code(Error::CANCELLATION_NOT_SUPPORTED));
 
             return std::exchange(frame->cancel, nullptr)();
         }
@@ -199,7 +200,7 @@ namespace zero::async::coroutine {
 
             if constexpr (detail::is_specialization<R, Task>) {
                 if (!result)
-                    co_return tl::unexpected(std::move(result).error());
+                    co_return std::unexpected(std::move(result).error());
 
                 co_return co_await std::invoke(std::move(f));
             }
@@ -215,7 +216,7 @@ namespace zero::async::coroutine {
 
             if constexpr (detail::is_specialization<R, Task>) {
                 if (!result)
-                    co_return tl::unexpected(std::move(result).error());
+                    co_return std::unexpected(std::move(result).error());
 
                 co_return co_await std::invoke(std::move(f), *std::move(result));
             }
@@ -246,7 +247,7 @@ namespace zero::async::coroutine {
             auto result = co_await std::move(*this);
 
             if (!result)
-                co_return tl::unexpected(std::move(result).error());
+                co_return std::unexpected(std::move(result).error());
 
             co_return co_await std::invoke(std::move(f));
         }
@@ -273,11 +274,11 @@ namespace zero::async::coroutine {
             auto result = co_await std::move(*this);
 
             if (!result)
-                co_return tl::unexpected(std::move(result).error());
+                co_return std::unexpected(std::move(result).error());
 
             if constexpr (std::is_void_v<typename R::value_type>) {
                 co_await std::invoke(std::move(f), *std::move(result));
-                co_return tl::expected<typename R::value_type, E>{};
+                co_return std::expected<typename R::value_type, E>{};
             }
             else {
                 co_return co_await std::invoke(std::move(f), *std::move(result));
@@ -319,7 +320,7 @@ namespace zero::async::coroutine {
             if (result)
                 co_return *std::move(result);
 
-            co_return tl::unexpected(co_await std::invoke(std::move(f), std::move(result).error()));
+            co_return std::unexpected(co_await std::invoke(std::move(f), std::move(result).error()));
         }
 
         [[nodiscard]] bool done() const {
@@ -461,7 +462,7 @@ namespace zero::async::coroutine {
 
         template<typename = void>
             requires (!std::is_same_v<E, std::exception_ptr>)
-        void return_value(tl::expected<T, E> &&result) {
+        void return_value(std::expected<T, E> &&result) {
             mFrame->next.reset();
             mFrame->location.reset();
             mFrame->cancel = nullptr;
@@ -479,7 +480,7 @@ namespace zero::async::coroutine {
 
         template<typename = void>
             requires (!std::is_same_v<E, std::exception_ptr>)
-        void return_value(const tl::expected<T, E> &result) {
+        void return_value(const std::expected<T, E> &result) {
             mFrame->next.reset();
             mFrame->location.reset();
             mFrame->cancel = nullptr;
@@ -654,7 +655,7 @@ namespace zero::async::coroutine {
                         });
                     })
                 ),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     std::error_code ec;
 
                     for (const auto &taskPtr: taskPtrs) {
@@ -666,7 +667,7 @@ namespace zero::async::coroutine {
                     }
 
                     if (ec)
-                        return tl::unexpected(ec);
+                        return std::unexpected(ec);
 
                     return {};
                 }
@@ -718,7 +719,7 @@ namespace zero::async::coroutine {
                         ctx->promise.resolve();
                     })...
                 ),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     std::error_code ec;
 
                     ([&] {
@@ -730,7 +731,7 @@ namespace zero::async::coroutine {
                     }(), ...);
 
                     if (ec)
-                        return tl::unexpected(ec);
+                        return std::unexpected(ec);
 
                     return {};
                 }
@@ -776,10 +777,10 @@ namespace zero::async::coroutine {
             }
         );
 
-        return [](auto taskPtrs) -> Task<std::vector<tl::expected<T, E>>> {
+        return [](auto taskPtrs) -> Task<std::vector<std::expected<T, E>>> {
             co_return *co_await Cancellable{
                 promise::allSettled(taskPtrs | std::views::transform([](auto &taskPtr) { return taskPtr->future(); })),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     std::error_code ec;
 
                     for (const auto &taskPtr: taskPtrs) {
@@ -791,7 +792,7 @@ namespace zero::async::coroutine {
                     }
 
                     if (ec)
-                        return tl::unexpected(ec);
+                        return std::unexpected(ec);
 
                     return {};
                 }
@@ -809,14 +810,14 @@ namespace zero::async::coroutine {
     auto allSettled(Task<Ts, Es>... tasks) {
         using T = std::conditional_t<
             detail::all_same_v<Ts...>,
-            std::array<tl::expected<detail::first_element_t<Ts...>, detail::first_element_t<Es...>>, sizeof...(Ts)>,
-            std::tuple<tl::expected<Ts, Es>...>
+            std::array<std::expected<detail::first_element_t<Ts...>, detail::first_element_t<Es...>>, sizeof...(Ts)>,
+            std::tuple<std::expected<Ts, Es>...>
         >;
 
         return [](std::shared_ptr<Task<Ts, Es>>... taskPtrs) -> Task<T> {
             co_return *co_await Cancellable{
                 promise::allSettled(taskPtrs->future()...),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     std::error_code ec;
 
                     ([&] {
@@ -828,7 +829,7 @@ namespace zero::async::coroutine {
                     }(), ...);
 
                     if (ec)
-                        return tl::unexpected(ec);
+                        return std::unexpected(ec);
 
                     return {};
                 }
@@ -866,7 +867,7 @@ namespace zero::async::coroutine {
                         });
                     })
                 ),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     std::error_code ec;
 
                     for (const auto &taskPtr: taskPtrs) {
@@ -878,7 +879,7 @@ namespace zero::async::coroutine {
                     }
 
                     if (ec)
-                        return tl::unexpected(ec);
+                        return std::unexpected(ec);
 
                     return {};
                 }
@@ -920,7 +921,7 @@ namespace zero::async::coroutine {
                         ctx->promise.resolve();
                     })...
                 ),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     std::error_code ec;
 
                     ([&] {
@@ -932,7 +933,7 @@ namespace zero::async::coroutine {
                     }(), ...);
 
                     if (ec)
-                        return tl::unexpected(ec);
+                        return std::unexpected(ec);
 
                     return {};
                 }
@@ -982,7 +983,7 @@ namespace zero::async::coroutine {
                         });
                     })
                 ),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     std::error_code ec;
 
                     for (const auto &taskPtr: taskPtrs) {
@@ -994,7 +995,7 @@ namespace zero::async::coroutine {
                     }
 
                     if (ec)
-                        return tl::unexpected(ec);
+                        return std::unexpected(ec);
 
                     return {};
                 }
@@ -1044,7 +1045,7 @@ namespace zero::async::coroutine {
                         ctx->promise.resolve();
                     })...
                 ),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     std::error_code ec;
 
                     ([&] {
@@ -1056,7 +1057,7 @@ namespace zero::async::coroutine {
                     }(), ...);
 
                     if (ec)
-                        return tl::unexpected(ec);
+                        return std::unexpected(ec);
 
                     return {};
                 }

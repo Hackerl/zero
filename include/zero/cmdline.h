@@ -6,6 +6,7 @@
 #include "detail/type_traits.h"
 #include <any>
 #include <optional>
+#include <algorithm>
 #include <filesystem>
 #include <fmt/format.h>
 
@@ -15,10 +16,10 @@
 
 namespace zero {
     template<typename T>
-    tl::expected<T, std::error_code> scan(std::string_view input) = delete;
+    std::expected<T, std::error_code> scan(std::string_view input) = delete;
 
     template<typename T>
-    tl::expected<std::any, std::error_code> parseValue(const std::string_view input) {
+    std::expected<std::any, std::error_code> parseValue(const std::string_view input) {
         if constexpr (std::is_arithmetic_v<T>) {
             const auto value = strings::toNumber<T>(input);
             EXPECT(value);
@@ -89,7 +90,7 @@ namespace zero {
 
     struct TypeInfo {
         std::string type;
-        std::function<tl::expected<std::any, std::error_code>(std::string_view)> parse;
+        std::function<std::expected<std::any, std::error_code>(std::string_view)> parse;
     };
 
     struct Optional {

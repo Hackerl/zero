@@ -3,7 +3,7 @@
 
 #include <chrono>
 #include <optional>
-#include <tl/expected.hpp>
+#include <expected>
 #include <condition_variable>
 #include <zero/error.h>
 #include <zero/atomic/circular_buffer.h>
@@ -98,14 +98,14 @@ namespace zero::concurrent {
         }
 
         template<typename U = T>
-        tl::expected<void, TrySendError> trySend(U &&element) {
+        std::expected<void, TrySendError> trySend(U &&element) {
             if (mCore->closed)
-                return tl::unexpected(TrySendError::DISCONNECTED);
+                return std::unexpected(TrySendError::DISCONNECTED);
 
             const auto index = mCore->buffer.reserve();
 
             if (!index)
-                return tl::unexpected(TrySendError::FULL);
+                return std::unexpected(TrySendError::FULL);
 
             mCore->buffer[*index] = std::forward<U>(element);
             mCore->buffer.commit(*index);
@@ -115,12 +115,12 @@ namespace zero::concurrent {
         }
 
         template<typename U = T>
-        tl::expected<void, SendError>
+        std::expected<void, SendError>
         send(U &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
             if (mCore->closed)
-                return tl::unexpected(SendError::DISCONNECTED);
+                return std::unexpected(SendError::DISCONNECTED);
 
-            tl::expected<void, SendError> result;
+            std::expected<void, SendError> result;
 
             while (true) {
                 const auto index = mCore->buffer.reserve();
@@ -129,7 +129,7 @@ namespace zero::concurrent {
                     std::unique_lock lock(mCore->mutex);
 
                     if (mCore->closed) {
-                        result = tl::unexpected(SendError::DISCONNECTED);
+                        result = std::unexpected(SendError::DISCONNECTED);
                         break;
                     }
 
@@ -144,7 +144,7 @@ namespace zero::concurrent {
                     }
 
                     if (mCore->cvs[SENDER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected(SendError::TIMEOUT);
+                        result = std::unexpected(SendError::TIMEOUT);
                         break;
                     }
 
@@ -234,11 +234,11 @@ namespace zero::concurrent {
             mCore->close();
         }
 
-        tl::expected<T, TryReceiveError> tryReceive() {
+        std::expected<T, TryReceiveError> tryReceive() {
             const auto index = mCore->buffer.acquire();
 
             if (!index)
-                return tl::unexpected(mCore->closed ? TryReceiveError::DISCONNECTED : TryReceiveError::EMPTY);
+                return std::unexpected(mCore->closed ? TryReceiveError::DISCONNECTED : TryReceiveError::EMPTY);
 
             T element = std::move(mCore->buffer[*index]);
             mCore->buffer.release(*index);
@@ -247,8 +247,8 @@ namespace zero::concurrent {
             return element;
         }
 
-        tl::expected<T, ReceiveError> receive(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
-            tl::expected<T, ReceiveError> result = tl::unexpected(ReceiveError::DISCONNECTED);
+        std::expected<T, ReceiveError> receive(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
+            std::expected<T, ReceiveError> result = std::unexpected(ReceiveError::DISCONNECTED);
 
             while (true) {
                 const auto index = mCore->buffer.acquire();
@@ -270,7 +270,7 @@ namespace zero::concurrent {
                     }
 
                     if (mCore->cvs[RECEIVER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected(ReceiveError::TIMEOUT);
+                        result = std::unexpected(ReceiveError::TIMEOUT);
                         break;
                     }
 

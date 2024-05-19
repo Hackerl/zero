@@ -4,6 +4,8 @@
 #include <zero/filesystem/path.h>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
+#include <algorithm>
+#include <utility>
 
 #ifdef _WIN32
 #include <future>
@@ -381,7 +383,7 @@ TEST_CASE("process", "[os]") {
             REQUIRE(num == data.size());
 
             auto future = std::async([=] {
-                tl::expected<std::vector<char>, std::error_code> result;
+                std::expected<std::vector<char>, std::error_code> result;
 
                 while (true) {
                     DWORD n;
@@ -395,7 +397,7 @@ TEST_CASE("process", "[os]") {
                         if (res.error() == std::errc::broken_pipe)
                             break;
 
-                        result = tl::unexpected(res.error());
+                        result = std::unexpected(res.error());
                         break;
                     }
 

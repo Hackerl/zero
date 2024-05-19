@@ -4,8 +4,8 @@
 #include <map>
 #include <list>
 #include <vector>
+#include <expected>
 #include <filesystem>
-#include <tl/expected.hpp>
 #include <zero/error.h>
 
 namespace zero::os::darwin::process {
@@ -38,24 +38,24 @@ namespace zero::os::darwin::process {
         Process &operator=(Process &&rhs) noexcept;
 
     private:
-        [[nodiscard]] tl::expected<std::vector<char>, std::error_code> arguments() const;
+        [[nodiscard]] std::expected<std::vector<char>, std::error_code> arguments() const;
 
     public:
         [[nodiscard]] pid_t pid() const;
-        [[nodiscard]] tl::expected<pid_t, std::error_code> ppid() const;
+        [[nodiscard]] std::expected<pid_t, std::error_code> ppid() const;
 
-        [[nodiscard]] tl::expected<std::string, std::error_code> comm() const;
-        [[nodiscard]] tl::expected<std::string, std::error_code> name() const;
-        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
-        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
-        [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
-        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> envs() const;
+        [[nodiscard]] std::expected<std::string, std::error_code> comm() const;
+        [[nodiscard]] std::expected<std::string, std::error_code> name() const;
+        [[nodiscard]] std::expected<std::filesystem::path, std::error_code> cwd() const;
+        [[nodiscard]] std::expected<std::filesystem::path, std::error_code> exe() const;
+        [[nodiscard]] std::expected<std::vector<std::string>, std::error_code> cmdline() const;
+        [[nodiscard]] std::expected<std::map<std::string, std::string>, std::error_code> envs() const;
 
-        [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
-        [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
-        [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
+        [[nodiscard]] std::expected<CPUTime, std::error_code> cpu() const;
+        [[nodiscard]] std::expected<MemoryStat, std::error_code> memory() const;
+        [[nodiscard]] std::expected<IOStat, std::error_code> io() const;
 
-        tl::expected<void, std::error_code> kill(int sig);
+        std::expected<void, std::error_code> kill(int sig);
 
     private:
         pid_t mPID;
@@ -63,9 +63,9 @@ namespace zero::os::darwin::process {
 
     DEFINE_MAKE_ERROR_CODE(Process::Error)
 
-    tl::expected<Process, std::error_code> self();
-    tl::expected<Process, std::error_code> open(pid_t pid);
-    tl::expected<std::list<pid_t>, std::error_code> all();
+    std::expected<Process, std::error_code> self();
+    std::expected<Process, std::error_code> open(pid_t pid);
+    std::expected<std::list<pid_t>, std::error_code> all();
 }
 
 DECLARE_ERROR_CODE(zero::os::darwin::process::Process::Error)

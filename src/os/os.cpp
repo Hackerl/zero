@@ -8,18 +8,19 @@
 #include <zero/strings/strings.h>
 #elif __linux__
 #include <pwd.h>
-#include <unistd.h>
-#include <climits>
 #include <memory>
+#include <climits>
+#include <unistd.h>
 #include <zero/os/unix/error.h>
 #elif __APPLE__
 #include <pwd.h>
+#include <memory>
 #include <unistd.h>
 #include <sys/param.h>
 #include <zero/os/unix/error.h>
 #endif
 
-tl::expected<std::string, std::error_code> zero::os::hostname() {
+std::expected<std::string, std::error_code> zero::os::hostname() {
 #ifdef _WIN32
     WCHAR name[MAX_COMPUTERNAME_LENGTH + 1] = {};
     DWORD length = ARRAYSIZE(name);
@@ -50,7 +51,7 @@ tl::expected<std::string, std::error_code> zero::os::hostname() {
 #endif
 }
 
-tl::expected<std::string, std::error_code> zero::os::username() {
+std::expected<std::string, std::error_code> zero::os::username() {
 #ifdef _WIN32
     WCHAR name[UNLEN + 1] = {};
     DWORD length = ARRAYSIZE(name);
@@ -70,7 +71,7 @@ tl::expected<std::string, std::error_code> zero::os::username() {
     passwd pwd = {};
     passwd *ptr = nullptr;
 
-    tl::expected<std::string, std::error_code> result;
+    std::expected<std::string, std::error_code> result;
 
     while (true) {
         if (const int n = getpwuid_r(uid, &pwd, buffer.get(), length, &ptr); n != 0) {
@@ -80,7 +81,7 @@ tl::expected<std::string, std::error_code> zero::os::username() {
                 continue;
             }
 
-            result = tl::unexpected<std::error_code>(n, std::system_category());
+            result = std::unexpected(std::error_code(n, std::system_category()));
             break;
         }
 

@@ -40,19 +40,19 @@ zero::os::nt::process::Process::~Process() {
     CloseHandle(mHandle);
 }
 
-tl::expected<zero::os::nt::process::Process, std::error_code>
+std::expected<zero::os::nt::process::Process, std::error_code>
 zero::os::nt::process::Process::from(const HANDLE handle) {
     const DWORD pid = GetProcessId(handle);
 
     if (pid == 0)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return Process{handle, pid};
 }
 
-tl::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::parameters() const {
+std::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::parameters() const {
     if (!queryInformationProcess)
-        return tl::unexpected(Error::API_NOT_AVAILABLE);
+        return std::unexpected(Error::API_NOT_AVAILABLE);
 
     PROCESS_BASIC_INFORMATION info = {};
 
@@ -89,9 +89,9 @@ DWORD zero::os::nt::process::Process::pid() const {
     return mPID;
 }
 
-tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() const {
+std::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() const {
     if (!queryInformationProcess)
-        return tl::unexpected(Error::API_NOT_AVAILABLE);
+        return std::unexpected(Error::API_NOT_AVAILABLE);
 
     PROCESS_BASIC_INFORMATION info = {};
 
@@ -112,13 +112,13 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() cons
 #endif
 }
 
-tl::expected<std::string, std::error_code> zero::os::nt::process::Process::name() const {
+std::expected<std::string, std::error_code> zero::os::nt::process::Process::name() const {
     return exe().transform([](const auto &path) {
         return path.filename().string();
     });
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::cwd() const {
+std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::cwd() const {
     const auto ptr = parameters();
     EXPECT(ptr);
 
@@ -135,7 +135,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
     }));
 
     if (!str.Buffer || str.Length == 0)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -153,12 +153,12 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
     auto path = std::filesystem::canonical(buffer.get(), ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return std::unexpected(ec);
 
     return path;
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::exe() const {
+std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::exe() const {
     WCHAR buffer[MAX_PATH] = {};
     DWORD size = ARRAYSIZE(buffer);
 
@@ -169,7 +169,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
     return buffer;
 }
 
-tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {
+std::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {
     const auto ptr = parameters();
     EXPECT(ptr);
 
@@ -186,7 +186,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
     }));
 
     if (!str.Buffer || str.Length == 0)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -204,16 +204,16 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
     LPWSTR *args = CommandLineToArgvW(buffer.get(), &num);
 
     if (!args)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     DEFER(LocalFree(args));
-    tl::expected<std::vector<std::string>, std::error_code> result;
+    std::expected<std::vector<std::string>, std::error_code> result;
 
     for (int i = 0; i < num; ++i) {
         auto arg = strings::encode(args[i]);
 
         if (!arg) {
-            result = tl::unexpected(arg.error());
+            result = std::unexpected(arg.error());
             break;
         }
 
@@ -223,7 +223,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
     return result;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::process::Process::envs() const {
+std::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::process::Process::envs() const {
     const auto ptr = parameters();
     EXPECT(ptr);
 
@@ -270,7 +270,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
 #endif
     EXPECT(str);
 
-    tl::expected<std::map<std::string, std::string>, std::error_code> result;
+    std::expected<std::map<std::string, std::string>, std::error_code> result;
 
     for (const auto &token: strings::split(*str, {"\0", 1})) {
         if (token.empty())
@@ -279,7 +279,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
         const size_t pos = token.find('=');
 
         if (pos == std::string::npos) {
-            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
+            result = std::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -292,7 +292,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
     return result;
 }
 
-tl::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::process::Process::cpu() const {
+std::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::process::Process::cpu() const {
     FILETIME create, exit, kernel, user;
 
     EXPECT(expected([&] {
@@ -305,7 +305,7 @@ tl::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::proc
     };
 }
 
-tl::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::process::Process::memory() const {
+std::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::process::Process::memory() const {
     PROCESS_MEMORY_COUNTERS counters;
 
     EXPECT(expected([&] {
@@ -318,7 +318,7 @@ tl::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::p
     };
 }
 
-tl::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::process::Process::io() const {
+std::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::process::Process::io() const {
     IO_COUNTERS counters;
 
     EXPECT(expected([&] {
@@ -333,7 +333,7 @@ tl::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::proce
     };
 }
 
-tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() const {
+std::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() const {
     DWORD code;
 
     EXPECT(expected([&] {
@@ -341,36 +341,36 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() 
     }));
 
     if (code == STILL_ACTIVE)
-        return tl::unexpected(Error::PROCESS_STILL_ACTIVE);
+        return std::unexpected(Error::PROCESS_STILL_ACTIVE);
 
     return code;
 }
 
-tl::expected<void, std::error_code>
+std::expected<void, std::error_code>
 zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
     if (const DWORD result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         if (result == WAIT_TIMEOUT)
-            return tl::unexpected(Error::WAIT_PROCESS_TIMEOUT);
+            return std::unexpected(Error::WAIT_PROCESS_TIMEOUT);
 
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
     }
 
     return {};
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-tl::expected<void, std::error_code> zero::os::nt::process::Process::terminate(const DWORD code) {
+std::expected<void, std::error_code> zero::os::nt::process::Process::terminate(const DWORD code) {
     return expected([&] {
         return TerminateProcess(mHandle, code);
     });
 }
 
-tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {
+std::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {
     return Process{GetCurrentProcess(), GetCurrentProcessId()};
 }
 
-tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::open(const DWORD pid) {
+std::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::open(const DWORD pid) {
     const auto handle = OpenProcess(
         PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
         false,
@@ -378,16 +378,16 @@ tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::proc
     );
 
     if (!handle)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return Process{handle, pid};
 }
 
-tl::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
+std::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
     std::size_t size = 4096;
     auto buffer = std::make_unique<DWORD[]>(size);
 
-    tl::expected<std::list<DWORD>, std::error_code> result;
+    std::expected<std::list<DWORD>, std::error_code> result;
 
     while (true) {
         DWORD needed;
@@ -395,7 +395,7 @@ tl::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
         if (const auto res = expected([&] {
             return EnumProcesses(buffer.get(), size * sizeof(DWORD), &needed);
         }); !res) {
-            result = tl::unexpected(res.error());
+            result = std::unexpected(res.error());
             break;
         }
 

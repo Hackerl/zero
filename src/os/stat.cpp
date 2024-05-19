@@ -8,6 +8,7 @@
 #include <map>
 #include <regex>
 #include <unistd.h>
+#include <algorithm>
 #include <zero/os/unix/error.h>
 #include <zero/strings/strings.h>
 #include <zero/os/procfs/procfs.h>
@@ -20,7 +21,7 @@
 #include <zero/os/darwin/error.h>
 #endif
 
-tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
+std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 #ifdef _WIN32
     FILETIME idle, kernel, user;
 
@@ -52,12 +53,12 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     );
 
     if (it == lines.end())
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     const auto tokens = strings::split(*it);
 
     if (tokens.size() != 11)
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     const auto user = strings::toNumber<std::uint64_t>(tokens[1]);
     const auto system = strings::toNumber<std::uint64_t>(tokens[3]);
@@ -89,7 +90,7 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
         reinterpret_cast<host_info_t>(&data),
         &count
     ); status != KERN_SUCCESS)
-        return tl::unexpected(make_error_code(static_cast<darwin::Error>(status)));
+        return std::unexpected(make_error_code(static_cast<darwin::Error>(status)));
 
     const auto result = unix::expected([&] {
         return sysconf(_SC_CLK_TCK);
@@ -106,7 +107,7 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 #endif
 }
 
-tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory() {
+std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory() {
 #ifdef _WIN32
     MEMORYSTATUSEX status;
     status.dwLength = sizeof(status);
@@ -132,7 +133,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
-            return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
         const auto n = strings::toNumber<std::uint64_t>(strings::trim(tokens[1]));
         EXPECT(n);
@@ -141,7 +142,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     }
 
     if (!map.contains("MemTotal") || !map.contains("MemFree") || !map.contains("Buffers") || !map.contains("Cached"))
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     MemoryStat stat = {};
 
@@ -171,7 +172,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         reinterpret_cast<host_info_t>(&data),
         &count
     ); status != KERN_SUCCESS)
-        return tl::unexpected(make_error_code(static_cast<darwin::Error>(status)));
+        return std::unexpected(make_error_code(static_cast<darwin::Error>(status)));
 
     std::uint64_t total;
     std::size_t size = sizeof(total);

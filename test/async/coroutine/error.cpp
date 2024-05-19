@@ -32,7 +32,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
         const auto promise = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
         auto task = from(zero::async::coroutine::Cancellable{
             promise->getFuture(),
-            [=]() -> tl::expected<void, std::error_code> {
+            [=]() -> std::expected<void, std::error_code> {
                 promise->reject(zero::async::coroutine::Error::CANCELLED);
                 return {};
             }
@@ -56,7 +56,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
 
             const auto result = co_await zero::async::coroutine::Cancellable{
                 p->getFuture(),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     p->reject(zero::async::coroutine::Error::CANCELLED);
                     return {};
                 }
@@ -87,7 +87,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
 
             auto result = co_await zero::async::coroutine::Cancellable{
                 p1->getFuture(),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     p1->reject(zero::async::coroutine::Error::CANCELLED);
                     return {};
                 }
@@ -102,7 +102,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
 
             result = co_await zero::async::coroutine::Cancellable{
                 p2->getFuture(),
-                [=]() -> tl::expected<void, std::error_code> {
+                [=]() -> std::expected<void, std::error_code> {
                     p2->reject(zero::async::coroutine::Error::CANCELLED);
                     return {};
                 }
@@ -154,14 +154,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = all(std::array{
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -206,14 +206,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = allSettled(std::array{
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -266,14 +266,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = any(std::array{
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -320,14 +320,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = race(std::array{
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -371,14 +371,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = all(std::array{
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -427,14 +427,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = allSettled(std::array{
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -490,14 +490,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = any(std::array{
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -547,14 +547,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = race(std::array{
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -604,14 +604,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     auto task = all(
                         from(zero::async::coroutine::Cancellable{
                             promise1->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise1->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
                         }),
                         from(zero::async::coroutine::Cancellable{
                             promise2->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise2->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
@@ -656,14 +656,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     auto task = allSettled(
                         from(zero::async::coroutine::Cancellable{
                             promise1->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise1->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
                         }),
                         from(zero::async::coroutine::Cancellable{
                             promise2->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise2->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
@@ -716,14 +716,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     auto task = any(
                         from(zero::async::coroutine::Cancellable{
                             promise1->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise1->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
                         }),
                         from(zero::async::coroutine::Cancellable{
                             promise2->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise2->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
@@ -770,14 +770,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     auto task = race(
                         from(zero::async::coroutine::Cancellable{
                             promise1->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise1->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
                         }),
                         from(zero::async::coroutine::Cancellable{
                             promise2->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise2->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
@@ -821,14 +821,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     auto task = all(
                         from(zero::async::coroutine::Cancellable{
                             promise1->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise1->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
                         }),
                         from(zero::async::coroutine::Cancellable{
                             promise2->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise2->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
@@ -877,14 +877,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     auto task = allSettled(
                         from(zero::async::coroutine::Cancellable{
                             promise1->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise1->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
                         }),
                         from(zero::async::coroutine::Cancellable{
                             promise2->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise2->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
@@ -940,14 +940,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     auto task = any(
                         from(zero::async::coroutine::Cancellable{
                             promise1->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise1->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
                         }),
                         from(zero::async::coroutine::Cancellable{
                             promise2->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise2->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
@@ -997,14 +997,14 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     auto task = race(
                         from(zero::async::coroutine::Cancellable{
                             promise1->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise1->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
                         }),
                         from(zero::async::coroutine::Cancellable{
                             promise2->getFuture(),
-                            [=]() -> tl::expected<void, std::error_code> {
+                            [=]() -> std::expected<void, std::error_code> {
                                 promise2->reject(zero::async::coroutine::Error::CANCELLED);
                                 return {};
                             }
@@ -1053,21 +1053,21 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = all(
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise3->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise3->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -1122,21 +1122,21 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = allSettled(
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise3->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise3->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -1205,21 +1205,21 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = any(
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise3->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise3->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -1298,21 +1298,21 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 auto task = race(
                     from(zero::async::coroutine::Cancellable{
                         promise1->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise1->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise2->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise2->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }),
                     from(zero::async::coroutine::Cancellable{
                         promise3->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise3->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -1378,7 +1378,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
                     auto task = zero::async::coroutine::from(promise.getFuture())
-                        .andThen([](const int value) -> tl::expected<int, std::error_code> {
+                        .andThen([](const int value) -> std::expected<int, std::error_code> {
                             return value * 10;
                         });
                     REQUIRE(!task.done());
@@ -1394,7 +1394,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
                     auto task = zero::async::coroutine::from(promise.getFuture())
-                        .andThen([](const int value) -> tl::expected<int, std::error_code> {
+                        .andThen([](const int value) -> std::expected<int, std::error_code> {
                             return value * 10;
                         });
                     REQUIRE(!task.done());
@@ -1411,11 +1411,11 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     const auto promise = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
                     auto task = from(zero::async::coroutine::Cancellable{
                         promise->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
-                    }).andThen([](const int value) -> tl::expected<int, std::error_code> {
+                    }).andThen([](const int value) -> std::expected<int, std::error_code> {
                         return value * 10;
                     });
                     REQUIRE(!task.done());
@@ -1465,7 +1465,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     const auto promise = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
                     auto task = from(zero::async::coroutine::Cancellable{
                         promise->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -1521,7 +1521,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     const auto promise = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
                     auto task = from(zero::async::coroutine::Cancellable{
                         promise->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -1575,7 +1575,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     const auto promise = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
                     auto task = from(zero::async::coroutine::Cancellable{
                         promise->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -1598,7 +1598,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 SECTION("success") {
                     zero::async::promise::Promise<int, std::error_code> promise;
                     auto task = zero::async::coroutine::from(promise.getFuture())
-                        .orElse([](const std::error_code &ec) -> tl::expected<int, std::error_code> {
+                        .orElse([](const std::error_code &ec) -> std::expected<int, std::error_code> {
                             REQUIRE(ec == std::errc::invalid_argument);
                             return 1000;
                         });
@@ -1615,9 +1615,9 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                 SECTION("failure") {
                     zero::async::promise::Promise<int, std::error_code> promise;
                     auto task = zero::async::coroutine::from(promise.getFuture())
-                        .orElse([](const std::error_code &ec) -> tl::expected<int, std::error_code> {
+                        .orElse([](const std::error_code &ec) -> std::expected<int, std::error_code> {
                             REQUIRE(ec == std::errc::invalid_argument);
-                            return tl::unexpected(make_error_code(std::errc::io_error));
+                            return std::unexpected(make_error_code(std::errc::io_error));
                         });
                     REQUIRE(!task.done());
 
@@ -1633,13 +1633,13 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     const auto promise = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
                     auto task = from(zero::async::coroutine::Cancellable{
                         promise->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
-                    }).orElse([](const std::error_code &ec) -> tl::expected<int, std::error_code> {
+                    }).orElse([](const std::error_code &ec) -> std::expected<int, std::error_code> {
                         REQUIRE(ec == std::errc::operation_canceled);
-                        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+                        return std::unexpected(make_error_code(std::errc::invalid_argument));
                     });
                     REQUIRE(!task.done());
                     REQUIRE(task.cancel());
@@ -1674,7 +1674,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     auto task = zero::async::coroutine::from(promise.getFuture())
                         .orElse([](const std::error_code &ec) -> zero::async::coroutine::Task<int, std::error_code> {
                             REQUIRE(ec == std::errc::invalid_argument);
-                            co_return tl::unexpected(make_error_code(std::errc::io_error));
+                            co_return std::unexpected(make_error_code(std::errc::io_error));
                         });
                     REQUIRE(!task.done());
 
@@ -1690,13 +1690,13 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     const auto promise = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
                     auto task = from(zero::async::coroutine::Cancellable{
                         promise->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
                     }).orElse([](const std::error_code &ec) -> zero::async::coroutine::Task<int, std::error_code> {
                         REQUIRE(ec == std::errc::operation_canceled);
-                        co_return tl::unexpected(make_error_code(std::errc::invalid_argument));
+                        co_return std::unexpected(make_error_code(std::errc::invalid_argument));
                     });
                     REQUIRE(!task.done());
                     REQUIRE(task.cancel());
@@ -1747,7 +1747,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     const auto promise = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
                     auto task = from(zero::async::coroutine::Cancellable{
                         promise->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }
@@ -1801,7 +1801,7 @@ TEST_CASE("C++20 coroutines with error", "[coroutine]") {
                     const auto promise = std::make_shared<zero::async::promise::Promise<int, std::error_code>>();
                     auto task = from(zero::async::coroutine::Cancellable{
                         promise->getFuture(),
-                        [=]() -> tl::expected<void, std::error_code> {
+                        [=]() -> std::expected<void, std::error_code> {
                             promise->reject(zero::async::coroutine::Error::CANCELLED);
                             return {};
                         }

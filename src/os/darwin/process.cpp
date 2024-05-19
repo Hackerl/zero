@@ -20,7 +20,7 @@ zero::os::darwin::process::Process &zero::os::darwin::process::Process::operator
     return *this;
 }
 
-tl::expected<std::vector<char>, std::error_code> zero::os::darwin::process::Process::arguments() const {
+std::expected<std::vector<char>, std::error_code> zero::os::darwin::process::Process::arguments() const {
     std::size_t size;
     int mib[3] = {CTL_KERN, KERN_PROCARGS2, mPID};
 
@@ -41,63 +41,63 @@ pid_t zero::os::darwin::process::Process::pid() const {
     return mPID;
 }
 
-tl::expected<pid_t, std::error_code> zero::os::darwin::process::Process::ppid() const {
+std::expected<pid_t, std::error_code> zero::os::darwin::process::Process::ppid() const {
     proc_bsdshortinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDT_SHORTBSDINFO, 0, &info, PROC_PIDT_SHORTBSDINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return std::unexpected(std::error_code(errno, std::system_category()));
 
     return static_cast<pid_t>(info.pbsi_ppid);
 }
 
-tl::expected<std::string, std::error_code> zero::os::darwin::process::Process::comm() const {
+std::expected<std::string, std::error_code> zero::os::darwin::process::Process::comm() const {
     proc_bsdshortinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDT_SHORTBSDINFO, 0, &info, PROC_PIDT_SHORTBSDINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return std::unexpected(std::error_code(errno, std::system_category()));
 
     return info.pbsi_comm;
 }
 
-tl::expected<std::string, std::error_code> zero::os::darwin::process::Process::name() const {
+std::expected<std::string, std::error_code> zero::os::darwin::process::Process::name() const {
     char buffer[2 * MAXCOMLEN] = {};
 
     if (proc_name(mPID, buffer, sizeof(buffer)) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return std::unexpected(std::error_code(errno, std::system_category()));
 
     return buffer;
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::darwin::process::Process::cwd() const {
+std::expected<std::filesystem::path, std::error_code> zero::os::darwin::process::Process::cwd() const {
     proc_vnodepathinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDVNODEPATHINFO, 0, &info, PROC_PIDVNODEPATHINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return std::unexpected(std::error_code(errno, std::system_category()));
 
     return info.pvi_cdir.vip_path;
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::darwin::process::Process::exe() const {
+std::expected<std::filesystem::path, std::error_code> zero::os::darwin::process::Process::exe() const {
     char buffer[PROC_PIDPATHINFO_MAXSIZE] = {};
 
     if (proc_pidpath(mPID, buffer, sizeof(buffer)) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return std::unexpected(std::error_code(errno, std::system_category()));
 
     return buffer;
 }
 
-tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::process::Process::cmdline() const {
+std::expected<std::vector<std::string>, std::error_code> zero::os::darwin::process::Process::cmdline() const {
     const auto arguments = this->arguments();
     EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     const auto argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     it = std::find_if(
         it,
@@ -108,29 +108,29 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::proces
     );
 
     if (it == arguments->end())
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     auto tokens = strings::split({it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     tokens.pop_back();
     return tokens;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darwin::process::Process::envs() const {
+std::expected<std::map<std::string, std::string>, std::error_code> zero::os::darwin::process::Process::envs() const {
     const auto arguments = this->arguments();
     EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     const int argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     it = std::find_if(
         it,
@@ -141,12 +141,12 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
     );
 
     if (it == arguments->end())
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     const auto tokens = strings::split({it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return std::unexpected(Error::UNEXPECTED_DATA);
 
     const auto &str = tokens[argc];
 
@@ -154,11 +154,11 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
         return {};
 
     std::size_t prev = 0;
-    tl::expected<std::map<std::string, std::string>, std::error_code> result;
+    std::expected<std::map<std::string, std::string>, std::error_code> result;
 
     while (true) {
         if (str.length() <= prev) {
-            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
+            result = std::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -168,7 +168,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
         std::size_t pos = str.find('\0', prev);
 
         if (pos == std::string::npos) {
-            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
+            result = std::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -177,7 +177,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
         pos = item.find('=');
 
         if (pos == std::string::npos) {
-            result = tl::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
+            result = std::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -187,16 +187,16 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::darw
     return result;
 }
 
-tl::expected<zero::os::darwin::process::CPUTime, std::error_code> zero::os::darwin::process::Process::cpu() const {
+std::expected<zero::os::darwin::process::CPUTime, std::error_code> zero::os::darwin::process::Process::cpu() const {
     proc_taskinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDTASKINFO, 0, &info, PROC_PIDTASKINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return std::unexpected(std::error_code(errno, std::system_category()));
 
     struct mach_timebase_info tb = {};
 
     if (const kern_return_t status = mach_timebase_info(&tb); status != KERN_SUCCESS)
-        return tl::unexpected(make_error_code(static_cast<darwin::Error>(status)));
+        return std::unexpected(make_error_code(static_cast<darwin::Error>(status)));
 
     const auto scale = static_cast<double>(tb.numer) / static_cast<double>(tb.denom);
 
@@ -206,12 +206,12 @@ tl::expected<zero::os::darwin::process::CPUTime, std::error_code> zero::os::darw
     };
 }
 
-tl::expected<zero::os::darwin::process::MemoryStat, std::error_code>
+std::expected<zero::os::darwin::process::MemoryStat, std::error_code>
 zero::os::darwin::process::Process::memory() const {
     proc_taskinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDTASKINFO, 0, &info, PROC_PIDTASKINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return std::unexpected(std::error_code(errno, std::system_category()));
 
     return MemoryStat{
         info.pti_resident_size,
@@ -220,12 +220,12 @@ zero::os::darwin::process::Process::memory() const {
     };
 }
 
-tl::expected<zero::os::darwin::process::IOStat, std::error_code>
+std::expected<zero::os::darwin::process::IOStat, std::error_code>
 zero::os::darwin::process::Process::io() const {
     rusage_info_v2 info = {};
 
     if (proc_pid_rusage(mPID, RUSAGE_INFO_V2, reinterpret_cast<rusage_info_t *>(&info)) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return std::unexpected(std::error_code(errno, std::system_category()));
 
     return IOStat{
         info.ri_diskio_bytesread,
@@ -234,35 +234,35 @@ zero::os::darwin::process::Process::io() const {
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-tl::expected<void, std::error_code> zero::os::darwin::process::Process::kill(const int sig) {
+std::expected<void, std::error_code> zero::os::darwin::process::Process::kill(const int sig) {
     EXPECT(unix::expected([&] {
         return ::kill(mPID, sig);
     }));
     return {};
 }
 
-tl::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darwin::process::self() {
+std::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darwin::process::self() {
     return open(getpid());
 }
 
-tl::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darwin::process::open(const pid_t pid) {
+std::expected<zero::os::darwin::process::Process, std::error_code> zero::os::darwin::process::open(const pid_t pid) {
     EXPECT(unix::expected([&] {
         return kill(pid, 0);
     }));
     return Process{pid};
 }
 
-tl::expected<std::list<pid_t>, std::error_code> zero::os::darwin::process::all() {
+std::expected<std::list<pid_t>, std::error_code> zero::os::darwin::process::all() {
     std::size_t size = 4096;
     auto buffer = std::make_unique<pid_t[]>(size);
 
-    tl::expected<std::list<pid_t>, std::error_code> result;
+    std::expected<std::list<pid_t>, std::error_code> result;
 
     while (true) {
         const int n = proc_listallpids(buffer.get(), static_cast<int>(size * sizeof(pid_t)));
 
         if (n == -1) {
-            result = tl::unexpected<std::error_code>(errno, std::system_category());
+            result = std::unexpected(std::error_code(errno, std::system_category()));
             break;
         }
 

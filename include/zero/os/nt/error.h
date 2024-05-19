@@ -2,10 +2,10 @@
 #define ZERO_NT_ERROR_H
 
 #include <optional>
+#include <expected>
 #include <windows.h>
 #include <fmt/core.h>
 #include <zero/error.h>
-#include <tl/expected.hpp>
 
 namespace zero::os::nt {
     DEFINE_ERROR_TRANSFORMER_EX(
@@ -27,11 +27,11 @@ namespace zero::os::nt {
 
     template<typename F>
         requires (std::is_same_v<std::invoke_result_t<F>, BOOL> || std::is_same_v<std::invoke_result_t<F>, bool>)
-    tl::expected<void, std::error_code> expected(F &&f) {
+    std::expected<void, std::error_code> expected(F &&f) {
         const auto result = f();
 
         if (!result)
-            return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+            return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
         return {};
     }

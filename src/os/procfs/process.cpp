@@ -36,14 +36,14 @@ zero::os::procfs::process::Process::~Process() {
     close(mFD);
 }
 
-tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::readFile(const char *filename) const {
+std::expected<std::string, std::error_code> zero::os::procfs::process::Process::readFile(const char *filename) const {
     const auto fd = unix::expected([&] {
         return openat(mFD, filename, O_RDONLY);
     });
     EXPECT(fd);
     DEFER(close(*fd));
 
-    tl::expected<std::string, std::error_code> result;
+    std::expected<std::string, std::error_code> result;
 
     while (true) {
         char buffer[1024];
@@ -52,7 +52,7 @@ tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::r
         });
 
         if (!n) {
-            result = tl::unexpected(n.error());
+            result = std::unexpected(n.error());
             break;
         }
 
@@ -69,7 +69,7 @@ pid_t zero::os::procfs::process::Process::pid() const {
     return mPID;
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::exe() const {
+std::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::exe() const {
     char buffer[PATH_MAX + 1] = {};
 
     EXPECT(unix::expected([&] {
@@ -79,7 +79,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::
     return buffer;
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::cwd() const {
+std::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::cwd() const {
     char buffer[PATH_MAX + 1] = {};
 
     EXPECT(unix::expected([&] {
@@ -89,34 +89,34 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::
     return buffer;
 }
 
-tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::comm() const {
+std::expected<std::string, std::error_code> zero::os::procfs::process::Process::comm() const {
     auto content = readFile("comm");
     EXPECT(content);
 
     if (content->size() < 2)
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     content->pop_back();
     return *std::move(content);
 }
 
-tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::process::Process::cmdline() const {
+std::expected<std::vector<std::string>, std::error_code> zero::os::procfs::process::Process::cmdline() const {
     auto content = readFile("cmdline");
     EXPECT(content);
 
     if (content->empty())
-        return tl::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
+        return std::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
 
     content->pop_back();
     auto tokens = strings::split(*content, {"\0", 1});
 
     if (tokens.empty())
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     return tokens;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::process::Process::environ() const {
+std::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::process::Process::environ() const {
     auto content = readFile("environ");
     EXPECT(content);
 
@@ -124,13 +124,13 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
         return {};
 
     content->pop_back();
-    tl::expected<std::map<std::string, std::string>, std::error_code> result;
+    std::expected<std::map<std::string, std::string>, std::error_code> result;
 
     for (const auto &env: strings::split(*content, {"\0", 1})) {
         auto tokens = strings::split(env, "=", 1);
 
         if (tokens.size() != 2) {
-            result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
+            result = std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -140,7 +140,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
     return result;
 }
 
-tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs::process::Process::stat() const {
+std::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs::process::Process::stat() const {
     const auto content = readFile("stat");
     EXPECT(content);
 
@@ -148,7 +148,7 @@ tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs:
     const std::size_t end = content->rfind(')');
 
     if (start == std::string::npos || end == std::string::npos)
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     Stat stat = {};
 
@@ -158,7 +158,7 @@ tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs:
     const auto tokens = strings::split(content->substr(end + 2), " ");
 
     if (tokens.size() < STAT_BASIC_FIELDS - 2)
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     auto it = tokens.begin();
 
@@ -276,14 +276,14 @@ tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs:
     return stat;
 }
 
-tl::expected<zero::os::procfs::process::StatM, std::error_code> zero::os::procfs::process::Process::statM() const {
+std::expected<zero::os::procfs::process::StatM, std::error_code> zero::os::procfs::process::Process::statM() const {
     const auto content = readFile("statm");
     EXPECT(content);
 
     const auto tokens = strings::split(*content, " ");
 
     if (tokens.size() != 7)
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     const auto size = strings::toNumber<std::uint64_t>(tokens[0]);
     const auto resident = strings::toNumber<std::uint64_t>(tokens[1]);
@@ -323,7 +323,7 @@ statusIntegerField(const std::map<std::string, std::string> &map, const char *ke
     return *zero::strings::toNumber<T>(it->second, base);
 }
 
-tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procfs::process::Process::status() const {
+std::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procfs::process::Process::status() const {
     const auto content = readFile("status");
     EXPECT(content);
 
@@ -333,7 +333,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
         auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
-            return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
@@ -352,7 +352,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     auto tokens = strings::split(map["Uid"]);
 
     if (tokens.size() != 4)
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     for (std::size_t i = 0; i < 4; ++i)
         status.uid[i] = *strings::toNumber<uid_t>(tokens[i]);
@@ -360,7 +360,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     tokens = strings::split(map["Gid"]);
 
     if (tokens.size() != 4)
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     for (std::size_t i = 0; i < 4; ++i)
         status.gid[i] = *strings::toNumber<pid_t>(tokens[i]);
@@ -396,7 +396,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     tokens = strings::split(map["SigQ"], "/", 1);
 
     if (tokens.size() != 2)
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     status.sigQ[0] = *strings::toNumber<int>(tokens[0]);
     status.sigQ[1] = *strings::toNumber<int>(tokens[1]);
@@ -503,7 +503,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     return status;
 }
 
-tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Process::tasks() const {
+std::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Process::tasks() const {
     const auto fd = unix::expected([&] {
         return openat(mFD, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     });
@@ -513,11 +513,11 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Proce
 
     if (!dir) {
         close(*fd);
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return std::unexpected(std::error_code(errno, std::system_category()));
     }
 
     DEFER(closedir(dir));
-    tl::expected<std::list<pid_t>, std::error_code> result;
+    std::expected<std::list<pid_t>, std::error_code> result;
 
     while (true) {
         const dirent *e = readdir(dir);
@@ -531,7 +531,7 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Proce
         const auto tid = strings::toNumber<pid_t>(e->d_name);
 
         if (!tid) {
-            result = tl::unexpected(tid.error());
+            result = std::unexpected(tid.error());
             break;
         }
 
@@ -541,56 +541,56 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Proce
     return result;
 }
 
-tl::expected<std::list<zero::os::procfs::process::MemoryMapping>, std::error_code>
+std::expected<std::list<zero::os::procfs::process::MemoryMapping>, std::error_code>
 zero::os::procfs::process::Process::maps() const {
     const auto content = readFile("maps");
     EXPECT(content);
 
     if (content->empty())
-        return tl::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
+        return std::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
 
-    tl::expected<std::list<MemoryMapping>, std::error_code> result;
+    std::expected<std::list<MemoryMapping>, std::error_code> result;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
         const auto fields = strings::split(line);
 
         if (fields.size() < MAPPING_BASIC_FIELDS) {
-            result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
+            result = std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
             break;
         }
 
         const auto tokens = strings::split(fields[0], "-", 1);
 
         if (tokens.size() != 2) {
-            result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
+            result = std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
             break;
         }
 
         const auto start = strings::toNumber<std::uintptr_t>(tokens[0], 16);
 
         if (!start) {
-            result = tl::unexpected(start.error());
+            result = std::unexpected(start.error());
             break;
         }
 
         const auto end = strings::toNumber<std::uintptr_t>(tokens[1], 16);
 
         if (!end) {
-            result = tl::unexpected(end.error());
+            result = std::unexpected(end.error());
             break;
         }
 
         const auto offset = strings::toNumber<off_t>(fields[2], 16);
 
         if (!offset) {
-            result = tl::unexpected(offset.error());
+            result = std::unexpected(offset.error());
             break;
         }
 
         const auto inode = strings::toNumber<ino_t>(fields[4]);
 
         if (!inode) {
-            result = tl::unexpected(inode.error());
+            result = std::unexpected(inode.error());
             break;
         }
 
@@ -608,7 +608,7 @@ zero::os::procfs::process::Process::maps() const {
         const auto &permissions = fields[1];
 
         if (permissions.length() < MAPPING_PERMISSIONS_LENGTH) {
-            result = tl::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
+            result = std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
             break;
         }
 
@@ -633,7 +633,7 @@ zero::os::procfs::process::Process::maps() const {
     return result;
 }
 
-tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procfs::process::Process::io() const {
+std::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procfs::process::Process::io() const {
     const auto content = readFile("io");
     EXPECT(content);
 
@@ -643,7 +643,7 @@ tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procf
         auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
-            return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
@@ -675,11 +675,11 @@ tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procf
     };
 }
 
-tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::self() {
+std::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::self() {
     return open(getpid());
 }
 
-tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::open(const pid_t pid) {
+std::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::open(const pid_t pid) {
     const auto path = std::filesystem::path("/proc") / std::to_string(pid);
     const auto fd = unix::expected([&] {
 #ifdef O_PATH
@@ -693,12 +693,12 @@ tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::proc
     return Process{*fd, pid};
 }
 
-tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all() {
+std::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all() {
     std::error_code ec;
     auto iterator = std::filesystem::directory_iterator("/proc", ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return std::unexpected(ec);
 
     auto v = iterator
         | std::views::filter([&](const auto &entry) { return entry.is_directory(ec); })

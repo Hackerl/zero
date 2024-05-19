@@ -48,27 +48,27 @@ namespace zero::os::process {
         [[nodiscard]] const ProcessImpl &impl() const;
 
         [[nodiscard]] ID pid() const;
-        [[nodiscard]] tl::expected<ID, std::error_code> ppid() const;
+        [[nodiscard]] std::expected<ID, std::error_code> ppid() const;
 
-        [[nodiscard]] tl::expected<std::string, std::error_code> name() const;
-        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> cwd() const;
-        [[nodiscard]] tl::expected<std::filesystem::path, std::error_code> exe() const;
-        [[nodiscard]] tl::expected<std::vector<std::string>, std::error_code> cmdline() const;
-        [[nodiscard]] tl::expected<std::map<std::string, std::string>, std::error_code> envs() const;
+        [[nodiscard]] std::expected<std::string, std::error_code> name() const;
+        [[nodiscard]] std::expected<std::filesystem::path, std::error_code> cwd() const;
+        [[nodiscard]] std::expected<std::filesystem::path, std::error_code> exe() const;
+        [[nodiscard]] std::expected<std::vector<std::string>, std::error_code> cmdline() const;
+        [[nodiscard]] std::expected<std::map<std::string, std::string>, std::error_code> envs() const;
 
-        [[nodiscard]] tl::expected<CPUTime, std::error_code> cpu() const;
-        [[nodiscard]] tl::expected<MemoryStat, std::error_code> memory() const;
-        [[nodiscard]] tl::expected<IOStat, std::error_code> io() const;
+        [[nodiscard]] std::expected<CPUTime, std::error_code> cpu() const;
+        [[nodiscard]] std::expected<MemoryStat, std::error_code> memory() const;
+        [[nodiscard]] std::expected<IOStat, std::error_code> io() const;
 
-        tl::expected<void, std::error_code> kill();
+        std::expected<void, std::error_code> kill();
 
     private:
         ProcessImpl mImpl;
     };
 
-    tl::expected<Process, std::error_code> self();
-    tl::expected<Process, std::error_code> open(ID pid);
-    tl::expected<std::list<ID>, std::error_code> all();
+    std::expected<Process, std::error_code> self();
+    std::expected<Process, std::error_code> open(ID pid);
+    std::expected<std::list<ID>, std::error_code> all();
 
     class ExitStatus {
     public:
@@ -112,8 +112,8 @@ namespace zero::os::process {
         std::optional<StdioFile> &stdOutput();
         std::optional<StdioFile> &stdError();
 
-        tl::expected<ExitStatus, std::error_code> wait();
-        tl::expected<std::optional<ExitStatus>, std::error_code> tryWait();
+        std::expected<ExitStatus, std::error_code> wait();
+        std::expected<std::optional<ExitStatus>, std::error_code> tryWait();
 
     private:
         std::array<std::optional<StdioFile>, 3> mStdio;
@@ -133,10 +133,10 @@ namespace zero::os::process {
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
         ~PseudoConsole();
 
-        static tl::expected<PseudoConsole, std::error_code> make(short rows, short columns);
+        static std::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
         void close();
-        tl::expected<void, std::error_code> resize(short rows, short columns);
+        std::expected<void, std::error_code> resize(short rows, short columns);
 
         HANDLE &input();
         HANDLE &output();
@@ -162,9 +162,9 @@ namespace zero::os::process {
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
         ~PseudoConsole();
 
-        static tl::expected<PseudoConsole, std::error_code> make(short rows, short columns);
+        static std::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
-        tl::expected<void, std::error_code> resize(short rows, short columns);
+        std::expected<void, std::error_code> resize(short rows, short columns);
         int &fd();
 
     private:
@@ -196,7 +196,7 @@ namespace zero::os::process {
         explicit Command(std::filesystem::path path);
 
     private:
-        [[nodiscard]] tl::expected<ChildProcess, std::error_code> spawn(std::array<StdioType, 3> defaultTypes) const;
+        [[nodiscard]] std::expected<ChildProcess, std::error_code> spawn(std::array<StdioType, 3> defaultTypes) const;
 
     public:
         Command &arg(std::string arg);
@@ -215,9 +215,9 @@ namespace zero::os::process {
         [[nodiscard]] const std::optional<std::filesystem::path> &currentDirectory() const;
         [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
 
-        [[nodiscard]] tl::expected<ChildProcess, std::error_code> spawn() const;
-        [[nodiscard]] tl::expected<ChildProcess, std::error_code> spawn(PseudoConsole &pc) const;
-        [[nodiscard]] tl::expected<Output, std::error_code> output() const;
+        [[nodiscard]] std::expected<ChildProcess, std::error_code> spawn() const;
+        [[nodiscard]] std::expected<ChildProcess, std::error_code> spawn(PseudoConsole &pc) const;
+        [[nodiscard]] std::expected<Output, std::error_code> output() const;
 
     private:
         bool mInheritEnv;

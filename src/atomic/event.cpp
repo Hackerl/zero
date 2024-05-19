@@ -29,10 +29,10 @@ zero::atomic::Event::~Event() {
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
+std::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
     if (const DWORD rc = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         rc != WAIT_OBJECT_0) {
-        return tl::unexpected(
+        return std::unexpected(
             rc == WAIT_TIMEOUT
                 ? make_error_code(Error::WAIT_EVENT_TIMEOUT)
                 : std::error_code(static_cast<int>(GetLastError()), std::system_category())
@@ -55,8 +55,8 @@ void zero::atomic::Event::reset() {
 zero::atomic::Event::Event(const bool manual, const bool initialState) : mManual(manual), mState(initialState ? 1 : 0) {
 }
 
-tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
-    tl::expected<void, std::error_code> result;
+std::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
+    std::expected<void, std::error_code> result;
 
     while (true) {
         if (mManual) {
@@ -82,7 +82,7 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optiona
             if (res.error() == std::errc::resource_unavailable_try_again)
                 continue;
 
-            result = tl::unexpected(res.error());
+            result = std::unexpected(res.error());
             break;
         }
 #elif __APPLE__
@@ -94,7 +94,7 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optiona
                 !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
             );
         }); !res) {
-            result = tl::unexpected(res.error());
+            result = std::unexpected(res.error());
             break;
         }
 #else

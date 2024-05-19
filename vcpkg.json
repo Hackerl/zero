@@ -7,8 +7,7 @@
     {
       "name": "libiconv",
       "platform": "windows | android"
-    },
-    "tl-expected"
+    }
   ],
   "default-features": [
     "tests"

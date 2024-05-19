@@ -7,8 +7,8 @@
 #include <vector>
 #include <ranges>
 #include <variant>
+#include <expected>
 #include <system_error>
-#include <tl/expected.hpp>
 #include <fmt/std.h>
 #include <fmt/ranges.h>
 
@@ -49,7 +49,7 @@ namespace zero::os::net {
     std::string stringify(std::span<const std::byte, 4> ip);
     std::string stringify(std::span<const std::byte, 16> ip);
 
-    tl::expected<std::vector<Interface>, std::error_code> interfaces();
+    std::expected<std::vector<Interface>, std::error_code> interfaces();
 }
 
 template<typename Char>

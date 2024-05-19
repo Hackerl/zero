@@ -182,9 +182,9 @@ TEST_CASE("promise", "[async]") {
             });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) -> tl::expected<int, int> {
+            .then([](const int value) -> std::expected<int, int> {
                 if (value == 2)
-                    return tl::unexpected(2);
+                    return std::unexpected(2);
 
                 return 2;
             }).then([](const int value) {
@@ -192,14 +192,14 @@ TEST_CASE("promise", "[async]") {
             });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) -> tl::expected<int, int> {
+            .then([](const int value) -> std::expected<int, int> {
                 if (value == 1)
-                    return tl::unexpected(-1);
+                    return std::unexpected(-1);
 
                 return 2;
             }).fail([](const int error) {
                 REQUIRE(error == -1);
-                return tl::unexpected(error);
+                return std::unexpected(error);
             });
 
         const auto i = std::make_shared<int>(0);
@@ -251,9 +251,9 @@ TEST_CASE("promise", "[async]") {
 
         {
             const auto result = resolve<int, int>(1)
-                                .then([](const int value) -> tl::expected<int, int> {
+                                .then([](const int value) -> std::expected<int, int> {
                                     if (value == 2)
-                                        return tl::unexpected(2);
+                                        return std::unexpected(2);
 
                                     return 2;
                                 }).get();
@@ -263,9 +263,9 @@ TEST_CASE("promise", "[async]") {
 
         {
             const auto result = resolve<int, int>(1)
-                                .then([](const int value) -> tl::expected<int, int> {
+                                .then([](const int value) -> std::expected<int, int> {
                                     if (value == 1)
-                                        return tl::unexpected(-1);
+                                        return std::unexpected(-1);
 
                                     return 2;
                                 }).get();
