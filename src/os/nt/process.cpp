@@ -1,5 +1,6 @@
 #include <zero/os/nt/process.h>
 #include <zero/strings/strings.h>
+#include <zero/os/nt/error.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
 #include <winternl.h>
@@ -55,25 +56,27 @@ tl::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::pa
 
     PROCESS_BASIC_INFORMATION info = {};
 
-    if (!(NT_SUCCESS(queryInformationProcess(
-        mHandle,
-        ProcessBasicInformation,
-        &info,
-        sizeof(info),
-        nullptr
-    ))))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return NT_SUCCESS(queryInformationProcess(
+            mHandle,
+            ProcessBasicInformation,
+            &info,
+            sizeof(info),
+            nullptr
+        ));
+    }));
 
     std::uintptr_t ptr;
 
-    if (!ReadProcessMemory(
-        mHandle,
-        &info.PebBaseAddress->ProcessParameters,
-        &ptr,
-        sizeof(ptr),
-        nullptr
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return ReadProcessMemory(
+            mHandle,
+            &info.PebBaseAddress->ProcessParameters,
+            &ptr,
+            sizeof(ptr),
+            nullptr
+        );
+    }));
 
     return ptr;
 }
@@ -92,14 +95,15 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() cons
 
     PROCESS_BASIC_INFORMATION info = {};
 
-    if (!(NT_SUCCESS(queryInformationProcess(
-        mHandle,
-        ProcessBasicInformation,
-        &info,
-        sizeof(info),
-        nullptr
-    ))))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return NT_SUCCESS(queryInformationProcess(
+            mHandle,
+            ProcessBasicInformation,
+            &info,
+            sizeof(info),
+            nullptr
+        ));
+    }));
 
 #ifdef _WIN64
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
@@ -120,28 +124,30 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
 
     UNICODE_STRING str;
 
-    if (!ReadProcessMemory(
-        mHandle,
-        reinterpret_cast<LPCVOID>(*ptr + CURRENT_DIRECTORY_OFFSET),
-        &str,
-        sizeof(UNICODE_STRING),
-        nullptr
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return ReadProcessMemory(
+            mHandle,
+            reinterpret_cast<LPCVOID>(*ptr + CURRENT_DIRECTORY_OFFSET),
+            &str,
+            sizeof(UNICODE_STRING),
+            nullptr
+        );
+    }));
 
     if (!str.Buffer || str.Length == 0)
         return tl::unexpected(Error::UNEXPECTED_DATA);
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
-    if (!ReadProcessMemory(
-        mHandle,
-        str.Buffer,
-        buffer.get(),
-        str.Length,
-        nullptr
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return ReadProcessMemory(
+            mHandle,
+            str.Buffer,
+            buffer.get(),
+            str.Length,
+            nullptr
+        );
+    }));
 
     std::error_code ec;
     auto path = std::filesystem::canonical(buffer.get(), ec);
@@ -156,8 +162,9 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
     WCHAR buffer[MAX_PATH] = {};
     DWORD size = ARRAYSIZE(buffer);
 
-    if (!QueryFullProcessImageNameW(mHandle, 0, buffer, &size))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return QueryFullProcessImageNameW(mHandle, 0, buffer, &size);
+    }));
 
     return buffer;
 }
@@ -168,28 +175,30 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
 
     UNICODE_STRING str;
 
-    if (!ReadProcessMemory(
-        mHandle,
-        reinterpret_cast<LPCVOID>(*ptr + offsetof(RTL_USER_PROCESS_PARAMETERS, CommandLine)),
-        &str,
-        sizeof(UNICODE_STRING),
-        nullptr
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return ReadProcessMemory(
+            mHandle,
+            reinterpret_cast<LPCVOID>(*ptr + offsetof(RTL_USER_PROCESS_PARAMETERS, CommandLine)),
+            &str,
+            sizeof(UNICODE_STRING),
+            nullptr
+        );
+    }));
 
     if (!str.Buffer || str.Length == 0)
         return tl::unexpected(Error::UNEXPECTED_DATA);
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
-    if (!ReadProcessMemory(
-        mHandle,
-        str.Buffer,
-        buffer.get(),
-        str.Length,
-        nullptr
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return ReadProcessMemory(
+            mHandle,
+            str.Buffer,
+            buffer.get(),
+            str.Length,
+            nullptr
+        );
+    }));
 
     int num = 0;
     LPWSTR *args = CommandLineToArgvW(buffer.get(), &num);
@@ -220,36 +229,39 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
 
     PVOID env;
 
-    if (!ReadProcessMemory(
-        mHandle,
-        reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_OFFSET),
-        &env,
-        sizeof(PVOID),
-        nullptr
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return ReadProcessMemory(
+            mHandle,
+            reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_OFFSET),
+            &env,
+            sizeof(PVOID),
+            nullptr
+        );
+    }));
 
     ULONG size;
 
-    if (!ReadProcessMemory(
-        mHandle,
-        reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_SIZE_OFFSET),
-        &size,
-        sizeof(ULONG),
-        nullptr
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return ReadProcessMemory(
+            mHandle,
+            reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_SIZE_OFFSET),
+            &size,
+            sizeof(ULONG),
+            nullptr
+        );
+    }));
 
     const auto buffer = std::make_unique<WCHAR[]>(size / sizeof(WCHAR));
 
-    if (!ReadProcessMemory(
-        mHandle,
-        env,
-        buffer.get(),
-        size,
-        nullptr
-    ))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return ReadProcessMemory(
+            mHandle,
+            env,
+            buffer.get(),
+            size,
+            nullptr
+        );
+    }));
 
 #ifdef _WIN64
     const auto str = strings::encode({buffer.get(), size / sizeof(WCHAR)});
@@ -283,8 +295,9 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
 tl::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::process::Process::cpu() const {
     FILETIME create, exit, kernel, user;
 
-    if (!GetProcessTimes(mHandle, &create, &exit, &kernel, &user))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return GetProcessTimes(mHandle, &create, &exit, &kernel, &user);
+    }));
 
     return CPUTime{
         static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
@@ -295,8 +308,9 @@ tl::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::proc
 tl::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::process::Process::memory() const {
     PROCESS_MEMORY_COUNTERS counters;
 
-    if (!GetProcessMemoryInfo(mHandle, &counters, sizeof(counters)))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return GetProcessMemoryInfo(mHandle, &counters, sizeof(counters));
+    }));
 
     return MemoryStat{
         counters.WorkingSetSize,
@@ -307,8 +321,9 @@ tl::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::p
 tl::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::process::Process::io() const {
     IO_COUNTERS counters;
 
-    if (!GetProcessIoCounters(mHandle, &counters))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return GetProcessIoCounters(mHandle, &counters);
+    }));
 
     return IOStat{
         counters.ReadOperationCount,
@@ -321,8 +336,9 @@ tl::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::proce
 tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() const {
     DWORD code;
 
-    if (!GetExitCodeProcess(mHandle, &code))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    EXPECT(expected([&] {
+        return GetExitCodeProcess(mHandle, &code);
+    }));
 
     if (code == STILL_ACTIVE)
         return tl::unexpected(Error::PROCESS_STILL_ACTIVE);
@@ -345,10 +361,9 @@ zero::os::nt::process::Process::wait(const std::optional<std::chrono::millisecon
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<void, std::error_code> zero::os::nt::process::Process::terminate(const DWORD code) {
-    if (!TerminateProcess(mHandle, code))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
-
-    return {};
+    return expected([&] {
+        return TerminateProcess(mHandle, code);
+    });
 }
 
 tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {
@@ -377,8 +392,10 @@ tl::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
     while (true) {
         DWORD needed;
 
-        if (!EnumProcesses(buffer.get(), size * sizeof(DWORD), &needed)) {
-            result = tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        if (const auto res = expected([&] {
+            return EnumProcesses(buffer.get(), size * sizeof(DWORD), &needed);
+        }); !res) {
+            result = tl::unexpected(res.error());
             break;
         }
 

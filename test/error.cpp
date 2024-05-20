@@ -1,5 +1,6 @@
 #include <zero/error.h>
 #include <catch2/catch_test_macros.hpp>
+#include <optional>
 
 std::string stringify(const int value) {
     std::string msg;
@@ -51,8 +52,24 @@ DEFINE_ERROR_TRANSFORMER_EX(
     D,
     "D",
     stringify,
-    EINVAL, std::errc::invalid_argument,
-    ETIMEDOUT, std::errc::timed_out
+    [](const int value) -> std::optional<std::error_condition> {
+        std::optional<std::error_condition> condition;
+
+        switch (value) {
+        case EINVAL:
+            condition = std::errc::invalid_argument;
+            break;
+
+        case ETIMEDOUT:
+            condition = std::errc::timed_out;
+            break;
+
+        default:
+            break;
+        }
+
+        return condition;
+    }
 )
 
 DECLARE_ERROR_CODE(D)

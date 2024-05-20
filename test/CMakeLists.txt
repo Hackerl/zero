@@ -21,7 +21,8 @@ add_executable(
         os/net.cpp
         os/stat.cpp
         os/process.cpp
-        $<$<PLATFORM_ID:Windows>:os/nt/process.cpp>
+        $<$<BOOL:${UNIX}>:os/unix/error.cpp>
+        $<$<PLATFORM_ID:Windows>:os/nt/error.cpp os/nt/process.cpp>
         $<$<PLATFORM_ID:Darwin>:os/darwin/error.cpp os/darwin/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:os/procfs/process.cpp>
 )

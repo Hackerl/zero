@@ -1,6 +1,7 @@
 #include <zero/os/procfs/process.h>
 #include <zero/os/procfs/procfs.h>
 #include <zero/strings/strings.h>
+#include <zero/os/unix/error.h>
 #include <zero/defer.h>
 #include <zero/expect.h>
 #include <climits>
@@ -35,27 +36,29 @@ zero::os::procfs::process::Process::~Process() {
 }
 
 tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::readFile(const char *filename) const {
-    const int fd = openat(mFD, filename, O_RDONLY);
+    const auto fd = unix::expected([&] {
+        return openat(mFD, filename, O_RDONLY);
+    });
+    EXPECT(fd);
+    DEFER(close(*fd));
 
-    if (fd < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    DEFER(close(fd));
     tl::expected<std::string, std::error_code> result;
 
     while (true) {
         char buffer[1024];
-        const ssize_t n = read(fd, buffer, sizeof(buffer));
+        const auto n = unix::ensure([&] {
+            return read(*fd, buffer, sizeof(buffer));
+        });
 
-        if (n <= 0) {
-            if (n == 0)
-                break;
-
-            result = tl::unexpected<std::error_code>(errno, std::system_category());
+        if (!n) {
+            result = tl::unexpected(n.error());
             break;
         }
 
-        result->append(buffer, n);
+        if (*n == 0)
+            break;
+
+        result->append(buffer, *n);
     }
 
     return result;
@@ -68,8 +71,9 @@ pid_t zero::os::procfs::process::Process::pid() const {
 tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::exe() const {
     char buffer[PATH_MAX + 1] = {};
 
-    if (readlinkat(mFD, "exe", buffer, PATH_MAX) == -1)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return readlinkat(mFD, "exe", buffer, PATH_MAX);
+    }));
 
     return buffer;
 }
@@ -77,8 +81,9 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::
 tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::cwd() const {
     char buffer[PATH_MAX + 1] = {};
 
-    if (readlinkat(mFD, "cwd", buffer, PATH_MAX) == -1)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return readlinkat(mFD, "cwd", buffer, PATH_MAX);
+    }));
 
     return buffer;
 }
@@ -498,15 +503,15 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
 }
 
 tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Process::tasks() const {
-    const int fd = openat(mFD, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    const auto fd = unix::expected([&] {
+        return openat(mFD, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    });
+    EXPECT(fd);
 
-    if (fd < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    DIR *dir = fdopendir(fd);
+    DIR *dir = fdopendir(*fd);
 
     if (!dir) {
-        close(fd);
+        close(*fd);
         return tl::unexpected<std::error_code>(errno, std::system_category());
     }
 
@@ -675,17 +680,16 @@ tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::proc
 
 tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::open(const pid_t pid) {
     const auto path = std::filesystem::path("/proc") / std::to_string(pid);
-
+    const auto fd = unix::expected([&] {
 #ifdef O_PATH
-    const int fd = ::open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
+        return ::open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
 #else
-    const int fd = ::open(path.string().c_str(), O_DIRECTORY | O_CLOEXEC);
+        return ::open(path.string().c_str(), O_DIRECTORY | O_CLOEXEC);
 #endif
+    });
+    EXPECT(fd);
 
-    if (fd < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    return Process{fd, pid};
+    return Process{*fd, pid};
 }
 
 tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all() {

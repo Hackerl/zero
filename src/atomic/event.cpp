@@ -1,12 +1,14 @@
 #include <zero/atomic/event.h>
 
 #ifdef __linux__
-#include <cerrno>
 #include <climits>
 #include <unistd.h>
 #include <syscall.h>
 #include <linux/futex.h>
+#include <zero/os/unix/error.h>
 #elif __APPLE__
+#include <zero/os/unix/error.h>
+
 #define ULF_WAKE_ALL 0x00000100
 #define UL_COMPARE_AND_WAIT 1
 
@@ -74,21 +76,25 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optiona
                 timeout->count() % 1000 * 1000000
             };
 
-        if (syscall(SYS_futex, &mState, FUTEX_WAIT, 0, ts ? &*ts : nullptr, nullptr, 0) < 0) {
-            if (errno == EAGAIN)
+        if (const auto res = os::unix::ensure([&] {
+            return syscall(SYS_futex, &mState, FUTEX_WAIT, 0, ts ? &*ts : nullptr, nullptr, 0);
+        }); !res) {
+            if (res.error() == std::errc::resource_unavailable_try_again)
                 continue;
 
-            result = tl::unexpected<std::error_code>(errno, std::system_category());
+            result = tl::unexpected(res.error());
             break;
         }
 #elif __APPLE__
-        if (__ulock_wait(
-            UL_COMPARE_AND_WAIT,
-            &mState,
-            0,
-            !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
-        ) < 0) {
-            result = tl::unexpected<std::error_code>(errno, std::system_category());
+        if (const auto res = os::unix::ensure([&] {
+            return __ulock_wait(
+                UL_COMPARE_AND_WAIT,
+                &mState,
+                0,
+                !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
+            );
+        }); !res) {
+            result = tl::unexpected(res.error());
             break;
         }
 #else

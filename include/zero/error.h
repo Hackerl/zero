@@ -508,12 +508,7 @@
     DEFINE_ERROR_TRANSFORMER_TYPES(Type, category, stringify)                                                   \
     DEFINE_MAKE_ERROR_CODE(Type)                                                                                \
 
-#define DEFAULT_ERROR_CONDITION_SWITCH_BRANCH(v1, v2)                                                           \
-    case v1: /* NOLINT(*-branch-clone) */                                                                       \
-        _condition = v2;                                                                                        \
-        break;
-
-#define DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, ...)                                       \
+#define DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, classify)                                  \
     enum class Type {                                                                                           \
     };                                                                                                          \
                                                                                                                 \
@@ -528,22 +523,12 @@
         }                                                                                                       \
                                                                                                                 \
         [[nodiscard]] std::error_condition default_error_condition(const int _value) const noexcept override {  \
-            std::error_condition _condition;                                                                    \
-                                                                                                                \
-            switch (_value) { /* NOLINT(*-multiway-paths-covered) */                                            \
-            ZERO_ERROR_EXPAND(ZERO_ERROR_DOUBLE_PASTE(DEFAULT_ERROR_CONDITION_SWITCH_BRANCH, __VA_ARGS__))      \
-                                                                                                                \
-            default:                                                                                            \
-                _condition = error_category::default_error_condition(_value);                                   \
-                break;                                                                                          \
-            }                                                                                                   \
-                                                                                                                \
-            return _condition;                                                                                  \
+            return classify(_value).value_or(error_category::default_error_condition(_value));                  \
         }                                                                                                       \
     };
 
-#define DEFINE_ERROR_TRANSFORMER_EX(Type, category, stringify, ...)                                             \
-    DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, __VA_ARGS__)                                   \
+#define DEFINE_ERROR_TRANSFORMER_EX(Type, category, stringify, classify)                                        \
+    DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, classify)                                      \
     DEFINE_MAKE_ERROR_CODE(Type)
 
 #endif //ZERO_ERROR_H

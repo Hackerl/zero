@@ -21,9 +21,13 @@ bool zero::strings::endsWith(const std::string_view str, const std::string_view 
 
 std::string zero::strings::trim(const std::string_view str) {
     auto v = str
-        | ranges::views::drop_while(isspace)
+        | ranges::views::drop_while([](const unsigned char c) {
+            return std::isspace(c);
+        })
         | ranges::views::reverse
-        | ranges::views::drop_while(isspace)
+        | ranges::views::drop_while([](const unsigned char c) {
+            return std::isspace(c);
+        })
         | ranges::views::reverse;
 
     return {v.begin(), v.end()};
@@ -31,7 +35,9 @@ std::string zero::strings::trim(const std::string_view str) {
 
 std::string zero::strings::ltrim(const std::string_view str) {
     auto v = str
-        | ranges::views::drop_while(isspace);
+        | ranges::views::drop_while([](const unsigned char c) {
+            return std::isspace(c);
+        });
 
     return {v.begin(), v.end()};
 }
@@ -39,7 +45,9 @@ std::string zero::strings::ltrim(const std::string_view str) {
 std::string zero::strings::rtrim(const std::string_view str) {
     auto v = str
         | ranges::views::reverse
-        | ranges::views::drop_while(isspace)
+        | ranges::views::drop_while([](const unsigned char c) {
+            return std::isspace(c);
+        })
         | ranges::views::reverse;
 
     return {v.begin(), v.end()};
@@ -61,13 +69,24 @@ std::string zero::strings::toupper(const std::string_view str) {
 
 std::vector<std::string> zero::strings::split(const std::string_view str, int limit) {
     std::vector<std::string> tokens;
-    auto prev = ranges::find_if(str, std::not_fn(isspace));
+    auto prev = ranges::find_if(
+        str,
+        std::not_fn([](const unsigned char c) {
+            return std::isspace(c);
+        })
+    );
 
     while (true) {
         if (prev == str.end())
             break;
 
-        const auto it = ranges::find_if(prev, str.end(), isspace);
+        const auto it = ranges::find_if(
+            prev,
+            str.end(),
+            [](const unsigned char c) {
+                return std::isspace(c);
+            }
+        );
 
         if (it == str.end()) {
             tokens.emplace_back(prev, str.end());
@@ -75,7 +94,13 @@ std::vector<std::string> zero::strings::split(const std::string_view str, int li
         }
 
         tokens.emplace_back(prev, it);
-        prev = ranges::find_if(it, str.end(), std::not_fn(isspace));
+        prev = ranges::find_if(
+            it,
+            str.end(),
+            std::not_fn([](const unsigned char c) {
+                return std::isspace(c);
+            })
+        );
 
         if (!--limit) {
             if (prev == str.end())

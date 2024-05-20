@@ -14,6 +14,8 @@
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
 #include <zero/defer.h>
+#include <zero/expect.h>
+#include <zero/os/unix/error.h>
 #if __ANDROID__
 #include <unistd.h>
 #include <linux/if.h>
@@ -28,6 +30,8 @@
 #include <arpa/inet.h>
 #include <net/if_dl.h>
 #include <zero/defer.h>
+#include <zero/expect.h>
+#include <zero/os/unix/error.h>
 #endif
 
 std::string zero::os::net::stringify(const nonstd::span<const std::byte, 4> ip) {
@@ -138,8 +142,9 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
 #endif
     ifaddrs *addr;
 
-    if (getifaddrs(&addr) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    EXPECT(unix::expected([&] {
+        return getifaddrs(&addr);
+    }));
 
     DEFER(freeifaddrs(addr));
     std::map<std::string, Interface> interfaceTable;
@@ -197,15 +202,14 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
         }
     }
 
-    auto v = ranges::views::values(interfaceTable);
+    const auto v = ranges::views::values(interfaceTable);
 
 #ifdef __ANDROID__
-    const int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-
-    if (fd < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
-
-    DEFER(close(fd));
+    const auto fd = unix::expected([&] {
+        return socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    });
+    EXPECT(fd);
+    DEFER(close(*fd));
 
     for (auto &[name, mac, addresses]: v) {
         ifreq request = {};
@@ -213,8 +217,9 @@ tl::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::n
         request.ifr_addr.sa_family = AF_INET;
         strncpy(request.ifr_name, name.c_str(), IFNAMSIZ);
 
-        if (ioctl(fd, SIOCGIFHWADDR, &request) < 0)
-            return tl::unexpected<std::error_code>(errno, std::system_category());
+        EXPECT(unix::expected([&] {
+            return ioctl(*fd, SIOCGIFHWADDR, &request);
+        }));
 
         memcpy(mac.data(), request.ifr_hwaddr.sa_data, 6);
     }
