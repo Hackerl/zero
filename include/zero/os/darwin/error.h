@@ -10,7 +10,7 @@ namespace zero::os::darwin {
         Error,
         "zero::os::darwin",
         mach_error_string,
-        [](const int value) -> std::optional<std::error_condition> {
+        [](const int value) {
             std::optional<std::error_condition> condition;
 
             switch (value) {

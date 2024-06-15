@@ -169,7 +169,7 @@ namespace zero::async::promise {
             assert(mCore->state != State::ONLY_RESULT);
             assert(mCore->state != State::DONE);
 
-            mCore->result.emplace(std::unexpected<E>(std::forward<Ts>(args)...));
+            mCore->result.emplace(std::unexpected<E>(std::in_place, std::forward<Ts>(args)...));
             State state = mCore->state;
 
             if (state == State::PENDING && mCore->state.compare_exchange_strong(state, State::ONLY_RESULT)) {

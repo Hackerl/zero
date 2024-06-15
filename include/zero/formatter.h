@@ -2,7 +2,9 @@
 #define ZERO_FORMATTER_H
 
 #include <expected>
-#include <fmt/std.h>
+#include <algorithm>
+#include <exception>
+#include <fmt/core.h>
 
 template<typename Char, typename T, typename E>
 struct fmt::formatter<std::expected<T, E>, Char> {

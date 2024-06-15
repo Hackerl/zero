@@ -122,7 +122,7 @@ namespace zero::os::process {
 #ifdef _WIN32
     class PseudoConsole {
     public:
-        DEFINE_ERROR_CODE_TYPES_EX(
+        DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::PseudoConsole",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
@@ -151,7 +151,7 @@ namespace zero::os::process {
     class PseudoConsole {
     public:
 #if __ANDROID__ && __ANDROID_API__ < 23
-        DEFINE_ERROR_CODE_TYPES_EX(
+        DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::PseudoConsole",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
@@ -173,10 +173,6 @@ namespace zero::os::process {
 
         friend class Command;
     };
-#endif
-
-#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
-    DEFINE_MAKE_ERROR_CODE(PseudoConsole::Error)
 #endif
 
     struct Output {

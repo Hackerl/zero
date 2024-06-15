@@ -1,5 +1,6 @@
 #include <zero/formatter.h>
 #include <catch2/catch_test_macros.hpp>
+#include <fmt/std.h>
 
 TEST_CASE("custom type formatter", "[formatter]") {
     SECTION("expected") {

@@ -165,7 +165,7 @@ namespace zero::os::procfs::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_TYPES(
+        DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::procfs::process::Process",
             MAYBE_ZOMBIE_PROCESS, "maybe zombie process"
@@ -199,8 +199,6 @@ namespace zero::os::procfs::process {
         int mFD;
         pid_t mPID;
     };
-
-    DEFINE_MAKE_ERROR_CODE(Process::Error)
 
     std::expected<Process, std::error_code> self();
     std::expected<Process, std::error_code> open(pid_t pid);

@@ -126,7 +126,7 @@ namespace zero {
         }
 
         template<typename T>
-        void addOptional(const char *name, char shortName, const char *desc, std::optional<T> def = std::nullopt) {
+        void addOptional(const char *name, const char shortName, const char *desc, std::optional<T> def = std::nullopt) {
             mOptionals.emplace_back(
                 name,
                 shortName,

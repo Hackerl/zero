@@ -31,7 +31,7 @@ namespace zero::os::nt::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_TYPES_EX(
+        DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::nt::process::Process",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported,
@@ -75,8 +75,6 @@ namespace zero::os::nt::process {
         DWORD mPID;
         HANDLE mHandle;
     };
-
-    DEFINE_MAKE_ERROR_CODE(Process::Error)
 
     std::expected<Process, std::error_code> self();
     std::expected<Process, std::error_code> open(DWORD pid);
