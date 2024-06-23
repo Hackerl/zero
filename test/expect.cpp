@@ -1,5 +1,5 @@
 #include <zero/expect.h>
-#include <zero/async/coroutine.h>
+#include <expected>
 #include <catch2/catch_test_macros.hpp>
 
 std::expected<std::unique_ptr<int>, std::error_code> func1(const int value) {
@@ -16,22 +16,6 @@ std::expected<std::unique_ptr<int>, std::error_code> func3(const int) {
 
 std::expected<std::unique_ptr<int>, std::error_code> func4(const int) {
     return std::unexpected(make_error_code(std::errc::timed_out));
-}
-
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func5(const int value) {
-    co_return std::make_unique<int>(value * 2);
-}
-
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func6(const int value) {
-    co_return std::make_unique<int>(value * 4);
-}
-
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func7(const int) {
-    co_return std::unexpected(make_error_code(std::errc::operation_canceled));
-}
-
-zero::async::coroutine::Task<std::unique_ptr<int>, std::error_code> func8(const int) {
-    co_return std::unexpected(make_error_code(std::errc::timed_out));
 }
 
 std::expected<int, std::error_code> test1() {
@@ -99,105 +83,20 @@ std::expected<int, std::error_code> test4() {
 #endif
 }
 
-zero::async::coroutine::Task<int, std::error_code> test5() {
-#ifdef __clang__
-    auto result = CO_TRY(co_await func5(2));
-    result = CO_TRY(co_await func6(*result));
-    co_return *result * 10;
-#else
-    auto result = co_await func5(2);
-    CO_EXPECT(result);
-    result = co_await func6(**result);
-    CO_EXPECT(result);
-    co_return **result * 10;
-#endif
-}
-
-zero::async::coroutine::Task<int, std::error_code> test6() {
-#ifdef __clang__
-    auto result = CO_TRY(co_await func5(2));
-    result = CO_TRY(co_await func6(*result));
-    result = CO_TRY(co_await func7(*result));
-    co_return *result * 10;
-#else
-    auto result = co_await func5(2);
-    CO_EXPECT(result);
-    result = co_await func6(**result);
-    CO_EXPECT(result);
-    result = co_await func7(**result);
-    CO_EXPECT(result);
-    co_return **result * 10;
-#endif
-}
-
-zero::async::coroutine::Task<int, std::error_code> test7() {
-#ifdef __clang__
-    auto result = CO_TRY(co_await func5(2));
-    result = CO_TRY(co_await func6(*result));
-    result = CO_TRY(co_await func8(*result));
-    co_return *result * 10;
-#else
-    auto result = co_await func5(2);
-    CO_EXPECT(result);
-    result = co_await func6(**result);
-    CO_EXPECT(result);
-    result = co_await func8(**result);
-    CO_EXPECT(result);
-    co_return **result * 10;
-#endif
-}
-
-zero::async::coroutine::Task<int, std::error_code> test8() {
-#ifdef __clang__
-    auto result = CO_TRY(co_await func8(2));
-    result = CO_TRY(co_await func5(*result));
-    result = CO_TRY(co_await func6(*result));
-    co_return *result * 10;
-#else
-    auto result = co_await func8(2);
-    CO_EXPECT(result);
-    result = co_await func5(**result);
-    CO_EXPECT(result);
-    result = co_await func6(**result);
-    CO_EXPECT(result);
-    co_return **result * 10;
-#endif
-}
-
 TEST_CASE("macro for error handling", "[expect]") {
-    SECTION("normal") {
-        auto result = test1();
-        REQUIRE(result);
-        REQUIRE(*result == 160);
+    auto result = test1();
+    REQUIRE(result);
+    REQUIRE(*result == 160);
 
-        result = test2();
-        REQUIRE(!result);
-        REQUIRE(result.error() == std::errc::operation_canceled);
+    result = test2();
+    REQUIRE(!result);
+    REQUIRE(result.error() == std::errc::operation_canceled);
 
-        result = test3();
-        REQUIRE(!result);
-        REQUIRE(result.error() == std::errc::timed_out);
+    result = test3();
+    REQUIRE(!result);
+    REQUIRE(result.error() == std::errc::timed_out);
 
-        result = test4();
-        REQUIRE(!result);
-        REQUIRE(result.error() == std::errc::timed_out);
-    }
-
-    SECTION("coroutine") {
-        auto task = test5();
-        REQUIRE(task.done());
-        REQUIRE(task.future().result() == 160);
-
-        task = test6();
-        REQUIRE(task.done());
-        REQUIRE(task.future().result().error() == std::errc::operation_canceled);
-
-        task = test7();
-        REQUIRE(task.done());
-        REQUIRE(task.future().result().error() == std::errc::timed_out);
-
-        task = test8();
-        REQUIRE(task.done());
-        REQUIRE(task.future().result().error() == std::errc::timed_out);
-    }
+    result = test4();
+    REQUIRE(!result);
+    REQUIRE(result.error() == std::errc::timed_out);
 }

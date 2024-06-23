@@ -10,6 +10,7 @@
 #include <optional>
 #include <expected>
 #include <stdexcept>
+#include <functional>
 #include <fmt/core.h>
 #include <zero/atomic/event.h>
 #include <zero/detail/type_traits.h>
@@ -277,7 +278,7 @@ namespace zero::async::promise {
 
         template<typename F>
         auto then(F &&f) && {
-            using Next = detail::callable_result_t<F>;
+            using Next = detail::function_result_t<F>;
             using NextValue = std::conditional_t<
                 detail::is_specialization<Next, std::unexpected>, T, future_next_value_t<Next>>;
             using NextError = std::conditional_t<
@@ -301,11 +302,11 @@ namespace zero::async::promise {
                     if constexpr (std::is_void_v<T>) {
                         f();
                     }
-                    else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                    else if constexpr (detail::is_applicable_v<F, T>) {
                         std::apply(f, *std::move(result));
                     }
                     else {
-                        f(*std::move(result));
+                        std::invoke(f, *std::move(result));
                     }
 
                     promise->resolve();
@@ -315,11 +316,11 @@ namespace zero::async::promise {
                         if constexpr (std::is_void_v<T>) {
                             return f();
                         }
-                        else if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                        else if constexpr (detail::is_applicable_v<F, T>) {
                             return std::apply(f, *std::move(result));
                         }
                         else {
-                            return f(*std::move(result));
+                            return std::invoke(f, *std::move(result));
                         }
                     }();
 
@@ -378,7 +379,7 @@ namespace zero::async::promise {
 
         template<typename F>
         auto fail(F &&f) && {
-            using Next = detail::callable_result_t<F>;
+            using Next = detail::function_result_t<F>;
             using NextValue = std::conditional_t<
                 detail::is_specialization<Next, std::unexpected>, T, future_next_value_t<Next>>;
             using NextError = std::conditional_t<
@@ -406,22 +407,22 @@ namespace zero::async::promise {
                 }
 
                 if constexpr (std::is_void_v<Next>) {
-                    if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                    if constexpr (detail::is_applicable_v<F, T>) {
                         std::apply(f, std::move(result).error());
                     }
                     else {
-                        f(std::move(result).error());
+                        std::invoke(f, std::move(result).error());
                     }
 
                     promise->resolve();
                 }
                 else {
                     Next next = [&] {
-                        if constexpr (detail::is_applicable_v<detail::callable_type_t<F>, T>) {
+                        if constexpr (detail::is_applicable_v<F, T>) {
                             return std::apply(f, std::move(result).error());
                         }
                         else {
-                            return f(std::move(result).error());
+                            return std::invoke(f, std::move(result).error());
                         }
                     }();
 

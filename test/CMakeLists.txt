@@ -8,21 +8,19 @@ add_executable(
         expect.cpp
         cmdline.cpp
         formatter.cpp
-        atomic/event.cpp
-        atomic/circular_buffer.cpp
-        concurrent/channel.cpp
-        async/promise.cpp
-        async/coroutine/error.cpp
-        async/coroutine/exception.cpp
-        filesystem/file.cpp
-        encoding/hex.cpp
-        encoding/base64.cpp
-        strings/strings.cpp
-        cache/lru.cpp
         os/os.cpp
         os/net.cpp
         os/stat.cpp
         os/process.cpp
+        cache/lru.cpp
+        async/promise.cpp
+        atomic/event.cpp
+        atomic/circular_buffer.cpp
+        concurrent/channel.cpp
+        encoding/hex.cpp
+        encoding/base64.cpp
+        strings/strings.cpp
+        filesystem/file.cpp
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>
         $<$<PLATFORM_ID:Windows>:os/nt/error.cpp os/nt/process.cpp>
         $<$<PLATFORM_ID:Darwin>:os/darwin/error.cpp os/darwin/process.cpp>

@@ -8,6 +8,7 @@
 #include <optional>
 #include <algorithm>
 #include <filesystem>
+#include <functional>
 #include <fmt/format.h>
 
 #ifdef __GNUC__

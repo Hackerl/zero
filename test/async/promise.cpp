@@ -212,6 +212,23 @@ TEST_CASE("promise", "[async]") {
                 REQUIRE(value == 1);
             });
 
+        zero::async::promise::resolve<std::string, int>("hello world")
+            .then(&std::string::size)
+            .then([](const std::size_t length) {
+                REQUIRE(length == 11);
+            });
+
+        struct People {
+            std::string name;
+            int age{};
+        };
+
+        zero::async::promise::resolve<People, int>(People{"jack", 18})
+            .then(&People::age)
+            .then([](const int age) {
+                REQUIRE(age == 18);
+            });
+
         zero::async::promise::chain<std::unique_ptr<char[]>, int>([](auto p) {
             auto buffer = std::make_unique<char[]>(1024);
 
