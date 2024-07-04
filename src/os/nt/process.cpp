@@ -5,6 +5,7 @@
 #include <zero/defer.h>
 #include <winternl.h>
 #include <psapi.h>
+#include <array>
 
 #ifdef _WIN64
 constexpr auto CURRENT_DIRECTORY_OFFSET = 0x38;
@@ -105,11 +106,7 @@ std::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() con
         ));
     }));
 
-#ifdef _WIN64
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
-#else
-    return reinterpret_cast<std::uintptr_t>(info.Reserved3);
-#endif
 }
 
 std::expected<std::string, std::error_code> zero::os::nt::process::Process::name() const {
@@ -159,14 +156,14 @@ std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Pro
 }
 
 std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::exe() const {
-    WCHAR buffer[MAX_PATH] = {};
-    DWORD size = ARRAYSIZE(buffer);
+    std::array<WCHAR, MAX_PATH> buffer = {};
+    DWORD size = buffer.size();
 
     EXPECT(expected([&] {
-        return QueryFullProcessImageNameW(mHandle, 0, buffer, &size);
+        return QueryFullProcessImageNameW(mHandle, 0, buffer.data(), &size);
     }));
 
-    return buffer;
+    return buffer.data();
 }
 
 std::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {

@@ -156,7 +156,7 @@ namespace zero::async::promise {
             }
 
             if (state != State::ONLY_CALLBACK || !mCore->state.compare_exchange_strong(state, State::DONE))
-                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
+                throw std::logic_error(fmt::format("unexpected state: {}", std::to_underlying(state)));
 
             mCore->event.set();
             mCore->trigger();
@@ -179,7 +179,7 @@ namespace zero::async::promise {
             }
 
             if (state != State::ONLY_CALLBACK || !mCore->state.compare_exchange_strong(state, State::DONE))
-                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
+                throw std::logic_error(fmt::format("unexpected state: {}", std::to_underlying(state)));
 
             mCore->event.set();
             mCore->trigger();
@@ -271,7 +271,7 @@ namespace zero::async::promise {
                 return;
 
             if (state != State::ONLY_RESULT || !mCore->state.compare_exchange_strong(state, State::DONE))
-                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
+                throw std::logic_error(fmt::format("unexpected state: {}", std::to_underlying(state)));
 
             mCore->trigger();
         }

@@ -14,6 +14,7 @@
 #include <zero/os/procfs/procfs.h>
 #include <zero/filesystem/file.h>
 #elif __APPLE__
+#include <array>
 #include <unistd.h>
 #include <sys/sysctl.h>
 #include <mach/mach.h>
@@ -178,8 +179,8 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
     std::size_t size = sizeof(total);
 
     EXPECT(unix::expected([&] {
-        int mib[2] = {CTL_HW, HW_MEMSIZE};
-        return sysctl(mib, 2, &total, &size, nullptr, 0);
+        std::array mib = {CTL_HW, HW_MEMSIZE};
+        return sysctl(mib.data(), mib.size(), &total, &size, nullptr, 0);
     }));
 
     MemoryStat stat = {};

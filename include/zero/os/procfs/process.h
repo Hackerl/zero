@@ -3,6 +3,7 @@
 
 #include <map>
 #include <list>
+#include <array>
 #include <vector>
 #include <optional>
 #include <expected>
@@ -103,8 +104,8 @@ namespace zero::os::procfs::process {
         pid_t pid;
         pid_t ppid;
         pid_t tracerPID;
-        uid_t uid[4];
-        pid_t gid[4];
+        std::array<uid_t, 4> uid;
+        std::array<pid_t, 4> gid;
         int fdSize;
         std::vector<pid_t> groups;
         std::optional<pid_t> nstgid;
@@ -129,7 +130,7 @@ namespace zero::os::procfs::process {
         std::optional<unsigned long> vmSwap;
         std::optional<unsigned long> hugeTLBPages;
         int threads;
-        int sigQ[2];
+        std::array<int, 2> sigQ;
         unsigned long sigPnd;
         unsigned long shdPnd;
         unsigned long sigBlk;

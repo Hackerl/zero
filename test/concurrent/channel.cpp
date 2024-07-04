@@ -155,8 +155,8 @@ TEST_CASE("channel", "[concurrent]") {
     }
 
     SECTION("concurrent") {
-        std::atomic<int> counters[2] = {};
-        auto [sender, recevier] = zero::concurrent::channel<int>(5);
+        std::array<std::atomic<int>, 2> counters = {};
+        auto [sender, receiver] = zero::concurrent::channel<int>(5);
 
         auto produce = [&] {
             while (true) {
@@ -170,7 +170,7 @@ TEST_CASE("channel", "[concurrent]") {
 
         auto consume = [&] {
             while (true) {
-                if (const auto result = recevier.receive(); !result) {
+                if (const auto result = receiver.receive(); !result) {
                     assert(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
                     break;
                 }

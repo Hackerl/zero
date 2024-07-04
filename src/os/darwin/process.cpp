@@ -8,6 +8,7 @@
 #include <libproc.h>
 #include <unistd.h>
 #include <csignal>
+#include <array>
 
 zero::os::darwin::process::Process::Process(const pid_t pid) : mPID(pid) {
 }
@@ -22,16 +23,16 @@ zero::os::darwin::process::Process &zero::os::darwin::process::Process::operator
 
 std::expected<std::vector<char>, std::error_code> zero::os::darwin::process::Process::arguments() const {
     std::size_t size;
-    int mib[3] = {CTL_KERN, KERN_PROCARGS2, mPID};
+    std::array mib = {CTL_KERN, KERN_PROCARGS2, mPID};
 
     EXPECT(unix::expected([&] {
-        return sysctl(mib, 3, nullptr, &size, nullptr, 0);
+        return sysctl(mib.data(), mib.size(), nullptr, &size, nullptr, 0);
     }));
 
     const auto buffer = std::make_unique<char[]>(size);
 
     EXPECT(unix::expected([&] {
-        return sysctl(mib, 3, buffer.get(), &size, nullptr, 0);
+        return sysctl(mib.data(), mib.size(), buffer.get(), &size, nullptr, 0);
     }));
 
     return std::vector<char>{buffer.get(), buffer.get() + size};
@@ -60,12 +61,12 @@ std::expected<std::string, std::error_code> zero::os::darwin::process::Process::
 }
 
 std::expected<std::string, std::error_code> zero::os::darwin::process::Process::name() const {
-    char buffer[2 * MAXCOMLEN] = {};
+    std::array<char, 2 * MAXCOMLEN> buffer = {};
 
-    if (proc_name(mPID, buffer, sizeof(buffer)) < 0)
+    if (proc_name(mPID, buffer.data(), buffer.size()) < 0)
         return std::unexpected(std::error_code(errno, std::system_category()));
 
-    return buffer;
+    return buffer.data();
 }
 
 std::expected<std::filesystem::path, std::error_code> zero::os::darwin::process::Process::cwd() const {
@@ -78,12 +79,12 @@ std::expected<std::filesystem::path, std::error_code> zero::os::darwin::process:
 }
 
 std::expected<std::filesystem::path, std::error_code> zero::os::darwin::process::Process::exe() const {
-    char buffer[PROC_PIDPATHINFO_MAXSIZE] = {};
+    std::array<char, PROC_PIDPATHINFO_MAXSIZE> buffer = {};
 
-    if (proc_pidpath(mPID, buffer, sizeof(buffer)) <= 0)
+    if (proc_pidpath(mPID, buffer.data(), buffer.size()) <= 0)
         return std::unexpected(std::error_code(errno, std::system_category()));
 
-    return buffer;
+    return buffer.data();
 }
 
 std::expected<std::vector<std::string>, std::error_code> zero::os::darwin::process::Process::cmdline() const {

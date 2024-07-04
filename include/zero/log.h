@@ -22,7 +22,7 @@ namespace zero {
         DEBUG_LEVEL
     };
 
-    struct LogMessage {
+    struct LogRecord {
         LogLevel level{};
         int line{};
         std::string_view filename;
@@ -35,7 +35,7 @@ namespace zero {
         virtual std::expected<void, std::error_code> init() = 0;
         virtual std::expected<void, std::error_code> rotate() = 0;
         virtual std::expected<void, std::error_code> flush() = 0;
-        virtual std::expected<void, std::error_code> write(const LogMessage &message) = 0;
+        virtual std::expected<void, std::error_code> write(const LogRecord &record) = 0;
     };
 
     class ConsoleProvider final : public ILogProvider {
@@ -43,7 +43,7 @@ namespace zero {
         std::expected<void, std::error_code> init() override;
         std::expected<void, std::error_code> rotate() override;
         std::expected<void, std::error_code> flush() override;
-        std::expected<void, std::error_code> write(const LogMessage &message) override;
+        std::expected<void, std::error_code> write(const LogRecord &record) override;
     };
 
     class FileProvider final : public ILogProvider {
@@ -58,7 +58,7 @@ namespace zero {
         std::expected<void, std::error_code> init() override;
         std::expected<void, std::error_code> rotate() override;
         std::expected<void, std::error_code> flush() override;
-        std::expected<void, std::error_code> write(const LogMessage &message) override;
+        std::expected<void, std::error_code> write(const LogRecord &record) override;
 
     private:
         int mPID;
@@ -95,8 +95,8 @@ namespace zero {
         );
 
         void log(const LogLevel level, const std::string_view filename, const int line, std::string content) {
-            mChannel.first.send(
-                LogMessage{
+            std::ignore = mChannel.first.send(
+                LogRecord{
                     level,
                     line,
                     filename,
@@ -115,7 +115,7 @@ namespace zero {
         std::optional<LogLevel> mMinLogLevel;
         std::optional<LogLevel> mMaxLogLevel;
         std::optional<std::chrono::milliseconds> mTimeout;
-        concurrent::Channel<LogMessage> mChannel;
+        concurrent::Channel<LogRecord> mChannel;
     };
 
     // ReSharper disable once CppDFALocalValueEscapesFunction
@@ -130,22 +130,22 @@ namespace zero {
 }
 
 template<typename Char>
-struct fmt::formatter<zero::LogMessage, Char> {
+struct fmt::formatter<zero::LogRecord, Char> {
     template<typename ParseContext>
     static constexpr auto parse(ParseContext &ctx) {
         return ctx.begin();
     }
 
     template<typename FmtContext>
-    static auto format(const zero::LogMessage &message, FmtContext &ctx) {
+    static auto format(const zero::LogRecord &record, FmtContext &ctx) {
         return fmt::format_to(
             ctx.out(),
             "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
-            localtime(std::chrono::system_clock::to_time_t(message.timestamp)),
-            zero::LOG_TAGS[static_cast<int>(message.level)],
-            message.filename,
-            message.line,
-            message.content
+            localtime(std::chrono::system_clock::to_time_t(record.timestamp)),
+            zero::LOG_TAGS[std::to_underlying(record.level)],
+            record.filename,
+            record.line,
+            record.content
         );
     }
 };

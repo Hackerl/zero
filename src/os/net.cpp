@@ -35,21 +35,21 @@
 #endif
 
 std::string zero::os::net::stringify(const std::span<const std::byte, 4> ip) {
-    char address[INET_ADDRSTRLEN] = {};
+    std::array<char, INET_ADDRSTRLEN> address = {};
 
-    if (!inet_ntop(AF_INET, ip.data(), address, sizeof(address)))
+    if (!inet_ntop(AF_INET, ip.data(), address.data(), address.size()))
         throw std::runtime_error("unable to convert IPv4 address from binary to text form");
 
-    return address;
+    return address.data();
 }
 
 std::string zero::os::net::stringify(const std::span<const std::byte, 16> ip) {
-    char address[INET6_ADDRSTRLEN] = {};
+    std::array<char, INET6_ADDRSTRLEN> address = {};
 
-    if (!inet_ntop(AF_INET6, ip.data(), address, sizeof(address)))
+    if (!inet_ntop(AF_INET6, ip.data(), address.data(), address.size()))
         throw std::runtime_error("unable to convert IPv6 address from binary to text form");
 
-    return address;
+    return address.data();
 }
 
 std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::net::interfaces() {
@@ -89,7 +89,11 @@ std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::
             case AF_INET: {
                 IfAddress4 address = {};
 
-                memcpy(address.ip.data(), &reinterpret_cast<sockaddr_in *>(addr->Address.lpSockaddr)->sin_addr, 4);
+                std::memcpy(
+                    address.ip.data(),
+                    &reinterpret_cast<const sockaddr_in *>(addr->Address.lpSockaddr)->sin_addr,
+                    4
+                );
 
                 if (ConvertLengthToIpv4Mask(
                     addr->OnLinkPrefixLength,
@@ -104,9 +108,9 @@ std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::
             case AF_INET6: {
                 IfAddress6 address = {};
 
-                memcpy(
+                std::memcpy(
                     address.ip.data(),
-                    &reinterpret_cast<sockaddr_in6 *>(addr->Address.lpSockaddr)->sin6_addr,
+                    &reinterpret_cast<const sockaddr_in6 *>(addr->Address.lpSockaddr)->sin6_addr,
                     16
                 );
 
@@ -126,7 +130,7 @@ std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::
 
         item.name = *std::move(name);
         item.addresses = std::move(addresses);
-        memcpy(item.mac.data(), adapter->PhysicalAddress, 6);
+        std::memcpy(item.mac.data(), adapter->PhysicalAddress, 6);
 
         interfaces.push_back(std::move(item));
     }
@@ -160,8 +164,8 @@ std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::
         case AF_INET: {
             IfAddress4 address = {};
 
-            memcpy(address.ip.data(), &reinterpret_cast<sockaddr_in *>(p->ifa_addr)->sin_addr, 4);
-            memcpy(address.mask.data(), &reinterpret_cast<sockaddr_in *>(p->ifa_netmask)->sin_addr, 4);
+            std::memcpy(address.ip.data(), &reinterpret_cast<const sockaddr_in *>(p->ifa_addr)->sin_addr, 4);
+            std::memcpy(address.mask.data(), &reinterpret_cast<const sockaddr_in *>(p->ifa_netmask)->sin_addr, 4);
 
             addresses.emplace_back(address);
             break;
@@ -169,7 +173,7 @@ std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::
 
         case AF_INET6: {
             IfAddress6 address = {};
-            memcpy(address.ip.data(), &reinterpret_cast<sockaddr_in6 *>(p->ifa_addr)->sin6_addr, 16);
+            std::memcpy(address.ip.data(), &reinterpret_cast<const sockaddr_in6 *>(p->ifa_addr)->sin6_addr, 16);
 
             addresses.emplace_back(address);
             break;
@@ -182,7 +186,7 @@ std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::
             if (address->sdl_alen != 6)
                 break;
 
-            memcpy(mac.data(), LLADDR(address), 6);
+            std::memcpy(mac.data(), LLADDR(address), 6);
             break;
         }
 #else
@@ -192,7 +196,7 @@ std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::
             if (address->sll_halen != 6)
                 break;
 
-            memcpy(mac.data(), address->sll_addr, 6);
+            std::memcpy(mac.data(), address->sll_addr, 6);
             break;
         }
 #endif
@@ -215,13 +219,13 @@ std::expected<std::vector<zero::os::net::Interface>, std::error_code> zero::os::
         ifreq request = {};
 
         request.ifr_addr.sa_family = AF_INET;
-        strncpy(request.ifr_name, name.c_str(), IFNAMSIZ);
+        std::strncpy(request.ifr_name, name.c_str(), IFNAMSIZ);
 
         EXPECT(unix::expected([&] {
             return ioctl(*fd, SIOCGIFHWADDR, &request);
         }));
 
-        memcpy(mac.data(), request.ifr_hwaddr.sa_data, 6);
+        std::memcpy(mac.data(), request.ifr_hwaddr.sa_data, 6);
     }
 #endif
 

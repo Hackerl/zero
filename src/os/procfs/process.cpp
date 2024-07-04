@@ -7,7 +7,6 @@
 #include <climits>
 #include <dirent.h>
 #include <fcntl.h>
-#include <cstring>
 #include <unistd.h>
 #include <ranges>
 #include <algorithm>
@@ -46,9 +45,9 @@ std::expected<std::string, std::error_code> zero::os::procfs::process::Process::
     std::expected<std::string, std::error_code> result;
 
     while (true) {
-        char buffer[1024];
+        std::array<char, 1024> buffer = {};
         const auto n = unix::ensure([&] {
-            return read(*fd, buffer, sizeof(buffer));
+            return read(*fd, buffer.data(), buffer.size());
         });
 
         if (!n) {
@@ -59,7 +58,7 @@ std::expected<std::string, std::error_code> zero::os::procfs::process::Process::
         if (*n == 0)
             break;
 
-        result->append(buffer, *n);
+        result->append(buffer.data(), *n);
     }
 
     return result;
@@ -70,23 +69,23 @@ pid_t zero::os::procfs::process::Process::pid() const {
 }
 
 std::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::exe() const {
-    char buffer[PATH_MAX + 1] = {};
+    std::array<char, PATH_MAX + 1> buffer = {};
 
     EXPECT(unix::expected([&] {
-        return readlinkat(mFD, "exe", buffer, PATH_MAX);
+        return readlinkat(mFD, "exe", buffer.data(), PATH_MAX);
     }));
 
-    return buffer;
+    return buffer.data();
 }
 
 std::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::cwd() const {
-    char buffer[PATH_MAX + 1] = {};
+    std::array<char, PATH_MAX + 1> buffer = {};
 
     EXPECT(unix::expected([&] {
-        return readlinkat(mFD, "cwd", buffer, PATH_MAX);
+        return readlinkat(mFD, "cwd", buffer.data(), PATH_MAX);
     }));
 
-    return buffer;
+    return buffer.data();
 }
 
 std::expected<std::string, std::error_code> zero::os::procfs::process::Process::comm() const {
@@ -504,6 +503,8 @@ std::expected<zero::os::procfs::process::Status, std::error_code> zero::os::proc
 }
 
 std::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Process::tasks() const {
+    using namespace std::string_view_literals;
+
     const auto fd = unix::expected([&] {
         return openat(mFD, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     });
@@ -525,7 +526,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Proc
         if (!e)
             break;
 
-        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
+        if (e->d_name == "."sv || e->d_name == ".."sv)
             continue;
 
         const auto tid = strings::toNumber<pid_t>(e->d_name);

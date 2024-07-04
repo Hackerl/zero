@@ -9,8 +9,8 @@
 #include <sys/prctl.h>
 
 TEST_CASE("procfs process", "[procfs]") {
-    char name[16] = {};
-    prctl(PR_GET_NAME, name);
+    std::array<char, 16> name = {};
+    prctl(PR_GET_NAME, name.data());
     prctl(PR_SET_NAME, "(test)");
 
     const auto variable = reinterpret_cast<std::uintptr_t>(stdout);
@@ -290,5 +290,5 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }
 
-    prctl(PR_SET_NAME, name);
+    prctl(PR_SET_NAME, name.data());
 }

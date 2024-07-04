@@ -315,10 +315,10 @@ TEST_CASE("process", "[os]") {
             REQUIRE(n == data.size());
             CloseHandle(*input);
 
-            char buffer[64] = {};
-            REQUIRE(ReadFile(*output, buffer, sizeof(buffer), &n, nullptr));
+            std::array<char, 64> buffer = {};
+            REQUIRE(ReadFile(*output, buffer.data(), buffer.size(), &n, nullptr));
             REQUIRE(n >= data.size());
-            REQUIRE(data == zero::strings::trim(buffer));
+            REQUIRE(data == zero::strings::trim(buffer.data()));
             CloseHandle(*output);
 
             const auto result = child->wait();
@@ -345,13 +345,13 @@ TEST_CASE("process", "[os]") {
             REQUIRE(*n == data.size());
             close(*input);
 
-            char buffer[64] = {};
+            std::array<char, 64> buffer = {};
             n = zero::os::unix::ensure([&] {
-                return read(*output, buffer, sizeof(buffer));
+                return read(*output, buffer.data(), buffer.size());
             });
             REQUIRE(n);
             REQUIRE(*n == data.size());
-            REQUIRE(data == buffer);
+            REQUIRE(data == buffer.data());
             close(*output);
 
             const auto result = child->wait();
@@ -387,13 +387,11 @@ TEST_CASE("process", "[os]") {
 
                 while (true) {
                     DWORD n;
-                    char buffer[1024];
+                    std::array<char, 1024> buffer = {};
 
-                    const auto res = zero::os::nt::expected([&] {
-                        return ReadFile(output, buffer, sizeof(buffer), &n, nullptr);
-                    });
-
-                    if (!res) {
+                    if (const auto res = zero::os::nt::expected([&] {
+                        return ReadFile(output, buffer.data(), buffer.size(), &n, nullptr);
+                    }); !res) {
                         if (res.error() == std::errc::broken_pipe)
                             break;
 
@@ -402,7 +400,7 @@ TEST_CASE("process", "[os]") {
                     }
 
                     assert(n > 0);
-                    std::copy_n(buffer, n, std::back_inserter(*result));
+                    std::copy_n(buffer.data(), n, std::back_inserter(*result));
                 }
 
                 return result;
@@ -429,9 +427,9 @@ TEST_CASE("process", "[os]") {
             std::vector<char> content;
 
             while (true) {
-                char buffer[1024];
+                std::array<char, 1024> buffer = {};
                 n = zero::os::unix::ensure([&] {
-                    return read(fd, buffer, sizeof(buffer));
+                    return read(fd, buffer.data(), buffer.size());
                 });
 
                 if (!n) {
@@ -444,7 +442,7 @@ TEST_CASE("process", "[os]") {
                 if (*n == 0)
                     break;
 
-                std::copy_n(buffer, *n, std::back_inserter(content));
+                std::copy_n(buffer.data(), *n, std::back_inserter(content));
             }
 
             REQUIRE(std::ranges::search(content, keyword));

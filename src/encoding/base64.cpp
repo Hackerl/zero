@@ -21,13 +21,13 @@ std::string zero::encoding::base64::encode(const std::span<const std::byte> data
     encoded.reserve(size);
 
     for (std::size_t i = 0; i < length; i += 3) {
-        std::byte b3[3] = {};
+        std::array<std::byte, 3> b3 = {};
 
         b3[0] = data[i];
         b3[1] = i + 1 < length ? data[i + 1] : std::byte{0};
         b3[2] = i + 2 < length ? data[i + 2] : std::byte{0};
 
-        std::byte b4[4] = {};
+        std::array<std::byte, 4> b4 = {};
 
         b4[0] = (b3[0] & std::byte{0xfc}) >> 2;
         b4[1] = (b3[0] & std::byte{0x03}) << 4 | (b3[1] & std::byte{0xf0}) >> 4;
@@ -57,14 +57,14 @@ zero::encoding::base64::decode(const std::string_view encoded) {
     buffer.reserve(3 * size / 4);
 
     for (std::size_t i = 0; i < size; i += 4) {
-        std::byte b4[4] = {};
+        std::array<std::byte, 4> b4 = {};
 
         b4[0] = encoded[i] <= 'z' ? static_cast<std::byte>(DECODE_MAP[encoded[i]]) : std::byte{0xff};
         b4[1] = encoded[i + 1] <= 'z' ? static_cast<std::byte>(DECODE_MAP[encoded[i + 1]]) : std::byte{0xff};
         b4[2] = encoded[i + 2] <= 'z' ? static_cast<std::byte>(DECODE_MAP[encoded[i + 2]]) : std::byte{0xff};
         b4[3] = encoded[i + 3] <= 'z' ? static_cast<std::byte>(DECODE_MAP[encoded[i + 3]]) : std::byte{0xff};
 
-        std::byte b3[3] = {};
+        std::array<std::byte, 3> b3 = {};
 
         b3[0] = (b4[0] & std::byte{0x3f}) << 2 | (b4[1] & std::byte{0x30}) >> 4;
         b3[1] = (b4[1] & std::byte{0x0f}) << 4 | (b4[2] & std::byte{0x3c}) >> 2;

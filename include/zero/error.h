@@ -2,6 +2,7 @@
 #define ZERO_ERROR_H
 
 #include <array>
+#include <utility>
 #include <system_error>
 
 /*
@@ -381,12 +382,12 @@ const T &errorCategoryInstance() {
 
 #define DEFINE_MAKE_ERROR_CODE(Type)                                                                            \
     inline std::error_code make_error_code(const Type _e) {                                                     \
-        return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
+        return {std::to_underlying(_e), errorCategoryInstance<Type##Category>()};                               \
     }
 
 #define DEFINE_MAKE_ERROR_CODE_INNER(Type)                                                                      \
     friend std::error_code make_error_code(const Type _e) {                                                     \
-        return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
+        return {std::to_underlying(_e), errorCategoryInstance<Type##Category>()};                               \
     }
 
 #define DEFINE_ERROR_CODE_TYPES(Type, category, ...)                                                            \
@@ -497,12 +498,12 @@ const T &errorCategoryInstance() {
 
 #define DEFINE_MAKE_ERROR_CONDITION(Type)                                                                       \
     inline std::error_condition make_error_condition(const Type _e) {                                           \
-        return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
+        return {std::to_underlying(_e), errorCategoryInstance<Type##Category>()};                               \
     }
 
 #define DEFINE_MAKE_ERROR_CONDITION_INNER(Type)                                                                 \
     friend std::error_condition make_error_condition(const Type _e) {                                           \
-        return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
+        return {std::to_underlying(_e), errorCategoryInstance<Type##Category>()};                               \
     }
 
 #define DEFINE_ERROR_CONDITION_TYPES(Type, category, ...)                                                       \

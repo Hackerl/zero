@@ -146,17 +146,17 @@ std::expected<std::string, std::error_code> zero::strings::encode(const std::wst
     std::size_t inBytesLeft = str.length() * sizeof(wchar_t);
 
     while (inBytesLeft > 0) {
-        char buffer[1024] = {};
+        std::array<char, 1024> buffer = {};
 
-        auto ptr = buffer;
-        std::size_t outBytesLeft = sizeof(buffer);
+        auto ptr = buffer.data();
+        std::size_t outBytesLeft = buffer.size();
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
             output = std::unexpected(std::error_code(errno, std::generic_category()));
             break;
         }
 
-        output->append(buffer, sizeof(buffer) - outBytesLeft);
+        output->append(buffer.data(), buffer.size() - outBytesLeft);
     }
 
     return output;
@@ -175,17 +175,17 @@ std::expected<std::wstring, std::error_code> zero::strings::decode(const std::st
     std::size_t inBytesLeft = str.length();
 
     while (inBytesLeft > 0) {
-        char buffer[1024] = {};
+        std::array<char, 1024> buffer = {};
 
-        auto ptr = buffer;
-        std::size_t outBytesLeft = sizeof(buffer);
+        auto ptr = buffer.data();
+        std::size_t outBytesLeft = buffer.size();
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
             output = std::unexpected(std::error_code(errno, std::generic_category()));
             break;
         }
 
-        output->append(reinterpret_cast<wchar_t *>(buffer), (sizeof(buffer) - outBytesLeft) / sizeof(wchar_t));
+        output->append(reinterpret_cast<const wchar_t *>(buffer.data()), (buffer.size() - outBytesLeft) / sizeof(wchar_t));
     }
 
     return output;

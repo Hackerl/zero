@@ -27,10 +27,10 @@ std::expected<void, std::error_code> zero::ConsoleProvider::flush() {
     return {};
 }
 
-std::expected<void, std::error_code> zero::ConsoleProvider::write(const LogMessage &message) {
-    const std::string msg = fmt::format("{}\n", message);
+std::expected<void, std::error_code> zero::ConsoleProvider::write(const LogRecord &record) {
+    const std::string message = fmt::format("{}\n", record);
 
-    if (fwrite(msg.data(), 1, msg.length(), stderr) != msg.length())
+    if (fwrite(message.data(), 1, message.length(), stderr) != message.length())
         return std::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
@@ -111,17 +111,17 @@ std::expected<void, std::error_code> zero::FileProvider::flush() {
     return {};
 }
 
-std::expected<void, std::error_code> zero::FileProvider::write(const LogMessage &message) {
-    const std::string msg = fmt::format("{}\n", message);
+std::expected<void, std::error_code> zero::FileProvider::write(const LogRecord &record) {
+    const std::string message = fmt::format("{}\n", record);
 
-    if (!mStream.write(msg.c_str(), static_cast<std::streamsize>(msg.length())))
+    if (!mStream.write(message.c_str(), static_cast<std::streamsize>(message.length())))
         return std::unexpected(std::error_code(errno, std::generic_category()));
 
-    mPosition += msg.length();
+    mPosition += message.length();
     return {};
 }
 
-zero::Logger::Logger() : mChannel(concurrent::channel<LogMessage>(LOGGER_BUFFER_SIZE)) {
+zero::Logger::Logger() : mChannel(concurrent::channel<LogRecord>(LOGGER_BUFFER_SIZE)) {
 }
 
 zero::Logger::~Logger() {
@@ -135,10 +135,10 @@ void zero::Logger::consume() {
     auto &recevier = mChannel.second;
 
     while (true) {
-        std::expected<LogMessage, std::error_code> message = recevier.tryReceive();
+        std::expected<LogRecord, std::error_code> record = recevier.tryReceive();
 
-        if (!message) {
-            if (message.error() == concurrent::TryReceiveError::DISCONNECTED)
+        if (!record) {
+            if (record.error() == concurrent::TryReceiveError::DISCONNECTED)
                 break;
 
             std::list<std::chrono::milliseconds> durations;
@@ -170,11 +170,11 @@ void zero::Logger::consume() {
             }
 
             if (durations.empty())
-                message = recevier.receive();
+                record = recevier.receive();
             else
-                message = recevier.receive(*std::ranges::min_element(durations));
+                record = recevier.receive(*std::ranges::min_element(durations));
 
-            if (!message)
+            if (!record)
                 continue;
         }
 
@@ -184,8 +184,8 @@ void zero::Logger::consume() {
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (message->level <= (std::max)(it->level, mMinLogLevel.value_or(LogLevel::ERROR_LEVEL))) {
-                if (!it->provider->write(*message) || !it->provider->rotate()) {
+            if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(LogLevel::ERROR_LEVEL))) {
+                if (!it->provider->write(*record) || !it->provider->rotate()) {
                     it = mConfigs.erase(it);
                     continue;
                 }
@@ -218,19 +218,20 @@ void zero::Logger::addProvider(
     std::call_once(mOnceFlag, [=, this] {
         const auto getEnv = [](const char *name) -> std::optional<int> {
 #ifdef _WIN32
-            char env[64] = {};
+            std::array<char, 64> env = {};
 
-            if (const DWORD n = GetEnvironmentVariableA(name, env, sizeof(env)); n == 0 || n >= sizeof(env))
+            if (const DWORD n = GetEnvironmentVariableA(name, env.data(), env.size()); n == 0 || n >= env.size())
                 return std::nullopt;
+
+            const auto result = strings::toNumber<int>(env.data());
 #else
             const char *env = getenv(name);
 
             if (!env)
                 return std::nullopt;
-#endif
 
             const auto result = strings::toNumber<int>(env);
-
+#endif
             if (!result)
                 return std::nullopt;
 

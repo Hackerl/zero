@@ -1,5 +1,6 @@
 #include <zero/os/os.h>
 #include <zero/expect.h>
+#include <array>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -22,30 +23,30 @@
 
 std::expected<std::string, std::error_code> zero::os::hostname() {
 #ifdef _WIN32
-    WCHAR name[MAX_COMPUTERNAME_LENGTH + 1] = {};
-    DWORD length = ARRAYSIZE(name);
+    std::array<WCHAR, MAX_COMPUTERNAME_LENGTH + 1> buffer = {};
+    DWORD length = buffer.size();
 
     EXPECT(nt::expected([&] {
-        return GetComputerNameW(name, &length);
+        return GetComputerNameW(buffer.data(), &length);
     }));
 
-    return strings::encode(name);
+    return strings::encode(buffer.data());
 #elif __linux__
-    char name[HOST_NAME_MAX + 1] = {};
+    std::array<char, HOST_NAME_MAX + 1> buffer = {};
 
     EXPECT(unix::expected([&] {
-        return gethostname(name, sizeof(name));
+        return gethostname(buffer.data(), buffer.size());
     }));
 
-    return name;
+    return buffer.data();
 #elif __APPLE__
-    char name[MAXHOSTNAMELEN] = {};
+    std::array<char, MAXHOSTNAMELEN> buffer = {};
 
     EXPECT(unix::expected([&] {
-        return gethostname(name, sizeof(name));
+        return gethostname(buffer.data(), buffer.size());
     }));
 
-    return name;
+    return buffer.data();
 #else
 #error "unsupported platform"
 #endif
@@ -53,14 +54,14 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
 
 std::expected<std::string, std::error_code> zero::os::username() {
 #ifdef _WIN32
-    WCHAR name[UNLEN + 1] = {};
-    DWORD length = ARRAYSIZE(name);
+    std::array<WCHAR, UNLEN + 1> buffer = {};
+    DWORD length = buffer.size();
 
     EXPECT(nt::expected([&] {
-        return GetUserNameW(name, &length);
+        return GetUserNameW(buffer.data(), &length);
     }));
 
-    return strings::encode(name);
+    return strings::encode(buffer.data());
 #elif __linux__ || __APPLE__
     const uid_t uid = geteuid();
     const long max = sysconf(_SC_GETPW_R_SIZE_MAX);
