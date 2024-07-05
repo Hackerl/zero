@@ -1,7 +1,6 @@
 #include <zero/encoding/hex.h>
 #include <zero/strings/strings.h>
 #include <cassert>
-#include <array>
 
 constexpr std::array HEX_MAP = {
     '0', '1', '2', '3', '4', '5', '6', '7',

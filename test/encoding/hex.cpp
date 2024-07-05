@@ -1,6 +1,5 @@
 #include <zero/encoding/hex.h>
 #include <catch2/catch_test_macros.hpp>
-#include <array>
 
 TEST_CASE("hex encoding", "[encoding]") {
     constexpr std::array buffer = {

@@ -1,6 +1,5 @@
 #include <zero/cmdline.h>
 #include <catch2/catch_test_macros.hpp>
-#include <array>
 
 struct Config {
     std::string username;

@@ -1,8 +1,59 @@
 #ifndef ZERO_ERROR_H
 #define ZERO_ERROR_H
 
-#include "singleton.h"
+#include <array>
 #include <system_error>
+
+/*
+ * When std::error_category is defined as a static variable,
+ * its destruction timing is uncertain and it may be invalid when the program exits.
+ * The implementation of each standard library has been changed to avoid the destruction of std::error_category:
+ * - https://github.com/llvm/llvm-project/commit/fbdf684fae5243e7a9ff50dd4abdc5b55e6aa895
+ * - https://github.com/gcc-mirror/gcc/commit/dd396a321be5099536af36e64454c1fcf9d67e12
+ *
+ * When static variables are initialized, `atexit` may be used to register the destructor,
+ * which may cause additional problems in Windows UCRT:
+ * - https://developercommunity.visualstudio.com/t/atexit-deadlock-with-thread-safe-static-/1654756
+ *
+ * If you compile the following code using Clang + MSVC, the program will deadlock when exiting:
+ * ```
+ * #include <thread>
+ * #include <system_error>
+ *
+ * struct OnTeardown {
+ *     ~OnTeardown() {
+ *         std::thread([] {
+ *             std::ignore = std::system_category();
+ *         }).join();
+ *     }
+ * };
+ *
+ * int main() {
+ *     static OnTeardown s;
+ *     return 0;
+ * }
+ * ```
+ *
+ * However, it can exit normally when compiled with MSVC alone,
+ * because Microsoft's implementation uses `[[msvc::noop_dtor]]` to skip the destructor:
+ * - https://github.com/microsoft/STL/pull/1016/files
+ *
+ * Perhaps in newer compilers we can define the std::error_category singleton directly using `static constexpr`,
+ * but for now, I'll choose to use `placement new` to solve everything simply and directly.
+ */
+
+template<typename T>
+auto errorCategoryImmortalize() {
+    std::array<std::byte, sizeof(T)> storage = {};
+    new(storage.data()) T();
+    return storage;
+}
+
+template<typename T>
+const T &errorCategoryInstance() {
+    static const auto storage = errorCategoryImmortalize<T>();
+    return *reinterpret_cast<const T *>(storage.data());
+}
 
 #define ZERO_ERROR_EXPAND(x) x
 #define ZERO_ERROR_GET_MACRO(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, _64, NAME,...) NAME
@@ -330,7 +381,7 @@
 
 #define DEFINE_MAKE_ERROR_CODE(Type)                                                                            \
     inline std::error_code make_error_code(const Type _e) {                                                     \
-        return {static_cast<int>(_e), zero::Singleton<Type##Category>::getInstance()};                          \
+        return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
     }                                                                                                           \
 
 #define DEFINE_ERROR_CODE_TYPES(Type, category, ...)                                                            \
@@ -437,7 +488,7 @@
 
 #define DEFINE_MAKE_ERROR_CONDITION(Type)                                                                       \
     inline std::error_condition make_error_condition(const Type _e) {                                           \
-        return {static_cast<int>(_e), zero::Singleton<Type##Category>::getInstance()};                          \
+        return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
     }
 
 #define DEFINE_ERROR_CONDITION_TYPES(Type, category, ...)                                                       \

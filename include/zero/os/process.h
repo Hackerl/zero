@@ -1,7 +1,6 @@
 #ifndef ZERO_PROCESS_H
 #define ZERO_PROCESS_H
 
-#include <array>
 #include <fmt/core.h>
 
 #ifdef _WIN32

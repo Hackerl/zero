@@ -587,12 +587,32 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
         }
     );
 
-    for (int i = 0; i < 3; ++i) {
-        const bool input = i == 0;
-        const StdioType type = mStdioTypes[i].value_or(defaultTypes[i]);
+    constexpr std::array stdMapping = {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE};
+    constexpr std::array indexMapping = {0, 3, 5};
+    constexpr std::array<DWORD, 3> accessMapping = {GENERIC_READ, GENERIC_WRITE, GENERIC_WRITE};
 
-        if (type == StdioType::INHERIT)
+    for (int i = 0; i < 3; ++i) {
+        const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
+
+        if (type == StdioType::INHERIT) {
+            const auto handle = GetStdHandle(stdMapping[i]);
+
+            if (!handle)
+                continue;
+
+            EXPECT(nt::expected([&] {
+                return DuplicateHandle(
+                    GetCurrentProcess(),
+                    handle,
+                    GetCurrentProcess(),
+                    handles + indexMapping[i],
+                    0,
+                    true,
+                    DUPLICATE_SAME_ACCESS
+                );
+            }));
             continue;
+        }
 
         if (type == StdioType::PIPED) {
             EXPECT(nt::expected([&] {
@@ -603,7 +623,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
 
         const auto handle = CreateFileA(
             R"(\\.\NUL)",
-            input ? GENERIC_READ : GENERIC_WRITE,
+            accessMapping[i],
             0,
             &saAttr,
             OPEN_EXISTING,
@@ -614,25 +634,52 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
         if (handle == INVALID_HANDLE_VALUE)
             return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
 
-        handles[i * 2 + (input ? 0 : 1)] = handle;
+        handles[indexMapping[i]] = handle;
     }
 
-    if ((handles[STDIN_WRITER] && !SetHandleInformation(handles[STDIN_WRITER], HANDLE_FLAG_INHERIT, 0))
-        || (handles[STDOUT_READER] && !SetHandleInformation(handles[STDOUT_READER], HANDLE_FLAG_INHERIT, 0))
-        || (handles[STDERR_READER] && !SetHandleInformation(handles[STDERR_READER], HANDLE_FLAG_INHERIT, 0)))
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+    STARTUPINFOEXW siEx = {};
+    siEx.StartupInfo.cb = sizeof(STARTUPINFOEX);
 
-    const bool redirect = handles[STDIN_READER] || handles[STDOUT_WRITER] || handles[STDERR_WRITER];
-    STARTUPINFOW si = {};
+    std::vector<HANDLE> inherits;
 
-    si.cb = sizeof(si);
-
-    if (redirect) {
-        si.hStdInput = handles[STDIN_READER] ? handles[STDIN_READER] : GetStdHandle(STD_INPUT_HANDLE);
-        si.hStdOutput = handles[STDOUT_WRITER] ? handles[STDOUT_WRITER] : GetStdHandle(STD_OUTPUT_HANDLE);
-        si.hStdError = handles[STDERR_WRITER] ? handles[STDERR_WRITER] : GetStdHandle(STD_ERROR_HANDLE);
-        si.dwFlags |= STARTF_USESTDHANDLES;
+    if (const auto handle = handles[STDIN_READER]) {
+        siEx.StartupInfo.hStdInput = handle;
+        inherits.push_back(handle);
     }
+
+    if (const auto handle = handles[STDOUT_WRITER]) {
+        siEx.StartupInfo.hStdOutput = handle;
+        inherits.push_back(handle);
+    }
+
+    if (const auto handle = handles[STDERR_WRITER]) {
+        siEx.StartupInfo.hStdError = handle;
+        inherits.push_back(handle);
+    }
+
+    siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+
+    SIZE_T size;
+    InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
+
+    const auto buffer = std::make_unique<std::byte[]>(size);
+    siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
+
+    EXPECT(nt::expected([&] {
+        return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
+    }));
+
+    EXPECT(nt::expected([&] {
+        return UpdateProcThreadAttribute(
+            siEx.lpAttributeList,
+            0,
+            PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+            inherits.data(),
+            inherits.size() * sizeof(HANDLE),
+            nullptr,
+            nullptr
+        );
+    }));
 
     std::map<std::string, std::string> envs;
 
@@ -679,7 +726,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
     )));
     EXPECT(environment);
 
-    std::vector arguments{mPath.string()};
+    std::vector arguments = {mPath.string()};
     ranges::copy(mArguments, ranges::back_inserter(arguments));
 
     auto cmd = strings::decode(to_string(
@@ -695,11 +742,11 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
             cmd->data(),
             nullptr,
             nullptr,
-            redirect,
-            CREATE_UNICODE_ENVIRONMENT,
+            true,
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
             environment->data(),
             mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
-            &si,
+            &siEx.StartupInfo,
             &info
         );
     }));
@@ -739,9 +786,11 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
         return fcntl(fds[NOTIFY_WRITER], F_SETFD, FD_CLOEXEC);
     }));
 
+    constexpr std::array indexMapping = {0, 3, 5};
+    constexpr std::array flagMapping = {O_RDONLY, O_WRONLY, O_WRONLY};
+
     for (int i = 0; i < 3; ++i) {
-        const bool input = i == 0;
-        const StdioType type = mStdioTypes[i].value_or(defaultTypes[i]);
+        const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
 
         if (type == StdioType::INHERIT)
             continue;
@@ -754,18 +803,18 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
         }
 
         const auto fd = unix::expected([&] {
-            return ::open("/dev/null", input ? O_RDONLY : O_WRONLY);
+            return ::open("/dev/null", flagMapping[i]);
         });
         EXPECT(fd);
 
-        fds[i * 2 + (input ? 0 : 1)] = *fd;
+        fds[indexMapping[i]] = *fd;
     }
 
     assert(ranges::all_of(fds, [](const auto &fd) {return fd == -1 || fd > STDERR_FILENO;}));
 
     const std::string program = mPath.string();
 
-    std::vector arguments{program};
+    std::vector arguments = {program};
     ranges::copy(mArguments, ranges::back_inserter(arguments));
 
     std::map<std::string, std::string> envs;
@@ -1069,7 +1118,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     )));
     EXPECT(environment);
 
-    std::vector arguments{mPath.string()};
+    std::vector arguments = {mPath.string()};
     ranges::copy(mArguments, ranges::back_inserter(arguments));
 
     auto cmd = strings::decode(to_string(
@@ -1126,7 +1175,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 
     const std::string program = mPath.string();
 
-    std::vector arguments{program};
+    std::vector arguments = {program};
     ranges::copy(mArguments, ranges::back_inserter(arguments));
 
     std::map<std::string, std::string> envs;
