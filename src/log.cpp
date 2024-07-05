@@ -126,16 +126,14 @@ zero::Logger::Logger() : mChannel(concurrent::channel<LogRecord>(LOGGER_BUFFER_S
 
 zero::Logger::~Logger() {
     mChannel.first.close();
-
-    if (mThread.joinable())
-        mThread.join();
+    mThread.join();
 }
 
 void zero::Logger::consume() {
-    auto &recevier = mChannel.second;
+    auto &receiver = mChannel.second;
 
     while (true) {
-        std::expected<LogRecord, std::error_code> record = recevier.tryReceive();
+        std::expected<LogRecord, std::error_code> record = receiver.tryReceive();
 
         if (!record) {
             if (record.error() == concurrent::TryReceiveError::DISCONNECTED)
@@ -170,9 +168,9 @@ void zero::Logger::consume() {
             }
 
             if (durations.empty())
-                record = recevier.receive();
+                record = receiver.receive();
             else
-                record = recevier.receive(*std::ranges::min_element(durations));
+                record = receiver.receive(*std::ranges::min_element(durations));
 
             if (!record)
                 continue;

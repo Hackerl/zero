@@ -1,5 +1,4 @@
 #include <zero/async/promise.h>
-#include <zero/defer.h>
 #include <zero/concurrent/channel.h>
 #include <catch2/catch_test_macros.hpp>
 #include <cstring>
@@ -44,14 +43,14 @@ private:
     std::list<std::thread> mThreads;
 };
 
-static std::unique_ptr<ThreadPool> pool;
+static ThreadPool pool(THREAD_NUMBER, CHANNEL_CAPACITY);
 
 template<typename T, typename E, typename U>
 zero::async::promise::Future<T, E> reject(U &&error) {
     auto promise = std::make_shared<zero::async::promise::Promise<T, E>>();
     auto future = promise->getFuture();
 
-    pool->post([promise = std::move(promise), error = std::forward<U>(error)] {
+    pool.post([promise = std::move(promise), error = std::forward<U>(error)] {
         std::this_thread::yield();
         promise->reject(error);
     });
@@ -65,7 +64,7 @@ zero::async::promise::Future<T, E> resolve() {
     auto promise = std::make_shared<zero::async::promise::Promise<T, E>>();
     auto future = promise->getFuture();
 
-    pool->post([promise = std::move(promise)] {
+    pool.post([promise = std::move(promise)] {
         std::this_thread::yield();
         promise->resolve();
     });
@@ -79,7 +78,7 @@ zero::async::promise::Future<T, E> resolve(U &&result) {
     auto promise = std::make_shared<zero::async::promise::Promise<T, E>>();
     auto future = promise->getFuture();
 
-    pool->post(
+    pool.post(
         [promise = std::move(promise), result = std::make_shared<std::decay_t<U>>(std::forward<U>(result))] {
             std::this_thread::yield();
             promise->resolve(std::move(*result));
@@ -90,9 +89,6 @@ zero::async::promise::Future<T, E> resolve(U &&result) {
 }
 
 TEST_CASE("promise", "[async]") {
-    pool = std::make_unique<ThreadPool>(THREAD_NUMBER, CHANNEL_CAPACITY);
-    DEFER(pool.reset());
-
     SECTION("basic") {
         using namespace std::chrono_literals;
 
