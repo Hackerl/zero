@@ -1,6 +1,5 @@
 #include <zero/encoding/base64.h>
 #include <catch2/catch_test_macros.hpp>
-#include <array>
 
 TEST_CASE("base64 encoding", "[encoding]") {
     constexpr std::array buffer = {

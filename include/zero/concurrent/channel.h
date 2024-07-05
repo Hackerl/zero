@@ -1,7 +1,6 @@
 #ifndef ZERO_CHANNEL_H
 #define ZERO_CHANNEL_H
 
-#include <array>
 #include <chrono>
 #include <optional>
 #include <tl/expected.hpp>

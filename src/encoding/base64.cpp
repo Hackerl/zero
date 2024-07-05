@@ -1,5 +1,4 @@
 #include <zero/encoding/base64.h>
-#include <array>
 
 constexpr auto ENCODE_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 constexpr std::array DECODE_MAP = {
