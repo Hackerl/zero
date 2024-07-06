@@ -8,7 +8,6 @@
 #include <libproc.h>
 #include <unistd.h>
 #include <csignal>
-#include <array>
 
 zero::os::darwin::process::Process::Process(const pid_t pid) : mPID(pid) {
 }

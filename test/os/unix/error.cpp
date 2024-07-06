@@ -1,7 +1,6 @@
 #include <zero/os/unix/error.h>
 #include <catch2/catch_test_macros.hpp>
 #include <unistd.h>
-#include <array>
 
 TEST_CASE("unix error", "[unix]") {
     std::array<char, 1024> buffer = {};

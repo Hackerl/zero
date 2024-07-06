@@ -14,7 +14,6 @@
 #include <zero/os/procfs/procfs.h>
 #include <zero/filesystem/file.h>
 #elif __APPLE__
-#include <array>
 #include <unistd.h>
 #include <sys/sysctl.h>
 #include <mach/mach.h>

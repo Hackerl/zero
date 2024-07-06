@@ -32,13 +32,13 @@ namespace zero {
         else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return std::filesystem::path{input};
         }
-        else if constexpr (detail::Vector<T>) {
+        else if constexpr (detail::is_specialization<T, std::vector>) {
             T v;
 
             for (const auto &token: strings::split(input, ",")) {
                 auto value = parseValue<typename T::value_type>(strings::trim(token));
                 EXPECT(value);
-                v.emplace_back(std::any_cast<typename T::value_type>(*std::move(value)));
+                v.push_back(std::move(std::any_cast<typename T::value_type>(*value)));
             }
 
             return v;
@@ -58,7 +58,7 @@ namespace zero {
         else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return "path";
         }
-        else if constexpr (detail::Vector<T>) {
+        else if constexpr (detail::is_specialization<T, std::vector>) {
             return fmt::format("{}[]", getType<typename T::value_type>());
         }
         else {

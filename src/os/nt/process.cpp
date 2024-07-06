@@ -5,7 +5,6 @@
 #include <zero/defer.h>
 #include <winternl.h>
 #include <psapi.h>
-#include <array>
 
 #ifdef _WIN64
 constexpr auto CURRENT_DIRECTORY_OFFSET = 0x38;
@@ -260,11 +259,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt:
         );
     }));
 
-#ifdef _WIN64
-    const auto str = strings::encode({buffer.get(), size / sizeof(WCHAR)});
-#else
-    const auto str = strings::encode({buffer.get(), static_cast<std::size_t>(size / sizeof(WCHAR))});
-#endif
+    const auto str = strings::encode(std::wstring_view(buffer.get(), size / sizeof(WCHAR)));
     EXPECT(str);
 
     std::expected<std::map<std::string, std::string>, std::error_code> result;
