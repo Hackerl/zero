@@ -44,15 +44,15 @@ constexpr auto PTY_SLAVE_W = 1;
 constexpr auto PTY_SLAVE_R = 2;
 constexpr auto PTY_MASTER_W = 3;
 
-static const auto createPseudoConsole = reinterpret_cast<decltype(CreatePseudoConsole) *>(
+static const auto createPseudoConsole = reinterpret_cast<decltype(&CreatePseudoConsole)>(
     GetProcAddress(GetModuleHandleA("kernel32"), "CreatePseudoConsole")
 );
 
-static const auto closePseudoConsole = reinterpret_cast<decltype(ClosePseudoConsole) *>(
+static const auto closePseudoConsole = reinterpret_cast<decltype(&ClosePseudoConsole)>(
     GetProcAddress(GetModuleHandleA("kernel32"), "ClosePseudoConsole")
 );
 
-static const auto resizePseudoConsole = reinterpret_cast<decltype(ResizePseudoConsole) *>(
+static const auto resizePseudoConsole = reinterpret_cast<decltype(&ResizePseudoConsole)>(
     GetProcAddress(GetModuleHandleA("kernel32"), "ResizePseudoConsole")
 );
 #else

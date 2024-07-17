@@ -68,7 +68,7 @@ namespace zero {
 #elif __GNUC__
             int status = 0;
 
-            const std::unique_ptr<char, decltype(free) *> buffer(
+            const std::unique_ptr<char, decltype(&free)> buffer(
                 abi::__cxa_demangle(
                     typeid(T).name(),
                     nullptr,

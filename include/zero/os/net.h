@@ -29,6 +29,19 @@ namespace zero::os::net {
     using IPv6 = std::array<std::byte, 16>;
     using IP = std::variant<IPv4, IPv6>;
 
+    inline constexpr IPv4 LOCALHOST_IPV4 = {std::byte{127}, std::byte{0}, std::byte{0}, std::byte{1}};
+    inline constexpr IPv4 BROADCAST_IPV4 = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
+    inline constexpr IPv4 UNSPECIFIED_IPV4 = {};
+
+    inline constexpr IPv6 LOCALHOST_IPV6 = {
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0},
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0},
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0},
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{1}
+    };
+
+    inline constexpr IPv6 UNSPECIFIED_IPV6 = {};
+
     struct IfAddress4 {
         IPv4 ip;
         IPv4 mask;

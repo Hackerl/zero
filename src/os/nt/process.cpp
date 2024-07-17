@@ -16,7 +16,7 @@ constexpr auto ENVIRONMENT_OFFSET = 0x48;
 constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x0290;
 #endif
 
-static const auto queryInformationProcess = reinterpret_cast<decltype(NtQueryInformationProcess) *>(
+static const auto queryInformationProcess = reinterpret_cast<decltype(&NtQueryInformationProcess)>(
     GetProcAddress(GetModuleHandleA("ntdll"), "NtQueryInformationProcess")
 );
 
