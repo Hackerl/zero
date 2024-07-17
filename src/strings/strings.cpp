@@ -133,8 +133,9 @@ std::vector<std::string> zero::strings::split(const std::string_view str, const 
     return tokens;
 }
 
-std::expected<std::string, std::error_code> zero::strings::encode(const std::wstring_view str, const char *encoding) {
-    const auto cd = iconv_open(encoding, "WCHAR_T");
+std::expected<std::string, std::error_code>
+zero::strings::encode(const std::wstring_view str, const std::string &encoding) {
+    const auto cd = iconv_open(encoding.c_str(), "WCHAR_T");
 
     if (cd == reinterpret_cast<iconv_t>(-1))
         return std::unexpected(std::error_code(errno, std::generic_category()));
@@ -162,8 +163,9 @@ std::expected<std::string, std::error_code> zero::strings::encode(const std::wst
     return output;
 }
 
-std::expected<std::wstring, std::error_code> zero::strings::decode(const std::string_view str, const char *encoding) {
-    const auto cd = iconv_open("WCHAR_T", encoding);
+std::expected<std::wstring, std::error_code>
+zero::strings::decode(const std::string_view str, const std::string &encoding) {
+    const auto cd = iconv_open("WCHAR_T", encoding.c_str());
 
     if (cd == reinterpret_cast<iconv_t>(-1))
         return std::unexpected(std::error_code(errno, std::generic_category()));

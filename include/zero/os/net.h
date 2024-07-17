@@ -1,30 +1,27 @@
 #ifndef ZERO_NET_H
 #define ZERO_NET_H
 
+#include <map>
 #include <span>
 #include <array>
-#include <string>
-#include <vector>
 #include <ranges>
-#include <variant>
 #include <expected>
 #include <system_error>
 #include <fmt/std.h>
 #include <fmt/ranges.h>
 
-#if __ANDROID__ && __ANDROID_API__ < 24
+#if defined(__ANDROID__) && __ANDROID_API__ < 24
 #include <zero/error.h>
 #endif
 
 namespace zero::os::net {
-#if __ANDROID__ && __ANDROID_API__ < 24
+#if defined(__ANDROID__) && __ANDROID_API__ < 24
     DEFINE_ERROR_CODE_EX(
         GetInterfacesError,
         "zero::os::net::interfaces",
         API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
     )
 #endif
-    using MAC = std::array<std::byte, 6>;
     using IPv4 = std::array<std::byte, 4>;
     using IPv6 = std::array<std::byte, 16>;
     using IP = std::variant<IPv4, IPv6>;
@@ -44,25 +41,26 @@ namespace zero::os::net {
 
     struct IfAddress4 {
         IPv4 ip;
-        IPv4 mask;
+        int prefix;
     };
 
     struct IfAddress6 {
         IPv6 ip;
+        int prefix;
     };
 
     using Address = std::variant<IfAddress4, IfAddress6>;
 
     struct Interface {
         std::string name;
-        MAC mac;
+        std::vector<std::byte> mac;
         std::vector<Address> addresses;
     };
 
     std::string stringify(std::span<const std::byte, 4> ip);
     std::string stringify(std::span<const std::byte, 16> ip);
 
-    std::expected<std::vector<Interface>, std::error_code> interfaces();
+    std::expected<std::map<std::string, Interface>, std::error_code> interfaces();
 }
 
 template<typename Char>
@@ -74,18 +72,7 @@ struct fmt::formatter<zero::os::net::IfAddress4, Char> {
 
     template<typename FmtContext>
     static auto format(const zero::os::net::IfAddress4 &address, FmtContext &ctx) {
-        int mask = 0;
-
-        for (auto b: address.mask) {
-            while (std::to_integer<int>(b)) {
-                if (std::to_integer<int>(b & std::byte{1}))
-                    ++mask;
-
-                b >>= 1;
-            }
-        }
-
-        return fmt::format_to(ctx.out(), "{}/{}", zero::os::net::stringify(address.ip), std::to_string(mask));
+        return fmt::format_to(ctx.out(), "{}/{}", zero::os::net::stringify(address.ip), address.prefix);
     }
 };
 
@@ -98,7 +85,7 @@ struct fmt::formatter<zero::os::net::IfAddress6, Char> {
 
     template<typename FmtContext>
     static auto format(const zero::os::net::IfAddress6 &address, FmtContext &ctx) {
-        return std::ranges::copy(zero::os::net::stringify(address.ip), ctx.out()).out;
+        return fmt::format_to(ctx.out(), "{}/{}", zero::os::net::stringify(address.ip), address.prefix);
     }
 };
 
@@ -113,9 +100,14 @@ struct fmt::formatter<zero::os::net::Interface, Char> {
     static auto format(const zero::os::net::Interface &i, FmtContext &ctx) {
         return fmt::format_to(
             ctx.out(),
-            R"({{ name: {:?}, mac: "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", addresses: {} }})",
+            R"({{ name: {:?}, mac: "{}", addresses: {} }})",
             i.name,
-            i.mac[0], i.mac[1], i.mac[2], i.mac[3], i.mac[4], i.mac[5],
+            fmt::join(
+                i.mac | std::views::transform([](const auto byte) {
+                    return fmt::format("{:02x}", byte);
+                }),
+                ":"
+            ),
             i.addresses | std::views::transform([](const auto &address) {
                 if (std::holds_alternative<zero::os::net::IfAddress4>(address))
                     return fmt::to_string(std::get<zero::os::net::IfAddress4>(address));
@@ -126,7 +118,7 @@ struct fmt::formatter<zero::os::net::Interface, Char> {
     }
 };
 
-#if __ANDROID__ && __ANDROID_API__ < 24
+#if defined(__ANDROID__) && __ANDROID_API__ < 24
 DECLARE_ERROR_CODE(zero::os::net::GetInterfacesError)
 #endif
 

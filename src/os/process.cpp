@@ -21,7 +21,7 @@
 #include <util.h>
 #else
 #include <pty.h>
-#if __ANDROID__ && __ANDROID_API__ < 23
+#if defined(__ANDROID__) && __ANDROID_API__ < 23
 #include <dlfcn.h>
 #endif
 #endif
@@ -124,9 +124,9 @@ std::expected<zero::os::process::ID, std::error_code> zero::os::process::Process
     return mImpl.ppid().transform([](const DWORD id) {
         return static_cast<ID>(id);
     });
-#elif __APPLE__
+#elif defined(__APPLE__)
     return mImpl.ppid();
-#elif __linux__
+#elif defined(__linux__)
     return mImpl.stat().transform([](const auto stat) {
         return stat.ppid;
     });
@@ -228,11 +228,11 @@ std::expected<zero::os::process::Process, std::error_code> zero::os::process::se
     return nt::process::self().transform([](nt::process::Process &&process) {
         return Process{std::move(process)};
     });
-#elif __APPLE__
+#elif defined(__APPLE__)
     return darwin::process::self().transform([](darwin::process::Process &&process) {
         return Process{std::move(process)};
     });
-#elif __linux__
+#elif defined(__linux__)
     return procfs::process::self().transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
@@ -244,11 +244,11 @@ std::expected<zero::os::process::Process, std::error_code> zero::os::process::op
     return nt::process::open(static_cast<DWORD>(pid)).transform([](nt::process::Process &&process) {
         return Process{std::move(process)};
     });
-#elif __APPLE__
+#elif defined(__APPLE__)
     return darwin::process::open(pid).transform([](darwin::process::Process &&process) {
         return Process{std::move(process)};
     });
-#elif __linux__
+#elif defined(__linux__)
     return procfs::process::open(pid).transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
@@ -262,9 +262,9 @@ std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::proce
             return static_cast<ID>(pid);
         }));
     });
-#elif __APPLE__
+#elif defined(__APPLE__)
     return darwin::process::all();
-#elif __linux__
+#elif defined(__linux__)
     return procfs::process::all();
 #endif
 }
@@ -469,7 +469,7 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
 
 std::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::PseudoConsole::make(const short rows, const short columns) {
-#if __ANDROID__ && __ANDROID_API__ < 23
+#if defined(__ANDROID__) && __ANDROID_API__ < 23
     static const auto openpty = reinterpret_cast<int (*)(int *, int *, char *, const termios *, const winsize *)>(
         dlsym(RTLD_DEFAULT, "openpty")
     );

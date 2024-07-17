@@ -5,22 +5,22 @@
 
 #ifdef _WIN32
 #include "nt/process.h"
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include "darwin/process.h"
-#elif __linux__
+#elif defined(__linux__)
 #include "procfs/process.h"
 #endif
 
-#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
+#if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
 #include <zero/error.h>
 #endif
 
 namespace zero::os::process {
 #ifdef _WIN32
     using ProcessImpl = nt::process::Process;
-#elif __APPLE__
+#elif defined(__APPLE__)
     using ProcessImpl = darwin::process::Process;
-#elif __linux__
+#elif defined(__linux__)
     using ProcessImpl = procfs::process::Process;
 #endif
     using ID = int;
@@ -150,7 +150,7 @@ namespace zero::os::process {
 #else
     class PseudoConsole {
     public:
-#if __ANDROID__ && __ANDROID_API__ < 23
+#if defined(__ANDROID__) && __ANDROID_API__ < 23
         DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::PseudoConsole",
@@ -225,7 +225,7 @@ namespace zero::os::process {
     };
 }
 
-#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
+#if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
 DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
 #endif
 

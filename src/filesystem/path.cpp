@@ -3,7 +3,7 @@
 #ifdef _WIN32
 #include <array>
 #include <windows.h>
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include <array>
 #include <mach-o/dyld.h>
 #include <sys/param.h>
@@ -20,7 +20,7 @@ std::expected<std::filesystem::path, std::error_code> zero::filesystem::getAppli
         return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return buffer.data();
-#elif __linux__
+#elif defined(__linux__)
     std::error_code ec;
     auto path = std::filesystem::read_symlink("/proc/self/exe", ec);
 
@@ -28,7 +28,7 @@ std::expected<std::filesystem::path, std::error_code> zero::filesystem::getAppli
         return std::unexpected(ec);
 
     return path;
-#elif __APPLE__
+#elif defined(__APPLE__)
     std::array<char, MAXPATHLEN> buffer = {};
     std::uint32_t size = buffer.size();
 

@@ -10,7 +10,7 @@
 constexpr auto CURRENT_DIRECTORY_OFFSET = 0x38;
 constexpr auto ENVIRONMENT_OFFSET = 0x80;
 constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x03F0;
-#elif _WIN32
+#elif defined(_WIN32)
 constexpr auto CURRENT_DIRECTORY_OFFSET = 0x24;
 constexpr auto ENVIRONMENT_OFFSET = 0x48;
 constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x0290;

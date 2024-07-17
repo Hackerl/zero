@@ -724,6 +724,7 @@ TEST_CASE("promise", "[async]") {
                 }
             }
 
+#if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION >= 190000
             SECTION("different types") {
                 SECTION("void") {
                     SECTION("resolve") {
@@ -777,7 +778,7 @@ TEST_CASE("promise", "[async]") {
 
                         REQUIRE(result);
                         const auto &any = *result;
-#if _CPPRTTI || __GXX_RTTI
+#if defined(_CPPRTTI) || defined(__GXX_RTTI)
                         REQUIRE(any.type() == typeid(int));
 #endif
                         REQUIRE(std::any_cast<int>(any) == 1);
@@ -806,6 +807,7 @@ TEST_CASE("promise", "[async]") {
                     }
                 }
             }
+#endif
         }
     }
 
@@ -879,6 +881,7 @@ TEST_CASE("promise", "[async]") {
                 }
             }
 
+#if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION >= 190000
             SECTION("different types") {
                 if (const auto result = race(
                     resolve<int, int>(1),
@@ -889,7 +892,7 @@ TEST_CASE("promise", "[async]") {
                     reject<long, int>(-3)
                 ).get(); result) {
                     const auto &any = *result;
-#if _CPPRTTI || __GXX_RTTI
+#if defined(_CPPRTTI) || defined(__GXX_RTTI)
                     REQUIRE(any.type() == typeid(int));
 #endif
                     const int value = std::any_cast<int>(any);
@@ -900,6 +903,7 @@ TEST_CASE("promise", "[async]") {
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
+#endif
         }
     }
 }

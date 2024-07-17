@@ -62,10 +62,10 @@ namespace zero {
             return fmt::format("{}[]", getType<typename T::value_type>());
         }
         else {
-#if _CPPRTTI || __GXX_RTTI
+#if defined(_CPPRTTI) || defined(__GXX_RTTI)
 #ifdef _MSC_VER
             return typeid(T).name();
-#elif __GNUC__
+#elif defined(__GNUC__)
             int status = 0;
 
             const std::unique_ptr<char, decltype(&free)> buffer(

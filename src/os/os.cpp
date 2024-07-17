@@ -7,13 +7,13 @@
 #include <Lmcons.h>
 #include <zero/os/nt/error.h>
 #include <zero/strings/strings.h>
-#elif __linux__
+#elif defined(__linux__)
 #include <pwd.h>
 #include <memory>
 #include <climits>
 #include <unistd.h>
 #include <zero/os/unix/error.h>
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include <pwd.h>
 #include <memory>
 #include <unistd.h>
@@ -31,7 +31,7 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
     }));
 
     return strings::encode(buffer.data());
-#elif __linux__
+#elif defined(__linux__)
     std::array<char, HOST_NAME_MAX + 1> buffer = {};
 
     EXPECT(unix::expected([&] {
@@ -39,7 +39,7 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
     }));
 
     return buffer.data();
-#elif __APPLE__
+#elif defined(__APPLE__)
     std::array<char, MAXHOSTNAMELEN> buffer = {};
 
     EXPECT(unix::expected([&] {
@@ -62,7 +62,7 @@ std::expected<std::string, std::error_code> zero::os::username() {
     }));
 
     return strings::encode(buffer.data());
-#elif __linux__ || __APPLE__
+#elif defined(__linux__) || __APPLE__
     const uid_t uid = geteuid();
     const long max = sysconf(_SC_GETPW_R_SIZE_MAX);
 
