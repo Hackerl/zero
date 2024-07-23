@@ -119,6 +119,8 @@ namespace zero::os::process {
         std::array<std::optional<StdioFile>, 3> mStdio;
     };
 
+    class Command;
+
 #ifdef _WIN32
     class PseudoConsole {
     public:
@@ -128,7 +130,7 @@ namespace zero::os::process {
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
         )
 
-        PseudoConsole(HPCON pc, const std::array<HANDLE, 4> &handles);
+        PseudoConsole(HPCON pc, const std::array<HANDLE, 3> &handles);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
         ~PseudoConsole();
@@ -137,15 +139,13 @@ namespace zero::os::process {
 
         void close();
         std::expected<void, std::error_code> resize(short rows, short columns);
+        std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
-        HANDLE &input();
-        HANDLE &output();
+        HANDLE &fd();
 
     private:
         HPCON mPC;
-        std::array<HANDLE, 4> mHandles;
-
-        friend class Command;
+        std::array<HANDLE, 3> mHandles;
     };
 #else
     class PseudoConsole {
@@ -165,13 +165,13 @@ namespace zero::os::process {
         static std::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
         std::expected<void, std::error_code> resize(short rows, short columns);
+        std::expected<ChildProcess, std::error_code> spawn(const Command &command);
+
         int &fd();
 
     private:
         int mMaster;
         int mSlave;
-
-        friend class Command;
     };
 #endif
 
@@ -212,7 +212,6 @@ namespace zero::os::process {
         [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
 
         [[nodiscard]] std::expected<ChildProcess, std::error_code> spawn() const;
-        [[nodiscard]] std::expected<ChildProcess, std::error_code> spawn(PseudoConsole &pc) const;
         [[nodiscard]] std::expected<Output, std::error_code> output() const;
 
     private:
@@ -222,6 +221,8 @@ namespace zero::os::process {
         std::map<std::string, std::optional<std::string>> mEnviron;
         std::optional<std::filesystem::path> mCurrentDirectory;
         std::array<std::optional<StdioType>, 3> mStdioTypes;
+
+        friend class PseudoConsole;
     };
 }
 

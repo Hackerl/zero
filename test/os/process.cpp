@@ -369,17 +369,14 @@ TEST_CASE("process", "[os]") {
             constexpr auto keyword = "hello"sv;
 
 #ifdef _WIN32
-            auto child = zero::os::process::Command("cmd").spawn(*pc);
+            auto child = pc->spawn(zero::os::process::Command("cmd"));
             REQUIRE(child);
 
-            const auto input = pc->input();
-            REQUIRE(input);
-
-            const auto output = pc->output();
-            REQUIRE(output);
+            const auto fd = pc->fd();
+            REQUIRE(fd);
 
             DWORD num;
-            REQUIRE(WriteFile(input, data.data(), data.size(), &num, nullptr));
+            REQUIRE(WriteFile(fd, data.data(), data.size(), &num, nullptr));
             REQUIRE(num == data.size());
 
             auto future = std::async([=] {
@@ -390,7 +387,7 @@ TEST_CASE("process", "[os]") {
                     std::array<char, 1024> buffer = {};
 
                     if (const auto res = zero::os::nt::expected([&] {
-                        return ReadFile(output, buffer.data(), buffer.size(), &n, nullptr);
+                        return ReadFile(fd, buffer.data(), buffer.size(), &n, nullptr);
                     }); !res) {
                         if (res.error() == std::errc::broken_pipe)
                             break;
@@ -414,7 +411,7 @@ TEST_CASE("process", "[os]") {
             REQUIRE(content);
             REQUIRE(std::ranges::search(*content, keyword));
 #else
-            auto child = zero::os::process::Command("sh").spawn(*pc);
+            auto child = pc->spawn(zero::os::process::Command("sh"));
             REQUIRE(child);
 
             const int fd = pc->fd();
