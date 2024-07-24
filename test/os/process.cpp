@@ -372,11 +372,11 @@ TEST_CASE("process", "[os]") {
             auto child = pc->spawn(zero::os::process::Command("cmd"));
             REQUIRE(child);
 
-            const auto fd = pc->fd();
-            REQUIRE(fd);
+            const auto handle = pc->file();
+            REQUIRE(handle);
 
             DWORD num;
-            REQUIRE(WriteFile(fd, data.data(), data.size(), &num, nullptr));
+            REQUIRE(WriteFile(handle, data.data(), data.size(), &num, nullptr));
             REQUIRE(num == data.size());
 
             auto future = std::async([=] {
@@ -387,7 +387,7 @@ TEST_CASE("process", "[os]") {
                     std::array<char, 1024> buffer = {};
 
                     if (const auto res = zero::os::nt::expected([&] {
-                        return ReadFile(fd, buffer.data(), buffer.size(), &n, nullptr);
+                        return ReadFile(handle, buffer.data(), buffer.size(), &n, nullptr);
                     }); !res) {
                         if (res.error() == std::errc::broken_pipe)
                             break;
@@ -414,7 +414,9 @@ TEST_CASE("process", "[os]") {
             auto child = pc->spawn(zero::os::process::Command("sh"));
             REQUIRE(child);
 
-            const int fd = pc->fd();
+            const int fd = pc->file();
+            REQUIRE(fd >= 0);
+
             auto n = zero::os::unix::ensure([&] {
                 return write(fd, data.data(), data.size());
             });
@@ -449,6 +451,12 @@ TEST_CASE("process", "[os]") {
 #endif
         }
 
+        SECTION("status") {
+            const auto status = zero::os::process::Command("hostname").status();
+            REQUIRE(status);
+            REQUIRE(status->success());
+        }
+
         SECTION("output") {
             SECTION("hostname") {
                 const auto hostname = zero::os::hostname();
@@ -459,8 +467,10 @@ TEST_CASE("process", "[os]") {
                 REQUIRE(output->status.success());
                 REQUIRE(fmt::to_string(output->status) == "exit code(0)");
 
-                const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
-                REQUIRE(zero::strings::trim(result) == *hostname);
+                REQUIRE(zero::strings::trim({
+                    reinterpret_cast<const char *>(output->out.data()),
+                    output->out.size()
+                }) == *hostname);
             }
 
             SECTION("whoami") {
@@ -472,8 +482,10 @@ TEST_CASE("process", "[os]") {
                 REQUIRE(output->status.success());
                 REQUIRE(fmt::to_string(output->status) == "exit code(0)");
 
-                const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
-                REQUIRE(zero::strings::trim(result).find(*username) != std::string::npos);
+                REQUIRE(zero::strings::trim({
+                    reinterpret_cast<const char *>(output->out.data()),
+                    output->out.size()
+                }).find(*username) != std::string::npos);
             }
         }
     }

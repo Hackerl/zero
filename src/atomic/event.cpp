@@ -30,10 +30,10 @@ zero::atomic::Event::~Event() {
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
-    if (const DWORD rc = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
-        rc != WAIT_OBJECT_0) {
+    if (const DWORD result = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
+        result != WAIT_OBJECT_0) {
         return std::unexpected(
-            rc == WAIT_TIMEOUT
+            result == WAIT_TIMEOUT
                 ? make_error_code(Error::WAIT_EVENT_TIMEOUT)
                 : std::error_code(static_cast<int>(GetLastError()), std::system_category())
         );

@@ -487,8 +487,8 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::PseudoConsole::spawn(const Command &command) {
-    assert(mPC);
-    assert(std::ranges::all_of(mHandles, [](const auto &handle) {return handle != nullptr;}));
+    assert(mHandles[1]);
+    assert(mHandles[2]);
 
     STARTUPINFOEXW siEx = {};
     siEx.StartupInfo.cb = sizeof(STARTUPINFOEX);
@@ -593,7 +593,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     return ChildProcess{Process{nt::process::Process{info.hProcess, info.dwProcessId}}, {}};
 }
 
-HANDLE &zero::os::process::PseudoConsole::fd() {
+HANDLE &zero::os::process::PseudoConsole::file() {
     return mHandles[0];
 }
 #else
@@ -671,7 +671,6 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         }
     );
 
-    assert(mMaster >= 0);
     assert(mSlave > STDERR_FILENO);
     assert(std::ranges::all_of(fds, [](const auto &fd) {return fd > STDERR_FILENO;}));
 
@@ -832,7 +831,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     return ChildProcess{*std::move(process), {}};
 }
 
-int &zero::os::process::PseudoConsole::fd() {
+int &zero::os::process::PseudoConsole::file() {
     return mMaster;
 }
 #endif
@@ -897,8 +896,83 @@ zero::os::process::Command::Command(std::filesystem::path path)
     : mInheritEnv(true), mPath(std::move(path)) {
 }
 
+
+const std::filesystem::path &zero::os::process::Command::program() const {
+    return mPath;
+}
+
+const std::vector<std::string> &zero::os::process::Command::args() const {
+    return mArguments;
+}
+
+const std::optional<std::filesystem::path> &zero::os::process::Command::currentDirectory() const {
+    return mCurrentDirectory;
+}
+
+const std::map<std::string, std::optional<std::string>> &zero::os::process::Command::envs() const {
+    return mEnviron;
+}
+
+zero::os::process::Command &zero::os::process::Command::arg(std::string arg) {
+    mArguments.push_back(std::move(arg));
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::args(std::vector<std::string> args) {
+    mArguments = std::move(args);
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::currentDirectory(std::filesystem::path path) {
+    mCurrentDirectory = std::move(path);
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::env(std::string key, std::string value) {
+    mEnviron[std::move(key)] = std::move(value);
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::envs(std::map<std::string, std::string> envs) {
+    for (auto &[key, value]: envs)
+        mEnviron[key] = std::move(value);
+
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::clearEnv() {
+    mInheritEnv = false;
+    mEnviron.clear();
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::removeEnv(const std::string &key) {
+    if (!mInheritEnv) {
+        mEnviron.erase(key);
+        return *this;
+    }
+
+    mEnviron[key] = std::nullopt;
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::stdInput(const StdioType type) {
+    mStdioTypes[0] = type;
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::stdOutput(const StdioType type) {
+    mStdioTypes[1] = type;
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::stdError(const StdioType type) {
+    mStdioTypes[2] = type;
+    return *this;
+}
+
 std::expected<zero::os::process::ChildProcess, std::error_code>
-zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) const {
+zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) const {
 #ifdef _WIN32
     SECURITY_ATTRIBUTES saAttr = {};
 
@@ -1292,82 +1366,12 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) c
 #endif
 }
 
-zero::os::process::Command &zero::os::process::Command::arg(std::string arg) {
-    mArguments.push_back(std::move(arg));
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::args(std::vector<std::string> args) {
-    mArguments = std::move(args);
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::currentDirectory(std::filesystem::path path) {
-    mCurrentDirectory = std::move(path);
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::env(std::string key, std::string value) {
-    mEnviron[std::move(key)] = std::move(value);
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::envs(std::map<std::string, std::string> envs) {
-    for (auto &[key, value]: envs)
-        mEnviron[key] = std::move(value);
-
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::clearEnv() {
-    mInheritEnv = false;
-    mEnviron.clear();
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::removeEnv(const std::string &key) {
-    if (!mInheritEnv) {
-        mEnviron.erase(key);
-        return *this;
-    }
-
-    mEnviron[key] = std::nullopt;
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::stdInput(const StdioType type) {
-    mStdioTypes[0] = type;
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::stdOutput(const StdioType type) {
-    mStdioTypes[1] = type;
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::stdError(const StdioType type) {
-    mStdioTypes[2] = type;
-    return *this;
-}
-
-const std::filesystem::path &zero::os::process::Command::program() const {
-    return mPath;
-}
-
-const std::vector<std::string> &zero::os::process::Command::args() const {
-    return mArguments;
-}
-
-const std::optional<std::filesystem::path> &zero::os::process::Command::currentDirectory() const {
-    return mCurrentDirectory;
-}
-
-const std::map<std::string, std::optional<std::string>> &zero::os::process::Command::envs() const {
-    return mEnviron;
-}
-
 std::expected<zero::os::process::ChildProcess, std::error_code> zero::os::process::Command::spawn() const {
     return spawn({StdioType::INHERIT, StdioType::INHERIT, StdioType::INHERIT});
+}
+
+std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::Command::status() const {
+    return spawn({StdioType::INHERIT, StdioType::INHERIT, StdioType::INHERIT}).and_then(&ChildProcess::wait);
 }
 
 std::expected<zero::os::process::Output, std::error_code>
@@ -1427,10 +1431,20 @@ zero::os::process::Command::output() const {
 
     auto future = std::async(readAll, child->stdError());
     auto out = readAll(child->stdOutput());
-    EXPECT(out);
+
+    if (!out) {
+        std::ignore = child->kill();
+        std::ignore = child->wait();
+        return std::unexpected(out.error());
+    }
 
     auto err = future.get();
-    EXPECT(err);
+
+    if (!err) {
+        std::ignore = child->kill();
+        std::ignore = child->wait();
+        return std::unexpected(err.error());
+    }
 
     const auto status = child->wait();
     EXPECT(status);

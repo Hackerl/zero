@@ -141,7 +141,7 @@ namespace zero::os::process {
         std::expected<void, std::error_code> resize(short rows, short columns);
         std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
-        HANDLE &fd();
+        HANDLE &file();
 
     private:
         HPCON mPC;
@@ -167,7 +167,7 @@ namespace zero::os::process {
         std::expected<void, std::error_code> resize(short rows, short columns);
         std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
-        int &fd();
+        int &file();
 
     private:
         int mMaster;
@@ -191,10 +191,11 @@ namespace zero::os::process {
 
         explicit Command(std::filesystem::path path);
 
-    private:
-        [[nodiscard]] std::expected<ChildProcess, std::error_code> spawn(std::array<StdioType, 3> defaultTypes) const;
+        [[nodiscard]] const std::filesystem::path &program() const;
+        [[nodiscard]] const std::vector<std::string> &args() const;
+        [[nodiscard]] const std::optional<std::filesystem::path> &currentDirectory() const;
+        [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
 
-    public:
         Command &arg(std::string arg);
         Command &args(std::vector<std::string> args);
         Command &currentDirectory(std::filesystem::path path);
@@ -206,12 +207,11 @@ namespace zero::os::process {
         Command &stdOutput(StdioType type);
         Command &stdError(StdioType type);
 
-        [[nodiscard]] const std::filesystem::path &program() const;
-        [[nodiscard]] const std::vector<std::string> &args() const;
-        [[nodiscard]] const std::optional<std::filesystem::path> &currentDirectory() const;
-        [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
+        [[nodiscard]] std::expected<ChildProcess, std::error_code>
+        spawn(const std::array<StdioType, 3> &defaultTypes) const;
 
         [[nodiscard]] std::expected<ChildProcess, std::error_code> spawn() const;
+        [[nodiscard]] std::expected<ExitStatus, std::error_code> status() const;
         [[nodiscard]] std::expected<Output, std::error_code> output() const;
 
     private:
