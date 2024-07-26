@@ -66,8 +66,8 @@ std::expected<std::string, std::error_code> zero::os::username() {
     const uid_t uid = geteuid();
     const long max = sysconf(_SC_GETPW_R_SIZE_MAX);
 
-    std::size_t length = max != -1 ? max : 1024;
-    auto buffer = std::make_unique<char[]>(length);
+    std::size_t size = max != -1 ? max : 1024;
+    auto buffer = std::make_unique<char[]>(size);
 
     passwd pwd = {};
     passwd *ptr = nullptr;
@@ -75,10 +75,10 @@ std::expected<std::string, std::error_code> zero::os::username() {
     std::expected<std::string, std::error_code> result;
 
     while (true) {
-        if (const int n = getpwuid_r(uid, &pwd, buffer.get(), length, &ptr); n != 0) {
+        if (const int n = getpwuid_r(uid, &pwd, buffer.get(), size, &ptr); n != 0) {
             if (n == ERANGE) {
-                length *= 2;
-                buffer = std::make_unique<char[]>(length);
+                size *= 2;
+                buffer = std::make_unique<char[]>(size);
                 continue;
             }
 

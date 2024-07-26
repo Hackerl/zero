@@ -21,18 +21,27 @@ zero::os::darwin::process::Process &zero::os::darwin::process::Process::operator
 }
 
 std::expected<std::vector<char>, std::error_code> zero::os::darwin::process::Process::arguments() const {
-    std::size_t size;
     std::array mib = {CTL_KERN, KERN_PROCARGS2, mPID};
+    std::size_t size = 10240;
 
-    EXPECT(unix::expected([&] {
-        return sysctl(mib.data(), mib.size(), nullptr, &size, nullptr, 0);
-    }));
+    auto buffer = std::make_unique<char[]>(size);
 
-    const auto buffer = std::make_unique<char[]>(size);
+    while (true) {
+        const auto result = unix::expected([&] {
+            return sysctl(mib.data(), mib.size(), buffer.get(), &size, nullptr, 0);
+        });
 
-    EXPECT(unix::expected([&] {
-        return sysctl(mib.data(), mib.size(), buffer.get(), &size, nullptr, 0);
-    }));
+        if (!result) {
+            if (result.error() != std::errc::not_enough_memory)
+                return std::unexpected(result.error());
+
+            size *= 2;
+            buffer = std::make_unique<char[]>(size);
+            continue;
+        }
+
+        break;
+    }
 
     return std::vector<char>{buffer.get(), buffer.get() + size};
 }

@@ -52,22 +52,28 @@ std::string zero::os::net::stringify(const std::span<const std::byte, 16> ip) {
 
 std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> zero::os::net::interfaces() {
 #ifdef _WIN32
-    ULONG length = 0;
+    ULONG size = 10240;
+    auto buffer = std::make_unique<std::byte[]>(size);
 
-    if (GetAdaptersAddresses(AF_UNSPEC, 0, nullptr, nullptr, &length) != ERROR_BUFFER_OVERFLOW)
-        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+    while (true) {
+        const auto result = GetAdaptersAddresses(
+            AF_UNSPEC,
+            0,
+            nullptr,
+            reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.get()),
+            &size
+        );
 
-    assert(length != 0);
-    const auto buffer = std::make_unique<std::byte[]>(length);
+        if (result != ERROR_SUCCESS) {
+            if (result != ERROR_BUFFER_OVERFLOW)
+                return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-    if (GetAdaptersAddresses(
-        AF_UNSPEC,
-        0,
-        nullptr,
-        reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.get()),
-        &length
-    ) != ERROR_SUCCESS)
-        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            buffer = std::make_unique<std::byte[]>(size);
+            continue;
+        }
+
+        break;
+    }
 
     std::expected<std::map<std::string, Interface>, std::error_code> result;
 
