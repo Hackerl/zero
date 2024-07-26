@@ -27,6 +27,10 @@ add_executable(
         $<$<PLATFORM_ID:Linux,Android>:os/procfs/process.cpp>
 )
 
+if (MSVC)
+    target_compile_options(zero_test PRIVATE /utf-8)
+endif ()
+
 target_link_libraries(zero_test PRIVATE zero Catch2::Catch2WithMain)
 
 include(Catch)
