@@ -80,7 +80,7 @@ std::expected<void, std::error_code> zero::FileProvider::rotate() {
     if (ec)
         return std::unexpected(ec);
 
-    const std::string prefix = fmt::format("%s.%d", mName, mPID);
+    const std::string prefix = fmt::format("{}.{}", mName, mPID);
 
     std::list<std::filesystem::path> logs;
     std::ranges::copy(

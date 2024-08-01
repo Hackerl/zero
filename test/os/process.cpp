@@ -397,7 +397,7 @@ TEST_CASE("process", "[os]") {
                     }
 
                     assert(n > 0);
-                    std::copy_n(buffer.data(), n, std::back_inserter(*result));
+                    std::copy_n(buffer.begin(), n, std::back_inserter(*result));
                 }
 
                 return result;
@@ -441,7 +441,7 @@ TEST_CASE("process", "[os]") {
                 if (*n == 0)
                     break;
 
-                std::copy_n(buffer.data(), *n, std::back_inserter(content));
+                std::copy_n(buffer.begin(), *n, std::back_inserter(content));
             }
 
             REQUIRE(std::ranges::search(content, keyword));

@@ -1409,7 +1409,7 @@ zero::os::process::Command::output() const {
             }
 
             assert(n > 0);
-            std::copy_n(buffer.data(), n, std::back_inserter(*result));
+            std::copy_n(buffer.begin(), n, std::back_inserter(*result));
         }
 #else
         while (true) {
@@ -1422,7 +1422,7 @@ zero::os::process::Command::output() const {
             if (*n == 0)
                 break;
 
-            std::copy_n(buffer.data(), *n, std::back_inserter(*result));
+            std::copy_n(buffer.begin(), *n, std::back_inserter(*result));
         }
 #endif
 
