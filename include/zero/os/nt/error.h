@@ -30,7 +30,7 @@ namespace zero::os::nt {
         const auto result = f();
 
         if (!result)
-            return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+            return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
         return {};
     }

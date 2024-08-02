@@ -1,9 +1,9 @@
 #include <zero/strings/strings.h>
 #include <zero/defer.h>
-#include <range/v3/view.hpp>
-#include <range/v3/algorithm.hpp>
 #include <functional>
 #include <iconv.h>
+#include <range/v3/view.hpp>
+#include <range/v3/algorithm.hpp>
 
 bool zero::strings::startsWith(const std::string_view str, const std::string_view prefix) {
     if (str.length() < prefix.length())
@@ -20,7 +20,8 @@ bool zero::strings::endsWith(const std::string_view str, const std::string_view 
 }
 
 std::string zero::strings::trim(const std::string_view str) {
-    auto v = str
+    return ranges::to<std::string>(
+        str
         | ranges::views::drop_while([](const unsigned char c) {
             return std::isspace(c);
         })
@@ -28,43 +29,46 @@ std::string zero::strings::trim(const std::string_view str) {
         | ranges::views::drop_while([](const unsigned char c) {
             return std::isspace(c);
         })
-        | ranges::views::reverse;
-
-    return {v.begin(), v.end()};
+        | ranges::views::reverse
+    );
 }
 
 std::string zero::strings::ltrim(const std::string_view str) {
-    auto v = str
+    return ranges::to<std::string>(
+        str
         | ranges::views::drop_while([](const unsigned char c) {
             return std::isspace(c);
-        });
-
-    return {v.begin(), v.end()};
+        })
+    );
 }
 
 std::string zero::strings::rtrim(const std::string_view str) {
-    auto v = str
+    return ranges::to<std::string>(
+        str
         | ranges::views::reverse
         | ranges::views::drop_while([](const unsigned char c) {
             return std::isspace(c);
         })
-        | ranges::views::reverse;
-
-    return {v.begin(), v.end()};
+        | ranges::views::reverse
+    );
 }
 
 std::string zero::strings::tolower(const std::string_view str) {
-    const auto v = str
-        | ranges::views::transform(::tolower);
-
-    return {v.begin(), v.end()};
+    return ranges::to<std::string>(
+        str
+        | ranges::views::transform([](const unsigned char c) {
+            return std::tolower(c);
+        })
+    );
 }
 
 std::string zero::strings::toupper(const std::string_view str) {
-    const auto v = str
-        | ranges::views::transform(::toupper);
-
-    return {v.begin(), v.end()};
+    return ranges::to<std::string>(
+        str
+        | ranges::views::transform([](const unsigned char c) {
+            return std::toupper(c);
+        })
+    );
 }
 
 std::vector<std::string> zero::strings::split(const std::string_view str, int limit) {
@@ -144,11 +148,12 @@ std::vector<std::string> zero::strings::split(const std::string_view str, const 
     return tokens;
 }
 
-tl::expected<std::string, std::error_code> zero::strings::encode(const std::wstring_view str, const char *encoding) {
-    const auto cd = iconv_open(encoding, "WCHAR_T");
+tl::expected<std::string, std::error_code>
+zero::strings::encode(const std::wstring_view str, const std::string &encoding) {
+    const auto cd = iconv_open(encoding.c_str(), "WCHAR_T");
 
     if (cd == reinterpret_cast<iconv_t>(-1))
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     DEFER(iconv_close(cd));
     tl::expected<std::string, std::error_code> output;
@@ -157,27 +162,28 @@ tl::expected<std::string, std::error_code> zero::strings::encode(const std::wstr
     std::size_t inBytesLeft = str.length() * sizeof(wchar_t);
 
     while (inBytesLeft > 0) {
-        char buffer[1024] = {};
+        std::array<char, 1024> buffer = {};
 
-        auto ptr = buffer;
-        std::size_t outBytesLeft = sizeof(buffer);
+        auto ptr = buffer.data();
+        std::size_t outBytesLeft = buffer.size();
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
-            output = tl::unexpected<std::error_code>(errno, std::generic_category());
+            output = tl::unexpected(std::error_code(errno, std::generic_category()));
             break;
         }
 
-        output->append(buffer, sizeof(buffer) - outBytesLeft);
+        output->append(buffer.data(), buffer.size() - outBytesLeft);
     }
 
     return output;
 }
 
-tl::expected<std::wstring, std::error_code> zero::strings::decode(const std::string_view str, const char *encoding) {
-    const auto cd = iconv_open("WCHAR_T", encoding);
+tl::expected<std::wstring, std::error_code>
+zero::strings::decode(const std::string_view str, const std::string &encoding) {
+    const auto cd = iconv_open("WCHAR_T", encoding.c_str());
 
     if (cd == reinterpret_cast<iconv_t>(-1))
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     DEFER(iconv_close(cd));
     tl::expected<std::wstring, std::error_code> output;
@@ -186,17 +192,17 @@ tl::expected<std::wstring, std::error_code> zero::strings::decode(const std::str
     std::size_t inBytesLeft = str.length();
 
     while (inBytesLeft > 0) {
-        char buffer[1024] = {};
+        std::array<char, 1024> buffer = {};
 
-        auto ptr = buffer;
-        std::size_t outBytesLeft = sizeof(buffer);
+        auto ptr = buffer.data();
+        std::size_t outBytesLeft = buffer.size();
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG) {
-            output = tl::unexpected<std::error_code>(errno, std::generic_category());
+            output = tl::unexpected(std::error_code(errno, std::generic_category()));
             break;
         }
 
-        output->append(reinterpret_cast<wchar_t *>(buffer), (sizeof(buffer) - outBytesLeft) / sizeof(wchar_t));
+        output->append(reinterpret_cast<const wchar_t *>(buffer.data()), (buffer.size() - outBytesLeft) / sizeof(wchar_t));
     }
 
     return output;

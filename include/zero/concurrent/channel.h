@@ -3,10 +3,10 @@
 
 #include <chrono>
 #include <optional>
-#include <tl/expected.hpp>
 #include <condition_variable>
 #include <zero/error.h>
 #include <zero/atomic/circular_buffer.h>
+#include <tl/expected.hpp>
 
 namespace zero::concurrent {
     static constexpr auto SENDER = 0;
@@ -256,11 +256,11 @@ namespace zero::concurrent {
                 if (!index) {
                     std::unique_lock lock(mCore->mutex);
 
-                    if (mCore->closed)
-                        break;
-
                     if (!mCore->buffer.empty())
                         continue;
+
+                    if (mCore->closed)
+                        break;
 
                     mCore->waiting[RECEIVER] = true;
 
@@ -311,7 +311,7 @@ namespace zero::concurrent {
         std::shared_ptr<ChannelCore<T>> mCore;
     };
 
-    DEFINE_ERROR_CONDITION(
+    DEFINE_ERROR_CONDITION_EX(
         ChannelError,
         "zero::concurrent::channel",
         DISCONNECTED,

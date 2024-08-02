@@ -1,59 +1,110 @@
 #include <zero/os/net.h>
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("stringify IP address", "[os]") {
-    zero::os::net::IPv4 ipv4 = {};
-    REQUIRE(zero::os::net::stringify(ipv4) == "0.0.0.0");
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#include <iphlpapi.h>
+#include <zero/strings/strings.h>
+#endif
 
-    ipv4 = {std::byte{127}, std::byte{0}, std::byte{0}, std::byte{1}};
-    REQUIRE(zero::os::net::stringify(ipv4) == "127.0.0.1");
+#include <zero/os/process.h>
 
-    ipv4 = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
-    REQUIRE(zero::os::net::stringify(ipv4) == "255.255.255.255");
+TEST_CASE("network", "[os]") {
+    SECTION("basic components") {
+        REQUIRE(zero::os::net::stringify(zero::os::net::UNSPECIFIED_IPV4) == "0.0.0.0");
+        REQUIRE(zero::os::net::stringify(zero::os::net::LOCALHOST_IPV4) == "127.0.0.1");
+        REQUIRE(zero::os::net::stringify(zero::os::net::BROADCAST_IPV4) == "255.255.255.255");
+        REQUIRE(zero::os::net::stringify(zero::os::net::UNSPECIFIED_IPV6) == "::");
+        REQUIRE(zero::os::net::stringify(zero::os::net::LOCALHOST_IPV6) == "::1");
 
-    REQUIRE(zero::os::net::stringify(zero::os::net::IPv6{}) == "::");
+        REQUIRE(fmt::to_string(zero::os::net::IfAddress4{zero::os::net::LOCALHOST_IPV4, 8}) == "127.0.0.1/8");
+        REQUIRE(fmt::to_string(zero::os::net::IfAddress6{zero::os::net::LOCALHOST_IPV6, 128}) == "::1/128");
 
-    constexpr zero::os::net::IPv6 ipv6 = {
-        std::byte{253}, std::byte{189}, std::byte{220}, std::byte{2},
-        std::byte{0}, std::byte{255}, std::byte{0}, std::byte{1},
-        std::byte{0}, std::byte{9}, std::byte{0}, std::byte{0},
-        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{141}
-    };
+        REQUIRE(
+            fmt::to_string(
+                zero::os::net::Interface{
+                    "lo",
+                    {std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}},
+                    {
+                        zero::os::net::IfAddress4{zero::os::net::LOCALHOST_IPV4, 8},
+                        zero::os::net::IfAddress6{zero::os::net::LOCALHOST_IPV6, 128}
+                    }
+                }
+            ) == R"({ name: "lo", mac: "00:00:00:00:00:00", addresses: ["127.0.0.1/8", "::1/128"] })"
+        );
+    }
 
-    REQUIRE(zero::os::net::stringify(ipv6) == "fdbd:dc02:ff:1:9::8d");
+    SECTION("interfaces") {
+        const auto interfaces = zero::os::net::interfaces();
+        REQUIRE(interfaces);
 
-    ipv4 = {std::byte{192}, std::byte{168}, std::byte{10}, std::byte{1}};
-    zero::os::net::IPv4 mask = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
+#ifdef _WIN32
+        const auto output = zero::os::process::Command("ipconfig").arg("/all").output();
+#elif defined(__linux__)
+        const auto output = zero::os::process::Command("ip").arg("a").output();
+#else
+        const auto output = zero::os::process::Command("ifconfig").output();
+#endif
+        REQUIRE(output);
+        REQUIRE(output->status.success());
 
-    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/32");
+#ifdef _WIN32
+        const auto str = zero::strings::decode(
+            {reinterpret_cast<const char *>(output->out.data()), output->out.size()},
+            fmt::format("CP{}", GetACP())
+        ).and_then([](const auto &s) {
+            return zero::strings::encode(s);
+        });
+        REQUIRE(str);
+        const std::string &result = *str;
+#else
+        const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
+#endif
 
-    mask = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{0}};
-    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/24");
+        for (const auto &[name, mac, addresses]: ranges::views::values(*interfaces)) {
+#ifdef _WIN32
+            NET_LUID id;
+            REQUIRE(ConvertInterfaceNameToLuidA(name.c_str(), &id) == ERROR_SUCCESS);
 
-    mask = {std::byte{255}, std::byte{255}, std::byte{240}, std::byte{0}};
-    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/20");
+            std::array<WCHAR, NDIS_IF_MAX_STRING_SIZE + 1> buffer = {};
+            REQUIRE(ConvertInterfaceLuidToAlias(&id, buffer.data(), buffer.size()) == ERROR_SUCCESS);
 
-    mask = {std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}};
-    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{ipv4, mask}) == "192.168.10.1/0");
+            const auto alias = zero::strings::encode(buffer.data());
+            REQUIRE(alias);
 
-    zero::os::net::Address address = zero::os::net::IfAddress4{ipv4, mask};
-    REQUIRE(fmt::to_string(address) == "variant(192.168.10.1/0)");
+            REQUIRE(result.find(fmt::format("{}:", *alias)) != std::string::npos);
+            REQUIRE(result.find(
+                to_string(
+                    fmt::join(
+                        mac | ranges::views::transform([](const auto byte) {
+                            return fmt::format("{:02X}", byte);
+                        }),
+                        "-"
+                    )
+                )
+            ) != std::string::npos);
+#else
+            REQUIRE(result.find(fmt::format("{}:", name)) != std::string::npos);
+            REQUIRE(result.find(
+                to_string(
+                    fmt::join(
+                        mac | ranges::views::transform([](const auto byte) {
+                            return fmt::format("{:02x}", byte);
+                        }),
+                        ":"
+                    )
+                )
+            ) != std::string::npos);
+#endif
 
-    address = zero::os::net::IfAddress6{ipv6};
-    REQUIRE(fmt::to_string(address) == "variant(fdbd:dc02:ff:1:9::8d)");
+            for (const auto &ip: addresses | ranges::views::transform([](const auto &address) {
+                if (std::holds_alternative<zero::os::net::IfAddress4>(address))
+                    return zero::os::net::stringify(std::get<zero::os::net::IfAddress4>(address).ip);
 
-    zero::os::net::Interface interface = {
-        "lo",
-        {},
-        {zero::os::net::IfAddress4{ipv4, mask}, zero::os::net::IfAddress6{ipv6}}
-    };
-
-    REQUIRE(
-        fmt::to_string(interface) ==
-        R"({ name: "lo", mac: "00:00:00:00:00:00", addresses: ["192.168.10.1/0", "fdbd:dc02:ff:1:9::8d"] })"
-    );
-}
-
-TEST_CASE("fetch network interface", "[os]") {
-    REQUIRE(zero::os::net::interfaces());
+                return zero::os::net::stringify(std::get<zero::os::net::IfAddress6>(address).ip);
+            })) {
+                REQUIRE(result.find(ip) != std::string::npos);
+            }
+        }
+    }
 }

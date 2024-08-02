@@ -12,14 +12,14 @@ TEST_CASE("channel", "[concurrent]") {
     }
 
     SECTION("errors") {
-        auto [sender, recevier] = zero::concurrent::channel<int>(5);
+        auto [sender, receiver] = zero::concurrent::channel<int>(5);
         REQUIRE(sender.capacity() == 5);
         REQUIRE(sender.empty());
         REQUIRE(!sender.full());
         REQUIRE(!sender.closed());
 
         SECTION("try receive") {
-            const auto result = recevier.tryReceive();
+            const auto result = receiver.tryReceive();
             REQUIRE(!result);
             REQUIRE(result.error() == zero::concurrent::TryReceiveError::EMPTY);
         }
@@ -44,7 +44,7 @@ TEST_CASE("channel", "[concurrent]") {
                     REQUIRE(sender.empty());
                     REQUIRE(sender.closed());
 
-                    const auto result = recevier.receive();
+                    const auto result = receiver.receive();
                     REQUIRE(!result);
                     REQUIRE(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
                 }
@@ -57,15 +57,15 @@ TEST_CASE("channel", "[concurrent]") {
                     REQUIRE(sender.size() == 2);
                     REQUIRE(sender.closed());
 
-                    auto result = recevier.receive();
+                    auto result = receiver.receive();
                     REQUIRE(result);
                     REQUIRE(*result == 0);
 
-                    result = recevier.receive();
+                    result = receiver.receive();
                     REQUIRE(result);
                     REQUIRE(*result == 1);
 
-                    result = recevier.receive();
+                    result = receiver.receive();
                     REQUIRE(!result);
                     REQUIRE(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
                 }
@@ -87,7 +87,7 @@ TEST_CASE("channel", "[concurrent]") {
 
         SECTION("receive timeout") {
             using namespace std::chrono_literals;
-            const auto result = recevier.receive(50ms);
+            const auto result = receiver.receive(50ms);
             REQUIRE(!result);
             REQUIRE(result.error() == zero::concurrent::ReceiveError::TIMEOUT);
         }
@@ -109,7 +109,7 @@ TEST_CASE("channel", "[concurrent]") {
     }
 
     SECTION("receiver disconnect") {
-        auto [sender, recevier] = zero::concurrent::channel<int>(5);
+        auto [sender, receiver] = zero::concurrent::channel<int>(5);
         REQUIRE(!sender.closed());
 
         std::thread thread(
@@ -118,7 +118,7 @@ TEST_CASE("channel", "[concurrent]") {
                 assert(result);
                 assert(*result == 0);
             },
-            std::move(recevier)
+            std::move(receiver)
         );
 
         REQUIRE(sender.trySend(0));
@@ -131,8 +131,8 @@ TEST_CASE("channel", "[concurrent]") {
     }
 
     SECTION("sender disconnect") {
-        auto [sender, recevier] = zero::concurrent::channel<int>(5);
-        REQUIRE(!recevier.closed());
+        auto [sender, receiver] = zero::concurrent::channel<int>(5);
+        REQUIRE(!receiver.closed());
 
         std::thread thread(
             [](zero::concurrent::Sender<int> s) {
@@ -142,21 +142,21 @@ TEST_CASE("channel", "[concurrent]") {
             std::move(sender)
         );
 
-        auto result = recevier.receive();
+        auto result = receiver.receive();
         REQUIRE(result);
         REQUIRE(*result == 0);
 
         thread.join();
-        REQUIRE(recevier.closed());
+        REQUIRE(receiver.closed());
 
-        result = recevier.receive();
+        result = receiver.receive();
         REQUIRE(!result);
         REQUIRE(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
     }
 
     SECTION("concurrent") {
-        std::atomic<int> counters[2] = {};
-        auto [sender, recevier] = zero::concurrent::channel<int>(5);
+        std::array<std::atomic<int>, 2> counters = {};
+        auto [sender, receiver] = zero::concurrent::channel<int>(5);
 
         auto produce = [&, &sender = sender] {
             while (true) {
@@ -168,9 +168,9 @@ TEST_CASE("channel", "[concurrent]") {
             }
         };
 
-        auto consume = [&, &recevier = recevier] {
+        auto consume = [&, &receiver = receiver] {
             while (true) {
-                if (const auto result = recevier.receive(); !result) {
+                if (const auto result = receiver.receive(); !result) {
                     assert(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
                     break;
                 }

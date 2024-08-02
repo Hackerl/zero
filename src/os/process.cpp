@@ -20,7 +20,7 @@
 #include <util.h>
 #else
 #include <pty.h>
-#if __ANDROID__ && __ANDROID_API__ < 23
+#if defined(__ANDROID__) && __ANDROID_API__ < 23
 #include <dlfcn.h>
 #endif
 #endif
@@ -30,33 +30,28 @@
 extern char **environ;
 #endif
 
-constexpr auto STDIN_READER = 0;
-constexpr auto STDIN_WRITER = 1;
-constexpr auto STDOUT_READER = 2;
-constexpr auto STDOUT_WRITER = 3;
-constexpr auto STDERR_READER = 4;
-constexpr auto STDERR_WRITER = 5;
+constexpr auto STDIN_R = 0;
+constexpr auto STDIN_W = 1;
+constexpr auto STDOUT_R = 2;
+constexpr auto STDOUT_W = 3;
+constexpr auto STDERR_R = 4;
+constexpr auto STDERR_W = 5;
 
 #ifdef _WIN32
-constexpr auto PTY_MASTER_READER = 0;
-constexpr auto PTY_SLAVE_WRITER = 1;
-constexpr auto PTY_SLAVE_READER = 2;
-constexpr auto PTY_MASTER_WRITER = 3;
-
-static const auto createPseudoConsole = reinterpret_cast<decltype(CreatePseudoConsole) *>(
+static const auto createPseudoConsole = reinterpret_cast<decltype(&CreatePseudoConsole)>(
     GetProcAddress(GetModuleHandleA("kernel32"), "CreatePseudoConsole")
 );
 
-static const auto closePseudoConsole = reinterpret_cast<decltype(ClosePseudoConsole) *>(
+static const auto closePseudoConsole = reinterpret_cast<decltype(&ClosePseudoConsole)>(
     GetProcAddress(GetModuleHandleA("kernel32"), "ClosePseudoConsole")
 );
 
-static const auto resizePseudoConsole = reinterpret_cast<decltype(ResizePseudoConsole) *>(
+static const auto resizePseudoConsole = reinterpret_cast<decltype(&ResizePseudoConsole)>(
     GetProcAddress(GetModuleHandleA("kernel32"), "ResizePseudoConsole")
 );
 #else
-constexpr auto NOTIFY_READER = 6;
-constexpr auto NOTIFY_WRITER = 7;
+constexpr auto NOTIFY_R = 6;
+constexpr auto NOTIFY_W = 7;
 #endif
 
 #ifdef _WIN32
@@ -64,7 +59,7 @@ static std::string quote(const std::string &arg) {
     std::string result;
 
     const char *str = arg.c_str();
-    const bool quote = strchr(str, ' ') != nullptr || strchr(str, '\t') != nullptr || *str == '\0';
+    const bool quote = std::strchr(str, ' ') != nullptr || std::strchr(str, '\t') != nullptr || *str == '\0';
 
     if (quote)
         result.push_back('\"');
@@ -97,6 +92,51 @@ static std::string quote(const std::string &arg) {
 
     return result;
 }
+
+static tl::expected<std::array<HANDLE, 2>, std::error_code>
+createPipe(const bool duplex, SECURITY_ATTRIBUTES *attributes = nullptr) {
+    static std::atomic<std::size_t> number;
+
+    const std::string name = fmt::format(
+        R"(\\?\pipe\zero\{}-{})",
+        GetCurrentProcessId(),
+        number++
+    );
+
+    auto first = CreateNamedPipeA(
+        name.c_str(),
+        (duplex ? PIPE_ACCESS_DUPLEX : PIPE_ACCESS_INBOUND) | FILE_FLAG_OVERLAPPED,
+        PIPE_TYPE_BYTE | PIPE_WAIT,
+        1,
+        65536,
+        65536,
+        0,
+        attributes
+    );
+
+    if (first == INVALID_HANDLE_VALUE)
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+    DEFER(
+        if (first)
+            CloseHandle(first);
+    );
+
+    const auto second = CreateFileA(
+        name.c_str(),
+        (duplex ? GENERIC_READ : 0) | GENERIC_WRITE,
+        0,
+        attributes,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+        nullptr
+    );
+
+    if (second == INVALID_HANDLE_VALUE)
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+    return std::array{std::exchange(first, nullptr), second};
+}
 #endif
 
 zero::os::process::Process::Process(ProcessImpl impl): mImpl(std::move(impl)) {
@@ -123,10 +163,12 @@ tl::expected<zero::os::process::ID, std::error_code> zero::os::process::Process:
     return mImpl.ppid().transform([](const DWORD id) {
         return static_cast<ID>(id);
     });
-#elif __APPLE__
+#elif defined(__APPLE__)
     return mImpl.ppid();
-#elif __linux__
-    return mImpl.stat().transform(&procfs::process::Stat::ppid);
+#elif defined(__linux__)
+    return mImpl.stat().transform([](const auto stat) {
+        return stat.ppid;
+    });
 #endif
 }
 
@@ -225,11 +267,11 @@ tl::expected<zero::os::process::Process, std::error_code> zero::os::process::sel
     return nt::process::self().transform([](nt::process::Process &&process) {
         return Process{std::move(process)};
     });
-#elif __APPLE__
+#elif defined(__APPLE__)
     return darwin::process::self().transform([](darwin::process::Process &&process) {
         return Process{std::move(process)};
     });
-#elif __linux__
+#elif defined(__linux__)
     return procfs::process::self().transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
@@ -241,11 +283,11 @@ tl::expected<zero::os::process::Process, std::error_code> zero::os::process::ope
     return nt::process::open(static_cast<DWORD>(pid)).transform([](nt::process::Process &&process) {
         return Process{std::move(process)};
     });
-#elif __APPLE__
+#elif defined(__APPLE__)
     return darwin::process::open(pid).transform([](darwin::process::Process &&process) {
         return Process{std::move(process)};
     });
-#elif __linux__
+#elif defined(__linux__)
     return procfs::process::open(pid).transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
@@ -255,15 +297,13 @@ tl::expected<zero::os::process::Process, std::error_code> zero::os::process::ope
 tl::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::process::all() {
 #ifdef _WIN32
     return nt::process::all().transform([](const auto &ids) {
-        const auto v = ids | ranges::views::transform([](const DWORD pid) {
+        return ranges::to<std::list<ID>>(ids | ranges::views::transform([](const DWORD pid) {
             return static_cast<ID>(pid);
-        });
-
-        return std::list<ID>{v.begin(), v.end()};
+        }));
     });
-#elif __APPLE__
+#elif defined(__APPLE__)
     return darwin::process::all();
-#elif __linux__
+#elif defined(__linux__)
     return procfs::process::all();
 #endif
 }
@@ -358,7 +398,7 @@ std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::Ch
 }
 
 #ifdef _WIN32
-zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, const std::array<HANDLE, 4> &handles)
+zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, const std::array<HANDLE, 3> &handles)
     : mPC(pc), mHandles(handles) {
 }
 
@@ -391,7 +431,10 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
         return tl::unexpected(Error::API_NOT_AVAILABLE);
 
-    std::array<HANDLE, 4> handles = {};
+    const auto pipes = createPipe(true);
+    EXPECT(pipes);
+
+    std::array<HANDLE, 3> handles = {pipes->at(0), pipes->at(1)};
 
     DEFER(
         for (const auto &handle: handles) {
@@ -403,19 +446,23 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     );
 
     EXPECT(nt::expected([&] {
-        return CreatePipe(handles.data() + PTY_MASTER_READER, handles.data() + PTY_SLAVE_WRITER, nullptr, 0);
-    }));
-
-    EXPECT(nt::expected([&] {
-        return CreatePipe(handles.data() + PTY_SLAVE_READER, handles.data() + PTY_MASTER_WRITER, nullptr, 0);
+        return DuplicateHandle(
+            GetCurrentProcess(),
+            handles[1],
+            GetCurrentProcess(),
+            handles.data() + 2,
+            0,
+            false,
+            DUPLICATE_SAME_ACCESS
+        );
     }));
 
     HPCON hPC;
 
     if (const HRESULT result = createPseudoConsole(
         {columns, rows},
-        handles[PTY_SLAVE_READER],
-        handles[PTY_SLAVE_WRITER],
+        handles[1],
+        handles[2],
         0,
         &hPC
     ); result != S_OK)
@@ -437,12 +484,116 @@ tl::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(con
     return {};
 }
 
-HANDLE &zero::os::process::PseudoConsole::input() {
-    return mHandles[PTY_MASTER_WRITER];
+tl::expected<zero::os::process::ChildProcess, std::error_code>
+zero::os::process::PseudoConsole::spawn(const Command &command) {
+    assert(mHandles[1]);
+    assert(mHandles[2]);
+
+    STARTUPINFOEXW siEx = {};
+    siEx.StartupInfo.cb = sizeof(STARTUPINFOEX);
+    siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+
+    SIZE_T size;
+    InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
+
+    const auto buffer = std::make_unique<std::byte[]>(size);
+    siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
+
+    EXPECT(nt::expected([&] {
+        return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
+    }));
+
+    EXPECT(nt::expected([&] {
+        return UpdateProcThreadAttribute(
+            siEx.lpAttributeList,
+            0,
+            PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+            mPC,
+            sizeof(HPCON),
+            nullptr,
+            nullptr
+        );
+    }));
+
+    std::map<std::string, std::string> envs;
+
+    if (command.mInheritEnv) {
+        const auto ptr = GetEnvironmentStringsW();
+
+        if (!ptr)
+            return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+        DEFER(FreeEnvironmentStringsW(ptr));
+
+        for (LPWCH env = ptr; *env != L'\0'; env += wcslen(env) + 1) {
+            const auto str = strings::encode(env);
+            EXPECT(str);
+
+            auto tokens = strings::split(*str, "=", 1);
+
+            if (tokens.size() != 2)
+                continue;
+
+            if (tokens[0].empty())
+                continue;
+
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
+        }
+    }
+
+    for (const auto &[key, value]: command.mEnviron) {
+        if (!value) {
+            envs.erase(key);
+            continue;
+        }
+
+        envs[key] = *value;
+    }
+
+    auto environment = strings::decode(to_string(fmt::join(
+        envs | ranges::views::transform([](const auto &it) {
+            std::string env = it.first + "=" + it.second;
+            env.push_back('\0');
+            return env;
+        }),
+        ""
+    )));
+    EXPECT(environment);
+
+    std::vector arguments = {command.mPath.string()};
+    ranges::copy(command.mArguments, ranges::back_inserter(arguments));
+
+    auto cmd = strings::decode(to_string(
+        fmt::join(arguments | ranges::views::transform(quote), " ")
+    ));
+    EXPECT(cmd);
+
+    PROCESS_INFORMATION info;
+
+    EXPECT(nt::expected([&] {
+        return CreateProcessW(
+            nullptr,
+            cmd->data(),
+            nullptr,
+            nullptr,
+            false,
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+            environment->data(),
+            command.mCurrentDirectory ? command.mCurrentDirectory->wstring().c_str() : nullptr,
+            &siEx.StartupInfo,
+            &info
+        );
+    }));
+
+    CloseHandle(info.hThread);
+    CloseHandle(std::exchange(mHandles[1], nullptr));
+    CloseHandle(std::exchange(mHandles[2], nullptr));
+
+    return ChildProcess{Process{nt::process::Process{info.hProcess, info.dwProcessId}}, {}};
 }
 
-HANDLE &zero::os::process::PseudoConsole::output() {
-    return mHandles[PTY_MASTER_READER];
+HANDLE &zero::os::process::PseudoConsole::file() {
+    return mHandles[0];
 }
 #else
 zero::os::process::PseudoConsole::PseudoConsole(const int master, const int slave): mMaster(master), mSlave(slave) {
@@ -468,7 +619,7 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
 
 tl::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::PseudoConsole::make(const short rows, const short columns) {
-#if __ANDROID__ && __ANDROID_API__ < 23
+#if defined(__ANDROID__) && __ANDROID_API__ < 23
     static const auto openpty = reinterpret_cast<int (*)(int *, int *, char *, const termios *, const winsize *)>(
         dlsym(RTLD_DEFAULT, "openpty")
     );
@@ -502,7 +653,184 @@ tl::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(con
     return {};
 }
 
-int &zero::os::process::PseudoConsole::fd() {
+tl::expected<zero::os::process::ChildProcess, std::error_code>
+zero::os::process::PseudoConsole::spawn(const Command &command) {
+    std::array<int, 2> fds = {};
+
+    EXPECT(unix::expected([&] {
+        return pipe(fds.data());
+    }));
+
+    DEFER(
+        for (const auto &fd: fds) {
+            if (fd < 0)
+                continue;
+
+            close(fd);
+        }
+    );
+
+    assert(mSlave > STDERR_FILENO);
+    assert(ranges::all_of(fds, [](const auto &fd) {return fd > STDERR_FILENO;}));
+
+    EXPECT(unix::expected([&] {
+        return fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+    }));
+
+    const std::string program = command.mPath.string();
+
+    std::vector arguments = {program};
+    ranges::copy(command.mArguments, ranges::back_inserter(arguments));
+
+    std::map<std::string, std::string> envs;
+
+    if (command.mInheritEnv) {
+        for (char **ptr = environ; *ptr != nullptr; ++ptr) {
+            auto tokens = strings::split(*ptr, "=", 1);
+
+            if (tokens.size() != 2)
+                continue;
+
+            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
+        }
+    }
+
+    for (const auto &[key, value]: command.mEnviron) {
+        if (!value) {
+            envs.erase(key);
+            continue;
+        }
+
+        envs[key] = *value;
+    }
+
+    std::vector<std::string> environment;
+    ranges::transform(envs, ranges::back_inserter(environment), [](const auto &it) {
+        return fmt::format("{}={}", it.first, it.second);
+    });
+
+    const auto argv = std::make_unique<char *[]>(arguments.size() + 1);
+    const auto envp = std::make_unique<char *[]>(environment.size() + 1);
+
+    ranges::transform(arguments, argv.get(), [](auto &str) {
+        return str.data();
+    });
+
+    ranges::transform(environment, envp.get(), [](auto &str) {
+        return str.data();
+    });
+
+    const auto pid = unix::expected([] {
+        return fork();
+    });
+    EXPECT(pid);
+
+    if (*pid == 0) {
+        if (setsid() < 0) {
+            const int error = errno;
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
+            std::abort();
+        }
+
+        if (ioctl(mSlave, TIOCSCTTY, nullptr) < 0) {
+            const int error = errno;
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
+            std::abort();
+        }
+
+        if (dup2(mSlave, STDIN_FILENO) < 0 || dup2(mSlave, STDOUT_FILENO) < 0 || dup2(mSlave, STDERR_FILENO) < 0) {
+            const int error = errno;
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
+            std::abort();
+        }
+
+        const auto max = static_cast<int>(sysconf(_SC_OPEN_MAX));
+
+        for (int i = STDERR_FILENO + 1; i < max; ++i) {
+            if (i == fds[1])
+                continue;
+
+            close(i);
+        }
+
+        if (command.mCurrentDirectory && chdir(command.mCurrentDirectory->string().c_str()) < 0) {
+            const int error = errno;
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
+            std::abort();
+        }
+
+#ifdef __linux__
+        if (execvpe(program.data(), argv.get(), envp.get()) < 0) {
+            const int error = errno;
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
+            std::abort();
+        }
+#else
+        environ = envp.get();
+
+        if (execvp(program.data(), argv.get()) < 0) {
+            const int error = errno;
+            const auto n = unix::ensure([&] {
+                return write(fds[1], &error, sizeof(int));
+            });
+            assert(n);
+            std::abort();
+        }
+#endif
+    }
+
+    close(std::exchange(fds[1], -1));
+
+    int error;
+
+    const auto n = unix::ensure([&] {
+        return read(fds[0], &error, sizeof(int));
+    });
+    assert(n);
+
+    if (*n != 0) {
+        assert(n == sizeof(int));
+        const auto id = unix::ensure([&] {
+            return waitpid(*pid, nullptr, 0);
+        });
+        assert(id);
+        assert(*id == pid);
+        return tl::unexpected(std::error_code(error, std::system_category()));
+    }
+
+    close(std::exchange(mSlave, -1));
+
+    auto process = open(*pid);
+
+    if (!process) {
+        kill(*pid, SIGKILL);
+        const auto id = unix::ensure([&] {
+            return waitpid(*pid, nullptr, 0);
+        });
+        assert(id);
+        assert(*id == *pid);
+        return tl::unexpected(process.error());
+    }
+
+    return ChildProcess{*std::move(process), {}};
+}
+
+int &zero::os::process::PseudoConsole::file() {
     return mMaster;
 }
 #endif
@@ -567,396 +895,21 @@ zero::os::process::Command::Command(std::filesystem::path path)
     : mInheritEnv(true), mPath(std::move(path)) {
 }
 
-tl::expected<zero::os::process::ChildProcess, std::error_code>
-zero::os::process::Command::spawn(const std::array<StdioType, 3> defaultTypes) const {
-#ifdef _WIN32
-    SECURITY_ATTRIBUTES saAttr = {};
 
-    saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
-    saAttr.bInheritHandle = true;
-    saAttr.lpSecurityDescriptor = nullptr;
+const std::filesystem::path &zero::os::process::Command::program() const {
+    return mPath;
+}
 
-    HANDLE handles[6] = {};
+const std::vector<std::string> &zero::os::process::Command::args() const {
+    return mArguments;
+}
 
-    DEFER(
-        for (const auto &handle: handles) {
-            if (!handle)
-                continue;
+const std::optional<std::filesystem::path> &zero::os::process::Command::currentDirectory() const {
+    return mCurrentDirectory;
+}
 
-            CloseHandle(handle);
-        }
-    );
-
-    constexpr std::array stdMapping = {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE};
-    constexpr std::array indexMapping = {0, 3, 5};
-    constexpr std::array<DWORD, 3> accessMapping = {GENERIC_READ, GENERIC_WRITE, GENERIC_WRITE};
-
-    for (int i = 0; i < 3; ++i) {
-        const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
-
-        if (type == StdioType::INHERIT) {
-            const auto handle = GetStdHandle(stdMapping[i]);
-
-            if (!handle)
-                continue;
-
-            EXPECT(nt::expected([&] {
-                return DuplicateHandle(
-                    GetCurrentProcess(),
-                    handle,
-                    GetCurrentProcess(),
-                    handles + indexMapping[i],
-                    0,
-                    true,
-                    DUPLICATE_SAME_ACCESS
-                );
-            }));
-            continue;
-        }
-
-        if (type == StdioType::PIPED) {
-            EXPECT(nt::expected([&] {
-                return CreatePipe(handles + i * 2, handles + i * 2 + 1, &saAttr, 0);
-            }));
-            continue;
-        }
-
-        const auto handle = CreateFileA(
-            R"(\\.\NUL)",
-            accessMapping[i],
-            0,
-            &saAttr,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            nullptr
-        );
-
-        if (handle == INVALID_HANDLE_VALUE)
-            return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
-
-        handles[indexMapping[i]] = handle;
-    }
-
-    STARTUPINFOEXW siEx = {};
-    siEx.StartupInfo.cb = sizeof(STARTUPINFOEX);
-
-    std::vector<HANDLE> inherits;
-
-    if (const auto handle = handles[STDIN_READER]) {
-        siEx.StartupInfo.hStdInput = handle;
-        inherits.push_back(handle);
-    }
-
-    if (const auto handle = handles[STDOUT_WRITER]) {
-        siEx.StartupInfo.hStdOutput = handle;
-        inherits.push_back(handle);
-    }
-
-    if (const auto handle = handles[STDERR_WRITER]) {
-        siEx.StartupInfo.hStdError = handle;
-        inherits.push_back(handle);
-    }
-
-    siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
-
-    SIZE_T size;
-    InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
-
-    const auto buffer = std::make_unique<std::byte[]>(size);
-    siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
-
-    EXPECT(nt::expected([&] {
-        return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
-    }));
-
-    EXPECT(nt::expected([&] {
-        return UpdateProcThreadAttribute(
-            siEx.lpAttributeList,
-            0,
-            PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-            inherits.data(),
-            inherits.size() * sizeof(HANDLE),
-            nullptr,
-            nullptr
-        );
-    }));
-
-    std::map<std::string, std::string> envs;
-
-    if (mInheritEnv) {
-        const auto ptr = GetEnvironmentStringsW();
-
-        if (!ptr)
-            return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
-
-        DEFER(FreeEnvironmentStringsW(ptr));
-
-        for (LPWCH env = ptr; *env != L'\0'; env += wcslen(env) + 1) {
-            const auto str = strings::encode(env);
-            EXPECT(str);
-
-            auto tokens = strings::split(*str, "=", 1);
-
-            if (tokens.size() != 2)
-                continue;
-
-            if (tokens[0].empty())
-                continue;
-
-            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
-        }
-    }
-
-    for (const auto &[key, value]: this->envs()) {
-        if (!value) {
-            envs.erase(key);
-            continue;
-        }
-
-        envs[key] = *value;
-    }
-
-    auto environment = strings::decode(to_string(fmt::join(
-        envs | ranges::views::transform([](const auto &it) {
-            std::string env = it.first + "=" + it.second;
-            env.push_back('\0');
-            return env;
-        }),
-        ""
-    )));
-    EXPECT(environment);
-
-    std::vector arguments = {mPath.string()};
-    ranges::copy(mArguments, ranges::back_inserter(arguments));
-
-    auto cmd = strings::decode(to_string(
-        fmt::join(arguments | ranges::views::transform(quote), " ")
-    ));
-    EXPECT(cmd);
-
-    PROCESS_INFORMATION info;
-
-    EXPECT(nt::expected([&] {
-        return CreateProcessW(
-            nullptr,
-            cmd->data(),
-            nullptr,
-            nullptr,
-            true,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
-            environment->data(),
-            mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
-            &siEx.StartupInfo,
-            &info
-        );
-    }));
-
-    CloseHandle(info.hThread);
-
-    std::array<std::optional<ChildProcess::StdioFile>, 3> stdio;
-
-    if (handles[STDIN_WRITER])
-        stdio[0] = std::exchange(handles[STDIN_WRITER], nullptr);
-
-    if (handles[STDOUT_READER])
-        stdio[1] = std::exchange(handles[STDOUT_READER], nullptr);
-
-    if (handles[STDERR_READER])
-        stdio[2] = std::exchange(handles[STDERR_READER], nullptr);
-
-    return ChildProcess{Process{nt::process::Process{info.hProcess, info.dwProcessId}}, stdio};
-#else
-    int fds[8];
-    ranges::fill(fds, -1);
-
-    DEFER(
-        for (const auto &fd: fds) {
-            if (fd < 0)
-                continue;
-
-            close(fd);
-        }
-    );
-
-    EXPECT(unix::expected([&] {
-        return pipe(fds + NOTIFY_READER);
-    }));
-
-    EXPECT(unix::expected([&] {
-        return fcntl(fds[NOTIFY_WRITER], F_SETFD, FD_CLOEXEC);
-    }));
-
-    constexpr std::array indexMapping = {0, 3, 5};
-    constexpr std::array flagMapping = {O_RDONLY, O_WRONLY, O_WRONLY};
-
-    for (int i = 0; i < 3; ++i) {
-        const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
-
-        if (type == StdioType::INHERIT)
-            continue;
-
-        if (type == StdioType::PIPED) {
-            EXPECT(unix::expected([&] {
-                return pipe(fds + i * 2);
-            }));
-            continue;
-        }
-
-        const auto fd = unix::expected([&] {
-            return ::open("/dev/null", flagMapping[i]);
-        });
-        EXPECT(fd);
-
-        fds[indexMapping[i]] = *fd;
-    }
-
-    assert(ranges::all_of(fds, [](const auto &fd) {return fd == -1 || fd > STDERR_FILENO;}));
-
-    const std::string program = mPath.string();
-
-    std::vector arguments = {program};
-    ranges::copy(mArguments, ranges::back_inserter(arguments));
-
-    std::map<std::string, std::string> envs;
-
-    if (mInheritEnv) {
-        for (char **ptr = environ; *ptr != nullptr; ++ptr) {
-            auto tokens = strings::split(*ptr, "=", 1);
-
-            if (tokens.size() != 2)
-                continue;
-
-            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
-        }
-    }
-
-    for (const auto &[key, value]: this->envs()) {
-        if (!value) {
-            envs.erase(key);
-            continue;
-        }
-
-        envs[key] = *value;
-    }
-
-    std::vector<std::string> environment;
-    ranges::transform(envs, ranges::back_inserter(environment), [](const auto &it) {
-        return fmt::format("{}={}", it.first, it.second);
-    });
-
-    const auto argv = std::make_unique<char *[]>(arguments.size() + 1);
-    const auto envp = std::make_unique<char *[]>(environment.size() + 1);
-
-    ranges::transform(arguments, argv.get(), [](auto &str) {
-        return str.data();
-    });
-
-    ranges::transform(environment, envp.get(), [](auto &str) {
-        return str.data();
-    });
-
-    const auto pid = unix::expected([] {
-        return fork();
-    });
-    EXPECT(pid);
-
-    if (*pid == 0) {
-        if ((fds[STDIN_READER] > 0 && dup2(fds[STDIN_READER], STDIN_FILENO) < 0)
-            || (fds[STDOUT_WRITER] > 0 && dup2(fds[STDOUT_WRITER], STDOUT_FILENO) < 0)
-            || (fds[STDERR_WRITER] > 0 && dup2(fds[STDERR_WRITER], STDERR_FILENO) < 0)) {
-            const int error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[NOTIFY_WRITER], &error, sizeof(int));
-            });
-            assert(n);
-            std::abort();
-        }
-
-        const auto max = static_cast<int>(sysconf(_SC_OPEN_MAX));
-
-        for (int i = STDERR_FILENO + 1; i < max; ++i) {
-            if (i == fds[NOTIFY_WRITER])
-                continue;
-
-            close(i);
-        }
-
-        if (mCurrentDirectory && chdir(mCurrentDirectory->string().c_str()) < 0) {
-            const int error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[NOTIFY_WRITER], &error, sizeof(int));
-            });
-            assert(n);
-            std::abort();
-        }
-
-#ifdef __linux__
-        if (execvpe(program.data(), argv.get(), envp.get()) < 0) {
-            const int error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[NOTIFY_WRITER], &error, sizeof(int));
-            });
-            assert(n);
-            std::abort();
-        }
-#else
-        environ = envp.get();
-
-        if (execvp(program.data(), argv.get()) < 0) {
-            const int error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[NOTIFY_WRITER], &error, sizeof(int));
-            });
-            assert(n);
-            std::abort();
-        }
-#endif
-    }
-
-    close(std::exchange(fds[NOTIFY_WRITER], -1));
-
-    int error;
-
-    const auto n = unix::ensure([&] {
-        return read(fds[NOTIFY_READER], &error, sizeof(int));
-    });
-    assert(n);
-
-    if (*n != 0) {
-        assert(n == sizeof(int));
-        const auto id = unix::ensure([&] {
-            return waitpid(*pid, nullptr, 0);
-        });
-        assert(id);
-        assert(*id == pid);
-        return tl::unexpected<std::error_code>(error, std::system_category());
-    }
-
-    auto process = open(*pid);
-
-    if (!process) {
-        kill(*pid, SIGKILL);
-        const auto id = unix::ensure([&] {
-            return waitpid(*pid, nullptr, 0);
-        });
-        assert(id);
-        assert(*id == pid);
-        return tl::unexpected(process.error());
-    }
-
-    std::array<std::optional<ChildProcess::StdioFile>, 3> stdio;
-
-    if (fds[STDIN_WRITER] >= 0)
-        stdio[0] = std::exchange(fds[STDIN_WRITER], -1);
-
-    if (fds[STDOUT_READER] >= 0)
-        stdio[1] = std::exchange(fds[STDOUT_READER], -1);
-
-    if (fds[STDERR_READER] >= 0)
-        stdio[2] = std::exchange(fds[STDERR_READER], -1);
-
-    return ChildProcess{*std::move(process), stdio};
-#endif
+const std::map<std::string, std::optional<std::string>> &zero::os::process::Command::envs() const {
+    return mEnviron;
 }
 
 zero::os::process::Command &zero::os::process::Command::arg(std::string arg) {
@@ -1017,38 +970,99 @@ zero::os::process::Command &zero::os::process::Command::stdError(const StdioType
     return *this;
 }
 
-const std::filesystem::path &zero::os::process::Command::program() const {
-    return mPath;
-}
-
-const std::vector<std::string> &zero::os::process::Command::args() const {
-    return mArguments;
-}
-
-const std::optional<std::filesystem::path> &zero::os::process::Command::currentDirectory() const {
-    return mCurrentDirectory;
-}
-
-const std::map<std::string, std::optional<std::string>> &zero::os::process::Command::envs() const {
-    return mEnviron;
-}
-
-tl::expected<zero::os::process::ChildProcess, std::error_code> zero::os::process::Command::spawn() const {
-    return spawn({StdioType::INHERIT, StdioType::INHERIT, StdioType::INHERIT});
-}
-
 tl::expected<zero::os::process::ChildProcess, std::error_code>
-zero::os::process::Command::spawn(PseudoConsole &pc) const {
+zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) const {
 #ifdef _WIN32
-    assert(pc.mPC);
-    assert(ranges::all_of(pc.mHandles, [](const auto &handle) {return handle != nullptr;}));
+    SECURITY_ATTRIBUTES saAttr = {};
+
+    saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+    saAttr.bInheritHandle = true;
+    saAttr.lpSecurityDescriptor = nullptr;
+
+    std::array<HANDLE, 6> handles = {};
+
+    DEFER(
+        for (const auto &handle: handles) {
+            if (!handle)
+                continue;
+
+            CloseHandle(handle);
+        }
+    );
+
+    constexpr std::array indexMapping = {STDIN_R, STDOUT_W, STDERR_W};
+    constexpr std::array typeMapping = {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE};
+    constexpr std::array<DWORD, 3> accessMapping = {GENERIC_READ, GENERIC_WRITE, GENERIC_WRITE};
+
+    for (int i = 0; i < 3; ++i) {
+        const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
+
+        if (type == StdioType::INHERIT) {
+            const auto handle = GetStdHandle(typeMapping[i]);
+
+            if (!handle)
+                continue;
+
+            EXPECT(nt::expected([&] {
+                return DuplicateHandle(
+                    GetCurrentProcess(),
+                    handle,
+                    GetCurrentProcess(),
+                    handles.data() + indexMapping[i],
+                    0,
+                    true,
+                    DUPLICATE_SAME_ACCESS
+                );
+            }));
+            continue;
+        }
+
+        if (type == StdioType::PIPED) {
+            const auto pipes = createPipe(false, &saAttr);
+            EXPECT(pipes);
+
+            handles[i * 2] = pipes->at(0);
+            handles[i * 2 + 1] = pipes->at(1);
+            continue;
+        }
+
+        const auto handle = CreateFileA(
+            R"(\\.\NUL)",
+            accessMapping[i],
+            0,
+            &saAttr,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            nullptr
+        );
+
+        if (handle == INVALID_HANDLE_VALUE)
+            return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+        handles[indexMapping[i]] = handle;
+    }
 
     STARTUPINFOEXW siEx = {};
     siEx.StartupInfo.cb = sizeof(STARTUPINFOEX);
 
-    siEx.StartupInfo.hStdInput = nullptr;
-    siEx.StartupInfo.hStdOutput = nullptr;
-    siEx.StartupInfo.hStdError = nullptr;
+    constexpr std::array memberPointers = {
+        &STARTUPINFOW::hStdInput,
+        &STARTUPINFOW::hStdOutput,
+        &STARTUPINFOW::hStdError
+    };
+
+    std::vector<HANDLE> inheritedHandles;
+
+    for (int i = 0; i < 3; ++i) {
+        const auto handle = handles[indexMapping[i]];
+
+        if (!handle)
+            continue;
+
+        siEx.StartupInfo.*memberPointers[i] = handle;
+        inheritedHandles.push_back(handle);
+    }
+
     siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
     SIZE_T size;
@@ -1065,9 +1079,9 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         return UpdateProcThreadAttribute(
             siEx.lpAttributeList,
             0,
-            PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
-            pc.mPC,
-            sizeof(HPCON),
+            PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+            inheritedHandles.data(),
+            inheritedHandles.size() * sizeof(HANDLE),
             nullptr,
             nullptr
         );
@@ -1079,7 +1093,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         const auto ptr = GetEnvironmentStringsW();
 
         if (!ptr)
-            return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+            return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
         DEFER(FreeEnvironmentStringsW(ptr));
 
@@ -1099,7 +1113,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         }
     }
 
-    for (const auto &[key, value]: this->envs()) {
+    for (const auto &[key, value]: mEnviron) {
         if (!value) {
             envs.erase(key);
             continue;
@@ -1134,7 +1148,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
             cmd->data(),
             nullptr,
             nullptr,
-            false,
+            true,
             EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
             environment->data(),
             mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
@@ -1144,12 +1158,21 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     }));
 
     CloseHandle(info.hThread);
-    CloseHandle(std::exchange(pc.mHandles[PTY_SLAVE_READER], nullptr));
-    CloseHandle(std::exchange(pc.mHandles[PTY_SLAVE_WRITER], nullptr));
 
-    return ChildProcess{Process{nt::process::Process{info.hProcess, info.dwProcessId}}, {}};
+    std::array<std::optional<ChildProcess::StdioFile>, 3> stdio;
+
+    if (handles[STDIN_W])
+        stdio[0] = std::exchange(handles[STDIN_W], nullptr);
+
+    if (handles[STDOUT_R])
+        stdio[1] = std::exchange(handles[STDOUT_R], nullptr);
+
+    if (handles[STDERR_R])
+        stdio[2] = std::exchange(handles[STDERR_R], nullptr);
+
+    return ChildProcess{Process{nt::process::Process{info.hProcess, info.dwProcessId}}, stdio};
 #else
-    int fds[2];
+    std::array<int, 8> fds = {};
     ranges::fill(fds, -1);
 
     DEFER(
@@ -1162,16 +1185,38 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     );
 
     EXPECT(unix::expected([&] {
-        return pipe(fds);
+        return pipe(fds.data() + NOTIFY_R);
     }));
-
-    assert(pc.mMaster >= 0);
-    assert(pc.mSlave > STDERR_FILENO);
-    assert(ranges::all_of(fds, [](const auto &fd) {return fd > STDERR_FILENO;}));
 
     EXPECT(unix::expected([&] {
-        return fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+        return fcntl(fds[NOTIFY_W], F_SETFD, FD_CLOEXEC);
     }));
+
+    constexpr std::array indexMapping = {0, 3, 5};
+    constexpr std::array flagMapping = {O_RDONLY, O_WRONLY, O_WRONLY};
+
+    for (int i = 0; i < 3; ++i) {
+        const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
+
+        if (type == StdioType::INHERIT)
+            continue;
+
+        if (type == StdioType::PIPED) {
+            EXPECT(unix::expected([&] {
+                return pipe(fds.data() + i * 2);
+            }));
+            continue;
+        }
+
+        const auto fd = unix::expected([&] {
+            return ::open("/dev/null", flagMapping[i]);
+        });
+        EXPECT(fd);
+
+        fds[indexMapping[i]] = *fd;
+    }
+
+    assert(ranges::all_of(fds, [](const auto &fd) {return fd == -1 || fd > STDERR_FILENO;}));
 
     const std::string program = mPath.string();
 
@@ -1191,7 +1236,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         }
     }
 
-    for (const auto &[key, value]: this->envs()) {
+    for (const auto &[key, value]: mEnviron) {
         if (!value) {
             envs.erase(key);
             continue;
@@ -1222,30 +1267,12 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
     EXPECT(pid);
 
     if (*pid == 0) {
-        if (setsid() < 0) {
+        if ((fds[STDIN_R] > 0 && dup2(fds[STDIN_R], STDIN_FILENO) < 0)
+            || (fds[STDOUT_W] > 0 && dup2(fds[STDOUT_W], STDOUT_FILENO) < 0)
+            || (fds[STDERR_W] > 0 && dup2(fds[STDERR_W], STDERR_FILENO) < 0)) {
             const int error = errno;
             const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(int));
-            });
-            assert(n);
-            std::abort();
-        }
-
-        if (ioctl(pc.mSlave, TIOCSCTTY, nullptr) < 0) {
-            const int error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(int));
-            });
-            assert(n);
-            std::abort();
-        }
-
-        if (dup2(pc.mSlave, STDIN_FILENO) < 0
-            || dup2(pc.mSlave, STDOUT_FILENO) < 0
-            || dup2(pc.mSlave, STDERR_FILENO) < 0) {
-            const int error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(int));
+                return write(fds[NOTIFY_W], &error, sizeof(int));
             });
             assert(n);
             std::abort();
@@ -1254,7 +1281,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         const auto max = static_cast<int>(sysconf(_SC_OPEN_MAX));
 
         for (int i = STDERR_FILENO + 1; i < max; ++i) {
-            if (i == fds[1])
+            if (i == fds[NOTIFY_W])
                 continue;
 
             close(i);
@@ -1263,7 +1290,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         if (mCurrentDirectory && chdir(mCurrentDirectory->string().c_str()) < 0) {
             const int error = errno;
             const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(int));
+                return write(fds[NOTIFY_W], &error, sizeof(int));
             });
             assert(n);
             std::abort();
@@ -1273,7 +1300,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         if (execvpe(program.data(), argv.get(), envp.get()) < 0) {
             const int error = errno;
             const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(int));
+                return write(fds[NOTIFY_W], &error, sizeof(int));
             });
             assert(n);
             std::abort();
@@ -1284,7 +1311,7 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         if (execvp(program.data(), argv.get()) < 0) {
             const int error = errno;
             const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(int));
+                return write(fds[NOTIFY_W], &error, sizeof(int));
             });
             assert(n);
             std::abort();
@@ -1292,12 +1319,12 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
 #endif
     }
 
-    close(std::exchange(fds[1], -1));
+    close(std::exchange(fds[NOTIFY_W], -1));
 
     int error;
 
     const auto n = unix::ensure([&] {
-        return read(fds[0], &error, sizeof(int));
+        return read(fds[NOTIFY_R], &error, sizeof(int));
     });
     assert(n);
 
@@ -1308,10 +1335,8 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
         });
         assert(id);
         assert(*id == pid);
-        return tl::unexpected<std::error_code>(error, std::system_category());
+        return tl::unexpected(std::error_code(error, std::system_category()));
     }
-
-    close(std::exchange(pc.mSlave, -1));
 
     auto process = open(*pid);
 
@@ -1321,12 +1346,31 @@ zero::os::process::Command::spawn(PseudoConsole &pc) const {
             return waitpid(*pid, nullptr, 0);
         });
         assert(id);
-        assert(*id == *pid);
+        assert(*id == pid);
         return tl::unexpected(process.error());
     }
 
-    return ChildProcess{*std::move(process), {}};
+    std::array<std::optional<ChildProcess::StdioFile>, 3> stdio;
+
+    if (fds[STDIN_W] >= 0)
+        stdio[0] = std::exchange(fds[STDIN_W], -1);
+
+    if (fds[STDOUT_R] >= 0)
+        stdio[1] = std::exchange(fds[STDOUT_R], -1);
+
+    if (fds[STDERR_R] >= 0)
+        stdio[2] = std::exchange(fds[STDERR_R], -1);
+
+    return ChildProcess{*std::move(process), stdio};
 #endif
+}
+
+tl::expected<zero::os::process::ChildProcess, std::error_code> zero::os::process::Command::spawn() const {
+    return spawn({StdioType::INHERIT, StdioType::INHERIT, StdioType::INHERIT});
+}
+
+tl::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::Command::status() const {
+    return spawn({StdioType::INHERIT, StdioType::INHERIT, StdioType::INHERIT}).and_then(&ChildProcess::wait);
 }
 
 tl::expected<zero::os::process::Output, std::error_code>
@@ -1351,10 +1395,10 @@ zero::os::process::Command::output() const {
 #ifdef _WIN32
         while (true) {
             DWORD n;
-            std::byte buffer[1024];
+            std::array<std::byte, 1024> buffer = {};
 
             if (const auto res = nt::expected([&] {
-                return ReadFile(*fd, buffer, sizeof(buffer), &n, nullptr);
+                return ReadFile(*fd, buffer.data(), buffer.size(), &n, nullptr);
             }); !res) {
                 if (res.error() == std::errc::broken_pipe)
                     break;
@@ -1364,20 +1408,20 @@ zero::os::process::Command::output() const {
             }
 
             assert(n > 0);
-            std::copy_n(buffer, n, std::back_inserter(*result));
+            std::copy_n(buffer.begin(), n, std::back_inserter(*result));
         }
 #else
         while (true) {
-            std::byte buffer[1024];
+            std::array<std::byte, 1024> buffer = {};
             const auto n = unix::ensure([&] {
-                return read(*fd, buffer, sizeof(buffer));
+                return read(*fd, buffer.data(), buffer.size());
             });
             EXPECT(n);
 
             if (*n == 0)
                 break;
 
-            std::copy_n(buffer, *n, std::back_inserter(*result));
+            std::copy_n(buffer.begin(), *n, std::back_inserter(*result));
         }
 #endif
 
@@ -1386,10 +1430,20 @@ zero::os::process::Command::output() const {
 
     auto future = std::async(readAll, child->stdError());
     auto out = readAll(child->stdOutput());
-    EXPECT(out);
+
+    if (!out) {
+        std::ignore = child->kill();
+        std::ignore = child->wait();
+        return tl::unexpected(out.error());
+    }
 
     auto err = future.get();
-    EXPECT(err);
+
+    if (!err) {
+        std::ignore = child->kill();
+        std::ignore = child->wait();
+        return tl::unexpected(err.error());
+    }
 
     const auto status = child->wait();
     EXPECT(status);

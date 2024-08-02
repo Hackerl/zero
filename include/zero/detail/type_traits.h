@@ -1,9 +1,10 @@
 #ifndef ZERO_TYPE_TRAITS_H
 #define ZERO_TYPE_TRAITS_H
 
+#include <list>
 #include <array>
 #include <tuple>
-#include <functional>
+#include <vector>
 #include <type_traits>
 
 namespace zero::detail {
@@ -35,33 +36,6 @@ namespace zero::detail {
     template<typename F, typename T>
     inline constexpr bool is_applicable_v = is_applicable<F, T>::value;
 
-    template<typename T>
-    struct callable_traits : callable_traits<decltype(&T::operator())> {
-    };
-
-    template<typename T, typename ReturnType, typename... Args>
-    struct callable_traits<ReturnType(T::*)(Args...)> {
-        using result = ReturnType;
-        using arguments = std::tuple<Args...>;
-        using type = std::function<ReturnType(Args...)>;
-    };
-
-    template<typename T, typename ReturnType, typename... Args>
-    struct callable_traits<ReturnType(T::*)(Args...) const> {
-        using result = ReturnType;
-        using arguments = std::tuple<Args...>;
-        using type = std::function<ReturnType(Args...)>;
-    };
-
-    template<typename T>
-    using callable_type_t = typename callable_traits<T>::type;
-
-    template<typename T>
-    using callable_result_t = typename callable_traits<T>::result;
-
-    template<typename T>
-    using callable_arguments_t = typename callable_traits<T>::arguments;
-
     template<std::size_t I, typename... Ts>
     using element_t = std::tuple_element_t<I, std::tuple<Ts...>>;
 
@@ -73,6 +47,83 @@ namespace zero::detail {
 
     template<typename... Ts>
     inline constexpr bool all_same_v = all_same_as_v<first_element_t<Ts...>, Ts...>;
+
+    template<typename F>
+    struct function_traits;
+
+    template<typename R, typename... Args>
+    struct function_traits<R(*)(Args...)> : function_traits<R(Args...)> {
+    };
+
+    template<typename R, typename... Args>
+    struct function_traits<R(Args...)> {
+        using return_type = R;
+
+        static constexpr std::size_t arity = sizeof...(Args);
+
+        template<std::size_t N>
+        struct argument {
+            static_assert(N < arity, "invalid parameter index");
+            using type = element_t<N, Args...>;
+        };
+    };
+
+    template<typename C, typename R, typename... Args>
+    struct function_traits<R(C::*)(Args...)> : function_traits<R(C &, Args...)> {
+    };
+
+    template<typename C, typename R, typename... Args>
+    struct function_traits<R(C::*)(Args...) const> : function_traits<R(C &, Args...)> {
+    };
+
+    template<typename C, typename R, typename... Args>
+    struct function_traits<R(C::*)(Args...) const noexcept> : function_traits<R(C &, Args...)> {
+    };
+
+    template<typename C, typename R>
+    struct function_traits<R(C::*)> : function_traits<R(C &)> {
+    };
+
+    template<typename F>
+    struct function_traits {
+    private:
+        using call_type = function_traits<decltype(&F::operator())>;
+
+    public:
+        using return_type = typename call_type::return_type;
+
+        static constexpr std::size_t arity = call_type::arity - 1;
+
+        template<std::size_t N>
+        struct argument {
+            static_assert(N < arity, "invalid parameter index");
+            using type = typename call_type::template argument<N + 1>::type;
+        };
+    };
+
+    template<typename F>
+    struct function_traits<F &> : function_traits<F> {
+    };
+
+    template<typename F>
+    struct function_traits<F &&> : function_traits<F> {
+    };
+
+    template<typename F, std::size_t N, typename... Ts>
+    struct function_arguments :
+        function_arguments<F, N - 1, typename function_traits<F>::template argument<N>::type, Ts...> {
+    };
+
+    template<typename F, typename... Ts>
+    struct function_arguments<F, 0, Ts...> {
+        using type = std::tuple<typename function_traits<F>::template argument<0>::type, Ts...>;
+    };
+
+    template<typename F>
+    using function_result_t = typename function_traits<F>::return_type;
+
+    template<typename F>
+    using function_arguments_t = typename function_arguments<F, function_traits<F>::arity - 1>::type;
 }
 
 #endif //ZERO_TYPE_TRAITS_H

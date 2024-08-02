@@ -5,22 +5,22 @@
 
 #ifdef _WIN32
 #include "nt/process.h"
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include "darwin/process.h"
-#elif __linux__
+#elif defined(__linux__)
 #include "procfs/process.h"
 #endif
 
-#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
+#if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
 #include <zero/error.h>
 #endif
 
 namespace zero::os::process {
 #ifdef _WIN32
     using ProcessImpl = nt::process::Process;
-#elif __APPLE__
+#elif defined(__APPLE__)
     using ProcessImpl = darwin::process::Process;
-#elif __linux__
+#elif defined(__linux__)
     using ProcessImpl = procfs::process::Process;
 #endif
     using ID = int;
@@ -119,16 +119,18 @@ namespace zero::os::process {
         std::array<std::optional<StdioFile>, 3> mStdio;
     };
 
+    class Command;
+
 #ifdef _WIN32
     class PseudoConsole {
     public:
-        DEFINE_ERROR_CODE_TYPES_EX(
+        DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::PseudoConsole",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
         )
 
-        PseudoConsole(HPCON pc, const std::array<HANDLE, 4> &handles);
+        PseudoConsole(HPCON pc, const std::array<HANDLE, 3> &handles);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
         ~PseudoConsole();
@@ -137,21 +139,19 @@ namespace zero::os::process {
 
         void close();
         tl::expected<void, std::error_code> resize(short rows, short columns);
+        tl::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
-        HANDLE &input();
-        HANDLE &output();
+        HANDLE &file();
 
     private:
         HPCON mPC;
-        std::array<HANDLE, 4> mHandles;
-
-        friend class Command;
+        std::array<HANDLE, 3> mHandles;
     };
 #else
     class PseudoConsole {
     public:
-#if __ANDROID__ && __ANDROID_API__ < 23
-        DEFINE_ERROR_CODE_TYPES_EX(
+#if defined(__ANDROID__) && __ANDROID_API__ < 23
+        DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::PseudoConsole",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
@@ -165,18 +165,14 @@ namespace zero::os::process {
         static tl::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
         tl::expected<void, std::error_code> resize(short rows, short columns);
-        int &fd();
+        tl::expected<ChildProcess, std::error_code> spawn(const Command &command);
+
+        int &file();
 
     private:
         int mMaster;
         int mSlave;
-
-        friend class Command;
     };
-#endif
-
-#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
-    DEFINE_MAKE_ERROR_CODE(PseudoConsole::Error)
 #endif
 
     struct Output {
@@ -195,10 +191,11 @@ namespace zero::os::process {
 
         explicit Command(std::filesystem::path path);
 
-    private:
-        [[nodiscard]] tl::expected<ChildProcess, std::error_code> spawn(std::array<StdioType, 3> defaultTypes) const;
+        [[nodiscard]] const std::filesystem::path &program() const;
+        [[nodiscard]] const std::vector<std::string> &args() const;
+        [[nodiscard]] const std::optional<std::filesystem::path> &currentDirectory() const;
+        [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
 
-    public:
         Command &arg(std::string arg);
         Command &args(std::vector<std::string> args);
         Command &currentDirectory(std::filesystem::path path);
@@ -210,13 +207,11 @@ namespace zero::os::process {
         Command &stdOutput(StdioType type);
         Command &stdError(StdioType type);
 
-        [[nodiscard]] const std::filesystem::path &program() const;
-        [[nodiscard]] const std::vector<std::string> &args() const;
-        [[nodiscard]] const std::optional<std::filesystem::path> &currentDirectory() const;
-        [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
+        [[nodiscard]] tl::expected<ChildProcess, std::error_code>
+        spawn(const std::array<StdioType, 3> &defaultTypes) const;
 
         [[nodiscard]] tl::expected<ChildProcess, std::error_code> spawn() const;
-        [[nodiscard]] tl::expected<ChildProcess, std::error_code> spawn(PseudoConsole &pc) const;
+        [[nodiscard]] tl::expected<ExitStatus, std::error_code> status() const;
         [[nodiscard]] tl::expected<Output, std::error_code> output() const;
 
     private:
@@ -226,10 +221,12 @@ namespace zero::os::process {
         std::map<std::string, std::optional<std::string>> mEnviron;
         std::optional<std::filesystem::path> mCurrentDirectory;
         std::array<std::optional<StdioType>, 3> mStdioTypes;
+
+        friend class PseudoConsole;
     };
 }
 
-#if _WIN32 || (__ANDROID__ && __ANDROID_API__ < 23)
+#if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
 DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
 #endif
 

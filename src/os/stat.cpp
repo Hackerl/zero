@@ -4,7 +4,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <zero/os/nt/error.h>
-#elif __linux__
+#elif defined(__linux__)
 #include <map>
 #include <regex>
 #include <unistd.h>
@@ -13,7 +13,7 @@
 #include <zero/os/procfs/procfs.h>
 #include <zero/filesystem/file.h>
 #include <range/v3/algorithm.hpp>
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include <unistd.h>
 #include <sys/sysctl.h>
 #include <mach/mach.h>
@@ -37,7 +37,7 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 
     time.system = time.system - time.idle;
     return time;
-#elif __linux__
+#elif defined(__linux__)
     const auto content = filesystem::readString("/proc/stat");
     EXPECT(content);
 
@@ -80,7 +80,7 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
         static_cast<double>(*system) / ticks,
         static_cast<double>(*idle) / ticks
     };
-#elif __APPLE__
+#elif defined(__APPLE__)
     host_cpu_load_info_data_t data;
     mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
 
@@ -123,7 +123,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         status.ullAvailPhys,
         static_cast<double>(status.dwMemoryLoad)
     };
-#elif __linux__
+#elif defined(__linux__)
     const auto content = filesystem::readString("/proc/meminfo");
     EXPECT(content);
 
@@ -163,7 +163,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
 
     stat.available = cached + stat.free;
     return stat;
-#elif __APPLE__
+#elif defined(__APPLE__)
     vm_statistics_data_t data;
     mach_msg_type_number_t count = HOST_VM_INFO_COUNT;
 
@@ -179,8 +179,8 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     std::size_t size = sizeof(total);
 
     EXPECT(unix::expected([&] {
-        int mib[2] = {CTL_HW, HW_MEMSIZE};
-        return sysctl(mib, 2, &total, &size, nullptr, 0);
+        std::array mib = {CTL_HW, HW_MEMSIZE};
+        return sysctl(mib.data(), mib.size(), &total, &size, nullptr, 0);
     }));
 
     MemoryStat stat = {};

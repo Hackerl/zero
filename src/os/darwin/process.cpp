@@ -21,18 +21,27 @@ zero::os::darwin::process::Process &zero::os::darwin::process::Process::operator
 }
 
 tl::expected<std::vector<char>, std::error_code> zero::os::darwin::process::Process::arguments() const {
-    std::size_t size;
-    int mib[3] = {CTL_KERN, KERN_PROCARGS2, mPID};
+    std::array mib = {CTL_KERN, KERN_PROCARGS2, mPID};
+    std::size_t size = 10240;
 
-    EXPECT(unix::expected([&] {
-        return sysctl(mib, 3, nullptr, &size, nullptr, 0);
-    }));
+    auto buffer = std::make_unique<char[]>(size);
 
-    const auto buffer = std::make_unique<char[]>(size);
+    while (true) {
+        const auto result = unix::expected([&] {
+            return sysctl(mib.data(), mib.size(), buffer.get(), &size, nullptr, 0);
+        });
 
-    EXPECT(unix::expected([&] {
-        return sysctl(mib, 3, buffer.get(), &size, nullptr, 0);
-    }));
+        if (!result) {
+            if (result.error() != std::errc::not_enough_memory)
+                return tl::unexpected(result.error());
+
+            size *= 2;
+            buffer = std::make_unique<char[]>(size);
+            continue;
+        }
+
+        break;
+    }
 
     return std::vector<char>{buffer.get(), buffer.get() + size};
 }
@@ -45,7 +54,7 @@ tl::expected<pid_t, std::error_code> zero::os::darwin::process::Process::ppid() 
     proc_bsdshortinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDT_SHORTBSDINFO, 0, &info, PROC_PIDT_SHORTBSDINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return static_cast<pid_t>(info.pbsi_ppid);
 }
@@ -54,36 +63,36 @@ tl::expected<std::string, std::error_code> zero::os::darwin::process::Process::c
     proc_bsdshortinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDT_SHORTBSDINFO, 0, &info, PROC_PIDT_SHORTBSDINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return info.pbsi_comm;
 }
 
 tl::expected<std::string, std::error_code> zero::os::darwin::process::Process::name() const {
-    char buffer[2 * MAXCOMLEN] = {};
+    std::array<char, 2 * MAXCOMLEN> buffer = {};
 
-    if (proc_name(mPID, buffer, sizeof(buffer)) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    if (proc_name(mPID, buffer.data(), buffer.size()) < 0)
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
-    return buffer;
+    return buffer.data();
 }
 
 tl::expected<std::filesystem::path, std::error_code> zero::os::darwin::process::Process::cwd() const {
     proc_vnodepathinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDVNODEPATHINFO, 0, &info, PROC_PIDVNODEPATHINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return info.pvi_cdir.vip_path;
 }
 
 tl::expected<std::filesystem::path, std::error_code> zero::os::darwin::process::Process::exe() const {
-    char buffer[PROC_PIDPATHINFO_MAXSIZE] = {};
+    std::array<char, PROC_PIDPATHINFO_MAXSIZE> buffer = {};
 
-    if (proc_pidpath(mPID, buffer, sizeof(buffer)) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+    if (proc_pidpath(mPID, buffer.data(), buffer.size()) <= 0)
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
-    return buffer;
+    return buffer.data();
 }
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::darwin::process::Process::cmdline() const {
@@ -191,7 +200,7 @@ tl::expected<zero::os::darwin::process::CPUTime, std::error_code> zero::os::darw
     proc_taskinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDTASKINFO, 0, &info, PROC_PIDTASKINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     struct mach_timebase_info tb = {};
 
@@ -211,7 +220,7 @@ zero::os::darwin::process::Process::memory() const {
     proc_taskinfo info = {};
 
     if (proc_pidinfo(mPID, PROC_PIDTASKINFO, 0, &info, PROC_PIDTASKINFO_SIZE) <= 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return MemoryStat{
         info.pti_resident_size,
@@ -225,7 +234,7 @@ zero::os::darwin::process::Process::io() const {
     rusage_info_v2 info = {};
 
     if (proc_pid_rusage(mPID, RUSAGE_INFO_V2, reinterpret_cast<rusage_info_t *>(&info)) < 0)
-        return tl::unexpected<std::error_code>(errno, std::system_category());
+        return tl::unexpected(std::error_code(errno, std::system_category()));
 
     return IOStat{
         info.ri_diskio_bytesread,
@@ -262,7 +271,7 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::darwin::process::all()
         const int n = proc_listallpids(buffer.get(), static_cast<int>(size * sizeof(pid_t)));
 
         if (n == -1) {
-            result = tl::unexpected<std::error_code>(errno, std::system_category());
+            result = tl::unexpected(std::error_code(errno, std::system_category()));
             break;
         }
 

@@ -5,8 +5,8 @@
 #include <list>
 #include <vector>
 #include <filesystem>
-#include <tl/expected.hpp>
 #include <zero/error.h>
+#include <tl/expected.hpp>
 
 namespace zero::os::darwin::process {
     struct CPUTime {
@@ -27,7 +27,7 @@ namespace zero::os::darwin::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_TYPES(
+        DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::darwin::process::Process",
             UNEXPECTED_DATA, "unexpected data"
@@ -60,8 +60,6 @@ namespace zero::os::darwin::process {
     private:
         pid_t mPID;
     };
-
-    DEFINE_MAKE_ERROR_CODE(Process::Error)
 
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);

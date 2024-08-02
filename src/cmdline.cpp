@@ -150,7 +150,7 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             continue;
         }
 
-        const char *p = strchr(argv[i], '=');
+        const char *p = std::strchr(argv[i], '=');
         const std::size_t n = p ? p - argv[i] : strlen(argv[i]);
 
         if (n == 2) {

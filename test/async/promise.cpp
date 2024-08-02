@@ -1,5 +1,4 @@
 #include <zero/async/promise.h>
-#include <zero/defer.h>
 #include <zero/concurrent/channel.h>
 #include <catch2/catch_test_macros.hpp>
 #include <cstring>
@@ -46,14 +45,14 @@ private:
     std::list<std::thread> mThreads;
 };
 
-static std::unique_ptr<ThreadPool> pool;
+static ThreadPool pool(THREAD_NUMBER, CHANNEL_CAPACITY);
 
 template<typename T, typename E, typename U>
 zero::async::promise::Future<T, E> reject(U &&error) {
     auto promise = std::make_shared<zero::async::promise::Promise<T, E>>();
     auto future = promise->getFuture();
 
-    pool->post([promise = std::move(promise), error = std::forward<U>(error)] {
+    pool.post([promise = std::move(promise), error = std::forward<U>(error)] {
         std::this_thread::yield();
         promise->reject(error);
     });
@@ -66,7 +65,7 @@ zero::async::promise::Future<T, E> resolve() {
     auto promise = std::make_shared<zero::async::promise::Promise<T, E>>();
     auto future = promise->getFuture();
 
-    pool->post([promise = std::move(promise)] {
+    pool.post([promise = std::move(promise)] {
         std::this_thread::yield();
         promise->resolve();
     });
@@ -79,7 +78,7 @@ zero::async::promise::Future<T, E> resolve(U &&result) {
     auto promise = std::make_shared<zero::async::promise::Promise<T, E>>();
     auto future = promise->getFuture();
 
-    pool->post(
+    pool.post(
         [promise = std::move(promise), result = std::make_shared<std::decay_t<U>>(std::forward<U>(result))] {
             std::this_thread::yield();
             promise->resolve(std::move(*result));
@@ -90,9 +89,6 @@ zero::async::promise::Future<T, E> resolve(U &&result) {
 }
 
 TEST_CASE("promise", "[async]") {
-    pool = std::make_unique<ThreadPool>(THREAD_NUMBER, CHANNEL_CAPACITY);
-    DEFER(pool.reset());
-
     SECTION("basic") {
         using namespace std::chrono_literals;
 
@@ -210,6 +206,23 @@ TEST_CASE("promise", "[async]") {
             }).then([=](const int value) {
                 REQUIRE(*i == 1);
                 REQUIRE(value == 1);
+            });
+
+        zero::async::promise::resolve<std::string, int>("hello world")
+            .then(&std::string::size)
+            .then([](const std::size_t length) {
+                REQUIRE(length == 11);
+            });
+
+        struct People {
+            std::string name;
+            int age{};
+        };
+
+        zero::async::promise::resolve<People, int>(People{"jack", 18})
+            .then(&People::age)
+            .then([](const int age) {
+                REQUIRE(age == 18);
             });
 
         zero::async::promise::chain<std::unique_ptr<char[]>, int>([](auto p) {
@@ -711,6 +724,7 @@ TEST_CASE("promise", "[async]") {
                 }
             }
 
+#if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION >= 190000
             SECTION("different types") {
                 SECTION("void") {
                     SECTION("resolve") {
@@ -764,7 +778,7 @@ TEST_CASE("promise", "[async]") {
 
                         REQUIRE(result);
                         const auto &any = *result;
-#if _CPPRTTI || __GXX_RTTI
+#if defined(_CPPRTTI) || defined(__GXX_RTTI)
                         REQUIRE(any.type() == typeid(int));
 #endif
                         REQUIRE(std::any_cast<int>(any) == 1);
@@ -793,6 +807,7 @@ TEST_CASE("promise", "[async]") {
                     }
                 }
             }
+#endif
         }
     }
 
@@ -866,6 +881,7 @@ TEST_CASE("promise", "[async]") {
                 }
             }
 
+#if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION >= 190000
             SECTION("different types") {
                 if (const auto result = race(
                     resolve<int, int>(1),
@@ -876,7 +892,7 @@ TEST_CASE("promise", "[async]") {
                     reject<long, int>(-3)
                 ).get(); result) {
                     const auto &any = *result;
-#if _CPPRTTI || __GXX_RTTI
+#if defined(_CPPRTTI) || defined(__GXX_RTTI)
                     REQUIRE(any.type() == typeid(int));
 #endif
                     const int value = std::any_cast<int>(any);
@@ -887,6 +903,7 @@ TEST_CASE("promise", "[async]") {
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
+#endif
         }
     }
 }

@@ -39,7 +39,7 @@ namespace zero {
             for (const auto &token: strings::split(input, ",")) {
                 auto value = parseValue<typename T::value_type>(strings::trim(token));
                 EXPECT(value);
-                v.emplace_back(std::any_cast<typename T::value_type>(*std::move(value)));
+                v.push_back(std::move(std::any_cast<typename T::value_type>(*value)));
             }
 
             return v;
@@ -63,13 +63,13 @@ namespace zero {
             return fmt::format("{}[]", getType<typename T::value_type>());
         }
         else {
-#if _CPPRTTI || __GXX_RTTI
+#if defined(_CPPRTTI) || defined(__GXX_RTTI)
 #ifdef _MSC_VER
             return typeid(T).name();
-#elif __GNUC__
+#elif defined(__GNUC__)
             int status = 0;
 
-            const std::unique_ptr<char, decltype(free) *> buffer(
+            const std::unique_ptr<char, decltype(&free)> buffer(
                 abi::__cxa_demangle(
                     typeid(T).name(),
                     nullptr,
@@ -128,7 +128,7 @@ namespace zero {
         }
 
         template<typename T>
-        void addOptional(const char *name, char shortName, const char *desc, std::optional<T> def = std::nullopt) {
+        void addOptional(const char *name, const char shortName, const char *desc, std::optional<T> def = std::nullopt) {
             mOptionals.push_back({
                 name,
                 shortName,

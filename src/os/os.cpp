@@ -1,19 +1,21 @@
 #include <zero/os/os.h>
 #include <zero/expect.h>
+#include <array>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <Lmcons.h>
 #include <zero/os/nt/error.h>
 #include <zero/strings/strings.h>
-#elif __linux__
+#elif defined(__linux__)
 #include <pwd.h>
-#include <unistd.h>
-#include <climits>
 #include <memory>
+#include <climits>
+#include <unistd.h>
 #include <zero/os/unix/error.h>
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include <pwd.h>
+#include <memory>
 #include <unistd.h>
 #include <sys/param.h>
 #include <zero/os/unix/error.h>
@@ -21,30 +23,30 @@
 
 tl::expected<std::string, std::error_code> zero::os::hostname() {
 #ifdef _WIN32
-    WCHAR name[MAX_COMPUTERNAME_LENGTH + 1] = {};
-    DWORD length = ARRAYSIZE(name);
+    std::array<WCHAR, MAX_COMPUTERNAME_LENGTH + 1> buffer = {};
+    DWORD length = buffer.size();
 
     EXPECT(nt::expected([&] {
-        return GetComputerNameW(name, &length);
+        return GetComputerNameW(buffer.data(), &length);
     }));
 
-    return strings::encode(name);
-#elif __linux__
-    char name[HOST_NAME_MAX + 1] = {};
+    return strings::encode(buffer.data());
+#elif defined(__linux__)
+    std::array<char, HOST_NAME_MAX + 1> buffer = {};
 
     EXPECT(unix::expected([&] {
-        return gethostname(name, sizeof(name));
+        return gethostname(buffer.data(), buffer.size());
     }));
 
-    return name;
-#elif __APPLE__
-    char name[MAXHOSTNAMELEN] = {};
+    return buffer.data();
+#elif defined(__APPLE__)
+    std::array<char, MAXHOSTNAMELEN> buffer = {};
 
     EXPECT(unix::expected([&] {
-        return gethostname(name, sizeof(name));
+        return gethostname(buffer.data(), buffer.size());
     }));
 
-    return name;
+    return buffer.data();
 #else
 #error "unsupported platform"
 #endif
@@ -52,20 +54,20 @@ tl::expected<std::string, std::error_code> zero::os::hostname() {
 
 tl::expected<std::string, std::error_code> zero::os::username() {
 #ifdef _WIN32
-    WCHAR name[UNLEN + 1] = {};
-    DWORD length = ARRAYSIZE(name);
+    std::array<WCHAR, UNLEN + 1> buffer = {};
+    DWORD length = buffer.size();
 
     EXPECT(nt::expected([&] {
-        return GetUserNameW(name, &length);
+        return GetUserNameW(buffer.data(), &length);
     }));
 
-    return strings::encode(name);
-#elif __linux__ || __APPLE__
+    return strings::encode(buffer.data());
+#elif defined(__linux__) || __APPLE__
     const uid_t uid = geteuid();
     const long max = sysconf(_SC_GETPW_R_SIZE_MAX);
 
-    std::size_t length = max != -1 ? max : 1024;
-    auto buffer = std::make_unique<char[]>(length);
+    std::size_t size = max != -1 ? max : 1024;
+    auto buffer = std::make_unique<char[]>(size);
 
     passwd pwd = {};
     passwd *ptr = nullptr;
@@ -73,14 +75,14 @@ tl::expected<std::string, std::error_code> zero::os::username() {
     tl::expected<std::string, std::error_code> result;
 
     while (true) {
-        if (const int n = getpwuid_r(uid, &pwd, buffer.get(), length, &ptr); n != 0) {
+        if (const int n = getpwuid_r(uid, &pwd, buffer.get(), size, &ptr); n != 0) {
             if (n == ERANGE) {
-                length *= 2;
-                buffer = std::make_unique<char[]>(length);
+                size *= 2;
+                buffer = std::make_unique<char[]>(size);
                 continue;
             }
 
-            result = tl::unexpected<std::error_code>(n, std::system_category());
+            result = tl::unexpected(std::error_code(n, std::system_category()));
             break;
         }
 

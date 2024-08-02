@@ -5,6 +5,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <range/v3/algorithm.hpp>
 #include <fmt/format.h>
+#include <algorithm>
+#include <utility>
 
 #ifdef _WIN32
 #include <future>
@@ -314,10 +316,10 @@ TEST_CASE("process", "[os]") {
             REQUIRE(n == data.size());
             CloseHandle(*input);
 
-            char buffer[64] = {};
-            REQUIRE(ReadFile(*output, buffer, sizeof(buffer), &n, nullptr));
+            std::array<char, 64> buffer = {};
+            REQUIRE(ReadFile(*output, buffer.data(), buffer.size(), &n, nullptr));
             REQUIRE(n >= data.size());
-            REQUIRE(data == zero::strings::trim(buffer));
+            REQUIRE(data == zero::strings::trim(buffer.data()));
             CloseHandle(*output);
 
             const auto result = child->wait();
@@ -344,13 +346,13 @@ TEST_CASE("process", "[os]") {
             REQUIRE(*n == data.size());
             close(*input);
 
-            char buffer[64] = {};
+            std::array<char, 64> buffer = {};
             n = zero::os::unix::ensure([&] {
-                return read(*output, buffer, sizeof(buffer));
+                return read(*output, buffer.data(), buffer.size());
             });
             REQUIRE(n);
             REQUIRE(*n == data.size());
-            REQUIRE(data == buffer);
+            REQUIRE(data == buffer.data());
             close(*output);
 
             const auto result = child->wait();
@@ -368,17 +370,14 @@ TEST_CASE("process", "[os]") {
             constexpr auto keyword = "hello"sv;
 
 #ifdef _WIN32
-            auto child = zero::os::process::Command("cmd").spawn(*pc);
+            auto child = pc->spawn(zero::os::process::Command("cmd"));
             REQUIRE(child);
 
-            const auto input = pc->input();
-            REQUIRE(input);
-
-            const auto output = pc->output();
-            REQUIRE(output);
+            const auto handle = pc->file();
+            REQUIRE(handle);
 
             DWORD num;
-            REQUIRE(WriteFile(input, data.data(), data.size(), &num, nullptr));
+            REQUIRE(WriteFile(handle, data.data(), data.size(), &num, nullptr));
             REQUIRE(num == data.size());
 
             auto future = std::async([=] {
@@ -386,13 +385,11 @@ TEST_CASE("process", "[os]") {
 
                 while (true) {
                     DWORD n;
-                    char buffer[1024];
+                    std::array<char, 1024> buffer = {};
 
-                    const auto res = zero::os::nt::expected([&] {
-                        return ReadFile(output, buffer, sizeof(buffer), &n, nullptr);
-                    });
-
-                    if (!res) {
+                    if (const auto res = zero::os::nt::expected([&] {
+                        return ReadFile(handle, buffer.data(), buffer.size(), &n, nullptr);
+                    }); !res) {
                         if (res.error() == std::errc::broken_pipe)
                             break;
 
@@ -401,7 +398,7 @@ TEST_CASE("process", "[os]") {
                     }
 
                     assert(n > 0);
-                    std::copy_n(buffer, n, std::back_inserter(*result));
+                    std::copy_n(buffer.begin(), n, std::back_inserter(*result));
                 }
 
                 return result;
@@ -415,10 +412,12 @@ TEST_CASE("process", "[os]") {
             REQUIRE(content);
             REQUIRE(ranges::search(*content, keyword));
 #else
-            auto child = zero::os::process::Command("sh").spawn(*pc);
+            auto child = pc->spawn(zero::os::process::Command("sh"));
             REQUIRE(child);
 
-            const int fd = pc->fd();
+            const int fd = pc->file();
+            REQUIRE(fd >= 0);
+
             auto n = zero::os::unix::ensure([&] {
                 return write(fd, data.data(), data.size());
             });
@@ -428,9 +427,9 @@ TEST_CASE("process", "[os]") {
             std::vector<char> content;
 
             while (true) {
-                char buffer[1024];
+                std::array<char, 1024> buffer = {};
                 n = zero::os::unix::ensure([&] {
-                    return read(fd, buffer, sizeof(buffer));
+                    return read(fd, buffer.data(), buffer.size());
                 });
 
                 if (!n) {
@@ -443,7 +442,7 @@ TEST_CASE("process", "[os]") {
                 if (*n == 0)
                     break;
 
-                std::copy_n(buffer, *n, std::back_inserter(content));
+                std::copy_n(buffer.begin(), *n, std::back_inserter(content));
             }
 
             REQUIRE(ranges::search(content, keyword));
@@ -451,6 +450,12 @@ TEST_CASE("process", "[os]") {
             const auto result = child->wait();
             REQUIRE(result);
 #endif
+        }
+
+        SECTION("status") {
+            const auto status = zero::os::process::Command("hostname").status();
+            REQUIRE(status);
+            REQUIRE(status->success());
         }
 
         SECTION("output") {
@@ -463,8 +468,10 @@ TEST_CASE("process", "[os]") {
                 REQUIRE(output->status.success());
                 REQUIRE(fmt::to_string(output->status) == "exit code(0)");
 
-                const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
-                REQUIRE(zero::strings::trim(result) == *hostname);
+                REQUIRE(zero::strings::trim({
+                    reinterpret_cast<const char *>(output->out.data()),
+                    output->out.size()
+                }) == *hostname);
             }
 
             SECTION("whoami") {
@@ -476,8 +483,10 @@ TEST_CASE("process", "[os]") {
                 REQUIRE(output->status.success());
                 REQUIRE(fmt::to_string(output->status) == "exit code(0)");
 
-                const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
-                REQUIRE(zero::strings::trim(result).find(*username) != std::string::npos);
+                REQUIRE(zero::strings::trim({
+                    reinterpret_cast<const char *>(output->out.data()),
+                    output->out.size()
+                }).find(*username) != std::string::npos);
             }
         }
     }

@@ -25,12 +25,12 @@ add_library(
         src/os/net.cpp
         src/os/stat.cpp
         src/os/process.cpp
-        src/strings/strings.cpp
         src/atomic/event.cpp
+        src/encoding/hex.cpp
+        src/encoding/base64.cpp
+        src/strings/strings.cpp
         src/filesystem/path.cpp
         src/filesystem/file.cpp
-        src/encoding/base64.cpp
-        src/encoding/hex.cpp
         $<$<PLATFORM_ID:Windows>:src/os/nt/process.cpp>
         $<$<PLATFORM_ID:Darwin>:src/os/darwin/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:src/os/procfs/process.cpp>

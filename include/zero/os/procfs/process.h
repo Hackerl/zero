@@ -3,12 +3,13 @@
 
 #include <map>
 #include <list>
+#include <array>
 #include <vector>
 #include <optional>
 #include <filesystem>
-#include <tl/expected.hpp>
 #include <sys/types.h>
 #include <zero/error.h>
+#include <tl/expected.hpp>
 
 namespace zero::os::procfs::process {
     enum MemoryPermission {
@@ -103,8 +104,8 @@ namespace zero::os::procfs::process {
         pid_t pid;
         pid_t ppid;
         pid_t tracerPID;
-        uid_t uid[4];
-        pid_t gid[4];
+        std::array<uid_t, 4> uid;
+        std::array<pid_t, 4> gid;
         int fdSize;
         std::vector<pid_t> groups;
         std::optional<pid_t> nstgid;
@@ -129,7 +130,7 @@ namespace zero::os::procfs::process {
         std::optional<unsigned long> vmSwap;
         std::optional<unsigned long> hugeTLBPages;
         int threads;
-        int sigQ[2];
+        std::array<int, 2> sigQ;
         unsigned long sigPnd;
         unsigned long shdPnd;
         unsigned long sigBlk;
@@ -165,7 +166,7 @@ namespace zero::os::procfs::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_TYPES(
+        DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::procfs::process::Process",
             MAYBE_ZOMBIE_PROCESS, "maybe zombie process"
@@ -199,8 +200,6 @@ namespace zero::os::procfs::process {
         int mFD;
         pid_t mPID;
     };
-
-    DEFINE_MAKE_ERROR_CODE(Process::Error)
 
     tl::expected<Process, std::error_code> self();
     tl::expected<Process, std::error_code> open(pid_t pid);

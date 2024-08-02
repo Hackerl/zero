@@ -15,7 +15,7 @@
         auto &&_result = __VA_ARGS__;                               \
                                                                     \
         if (!_result)                                               \
-            return tl::unexpected(std::move(_result).error());      \
+            return tl::unexpected(std::move(_result).error());     \
                                                                     \
         *std::move(_result);                                        \
     })
@@ -27,7 +27,7 @@
         auto &&_result = __VA_ARGS__;                               \
                                                                     \
         if (!_result)                                               \
-            co_return tl::unexpected(std::move(_result).error());   \
+            co_return tl::unexpected(std::move(_result).error());  \
                                                                     \
         *std::move(_result);                                        \
     })

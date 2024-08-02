@@ -6,7 +6,7 @@
 #include <syscall.h>
 #include <linux/futex.h>
 #include <zero/os/unix/error.h>
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include <zero/os/unix/error.h>
 
 #define ULF_WAKE_ALL 0x00000100
@@ -30,10 +30,10 @@ zero::atomic::Event::~Event() {
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
-    if (const DWORD rc = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
-        rc != WAIT_OBJECT_0) {
+    if (const DWORD result = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
+        result != WAIT_OBJECT_0) {
         return tl::unexpected(
-            rc == WAIT_TIMEOUT
+            result == WAIT_TIMEOUT
                 ? make_error_code(Error::WAIT_EVENT_TIMEOUT)
                 : std::error_code(static_cast<int>(GetLastError()), std::system_category())
         );
@@ -85,7 +85,7 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optiona
             result = tl::unexpected(res.error());
             break;
         }
-#elif __APPLE__
+#elif defined(__APPLE__)
         if (const auto res = os::unix::ensure([&] {
             return __ulock_wait(
                 UL_COMPARE_AND_WAIT,
@@ -109,7 +109,7 @@ void zero::atomic::Event::set() {
     if (Value expected = 0; mState.compare_exchange_strong(expected, 1)) {
 #ifdef __linux__
         syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
-#elif __APPLE__
+#elif defined(__APPLE__)
         __ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, &mState, 0);
 #else
 #error "unsupported platform"

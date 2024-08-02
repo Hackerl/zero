@@ -3,9 +3,9 @@
 #include <unistd.h>
 
 TEST_CASE("unix error", "[unix]") {
-    char buffer[1024];
+    std::array<char, 1024> buffer = {};
     const auto result = zero::os::unix::expected([&] {
-        return read(-1, buffer, sizeof(buffer));
+        return read(-1, buffer.data(), buffer.size());
     });
     REQUIRE(!result);
     REQUIRE(result.error() == std::errc::bad_file_descriptor);

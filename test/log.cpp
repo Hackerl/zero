@@ -29,8 +29,8 @@ public:
         return {};
     }
 
-    tl::expected<void, std::error_code> write(const zero::LogMessage &message) override {
-        if (message.content == "hello world")
+    tl::expected<void, std::error_code> write(const zero::LogRecord &record) override {
+        if (record.content == "hello world")
             mBitset->set(1);
 
         return {};

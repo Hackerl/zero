@@ -21,8 +21,8 @@ namespace zero::strings {
     std::vector<std::string> split(std::string_view str, int limit = 0);
     std::vector<std::string> split(std::string_view str, std::string_view delimiter, int limit = 0);
 
-    tl::expected<std::string, std::error_code> encode(std::wstring_view str, const char *encoding = "UTF-8");
-    tl::expected<std::wstring, std::error_code> decode(std::string_view str, const char *encoding = "UTF-8");
+    tl::expected<std::string, std::error_code> encode(std::wstring_view str, const std::string &encoding = "UTF-8");
+    tl::expected<std::wstring, std::error_code> decode(std::string_view str, const std::string &encoding = "UTF-8");
 
     template<typename T>
     tl::expected<T, std::error_code> toNumber(const std::string_view str, const int base = 10) {

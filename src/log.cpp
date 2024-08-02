@@ -21,16 +21,16 @@ tl::expected<void, std::error_code> zero::ConsoleProvider::rotate() {
 
 tl::expected<void, std::error_code> zero::ConsoleProvider::flush() {
     if (fflush(stderr) != 0)
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
 
-tl::expected<void, std::error_code> zero::ConsoleProvider::write(const LogMessage &message) {
-    const std::string msg = fmt::format("{}\n", message);
+tl::expected<void, std::error_code> zero::ConsoleProvider::write(const LogRecord &record) {
+    const std::string message = fmt::format("{}\n", record);
 
-    if (fwrite(msg.data(), 1, msg.length(), stderr) != msg.length())
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+    if (fwrite(message.data(), 1, message.length(), stderr) != message.length())
+        return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
@@ -60,7 +60,7 @@ tl::expected<void, std::error_code> zero::FileProvider::init() {
     mStream.open(mDirectory / name);
 
     if (!mStream.is_open())
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
@@ -79,7 +79,7 @@ tl::expected<void, std::error_code> zero::FileProvider::rotate() {
     if (ec)
         return tl::unexpected(ec);
 
-    const std::string prefix = fmt::format("%s.%d", mName, mPID);
+    const std::string prefix = fmt::format("{}.{}", mName, mPID);
 
     std::list<std::filesystem::path> logs;
     ranges::copy(
@@ -100,46 +100,44 @@ tl::expected<void, std::error_code> zero::FileProvider::rotate() {
             return std::filesystem::remove(path, ec);
         }
     ))
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     return init();
 }
 
 tl::expected<void, std::error_code> zero::FileProvider::flush() {
     if (!mStream.flush().good())
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+        return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
 
-tl::expected<void, std::error_code> zero::FileProvider::write(const LogMessage &message) {
-    const std::string msg = fmt::format("{}\n", message);
+tl::expected<void, std::error_code> zero::FileProvider::write(const LogRecord &record) {
+    const std::string message = fmt::format("{}\n", record);
 
-    if (!mStream.write(msg.c_str(), static_cast<std::streamsize>(msg.length())))
-        return tl::unexpected<std::error_code>(errno, std::generic_category());
+    if (!mStream.write(message.c_str(), static_cast<std::streamsize>(message.length())))
+        return tl::unexpected(std::error_code(errno, std::generic_category()));
 
-    mPosition += msg.length();
+    mPosition += message.length();
     return {};
 }
 
-zero::Logger::Logger() : mChannel(concurrent::channel<LogMessage>(LOGGER_BUFFER_SIZE)) {
+zero::Logger::Logger() : mChannel(concurrent::channel<LogRecord>(LOGGER_BUFFER_SIZE)) {
 }
 
 zero::Logger::~Logger() {
     mChannel.first.close();
-
-    if (mThread.joinable())
-        mThread.join();
+    mThread.join();
 }
 
 void zero::Logger::consume() {
-    auto &recevier = mChannel.second;
+    auto &receiver = mChannel.second;
 
     while (true) {
-        tl::expected<LogMessage, std::error_code> message = recevier.tryReceive();
+        tl::expected<LogRecord, std::error_code> record = receiver.tryReceive();
 
-        if (!message) {
-            if (message.error() == concurrent::TryReceiveError::DISCONNECTED)
+        if (!record) {
+            if (record.error() == concurrent::TryReceiveError::DISCONNECTED)
                 break;
 
             std::list<std::chrono::milliseconds> durations;
@@ -171,11 +169,11 @@ void zero::Logger::consume() {
             }
 
             if (durations.empty())
-                message = recevier.receive();
+                record = receiver.receive();
             else
-                message = recevier.receive(*ranges::min_element(durations));
+                record = receiver.receive(*ranges::min_element(durations));
 
-            if (!message)
+            if (!record)
                 continue;
         }
 
@@ -185,8 +183,8 @@ void zero::Logger::consume() {
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (message->level <= (std::max)(it->level, mMinLogLevel.value_or(LogLevel::ERROR_LEVEL))) {
-                if (!it->provider->write(*message) || !it->provider->rotate()) {
+            if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(LogLevel::ERROR_LEVEL))) {
+                if (!it->provider->write(*record) || !it->provider->rotate()) {
                     it = mConfigs.erase(it);
                     continue;
                 }
@@ -219,19 +217,20 @@ void zero::Logger::addProvider(
     std::call_once(mOnceFlag, [=] {
         const auto getEnv = [](const char *name) -> std::optional<int> {
 #ifdef _WIN32
-            char env[64] = {};
+            std::array<char, 64> env = {};
 
-            if (const DWORD n = GetEnvironmentVariableA(name, env, sizeof(env)); n == 0 || n >= sizeof(env))
+            if (const DWORD n = GetEnvironmentVariableA(name, env.data(), env.size()); n == 0 || n >= env.size())
                 return std::nullopt;
+
+            const auto result = strings::toNumber<int>(env.data());
 #else
             const char *env = getenv(name);
 
             if (!env)
                 return std::nullopt;
-#endif
 
             const auto result = strings::toNumber<int>(env);
-
+#endif
             if (!result)
                 return std::nullopt;
 

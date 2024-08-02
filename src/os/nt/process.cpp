@@ -10,13 +10,13 @@
 constexpr auto CURRENT_DIRECTORY_OFFSET = 0x38;
 constexpr auto ENVIRONMENT_OFFSET = 0x80;
 constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x03F0;
-#elif _WIN32
+#elif defined(_WIN32)
 constexpr auto CURRENT_DIRECTORY_OFFSET = 0x24;
 constexpr auto ENVIRONMENT_OFFSET = 0x48;
 constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x0290;
 #endif
 
-static const auto queryInformationProcess = reinterpret_cast<decltype(NtQueryInformationProcess) *>(
+static const auto queryInformationProcess = reinterpret_cast<decltype(&NtQueryInformationProcess)>(
     GetProcAddress(GetModuleHandleA("ntdll"), "NtQueryInformationProcess")
 );
 
@@ -45,7 +45,7 @@ zero::os::nt::process::Process::from(const HANDLE handle) {
     const DWORD pid = GetProcessId(handle);
 
     if (pid == 0)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return Process{handle, pid};
 }
@@ -105,11 +105,7 @@ tl::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() cons
         ));
     }));
 
-#ifdef _WIN64
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
-#else
-    return reinterpret_cast<std::uintptr_t>(info.Reserved3);
-#endif
 }
 
 tl::expected<std::string, std::error_code> zero::os::nt::process::Process::name() const {
@@ -159,14 +155,14 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Proc
 }
 
 tl::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::exe() const {
-    WCHAR buffer[MAX_PATH] = {};
-    DWORD size = ARRAYSIZE(buffer);
+    std::array<WCHAR, MAX_PATH> buffer = {};
+    DWORD size = buffer.size();
 
     EXPECT(expected([&] {
-        return QueryFullProcessImageNameW(mHandle, 0, buffer, &size);
+        return QueryFullProcessImageNameW(mHandle, 0, buffer.data(), &size);
     }));
 
-    return buffer;
+    return buffer.data();
 }
 
 tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {
@@ -204,7 +200,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::P
     LPWSTR *args = CommandLineToArgvW(buffer.get(), &num);
 
     if (!args)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     DEFER(LocalFree(args));
     tl::expected<std::vector<std::string>, std::error_code> result;
@@ -263,11 +259,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::
         );
     }));
 
-#ifdef _WIN64
-    const auto str = strings::encode({buffer.get(), size / sizeof(WCHAR)});
-#else
-    const auto str = strings::encode({buffer.get(), static_cast<std::size_t>(size / sizeof(WCHAR))});
-#endif
+    const auto str = strings::encode(std::wstring_view(buffer.get(), size / sizeof(WCHAR)));
     EXPECT(str);
 
     tl::expected<std::map<std::string, std::string>, std::error_code> result;
@@ -353,7 +345,7 @@ zero::os::nt::process::Process::wait(const std::optional<std::chrono::millisecon
         if (result == WAIT_TIMEOUT)
             return tl::unexpected(Error::WAIT_PROCESS_TIMEOUT);
 
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
     }
 
     return {};
@@ -378,7 +370,7 @@ tl::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::proc
     );
 
     if (!handle)
-        return tl::unexpected<std::error_code>(static_cast<int>(GetLastError()), std::system_category());
+        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return Process{handle, pid};
 }

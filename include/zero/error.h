@@ -2,6 +2,7 @@
 #define ZERO_ERROR_H
 
 #include <array>
+#include <utility>
 #include <system_error>
 
 /*
@@ -382,7 +383,12 @@ const T &errorCategoryInstance() {
 #define DEFINE_MAKE_ERROR_CODE(Type)                                                                            \
     inline std::error_code make_error_code(const Type _e) {                                                     \
         return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
-    }                                                                                                           \
+    }
+
+#define DEFINE_MAKE_ERROR_CODE_INNER(Type)                                                                      \
+    friend std::error_code make_error_code(const Type _e) {                                                     \
+        return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
+    }
 
 #define DEFINE_ERROR_CODE_TYPES(Type, category, ...)                                                            \
     enum class Type {                                                                                           \
@@ -415,6 +421,10 @@ const T &errorCategoryInstance() {
 #define DEFINE_ERROR_CODE(Type, category, ...)                                                                  \
     DEFINE_ERROR_CODE_TYPES(Type, category, __VA_ARGS__)                                                        \
     DEFINE_MAKE_ERROR_CODE(Type)
+
+#define DEFINE_ERROR_CODE_INNER(Type, category, ...)                                                            \
+    DEFINE_ERROR_CODE_TYPES(Type, category, __VA_ARGS__)                                                        \
+    DEFINE_MAKE_ERROR_CODE_INNER(Type)
 
 #define ERROR_ENUM_ITEM_EX(v1, v2, v3) v1,
 #define MESSAGE_SWITCH_BRANCH_EX(v1, v2, v3)                                                                    \
@@ -475,6 +485,10 @@ const T &errorCategoryInstance() {
     DEFINE_ERROR_CODE_TYPES_EX(Type, category, __VA_ARGS__)                                                     \
     DEFINE_MAKE_ERROR_CODE(Type)
 
+#define DEFINE_ERROR_CODE_INNER_EX(Type, category, ...)                                                         \
+    DEFINE_ERROR_CODE_TYPES_EX(Type, category, __VA_ARGS__)                                                     \
+    DEFINE_MAKE_ERROR_CODE_INNER(Type)
+
 #define DECLARE_ERROR_CODE(Type)                                                                                \
     template<>                                                                                                  \
     struct std::is_error_code_enum<Type> : std::true_type {                                                     \
@@ -482,16 +496,57 @@ const T &errorCategoryInstance() {
 
 #define DECLARE_ERROR_CODES(...) ZERO_ERROR_EXPAND(ZERO_ERROR_PASTE(DECLARE_ERROR_CODE, __VA_ARGS__))
 
-#define EQUIVALENT_SWITCH_BRANCH_EX(v1, v2, v3)                                                                 \
-    case ErrorType::v1: /* NOLINT(*-branch-clone) */                                                            \
-        return v3(_code);
-
 #define DEFINE_MAKE_ERROR_CONDITION(Type)                                                                       \
     inline std::error_condition make_error_condition(const Type _e) {                                           \
         return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
     }
 
+#define DEFINE_MAKE_ERROR_CONDITION_INNER(Type)                                                                 \
+    friend std::error_condition make_error_condition(const Type _e) {                                           \
+        return {static_cast<int>(_e), errorCategoryInstance<Type##Category>()};                                 \
+    }
+
 #define DEFINE_ERROR_CONDITION_TYPES(Type, category, ...)                                                       \
+    enum class Type {                                                                                           \
+        OK,                                                                                                     \
+        ZERO_ERROR_EXPAND(ZERO_ERROR_DOUBLE_PASTE(ERROR_ENUM_ITEM, __VA_ARGS__))                                \
+    };                                                                                                          \
+                                                                                                                \
+    class Type##Category final : public std::error_category {                                                   \
+        using ErrorType = Type;                                                                                 \
+    public:                                                                                                     \
+        [[nodiscard]] const char *name() const noexcept override {                                              \
+            return category;                                                                                    \
+        }                                                                                                       \
+                                                                                                                \
+        [[nodiscard]] std::string message(const int _value) const override {                                    \
+            std::string _msg;                                                                                   \
+                                                                                                                \
+            switch (static_cast<ErrorType>(_value)) { /* NOLINT(*-multiway-paths-covered) */                    \
+            ZERO_ERROR_EXPAND(ZERO_ERROR_DOUBLE_PASTE(MESSAGE_SWITCH_BRANCH, __VA_ARGS__))                      \
+                                                                                                                \
+            default:                                                                                            \
+                _msg = "unknown";                                                                               \
+                break;                                                                                          \
+            }                                                                                                   \
+                                                                                                                \
+            return _msg;                                                                                        \
+        }                                                                                                       \
+    };
+
+#define DEFINE_ERROR_CONDITION(Type, category, ...)                                                             \
+    DEFINE_ERROR_CONDITION_TYPES(Type, category, __VA_ARGS__)                                                   \
+    DEFINE_MAKE_ERROR_CONDITION(Type)
+
+#define DEFINE_ERROR_CONDITION_INNER(Type, category, ...)                                                       \
+    DEFINE_ERROR_CONDITION_TYPES(Type, category, __VA_ARGS__)                                                   \
+    DEFINE_MAKE_ERROR_CONDITION_INNER(Type)
+
+#define EQUIVALENT_SWITCH_BRANCH_EX(v1, v2, v3)                                                                 \
+    case ErrorType::v1: /* NOLINT(*-branch-clone) */                                                            \
+        return v3(_code);
+
+#define DEFINE_ERROR_CONDITION_TYPES_EX(Type, category, ...)                                                    \
     enum class Type {                                                                                           \
         OK,                                                                                                     \
         ZERO_ERROR_EXPAND(ZERO_ERROR_TRIPLE_PASTE(ERROR_ENUM_ITEM_EX, __VA_ARGS__))                             \
@@ -528,9 +583,13 @@ const T &errorCategoryInstance() {
         }                                                                                                       \
     };
 
-#define DEFINE_ERROR_CONDITION(Type, category, ...)                                                             \
-    DEFINE_ERROR_CONDITION_TYPES(Type, category, __VA_ARGS__)                                                   \
+#define DEFINE_ERROR_CONDITION_EX(Type, category, ...)                                                          \
+    DEFINE_ERROR_CONDITION_TYPES_EX(Type, category, __VA_ARGS__)                                                \
     DEFINE_MAKE_ERROR_CONDITION(Type)
+
+#define DEFINE_ERROR_CONDITION_INNER_EX(Type, category, ...)                                                    \
+    DEFINE_ERROR_CONDITION_TYPES_EX(Type, category, __VA_ARGS__)                                                \
+    DEFINE_MAKE_ERROR_CONDITION_INNER(Type)
 
 #define DECLARE_ERROR_CONDITION(Type)                                                                           \
     template<>                                                                                                  \
@@ -557,7 +616,11 @@ const T &errorCategoryInstance() {
 
 #define DEFINE_ERROR_TRANSFORMER(Type, category, stringify)                                                     \
     DEFINE_ERROR_TRANSFORMER_TYPES(Type, category, stringify)                                                   \
-    DEFINE_MAKE_ERROR_CODE(Type)                                                                                \
+    DEFINE_MAKE_ERROR_CODE(Type)
+
+#define DEFINE_ERROR_TRANSFORMER_INNER(Type, category, stringify)                                               \
+    DEFINE_ERROR_TRANSFORMER_TYPES(Type, category, stringify)                                                   \
+    DEFINE_MAKE_ERROR_CODE_INNER(Type)
 
 #define DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, classify)                                  \
     enum class Type {                                                                                           \
@@ -581,5 +644,9 @@ const T &errorCategoryInstance() {
 #define DEFINE_ERROR_TRANSFORMER_EX(Type, category, stringify, classify)                                        \
     DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, classify)                                      \
     DEFINE_MAKE_ERROR_CODE(Type)
+
+#define DEFINE_ERROR_TRANSFORMER_INNER_EX(Type, category, stringify, classify)                                  \
+    DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, classify)                                      \
+    DEFINE_MAKE_ERROR_CODE_INNER(Type)
 
 #endif //ZERO_ERROR_H

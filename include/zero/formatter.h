@@ -1,7 +1,9 @@
 #ifndef ZERO_FORMATTER_H
 #define ZERO_FORMATTER_H
 
-#include <fmt/std.h>
+#include <algorithm>
+#include <exception>
+#include <fmt/core.h>
 #include <tl/expected.hpp>
 
 template<typename Char, typename T, typename E>
