@@ -298,9 +298,11 @@ std::expected<zero::os::process::Process, std::error_code> zero::os::process::op
 std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::process::all() {
 #ifdef _WIN32
     return nt::process::all().transform([](const auto &ids) {
-        return std::ranges::to<std::list<ID>>(ids | std::views::transform([](const DWORD pid) {
-            return static_cast<ID>(pid);
-        }));
+        return ids
+            | std::views::transform([](const DWORD pid) {
+                return static_cast<ID>(pid);
+            })
+            | std::ranges::to<std::list>();
     });
 #elif defined(__APPLE__)
     return darwin::process::all();

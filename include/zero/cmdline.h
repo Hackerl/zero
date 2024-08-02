@@ -5,6 +5,7 @@
 #include "strings/strings.h"
 #include "detail/type_traits.h"
 #include <any>
+#include <list>
 #include <optional>
 #include <algorithm>
 #include <filesystem>

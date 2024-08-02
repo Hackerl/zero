@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cstring>
 #include <thread>
+#include <list>
 
 constexpr auto THREAD_NUMBER = 16;
 constexpr auto CHANNEL_CAPACITY = 32;

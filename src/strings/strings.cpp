@@ -5,8 +5,7 @@
 #include <iconv.h>
 
 std::string zero::strings::trim(const std::string_view str) {
-    return std::ranges::to<std::string>(
-        str
+    return str
         | std::views::drop_while([](const unsigned char c) {
             return std::isspace(c);
         })
@@ -15,45 +14,41 @@ std::string zero::strings::trim(const std::string_view str) {
             return std::isspace(c);
         })
         | std::views::reverse
-    );
+        | std::ranges::to<std::string>();
 }
 
 std::string zero::strings::ltrim(const std::string_view str) {
-    return std::ranges::to<std::string>(
-        str
+    return str
         | std::views::drop_while([](const unsigned char c) {
             return std::isspace(c);
         })
-    );
+        | std::ranges::to<std::string>();
 }
 
 std::string zero::strings::rtrim(const std::string_view str) {
-    return std::ranges::to<std::string>(
-        str
+    return str
         | std::views::reverse
         | std::views::drop_while([](const unsigned char c) {
             return std::isspace(c);
         })
         | std::views::reverse
-    );
+        | std::ranges::to<std::string>();
 }
 
 std::string zero::strings::tolower(const std::string_view str) {
-    return std::ranges::to<std::string>(
-        str
+    return str
         | std::views::transform([](const unsigned char c) {
             return std::tolower(c);
         })
-    );
+        | std::ranges::to<std::string>();
 }
 
 std::string zero::strings::toupper(const std::string_view str) {
-    return std::ranges::to<std::string>(
-        str
+    return str
         | std::views::transform([](const unsigned char c) {
             return std::toupper(c);
         })
-    );
+        | std::ranges::to<std::string>();
 }
 
 std::vector<std::string> zero::strings::split(const std::string_view str, int limit) {

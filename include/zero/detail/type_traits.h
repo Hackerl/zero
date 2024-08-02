@@ -1,10 +1,8 @@
 #ifndef ZERO_TYPE_TRAITS_H
 #define ZERO_TYPE_TRAITS_H
 
-#include <list>
 #include <array>
 #include <tuple>
-#include <vector>
 #include <type_traits>
 
 namespace zero::detail {
