@@ -1,10 +1,10 @@
 #include <zero/async/promise.h>
 #include <zero/concurrent/channel.h>
 #include <catch2/catch_test_macros.hpp>
+#include <range/v3/iterator.hpp>
 #include <cstring>
 #include <thread>
 #include <list>
-#include <range/v3/iterator.hpp>
 
 constexpr auto THREAD_NUMBER = 16;
 constexpr auto CHANNEL_CAPACITY = 32;
