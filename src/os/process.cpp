@@ -4,10 +4,10 @@
 #include <zero/defer.h>
 #include <fmt/ranges.h>
 #include <cassert>
+#include <ranges>
 #include <future>
 
 #ifdef _WIN32
-#include <ranges>
 #include <zero/os/nt/error.h>
 #else
 #include <csignal>
@@ -152,11 +152,7 @@ const zero::os::process::ProcessImpl &zero::os::process::Process::impl() const {
 }
 
 zero::os::process::ID zero::os::process::Process::pid() const {
-#ifdef _WIN32
     return static_cast<ID>(mImpl.pid());
-#else
-    return mImpl.pid();
-#endif
 }
 
 std::expected<zero::os::process::ID, std::error_code> zero::os::process::Process::ppid() const {
@@ -165,10 +161,12 @@ std::expected<zero::os::process::ID, std::error_code> zero::os::process::Process
         return static_cast<ID>(id);
     });
 #elif defined(__APPLE__)
-    return mImpl.ppid();
+    return mImpl.ppid().transform([](const pid_t id) {
+        return static_cast<ID>(id);
+    });
 #elif defined(__linux__)
     return mImpl.stat().transform([](const auto stat) {
-        return stat.ppid;
+        return static_cast<ID>(stat.ppid);
     });
 #endif
 }
@@ -281,15 +279,15 @@ std::expected<zero::os::process::Process, std::error_code> zero::os::process::se
 
 std::expected<zero::os::process::Process, std::error_code> zero::os::process::open(const ID pid) {
 #ifdef _WIN32
-    return nt::process::open(static_cast<DWORD>(pid)).transform([](nt::process::Process &&process) {
+    return nt::process::open(pid).transform([](nt::process::Process &&process) {
         return Process{std::move(process)};
     });
 #elif defined(__APPLE__)
-    return darwin::process::open(pid).transform([](darwin::process::Process &&process) {
+    return darwin::process::open(static_cast<pid_t>(pid)).transform([](darwin::process::Process &&process) {
         return Process{std::move(process)};
     });
 #elif defined(__linux__)
-    return procfs::process::open(pid).transform([](procfs::process::Process &&process) {
+    return procfs::process::open(static_cast<pid_t>(pid)).transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
 #endif
@@ -305,9 +303,21 @@ std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::proce
             | std::ranges::to<std::list>();
     });
 #elif defined(__APPLE__)
-    return darwin::process::all();
+    return darwin::process::all().transform([](const auto &ids) {
+        return ids
+            | std::views::transform([](const pid_t pid) {
+                return static_cast<ID>(pid);
+            })
+            | std::ranges::to<std::list>();
+    });
 #elif defined(__linux__)
-    return procfs::process::all();
+    return procfs::process::all().transform([](const auto &ids) {
+        return ids
+            | std::views::transform([](const pid_t pid) {
+                return static_cast<ID>(pid);
+            })
+            | std::ranges::to<std::list>();
+    });
 #endif
 }
 
@@ -849,8 +859,8 @@ std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process:
     });
 #else
     int s;
+    const pid_t pid = this->impl().pid();
 
-    const pid_t pid = this->pid();
     const auto id = unix::ensure([&] {
         return waitpid(pid, &s, 0);
     });
@@ -879,8 +889,8 @@ std::expected<std::optional<zero::os::process::ExitStatus>, std::error_code> zer
         return ExitStatus{code};
     });
 #else
-    const pid_t pid = this->pid();
     int s;
+    const pid_t pid = this->impl().pid();
 
     const auto id = unix::expected([&] {
         return waitpid(pid, &s, WNOHANG);
