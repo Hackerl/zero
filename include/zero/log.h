@@ -1,7 +1,6 @@
 #ifndef ZERO_LOG_H
 #define ZERO_LOG_H
 
-#include "singleton.h"
 #include "interface.h"
 #include "concurrent/channel.h"
 #include <thread>
@@ -118,8 +117,10 @@ namespace zero {
         concurrent::Channel<LogRecord> mChannel;
     };
 
+    Logger &globalLogger();
+
     // ReSharper disable once CppDFALocalValueEscapesFunction
-    static constexpr std::string_view sourceFilename(const std::string_view path) {
+    constexpr std::string_view sourceFilename(const std::string_view path) {
         const auto pos = path.find_last_of("/\\");
 
         if (pos == std::string_view::npos)
@@ -150,7 +151,7 @@ struct fmt::formatter<zero::LogRecord, Char> {
     }
 };
 
-#define GLOBAL_LOGGER                       zero::Singleton<zero::Logger>::getInstance()
+#define GLOBAL_LOGGER                       zero::globalLogger()
 #define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::ConsoleProvider>())
 #define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::FileProvider>(name, ## __VA_ARGS__))
 

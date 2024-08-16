@@ -270,3 +270,8 @@ void zero::Logger::addProvider(
         std::chrono::system_clock::now() + interval
     );
 }
+
+zero::Logger &zero::globalLogger() {
+    static Logger instance;
+    return instance;
+}
