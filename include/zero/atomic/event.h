@@ -36,8 +36,6 @@ namespace zero::atomic {
     private:
         HANDLE mEvent;
     };
-
-    std::error_code make_error_code(Event::Error e);
 #else
     class Event {
 #ifdef __APPLE__

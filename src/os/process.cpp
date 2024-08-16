@@ -1467,3 +1467,7 @@ zero::os::process::Command::output() const {
         *std::move(err)
     };
 }
+
+#if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::PseudoConsole::Error)
+#endif

@@ -23,14 +23,15 @@ add_library(
         src/os/stat.cpp
         src/os/process.cpp
         src/atomic/event.cpp
+        src/concurrent/channel.cpp
         src/encoding/hex.cpp
         src/encoding/base64.cpp
         src/strings/strings.cpp
         src/filesystem/path.cpp
         src/filesystem/file.cpp
-        $<$<PLATFORM_ID:Windows>:src/os/nt/process.cpp>
-        $<$<PLATFORM_ID:Darwin>:src/os/darwin/process.cpp>
-        $<$<PLATFORM_ID:Linux,Android>:src/os/procfs/process.cpp>
+        $<$<PLATFORM_ID:Windows>:src/os/nt/error.cpp src/os/nt/process.cpp>
+        $<$<PLATFORM_ID:Darwin>:src/os/darwin/error.cpp src/os/darwin/process.cpp>
+        $<$<PLATFORM_ID:Linux,Android>:src/os/procfs/procfs.cpp src/os/procfs/process.cpp>
 )
 
 target_include_directories(

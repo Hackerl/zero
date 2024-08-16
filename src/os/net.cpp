@@ -286,3 +286,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
 #error "unsupported platform"
 #endif
 }
+
+#if defined(__ANDROID__) && __ANDROID_API__ < 24
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::net::GetInterfacesError)
+#endif

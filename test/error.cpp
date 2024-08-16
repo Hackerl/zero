@@ -29,6 +29,7 @@ DEFINE_ERROR_CODE(
 )
 
 DECLARE_ERROR_CODE(ErrorCode)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCode)
 
 DEFINE_ERROR_CONDITION(
     ErrorCondition,
@@ -38,6 +39,7 @@ DEFINE_ERROR_CONDITION(
 )
 
 DECLARE_ERROR_CONDITION(ErrorCondition)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCondition)
 
 DEFINE_ERROR_CODE_EX(
     ErrorCodeEx,
@@ -47,6 +49,7 @@ DEFINE_ERROR_CODE_EX(
 )
 
 DECLARE_ERROR_CODE(ErrorCodeEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeEx)
 
 DEFINE_ERROR_TRANSFORMER(
     ErrorTransformer,
@@ -55,6 +58,7 @@ DEFINE_ERROR_TRANSFORMER(
 )
 
 DECLARE_ERROR_CODE(ErrorTransformer)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformer)
 
 DEFINE_ERROR_TRANSFORMER_EX(
     ErrorTransformerEx,
@@ -81,6 +85,7 @@ DEFINE_ERROR_TRANSFORMER_EX(
 )
 
 DECLARE_ERROR_CODE(ErrorTransformerEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerEx)
 
 DEFINE_ERROR_CONDITION_EX(
     ErrorConditionEx,
@@ -104,6 +109,7 @@ DEFINE_ERROR_CONDITION_EX(
 )
 
 DECLARE_ERROR_CONDITION(ErrorConditionEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionEx)
 
 struct ErrorCodeWrapper {
     DEFINE_ERROR_CODE_INNER(
@@ -115,6 +121,7 @@ struct ErrorCodeWrapper {
 };
 
 DECLARE_ERROR_CODE(ErrorCodeWrapper::ErrorCode)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeWrapper::ErrorCode)
 
 struct ErrorConditionWrapper {
     DEFINE_ERROR_CONDITION_INNER(
@@ -126,6 +133,7 @@ struct ErrorConditionWrapper {
 };
 
 DECLARE_ERROR_CONDITION(ErrorConditionWrapper::ErrorCondition)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionWrapper::ErrorCondition)
 
 struct ErrorCodeExWrapper {
     DEFINE_ERROR_CODE_INNER_EX(
@@ -137,6 +145,7 @@ struct ErrorCodeExWrapper {
 };
 
 DECLARE_ERROR_CODE(ErrorCodeExWrapper::ErrorCodeEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeExWrapper::ErrorCodeEx)
 
 struct ErrorTransformerWrapper {
     DEFINE_ERROR_TRANSFORMER_INNER(
@@ -147,6 +156,7 @@ struct ErrorTransformerWrapper {
 };
 
 DECLARE_ERROR_CODE(ErrorTransformerWrapper::ErrorTransformer)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerWrapper::ErrorTransformer)
 
 struct ErrorTransformerExWrapper {
     DEFINE_ERROR_TRANSFORMER_INNER_EX(
@@ -175,6 +185,7 @@ struct ErrorTransformerExWrapper {
 };
 
 DECLARE_ERROR_CODE(ErrorTransformerExWrapper::ErrorTransformerEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerExWrapper::ErrorTransformerEx)
 
 struct ErrorConditionExWrapper {
     DEFINE_ERROR_CONDITION_INNER_EX(
@@ -200,6 +211,7 @@ struct ErrorConditionExWrapper {
 };
 
 DECLARE_ERROR_CONDITION(ErrorConditionExWrapper::ErrorConditionEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionExWrapper::ErrorConditionEx)
 
 TEST_CASE("macro for define error code", "[error]") {
     SECTION("normal") {

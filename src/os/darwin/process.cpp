@@ -286,3 +286,5 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::darwin::process::all(
 
     return result;
 }
+
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::darwin::process::Process::Error)

@@ -714,3 +714,5 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all(
 
     return ids;
 }
+
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::procfs::process::Process::Error)

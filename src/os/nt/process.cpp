@@ -402,3 +402,5 @@ std::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
 
     return result;
 }
+
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::nt::process::Process::Error)

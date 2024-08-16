@@ -51,6 +51,8 @@ void zero::atomic::Event::set() {
 void zero::atomic::Event::reset() {
     ResetEvent(mEvent);
 }
+
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::atomic::Event::Error)
 #else
 zero::atomic::Event::Event(const bool manual, const bool initialState) : mManual(manual), mState(initialState ? 1 : 0) {
 }

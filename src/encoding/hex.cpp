@@ -39,3 +39,5 @@ zero::encoding::hex::decode(const std::string_view encoded) {
 
     return result;
 }
+
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::encoding::hex::DecodeError)

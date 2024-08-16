@@ -382,12 +382,12 @@ const T &errorCategoryInstance() {
 
 #define DEFINE_MAKE_ERROR_CODE(Type)                                                                            \
     inline std::error_code make_error_code(const Type _e) {                                                     \
-        return {std::to_underlying(_e), errorCategoryInstance<Type##Category>()};                               \
+        return {std::to_underlying(_e), Type##Category::instance()};                                            \
     }
 
 #define DEFINE_MAKE_ERROR_CODE_INNER(Type)                                                                      \
     friend std::error_code make_error_code(const Type _e) {                                                     \
-        return {std::to_underlying(_e), errorCategoryInstance<Type##Category>()};                               \
+        return {std::to_underlying(_e), Type##Category::instance()};                                            \
     }
 
 #define DEFINE_ERROR_CODE_TYPES(Type, category, ...)                                                            \
@@ -399,6 +399,8 @@ const T &errorCategoryInstance() {
     class Type##Category final : public std::error_category {                                                   \
         using ErrorType = Type;                                                                                 \
     public:                                                                                                     \
+        static const std::error_category &instance();                                                           \
+                                                                                                                \
         [[nodiscard]] const char *name() const noexcept override {                                              \
             return category;                                                                                    \
         }                                                                                                       \
@@ -448,6 +450,8 @@ const T &errorCategoryInstance() {
     class Type##Category final : public std::error_category {                                                   \
         using ErrorType = Type;                                                                                 \
     public:                                                                                                     \
+        static const std::error_category &instance();                                                           \
+                                                                                                                \
         [[nodiscard]] const char *name() const noexcept override {                                              \
             return category;                                                                                    \
         }                                                                                                       \
@@ -498,12 +502,12 @@ const T &errorCategoryInstance() {
 
 #define DEFINE_MAKE_ERROR_CONDITION(Type)                                                                       \
     inline std::error_condition make_error_condition(const Type _e) {                                           \
-        return {std::to_underlying(_e), errorCategoryInstance<Type##Category>()};                               \
+        return {std::to_underlying(_e), Type##Category::instance()};                                            \
     }
 
 #define DEFINE_MAKE_ERROR_CONDITION_INNER(Type)                                                                 \
     friend std::error_condition make_error_condition(const Type _e) {                                           \
-        return {std::to_underlying(_e), errorCategoryInstance<Type##Category>()};                               \
+        return {std::to_underlying(_e), Type##Category::instance()};                                            \
     }
 
 #define DEFINE_ERROR_CONDITION_TYPES(Type, category, ...)                                                       \
@@ -515,6 +519,8 @@ const T &errorCategoryInstance() {
     class Type##Category final : public std::error_category {                                                   \
         using ErrorType = Type;                                                                                 \
     public:                                                                                                     \
+        static const std::error_category &instance();                                                           \
+                                                                                                                \
         [[nodiscard]] const char *name() const noexcept override {                                              \
             return category;                                                                                    \
         }                                                                                                       \
@@ -555,6 +561,8 @@ const T &errorCategoryInstance() {
     class Type##Category final : public std::error_category {                                                   \
         using ErrorType = Type;                                                                                 \
     public:                                                                                                     \
+        static const std::error_category &instance();                                                           \
+                                                                                                                \
         [[nodiscard]] const char *name() const noexcept override {                                              \
             return category;                                                                                    \
         }                                                                                                       \
@@ -605,6 +613,8 @@ const T &errorCategoryInstance() {
     class Type##Category final : public std::error_category {                                                   \
         using ErrorType = Type;                                                                                 \
     public:                                                                                                     \
+        static const std::error_category &instance();                                                           \
+                                                                                                                \
         [[nodiscard]] const char *name() const noexcept override {                                              \
             return category;                                                                                    \
         }                                                                                                       \
@@ -628,6 +638,8 @@ const T &errorCategoryInstance() {
                                                                                                                 \
     class Type##Category final : public std::error_category {                                                   \
     public:                                                                                                     \
+        static const std::error_category &instance();                                                           \
+                                                                                                                \
         [[nodiscard]] const char *name() const noexcept override {                                              \
             return category;                                                                                    \
         }                                                                                                       \
@@ -648,5 +660,13 @@ const T &errorCategoryInstance() {
 #define DEFINE_ERROR_TRANSFORMER_INNER_EX(Type, category, stringify, classify)                                  \
     DEFINE_ERROR_TRANSFORMER_TYPES_EX(Type, category, stringify, classify)                                      \
     DEFINE_MAKE_ERROR_CODE_INNER(Type)
+
+#define DEFINE_ERROR_CATEGORY_INSTANCE(Type)                                                                    \
+    const std::error_category &Type##Category::instance() {                                                     \
+        return errorCategoryInstance<Type##Category>();                                                         \
+    }
+
+#define DEFINE_ERROR_CATEGORY_INSTANCES(...)                                                                    \
+    ZERO_ERROR_EXPAND(ZERO_ERROR_PASTE(DEFINE_ERROR_CATEGORY_INSTANCE, __VA_ARGS__))
 
 #endif //ZERO_ERROR_H
