@@ -3,6 +3,9 @@ on: [ push ]
 jobs:
   linux:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shared: [ ON, OFF ]
     steps:
       - uses: actions/checkout@v4
       - name: Install LLVM
@@ -13,7 +16,10 @@ jobs:
           sudo apt install -y libc++abi-18-dev libc++-18-dev
       - name: Build
         run: |
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET="x64-linux-dynamic" \
+            -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           cmake --build build -j$(nproc)
         env:
           CC: clang-18
@@ -47,6 +53,9 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        shared: [ ON, OFF ]
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
@@ -62,7 +71,8 @@ jobs:
           cmake -B build `
             -DCMAKE_TOOLCHAIN_FILE="$Env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_OVERLAY_TRIPLETS="$(pwd)" `
-            -DVCPKG_TARGET_TRIPLET="x64-windows-sanitizer"
+            -DVCPKG_TARGET_TRIPLET="x64-windows-sanitizer" `
+            -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           cmake --build build -j $Env:NUMBER_OF_PROCESSORS
         env:
           CFLAGS: -fsanitize=address
@@ -72,6 +82,9 @@ jobs:
 
   windows-32:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        shared: [ ON, OFF ]
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
@@ -89,7 +102,8 @@ jobs:
           cmake -B build -A Win32 `
             -DCMAKE_TOOLCHAIN_FILE="$Env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_OVERLAY_TRIPLETS="$(pwd)" `
-            -DVCPKG_TARGET_TRIPLET="x86-windows-sanitizer"
+            -DVCPKG_TARGET_TRIPLET="x86-windows-sanitizer" `
+            -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           cmake --build build -j $Env:NUMBER_OF_PROCESSORS
         env:
           CFLAGS: -fsanitize=address
@@ -99,6 +113,9 @@ jobs:
 
   macos:
     runs-on: macos-13
+    strategy:
+      matrix:
+        shared: [ ON, OFF ]
     steps:
       - uses: actions/checkout@v4
       - name: Install LLVM
@@ -107,7 +124,10 @@ jobs:
           echo "LLVM_HOME=$(brew --prefix llvm)" >> $GITHUB_ENV
       - name: Build
         run: |
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET="x64-osx-dynamic" \
+            -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           cmake --build build -j$(sysctl -n hw.physicalcpu)
         env:
           CC: ${{ env.LLVM_HOME }}/bin/clang

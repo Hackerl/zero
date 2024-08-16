@@ -5,6 +5,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 set(ZERO_VERSION 1.0.8)
 
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+
+if (BUILD_SHARED_LIBS AND MSVC)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif ()
+
 include(CTest)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -15,7 +21,6 @@ find_package(fmt CONFIG REQUIRED)
 
 add_library(
         zero
-        STATIC
         src/log.cpp
         src/cmdline.cpp
         src/os/os.cpp
@@ -43,21 +48,41 @@ target_include_directories(
 
 target_link_libraries(
         zero
-        PUBLIC
+        PRIVATE
         Iconv::Iconv
-        fmt::fmt
-        INTERFACE
         Threads::Threads
         $<$<PLATFORM_ID:Windows>:Ws2_32>
         $<$<PLATFORM_ID:Windows>:Iphlpapi>
+        PUBLIC
+        fmt::fmt
 )
 
-if (NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    set(EXCLUDE_HEADERS ${EXCLUDE_HEADERS} PATTERN "os/nt" EXCLUDE)
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(
+            EXCLUDE_HEADERS
+            ${EXCLUDE_HEADERS}
+            PATTERN "os/unix" EXCLUDE
+            PATTERN "os/darwin" EXCLUDE
+            PATTERN "os/procfs" EXCLUDE
+    )
 endif ()
 
-if (NOT CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
-    set(EXCLUDE_HEADERS ${EXCLUDE_HEADERS} PATTERN "os/procfs.h" EXCLUDE)
+if (CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
+    set(
+            EXCLUDE_HEADERS
+            ${EXCLUDE_HEADERS}
+            PATTERN "os/nt" EXCLUDE
+            PATTERN "os/darwin" EXCLUDE
+    )
+endif ()
+
+if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    set(
+            EXCLUDE_HEADERS
+            ${EXCLUDE_HEADERS}
+            PATTERN "os/nt" EXCLUDE
+            PATTERN "os/procfs" EXCLUDE
+    )
 endif ()
 
 install(
@@ -71,6 +96,8 @@ install(
         TARGETS zero
         EXPORT ${PROJECT_NAME}Targets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 install(

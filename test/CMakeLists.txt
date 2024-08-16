@@ -31,7 +31,20 @@ if (MSVC)
     target_compile_options(zero_test PRIVATE /utf-8)
 endif ()
 
-target_link_libraries(zero_test PRIVATE zero Catch2::Catch2WithMain)
+target_link_libraries(
+        zero_test
+        PRIVATE
+        zero
+        Threads::Threads
+        Catch2::Catch2WithMain
+        $<$<PLATFORM_ID:Windows>:Iphlpapi>
+)
 
 include(Catch)
-catch_discover_tests(zero_test)
+
+# Catch2 v3.7.0 will inherit the PATH environment variable, so we don't need to set it manually.
+catch_discover_tests(
+        zero_test
+        DL_PATHS
+        $<$<AND:$<PLATFORM_ID:Windows>,$<BOOL:${BUILD_SHARED_LIBS}>>:$ENV{PATH};$<TARGET_FILE_DIR:zero>>
+)
