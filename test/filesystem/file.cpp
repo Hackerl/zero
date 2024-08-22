@@ -40,7 +40,7 @@ TEST_CASE("file utils", "[filesystem]") {
 
         SECTION("string") {
             constexpr auto data = "hello";
-            const auto result = zero::filesystem::writeString(path, data);
+            const auto result = zero::filesystem::write(path, data);
             REQUIRE(result);
 
             const auto content = zero::filesystem::readString(path);

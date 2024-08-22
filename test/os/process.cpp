@@ -482,10 +482,10 @@ TEST_CASE("process", "[os]") {
                 REQUIRE(output->status.success());
                 REQUIRE(fmt::to_string(output->status) == "exit code(0)");
 
-                REQUIRE(zero::strings::trim({
+                REQUIRE(std::string_view(
                     reinterpret_cast<const char *>(output->out.data()),
                     output->out.size()
-                }).find(*username) != std::string::npos);
+                ).find(*username) != std::string::npos);
             }
         }
     }

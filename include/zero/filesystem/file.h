@@ -11,7 +11,7 @@ namespace zero::filesystem {
     std::expected<std::string, std::error_code> readString(const std::filesystem::path &path);
 
     std::expected<void, std::error_code> write(const std::filesystem::path &path, std::span<const std::byte> content);
-    std::expected<void, std::error_code> writeString(const std::filesystem::path &path, std::string_view content);
+    std::expected<void, std::error_code> write(const std::filesystem::path &path, std::string_view content);
 }
 
 #endif //ZERO_FILE_H
