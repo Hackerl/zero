@@ -18,11 +18,11 @@ TEST_CASE("hex encoding", "[encoding]") {
     REQUIRE(result->empty());
 
     result = zero::encoding::hex::decode("68656c6c6");
-    REQUIRE(!result);
+    REQUIRE_FALSE(result);
     REQUIRE(result.error() == zero::encoding::hex::DecodeError::INVALID_LENGTH);
 
     result = zero::encoding::hex::decode("68656c6cy6");
-    REQUIRE(!result);
+    REQUIRE_FALSE(result);
     REQUIRE(result.error() == zero::encoding::hex::DecodeError::INVALID_HEX_CHARACTER);
 
     result = zero::encoding::hex::decode("68656c6c6f");

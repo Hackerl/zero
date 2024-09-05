@@ -1,7 +1,58 @@
-#include <zero/filesystem/file.h>
+#include <zero/filesystem/fs.h>
 #include <algorithm>
 #include <fstream>
+
+#ifdef _WIN32
 #include <array>
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <array>
+#include <mach-o/dyld.h>
+#include <sys/param.h>
+#include <zero/expect.h>
+#include <zero/os/unix/error.h>
+#endif
+
+std::expected<std::filesystem::path, std::error_code> zero::filesystem::applicationPath() {
+#ifdef _WIN32
+    std::array<WCHAR, MAX_PATH> buffer = {};
+
+    if (const DWORD length = GetModuleFileNameW(nullptr, buffer.data(), buffer.size());
+        length == 0 || length == buffer.size())
+        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+
+    return buffer.data();
+#elif defined(__linux__)
+    std::error_code ec;
+    auto path = std::filesystem::read_symlink("/proc/self/exe", ec);
+
+    if (ec)
+        return std::unexpected(ec);
+
+    return path;
+#elif defined(__APPLE__)
+    std::array<char, MAXPATHLEN> buffer = {};
+    std::uint32_t size = buffer.size();
+
+    EXPECT(os::unix::expected([&] {
+        return _NSGetExecutablePath(buffer.data(), &size);
+    }));
+
+    std::error_code ec;
+    auto path = std::filesystem::weakly_canonical(buffer.data(), ec);
+
+    if (ec)
+        return std::unexpected(ec);
+
+    return path;
+#else
+#error "unsupported platform"
+#endif
+}
+
+std::expected<std::filesystem::path, std::error_code> zero::filesystem::applicationDirectory() {
+    return applicationPath().transform(&std::filesystem::path::parent_path);
+}
 
 std::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(const std::filesystem::path &path) {
     std::ifstream stream(path, std::ios::binary);

@@ -95,14 +95,14 @@ TEST_CASE("promise", "[async]") {
 
         zero::async::promise::Promise<int, int> promise;
         REQUIRE(promise.valid());
-        REQUIRE(!promise.isFulfilled());
+        REQUIRE_FALSE(promise.isFulfilled());
 
         auto future = promise.getFuture();
         REQUIRE(future.valid());
-        REQUIRE(!future.isReady());
+        REQUIRE_FALSE(future.isReady());
 
         const auto result = future.wait(10ms);
-        REQUIRE(!result);
+        REQUIRE_FALSE(result);
         REQUIRE(result.error() == std::errc::timed_out);
 
         SECTION("resolve") {
@@ -129,7 +129,7 @@ TEST_CASE("promise", "[async]") {
             REQUIRE(future.wait());
 
             const auto &res = future.result();
-            REQUIRE(!res);
+            REQUIRE_FALSE(res);
             REQUIRE(res.error() == -1);
         }
     }
@@ -250,7 +250,7 @@ TEST_CASE("promise", "[async]") {
 
         {
             const auto result = reject<void, int>(-1).get();
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == -1);
         }
 
@@ -283,7 +283,7 @@ TEST_CASE("promise", "[async]") {
 
                                     return 2;
                                 }).get();
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == -1);
         }
 
@@ -335,7 +335,7 @@ TEST_CASE("promise", "[async]") {
                         resolve<void, int>(),
                         resolve<void, int>()
                     }).get();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
                     REQUIRE(result.error() == -1);
                 }
             }
@@ -366,7 +366,7 @@ TEST_CASE("promise", "[async]") {
                         resolve<int, int>(4),
                         resolve<int, int>(5)
                     }).get();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
                     REQUIRE(result.error() == -1);
                 }
             }
@@ -394,7 +394,7 @@ TEST_CASE("promise", "[async]") {
                             resolve<void, int>(),
                             resolve<void, int>()
                         ).get();
-                        REQUIRE(!result);
+                        REQUIRE_FALSE(result);
                         REQUIRE(result.error() == -1);
                     }
                 }
@@ -426,7 +426,7 @@ TEST_CASE("promise", "[async]") {
                             resolve<int, int>(4),
                             resolve<int, int>(5)
                         ).get();
-                        REQUIRE(!result);
+                        REQUIRE_FALSE(result);
                         REQUIRE(result.error() == -1);
                     }
                 }
@@ -459,7 +459,7 @@ TEST_CASE("promise", "[async]") {
                         resolve<int, int>(2),
                         resolve<int, int>(3)
                     ).get();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
                     const int error = result.error();
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
@@ -591,7 +591,7 @@ TEST_CASE("promise", "[async]") {
                         reject<void, int>(-6),
                         reject<void, int>(-7)
                     }).get();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
 
                     const auto &errors = result.error();
                     REQUIRE(errors[0] == -1);
@@ -629,7 +629,7 @@ TEST_CASE("promise", "[async]") {
                         reject<int, int>(-6),
                         reject<int, int>(-7)
                     }).get();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
 
                     const auto &errors = result.error();
                     REQUIRE(errors[0] == -1);
@@ -670,7 +670,7 @@ TEST_CASE("promise", "[async]") {
                                 reject<void, int>(-6),
                                 reject<void, int>(-7)
                             ).get();
-                            REQUIRE(!result);
+                            REQUIRE_FALSE(result);
 
                             const auto &errors = result.error();
                             REQUIRE(errors[0] == -1);
@@ -710,7 +710,7 @@ TEST_CASE("promise", "[async]") {
                                 reject<int, int>(-6),
                                 reject<int, int>(-7)
                             ).get();
-                            REQUIRE(!result);
+                            REQUIRE_FALSE(result);
 
                             const auto &errors = result.error();
                             REQUIRE(errors[0] == -1);
@@ -739,7 +739,7 @@ TEST_CASE("promise", "[async]") {
                             resolve<void, int>()
                         ).get();
                         REQUIRE(result);
-                        REQUIRE(!result->has_value());
+                        REQUIRE_FALSE(result->has_value());
                     }
 
                     SECTION("reject") {
@@ -752,7 +752,7 @@ TEST_CASE("promise", "[async]") {
                             reject<long, int>(-6),
                             reject<void, int>(-7)
                         ).get();
-                        REQUIRE(!result);
+                        REQUIRE_FALSE(result);
 
                         const auto &errors = result.error();
                         REQUIRE(errors[0] == -1);
@@ -795,7 +795,7 @@ TEST_CASE("promise", "[async]") {
                             reject<long, int>(-6),
                             reject<int, int>(-7)
                         ).get();
-                        REQUIRE(!result);
+                        REQUIRE_FALSE(result);
 
                         const auto &errors = result.error();
                         REQUIRE(errors[0] == -1);

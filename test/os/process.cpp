@@ -1,7 +1,7 @@
 #include <zero/os/process.h>
 #include <zero/os/os.h>
 #include <zero/strings/strings.h>
-#include <zero/filesystem/path.h>
+#include <zero/filesystem/fs.h>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <algorithm>
@@ -31,7 +31,7 @@ TEST_CASE("process", "[os]") {
         const auto process = zero::os::process::self();
         REQUIRE(process);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto name = process->name();
@@ -237,7 +237,7 @@ TEST_CASE("process", "[os]") {
 
                 const auto envs = child->envs();
                 REQUIRE(envs);
-                REQUIRE(!envs->contains("ZERO_PROCESS_TESTS"));
+                REQUIRE_FALSE(envs->contains("ZERO_PROCESS_TESTS"));
 
                 const auto result = child->wait();
                 REQUIRE(result);
@@ -300,7 +300,7 @@ TEST_CASE("process", "[os]") {
                          .spawn();
 
             REQUIRE(child);
-            REQUIRE(!child->stdError());
+            REQUIRE_FALSE(child->stdError());
 
             const auto input = std::exchange(child->stdInput(), std::nullopt);
             REQUIRE(input);
@@ -329,7 +329,7 @@ TEST_CASE("process", "[os]") {
                          .stdOutput(zero::os::process::Command::StdioType::PIPED)
                          .spawn();
             REQUIRE(child);
-            REQUIRE(!child->stdError());
+            REQUIRE_FALSE(child->stdError());
 
             const auto input = std::exchange(child->stdInput(), std::nullopt);
             REQUIRE(input);

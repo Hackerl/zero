@@ -46,7 +46,7 @@ TEST_CASE("parse command line arguments", "[cmdline]") {
     REQUIRE(cmdline.get<std::string>("host") == "localhost");
     REQUIRE(cmdline.get<std::vector<short>>("ports") == std::vector<short>{8080, 8090, 9090});
     REQUIRE(*cmdline.getOptional<std::filesystem::path>("output") == "/tmp/out");
-    REQUIRE(!cmdline.getOptional<std::string>("decompress"));
+    REQUIRE_FALSE(cmdline.getOptional<std::string>("decompress"));
     REQUIRE(*cmdline.getOptional<int>("count") == 6);
 
     const auto config = cmdline.getOptional<Config>("config");

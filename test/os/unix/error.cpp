@@ -7,6 +7,6 @@ TEST_CASE("unix error", "[unix]") {
     const auto result = zero::os::unix::expected([&] {
         return read(-1, buffer.data(), buffer.size());
     });
-    REQUIRE(!result);
+    REQUIRE_FALSE(result);
     REQUIRE(result.error() == std::errc::bad_file_descriptor);
 }

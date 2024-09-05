@@ -1,5 +1,5 @@
 #include <zero/os/nt/process.h>
-#include <zero/filesystem/path.h>
+#include <zero/filesystem/fs.h>
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("windows process", "[nt]") {
@@ -12,7 +12,7 @@ TEST_CASE("windows process", "[nt]") {
     REQUIRE(process);
     REQUIRE(process->pid() == GetCurrentProcessId());
 
-    const auto path = zero::filesystem::getApplicationPath();
+    const auto path = zero::filesystem::applicationPath();
     REQUIRE(path);
 
     const auto name = process->name();
@@ -44,10 +44,10 @@ TEST_CASE("windows process", "[nt]") {
     REQUIRE(io);
 
     const auto code = process->exitCode();
-    REQUIRE(!code);
+    REQUIRE_FALSE(code);
     REQUIRE(code.error() == zero::os::nt::process::Process::Error::PROCESS_STILL_ACTIVE);
 
     const auto result = process->wait(10ms);
-    REQUIRE(!result);
+    REQUIRE_FALSE(result);
     REQUIRE(result.error() == std::errc::timed_out);
 }

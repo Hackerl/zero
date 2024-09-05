@@ -15,12 +15,12 @@ TEST_CASE("channel", "[concurrent]") {
         auto [sender, receiver] = zero::concurrent::channel<int>(5);
         REQUIRE(sender.capacity() == 5);
         REQUIRE(sender.empty());
-        REQUIRE(!sender.full());
-        REQUIRE(!sender.closed());
+        REQUIRE_FALSE(sender.full());
+        REQUIRE_FALSE(sender.closed());
 
         SECTION("try receive") {
             const auto result = receiver.tryReceive();
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == zero::concurrent::TryReceiveError::EMPTY);
         }
 
@@ -33,7 +33,7 @@ TEST_CASE("channel", "[concurrent]") {
             REQUIRE(sender.full());
 
             const auto result = sender.trySend(4);
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == zero::concurrent::TrySendError::FULL);
         }
 
@@ -45,7 +45,7 @@ TEST_CASE("channel", "[concurrent]") {
                     REQUIRE(sender.closed());
 
                     const auto result = receiver.receive();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
                     REQUIRE(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
                 }
 
@@ -66,7 +66,7 @@ TEST_CASE("channel", "[concurrent]") {
                     REQUIRE(*result == 1);
 
                     result = receiver.receive();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
                     REQUIRE(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
                 }
             }
@@ -80,7 +80,7 @@ TEST_CASE("channel", "[concurrent]") {
                 REQUIRE(sender.closed());
 
                 const auto result = sender.send(2);
-                REQUIRE(!result);
+                REQUIRE_FALSE(result);
                 REQUIRE(result.error() == zero::concurrent::SendError::DISCONNECTED);
             }
         }
@@ -88,7 +88,7 @@ TEST_CASE("channel", "[concurrent]") {
         SECTION("receive timeout") {
             using namespace std::chrono_literals;
             const auto result = receiver.receive(50ms);
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == zero::concurrent::ReceiveError::TIMEOUT);
         }
 
@@ -103,14 +103,14 @@ TEST_CASE("channel", "[concurrent]") {
             REQUIRE(sender.full());
 
             const auto result = sender.send(4, 50ms);
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == zero::concurrent::SendError::TIMEOUT);
         }
     }
 
     SECTION("receiver disconnect") {
         auto [sender, receiver] = zero::concurrent::channel<int>(5);
-        REQUIRE(!sender.closed());
+        REQUIRE_FALSE(sender.closed());
 
         std::thread thread(
             [](zero::concurrent::Receiver<int> r) {
@@ -126,13 +126,13 @@ TEST_CASE("channel", "[concurrent]") {
         REQUIRE(sender.closed());
 
         const auto result = sender.send(2);
-        REQUIRE(!result);
+        REQUIRE_FALSE(result);
         REQUIRE(result.error() == zero::concurrent::SendError::DISCONNECTED);
     }
 
     SECTION("sender disconnect") {
         auto [sender, receiver] = zero::concurrent::channel<int>(5);
-        REQUIRE(!receiver.closed());
+        REQUIRE_FALSE(receiver.closed());
 
         std::thread thread(
             [](zero::concurrent::Sender<int> s) {
@@ -150,7 +150,7 @@ TEST_CASE("channel", "[concurrent]") {
         REQUIRE(receiver.closed());
 
         result = receiver.receive();
-        REQUIRE(!result);
+        REQUIRE_FALSE(result);
         REQUIRE(result.error() == zero::concurrent::ReceiveError::DISCONNECTED);
     }
 

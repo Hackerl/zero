@@ -32,8 +32,8 @@ add_library(
         src/encoding/hex.cpp
         src/encoding/base64.cpp
         src/strings/strings.cpp
-        src/filesystem/path.cpp
-        src/filesystem/file.cpp
+        src/filesystem/fs.cpp
+        src/filesystem/std.cpp
         $<$<PLATFORM_ID:Windows>:src/os/nt/error.cpp src/os/nt/process.cpp>
         $<$<PLATFORM_ID:Darwin>:src/os/darwin/error.cpp src/os/darwin/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:src/os/procfs/procfs.cpp src/os/procfs/process.cpp>

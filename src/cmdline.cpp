@@ -1,5 +1,5 @@
 #include <zero/cmdline.h>
-#include <zero/filesystem/path.h>
+#include <zero/filesystem/fs.h>
 #include <cstring>
 #include <ranges>
 #include <fmt/std.h>
@@ -56,7 +56,7 @@ void zero::Cmdline::help() const {
     fmt::print(
         stderr,
         "usage: {} [options] {} ... {} ...\n",
-        filesystem::getApplicationPath()->filename(),
+        filesystem::applicationPath()->filename(),
         fmt::join(
             mPositionals | std::views::transform([](const auto &p) {
                 return fmt::format("{}({})", p.name, p.typeInfo.type);

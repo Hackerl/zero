@@ -12,7 +12,7 @@
 #include <zero/os/unix/error.h>
 #include <zero/strings/strings.h>
 #include <zero/os/procfs/procfs.h>
-#include <zero/filesystem/file.h>
+#include <zero/filesystem/fs.h>
 #elif defined(__APPLE__)
 #include <unistd.h>
 #include <sys/sysctl.h>

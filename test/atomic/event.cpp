@@ -9,7 +9,7 @@ TEST_CASE("notify event", "[atomic]") {
         zero::atomic::Event event;
 
         auto result = event.wait(10ms);
-        REQUIRE(!result);
+        REQUIRE_FALSE(result);
         REQUIRE(result.error() == std::errc::timed_out);
 
         int n = 0;
@@ -28,7 +28,7 @@ TEST_CASE("notify event", "[atomic]") {
         thread.join();
 
         result = event.wait(10ms);
-        REQUIRE(!result);
+        REQUIRE_FALSE(result);
         REQUIRE(result.error() == std::errc::timed_out);
     }
 
@@ -39,7 +39,7 @@ TEST_CASE("notify event", "[atomic]") {
             zero::atomic::Event event(true);
 
             auto result = event.wait(10ms);
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == std::errc::timed_out);
 
             int n = 0;
@@ -61,7 +61,7 @@ TEST_CASE("notify event", "[atomic]") {
             event.reset();
 
             result = event.wait(10ms);
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == std::errc::timed_out);
         }
 
@@ -73,7 +73,7 @@ TEST_CASE("notify event", "[atomic]") {
             event.reset();
 
             auto result = event.wait(10ms);
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == std::errc::timed_out);
 
             int n = 0;
@@ -95,7 +95,7 @@ TEST_CASE("notify event", "[atomic]") {
             event.reset();
 
             result = event.wait(10ms);
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == std::errc::timed_out);
         }
     }

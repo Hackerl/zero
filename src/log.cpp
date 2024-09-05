@@ -1,4 +1,6 @@
 #include <zero/log.h>
+#include <zero/expect.h>
+#include <zero/filesystem/std.h>
 #include <zero/strings/strings.h>
 #include <ranges>
 #include <algorithm>
@@ -55,7 +57,7 @@ std::expected<void, std::error_code> zero::FileProvider::init() {
         "{}.{}.{}.log",
         mName,
         mPID,
-        std::time(nullptr)
+        duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()
     );
 
     mStream.open(mDirectory / name);
@@ -74,32 +76,32 @@ std::expected<void, std::error_code> zero::FileProvider::rotate() {
     mStream.close();
     mStream.clear();
 
-    std::error_code ec;
-    const auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
-
-    if (ec)
-        return std::unexpected(ec);
+    const auto iterator = filesystem::readDirectory(mDirectory);
+    EXPECT(iterator);
 
     const std::string prefix = fmt::format("{}.{}", mName, mPID);
 
     std::list<std::filesystem::path> logs;
-    std::ranges::copy(
-        iterator
-        | std::views::filter([&](const auto &entry) { return entry.is_regular_file(ec); })
-        | std::views::transform(&std::filesystem::directory_entry::path)
-        | std::views::filter([&](const auto &path) { return path.filename().string().starts_with(prefix); }),
-        std::back_inserter(logs)
-    );
+
+    for (const auto &entry: *iterator) {
+        EXPECT(entry);
+
+        if (!entry->isRegularFile().value_or(false))
+            continue;
+
+        const auto &path = entry->path();
+
+        if (!path.filename().string().starts_with(prefix))
+            continue;
+
+        logs.push_back(path);
+    }
 
     logs.sort();
 
-    if (!std::ranges::all_of(
-        logs | std::views::reverse | std::views::drop(mRemain),
-        [&](const auto &path) {
-            return std::filesystem::remove(path, ec);
-        }
-    ))
-        return std::unexpected(std::error_code(errno, std::generic_category()));
+    for (const auto &log: logs | std::views::reverse | std::views::drop(mRemain)) {
+        EXPECT(filesystem::remove(log));
+    }
 
     return init();
 }
@@ -126,7 +128,9 @@ zero::Logger::Logger() : mChannel(concurrent::channel<LogRecord>(LOGGER_BUFFER_S
 
 zero::Logger::~Logger() {
     mChannel.first.close();
-    mThread.join();
+
+    if (mThread.joinable())
+        mThread.join();
 }
 
 void zero::Logger::consume() {

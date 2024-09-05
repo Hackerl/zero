@@ -1,5 +1,5 @@
 #include <zero/os/procfs/process.h>
-#include <zero/filesystem/path.h>
+#include <zero/filesystem/fs.h>
 #include <zero/os/unix/error.h>
 #include <catch2/catch_test_macros.hpp>
 #include <ranges>
@@ -14,7 +14,7 @@ TEST_CASE("procfs process", "[procfs]") {
     prctl(PR_SET_NAME, "(test)");
 
     const auto variable = reinterpret_cast<std::uintptr_t>(stdout);
-    const auto function = reinterpret_cast<std::uintptr_t>(zero::filesystem::getApplicationPath);
+    const auto function = reinterpret_cast<std::uintptr_t>(zero::filesystem::applicationPath);
 
     SECTION("all") {
         const auto ids = zero::os::procfs::process::all();
@@ -27,7 +27,7 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
@@ -99,7 +99,7 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto tasks = process->tasks();
         REQUIRE(tasks);
-        REQUIRE(!tasks->empty());
+        REQUIRE_FALSE(tasks->empty());
         REQUIRE(tasks->front() == pid);
 
         const auto io = process->io();
@@ -123,7 +123,7 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
@@ -228,7 +228,7 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
@@ -236,22 +236,22 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(*comm == "(test)");
 
         const auto cmdline = process->cmdline();
-        REQUIRE(!cmdline);
+        REQUIRE_FALSE(cmdline);
         REQUIRE(cmdline.error() == zero::os::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto env = process->environ();
         REQUIRE((!env || env->empty()));
 
         const auto mappings = process->maps();
-        REQUIRE(!mappings);
+        REQUIRE_FALSE(mappings);
         REQUIRE(mappings.error() == zero::os::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto exe = process->exe();
-        REQUIRE(!exe);
+        REQUIRE_FALSE(exe);
         REQUIRE(exe.error() == std::errc::no_such_file_or_directory);
 
         const auto cwd = process->cwd();
-        REQUIRE(!cwd);
+        REQUIRE_FALSE(cwd);
         REQUIRE(cwd.error() == std::errc::no_such_file_or_directory);
 
         const auto stat = process->stat();
@@ -286,7 +286,7 @@ TEST_CASE("procfs process", "[procfs]") {
 
     SECTION("no such process") {
         const auto process = zero::os::procfs::process::open(99999);
-        REQUIRE(!process);
+        REQUIRE_FALSE(process);
         REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }
 

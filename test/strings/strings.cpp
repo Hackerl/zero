@@ -98,15 +98,15 @@ TEST_CASE("split string to vector by whitespace", "[strings]") {
 }
 
 TEST_CASE("convert string to integer", "[strings]") {
-    REQUIRE(!zero::strings::toNumber<int>(""));
-    REQUIRE(!zero::strings::toNumber<int>("", 16));
-    REQUIRE(!zero::strings::toNumber<int>("ABC"));
+    REQUIRE_FALSE(zero::strings::toNumber<int>(""));
+    REQUIRE_FALSE(zero::strings::toNumber<int>("", 16));
+    REQUIRE_FALSE(zero::strings::toNumber<int>("ABC"));
     REQUIRE(*zero::strings::toNumber<int>("3") == 3);
-    REQUIRE(!zero::strings::toNumber<int>("QQQ3"));
-    REQUIRE(!zero::strings::toNumber<int>("ABC3", 2));
+    REQUIRE_FALSE(zero::strings::toNumber<int>("QQQ3"));
+    REQUIRE_FALSE(zero::strings::toNumber<int>("ABC3", 2));
     REQUIRE(*zero::strings::toNumber<int>("ABC3QQQ", 16) == 0xabc3);
     REQUIRE(*zero::strings::toNumber<int>("ABC", 16) == 0xabc);
-    REQUIRE(!zero::strings::toNumber<int>("QQQ0ABC", 16));
+    REQUIRE_FALSE(zero::strings::toNumber<int>("QQQ0ABC", 16));
 
     BENCHMARK("zero::strings::toNumber") {
         return zero::strings::toNumber<int>("aBcDeF19", 16);

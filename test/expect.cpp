@@ -89,14 +89,14 @@ TEST_CASE("macro for error handling", "[expect]") {
     REQUIRE(*result == 160);
 
     result = test2();
-    REQUIRE(!result);
+    REQUIRE_FALSE(result);
     REQUIRE(result.error() == std::errc::operation_canceled);
 
     result = test3();
-    REQUIRE(!result);
+    REQUIRE_FALSE(result);
     REQUIRE(result.error() == std::errc::timed_out);
 
     result = test4();
-    REQUIRE(!result);
+    REQUIRE_FALSE(result);
     REQUIRE(result.error() == std::errc::timed_out);
 }

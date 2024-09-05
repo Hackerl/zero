@@ -8,7 +8,7 @@ TEST_CASE("LRU cache", "[cache]") {
     REQUIRE(cache.empty());
 
     SECTION("lookup/insert cache") {
-        REQUIRE(!cache.get(0));
+        REQUIRE_FALSE(cache.get(0));
         cache.set(0, "hello");
 
         REQUIRE(cache.size() == 1);
@@ -42,7 +42,7 @@ TEST_CASE("LRU cache", "[cache]") {
         cache.set(5, "5");
 
         REQUIRE(cache.size() == 5);
-        REQUIRE(!cache.get(0));
+        REQUIRE_FALSE(cache.get(0));
 
         cache.set(1, "1!");
         cache.set(6, "6");
@@ -52,6 +52,6 @@ TEST_CASE("LRU cache", "[cache]") {
         const auto value = cache.get(1);
         REQUIRE(value);
         REQUIRE(value->get() == "1!");
-        REQUIRE(!cache.get(2));
+        REQUIRE_FALSE(cache.get(2));
     }
 }

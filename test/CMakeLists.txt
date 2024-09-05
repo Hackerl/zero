@@ -20,7 +20,8 @@ add_executable(
         encoding/hex.cpp
         encoding/base64.cpp
         strings/strings.cpp
-        filesystem/file.cpp
+        filesystem/fs.cpp
+        filesystem/std.cpp
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>
         $<$<PLATFORM_ID:Windows>:os/nt/error.cpp os/nt/process.cpp>
         $<$<PLATFORM_ID:Darwin>:os/darwin/error.cpp os/darwin/process.cpp>

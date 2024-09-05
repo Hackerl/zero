@@ -1,5 +1,5 @@
 #include <zero/os/darwin/process.h>
-#include <zero/filesystem/path.h>
+#include <zero/filesystem/fs.h>
 #include <zero/os/unix/error.h>
 #include <catch2/catch_test_macros.hpp>
 #include <csignal>
@@ -20,7 +20,7 @@ TEST_CASE("darwin process", "[darwin]") {
         REQUIRE(process->pid() == pid);
         REQUIRE(process->ppid() == getppid());
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto name = process->name();
@@ -73,7 +73,7 @@ TEST_CASE("darwin process", "[darwin]") {
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
@@ -131,27 +131,27 @@ TEST_CASE("darwin process", "[darwin]") {
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
-        REQUIRE(!comm);
+        REQUIRE_FALSE(comm);
         REQUIRE(comm.error() == std::errc::no_such_process);
 
         const auto cmdline = process->cmdline();
-        REQUIRE(!cmdline);
+        REQUIRE_FALSE(cmdline);
         REQUIRE(cmdline.error() == std::errc::invalid_argument);
 
         const auto envs = process->envs();
-        REQUIRE(!envs);
+        REQUIRE_FALSE(envs);
         REQUIRE(envs.error() == std::errc::invalid_argument);
 
         const auto exe = process->exe();
-        REQUIRE(!exe);
+        REQUIRE_FALSE(exe);
         REQUIRE(exe.error() == std::errc::no_such_process);
 
         const auto cwd = process->cwd();
-        REQUIRE(!cwd);
+        REQUIRE_FALSE(cwd);
         REQUIRE(cwd.error() == std::errc::no_such_process);
 
         const auto id = zero::os::unix::ensure([&] {
@@ -163,7 +163,7 @@ TEST_CASE("darwin process", "[darwin]") {
 
     SECTION("no such process") {
         const auto process = zero::os::darwin::process::open(99999);
-        REQUIRE(!process);
+        REQUIRE_FALSE(process);
         REQUIRE(process.error() == std::errc::no_such_process);
     }
 }
