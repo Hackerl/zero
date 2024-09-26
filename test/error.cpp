@@ -2,23 +2,16 @@
 #include <catch2/catch_test_macros.hpp>
 
 std::string stringify(const int value) {
-    std::string msg;
-
     switch (value) {
     case EINVAL:
-        msg = "invalid argument";
-        break;
+        return "invalid argument";
 
     case ETIMEDOUT:
-        msg = "timeout";
-        break;
+        return "timeout";
 
     default:
-        msg = "unknown";
-        break;
+        return "unknown";
     }
-
-    return msg;
 }
 
 DEFINE_ERROR_CODE(
@@ -64,23 +57,17 @@ DEFINE_ERROR_TRANSFORMER_EX(
     ErrorTransformerEx,
     "ErrorTransformerEx",
     stringify,
-    [](const int value) {
-        std::optional<std::error_condition> condition;
-
+    [](const int value) -> std::optional<std::error_condition> {
         switch (value) {
         case EINVAL:
-            condition = ErrorCondition::INVALID_ARGUMENT;
-            break;
+            return ErrorCondition::INVALID_ARGUMENT;
 
         case ETIMEDOUT:
-            condition = ErrorCondition::TIMEOUT;
-            break;
+            return ErrorCondition::TIMEOUT;
 
         default:
-            break;
+            return std::nullopt;
         }
-
-        return condition;
     }
 )
 
@@ -163,23 +150,17 @@ struct ErrorTransformerExWrapper {
         ErrorTransformerEx,
         "ErrorTransformerEx",
         stringify,
-        [](const int value) {
-            std::optional<std::error_condition> condition;
-
+        [](const int value) -> std::optional<std::error_condition> {
             switch (value) {
             case EINVAL:
-                condition = ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT;
-                break;
+                return ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT;
 
             case ETIMEDOUT:
-                condition = ErrorConditionWrapper::ErrorCondition::TIMEOUT;
-                break;
+                return ErrorConditionWrapper::ErrorCondition::TIMEOUT;
 
             default:
-                break;
+                return std::nullopt;
             }
-
-            return condition;
         }
     )
 };
@@ -218,7 +199,7 @@ TEST_CASE("macro for define error code", "[error]") {
         SECTION("error code") {
             using namespace std::string_view_literals;
 
-            std::error_code ec = ErrorCode::INVALID_ARGUMENT;
+            std::error_code ec{ErrorCode::INVALID_ARGUMENT};
             REQUIRE(ec.category().name() == "ErrorCode"sv);
             REQUIRE(ec.message() == "invalid argument");
             REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
@@ -266,7 +247,7 @@ TEST_CASE("macro for define error code", "[error]") {
         SECTION("error condition") {
             using namespace std::string_view_literals;
 
-            std::error_condition condition = ErrorCondition::INVALID_ARGUMENT;
+            std::error_condition condition{ErrorCondition::INVALID_ARGUMENT};
             REQUIRE(condition.category().name() == "ErrorCondition"sv);
             REQUIRE(condition.message() == "invalid argument");
             REQUIRE(condition == ErrorCodeEx::INVALID_ARGUMENT);
@@ -300,7 +281,7 @@ TEST_CASE("macro for define error code", "[error]") {
         SECTION("error code") {
             using namespace std::string_view_literals;
 
-            std::error_code ec = ErrorCodeWrapper::ErrorCode::INVALID_ARGUMENT;
+            std::error_code ec{ErrorCodeWrapper::ErrorCode::INVALID_ARGUMENT};
             REQUIRE(ec.category().name() == "ErrorCode"sv);
             REQUIRE(ec.message() == "invalid argument");
             REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
@@ -348,7 +329,7 @@ TEST_CASE("macro for define error code", "[error]") {
         SECTION("error condition") {
             using namespace std::string_view_literals;
 
-            std::error_condition condition = ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT;
+            std::error_condition condition{ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT};
             REQUIRE(condition.category().name() == "ErrorCondition"sv);
             REQUIRE(condition.message() == "invalid argument");
             REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::INVALID_ARGUMENT);

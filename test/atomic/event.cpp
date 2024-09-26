@@ -12,15 +12,15 @@ TEST_CASE("notify event", "[atomic]") {
         REQUIRE_FALSE(result);
         REQUIRE(result.error() == std::errc::timed_out);
 
-        int n = 0;
+        std::atomic<int> n;
 
-        std::thread thread(
+        std::thread thread{
             [&] {
                 std::this_thread::sleep_for(10ms);
                 n = 1;
                 event.set();
             }
-        );
+        };
 
         REQUIRE(event.wait());
         REQUIRE(n == 1);
@@ -36,21 +36,21 @@ TEST_CASE("notify event", "[atomic]") {
         SECTION("not set initially") {
             using namespace std::chrono_literals;
 
-            zero::atomic::Event event(true);
+            zero::atomic::Event event{true};
 
             auto result = event.wait(10ms);
             REQUIRE_FALSE(result);
             REQUIRE(result.error() == std::errc::timed_out);
 
-            int n = 0;
+            std::atomic<int> n;
 
-            std::thread thread(
+            std::thread thread{
                 [&] {
                     std::this_thread::sleep_for(10ms);
                     n = 1;
                     event.set();
                 }
-            );
+            };
 
             REQUIRE(event.wait());
             REQUIRE(n == 1);
@@ -68,7 +68,7 @@ TEST_CASE("notify event", "[atomic]") {
         SECTION("initial set") {
             using namespace std::chrono_literals;
 
-            zero::atomic::Event event(true, true);
+            zero::atomic::Event event{true, true};
             REQUIRE(event.wait());
             event.reset();
 
@@ -76,15 +76,15 @@ TEST_CASE("notify event", "[atomic]") {
             REQUIRE_FALSE(result);
             REQUIRE(result.error() == std::errc::timed_out);
 
-            int n = 0;
+            std::atomic<int> n;
 
-            std::thread thread(
+            std::thread thread{
                 [&] {
                     std::this_thread::sleep_for(10ms);
                     n = 1;
                     event.set();
                 }
-            );
+            };
 
             REQUIRE(event.wait());
             REQUIRE(n == 1);

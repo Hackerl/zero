@@ -7,10 +7,11 @@
 #include <linux/futex.h>
 #include <zero/os/unix/error.h>
 #elif defined(__APPLE__)
+#include <zero/expect.h>
 #include <zero/os/unix/error.h>
 
-#define ULF_WAKE_ALL 0x00000100
-#define UL_COMPARE_AND_WAIT 1
+constexpr auto ULF_WAKE_ALL = 0x00000100;
+constexpr auto UL_COMPARE_AND_WAIT = 1;
 
 extern "C" int __ulock_wait(uint32_t operation, void *addr, uint64_t value, uint32_t timeout);
 extern "C" int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value);
@@ -30,7 +31,7 @@ zero::atomic::Event::~Event() {
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
-    if (const DWORD result = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
+    if (const auto result = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         return std::unexpected(
             result == WAIT_TIMEOUT
@@ -54,20 +55,18 @@ void zero::atomic::Event::reset() {
 
 DEFINE_ERROR_CATEGORY_INSTANCE(zero::atomic::Event::Error)
 #else
-zero::atomic::Event::Event(const bool manual, const bool initialState) : mManual(manual), mState(initialState ? 1 : 0) {
+zero::atomic::Event::Event(const bool manual, const bool initialState) : mManual{manual}, mState(initialState ? 1 : 0) {
 }
 
 std::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
-    std::expected<void, std::error_code> result;
-
     while (true) {
         if (mManual) {
             if (mState)
-                break;
+                return {};
         }
         else {
-            if (Value expected = 1; mState.compare_exchange_strong(expected, 0))
-                break;
+            if (Value expected{1}; mState.compare_exchange_strong(expected, 0))
+                return {};
         }
 #ifdef __linux__
         std::optional<timespec> ts;
@@ -78,37 +77,27 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
                 timeout->count() % 1000 * 1000000
             };
 
-        if (const auto res = os::unix::ensure([&] {
+        if (const auto result = os::unix::ensure([&] {
             return syscall(SYS_futex, &mState, FUTEX_WAIT, 0, ts ? &*ts : nullptr, nullptr, 0);
-        }); !res) {
-            if (res.error() == std::errc::resource_unavailable_try_again)
-                continue;
-
-            result = std::unexpected(res.error());
-            break;
-        }
+        }); !result && result.error() != std::errc::resource_unavailable_try_again)
+            return std::unexpected(result.error());
 #elif defined(__APPLE__)
-        if (const auto res = os::unix::ensure([&] {
+        EXPECT(os::unix::ensure([&] {
             return __ulock_wait(
                 UL_COMPARE_AND_WAIT,
                 &mState,
                 0,
-                !timeout ? 0 : std::chrono::duration_cast<std::chrono::microseconds>(*timeout).count()
+                !timeout ? 0 : duration_cast<std::chrono::microseconds>(*timeout).count()
             );
-        }); !res) {
-            result = std::unexpected(res.error());
-            break;
-        }
+        }));
 #else
 #error "unsupported platform"
 #endif
     }
-
-    return result;
 }
 
 void zero::atomic::Event::set() {
-    if (Value expected = 0; mState.compare_exchange_strong(expected, 1)) {
+    if (Value expected{0}; mState.compare_exchange_strong(expected, 1)) {
 #ifdef __linux__
         syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
 #elif defined(__APPLE__)

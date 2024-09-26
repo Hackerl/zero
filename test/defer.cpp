@@ -2,7 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("defer expression", "[defer]") {
-    int i = 0;
+    int i{0};
 
     DEFER(REQUIRE(i == 15));
     DEFER(

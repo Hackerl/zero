@@ -2,6 +2,7 @@
 #include <zero/filesystem/fs.h>
 #include <zero/os/unix/error.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
 #include <thread>
 #include <unistd.h>
@@ -9,9 +10,15 @@
 #include <sys/prctl.h>
 
 TEST_CASE("procfs process", "[procfs]") {
-    std::array<char, 16> name = {};
-    prctl(PR_GET_NAME, name.data());
-    prctl(PR_SET_NAME, "(test)");
+    std::array<char, 16> name{};
+
+    REQUIRE(zero::os::unix::expected([&] {
+        return prctl(PR_GET_NAME, name.data());
+    }));
+
+    REQUIRE(zero::os::unix::expected([] {
+        return prctl(PR_SET_NAME, "(test)");
+    }));
 
     const auto variable = reinterpret_cast<std::uintptr_t>(stdout);
     const auto function = reinterpret_cast<std::uintptr_t>(zero::filesystem::applicationPath);
@@ -36,7 +43,7 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
         const auto env = process->environ();
         REQUIRE(env);
@@ -46,7 +53,7 @@ TEST_CASE("procfs process", "[procfs]") {
 
         auto it = std::ranges::find_if(
             *mappings,
-            [=](const zero::os::procfs::process::MemoryMapping &mapping) {
+            [=](const auto &mapping) {
                 return function >= mapping.start && function < mapping.end;
             }
         );
@@ -99,8 +106,8 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto tasks = process->tasks();
         REQUIRE(tasks);
-        REQUIRE_FALSE(tasks->empty());
-        REQUIRE(tasks->front() == pid);
+        REQUIRE_THAT(*tasks, !Catch::Matchers::IsEmpty());
+        REQUIRE_THAT(*tasks, Catch::Matchers::Contains(pid));
 
         const auto io = process->io();
         REQUIRE(io);
@@ -109,11 +116,11 @@ TEST_CASE("procfs process", "[procfs]") {
     SECTION("child") {
         using namespace std::chrono_literals;
 
-        const pid_t pid = fork();
+        const auto pid = fork();
 
         if (pid == 0) {
             pause();
-            exit(0);
+            std::exit(EXIT_FAILURE);
         }
 
         REQUIRE(pid > 0);
@@ -132,7 +139,7 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
         const auto env = process->environ();
         REQUIRE(env);
@@ -195,13 +202,16 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto tasks = process->tasks();
         REQUIRE(tasks);
-        REQUIRE(tasks->size() == 1);
-        REQUIRE(tasks->front() == pid);
+        REQUIRE_THAT(*tasks, Catch::Matchers::SizeIs(1));
+        REQUIRE_THAT(*tasks, Catch::Matchers::Contains(pid));
 
         const auto io = process->io();
         REQUIRE(io);
 
-        kill(pid, SIGKILL);
+        REQUIRE(zero::os::unix::expected([=] {
+            return kill(pid, SIGKILL);
+        }));
+
         const auto id = zero::os::unix::ensure([&] {
             return waitpid(pid, nullptr, 0);
         });
@@ -212,16 +222,18 @@ TEST_CASE("procfs process", "[procfs]") {
     SECTION("zombie") {
         using namespace std::chrono_literals;
 
-        const pid_t pid = fork();
+        const auto pid = fork();
 
         if (pid == 0) {
             pause();
-            exit(0);
+            std::exit(EXIT_FAILURE);
         }
 
         REQUIRE(pid > 0);
+        REQUIRE(zero::os::unix::expected([=] {
+            return kill(pid, SIGKILL);
+        }));
 
-        kill(pid, SIGKILL);
         std::this_thread::sleep_for(100ms);
 
         const auto process = zero::os::procfs::process::open(pid);
@@ -274,8 +286,8 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto tasks = process->tasks();
         REQUIRE(tasks);
-        REQUIRE(tasks->size() == 1);
-        REQUIRE(tasks->front() == pid);
+        REQUIRE_THAT(*tasks, Catch::Matchers::SizeIs(1));
+        REQUIRE_THAT(*tasks, Catch::Matchers::Contains(pid));
 
         const auto id = zero::os::unix::ensure([&] {
             return waitpid(pid, nullptr, 0);
@@ -290,5 +302,7 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }
 
-    prctl(PR_SET_NAME, name.data());
+    REQUIRE(zero::os::unix::expected([&] {
+        return prctl(PR_SET_NAME, name.data());
+    }));
 }

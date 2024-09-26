@@ -2,6 +2,7 @@
 #include <zero/os/process.h>
 #include <zero/strings/strings.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
 
 TEST_CASE("get hostname", "[os]") {
     const auto hostname = zero::os::hostname();
@@ -11,8 +12,7 @@ TEST_CASE("get hostname", "[os]") {
     REQUIRE(output);
     REQUIRE(output->status.success());
 
-    const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
-    REQUIRE(zero::strings::trim(result) == *hostname);
+    REQUIRE(zero::strings::trim({reinterpret_cast<const char *>(output->out.data()), output->out.size()}) == *hostname);
 }
 
 TEST_CASE("get username", "[os]") {
@@ -23,6 +23,8 @@ TEST_CASE("get username", "[os]") {
     REQUIRE(output);
     REQUIRE(output->status.success());
 
-    const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
-    REQUIRE(zero::strings::trim(result).find(*username) != std::string::npos);
+    REQUIRE_THAT(
+        (std::string{reinterpret_cast<const char *>(output->out.data()), output->out.size()}),
+        Catch::Matchers::ContainsSubstring(*username)
+    );
 }

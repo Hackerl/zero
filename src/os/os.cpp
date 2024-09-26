@@ -23,16 +23,16 @@
 
 std::expected<std::string, std::error_code> zero::os::hostname() {
 #ifdef _WIN32
-    std::array<WCHAR, MAX_COMPUTERNAME_LENGTH + 1> buffer = {};
-    DWORD length = buffer.size();
+    std::array<WCHAR, MAX_COMPUTERNAME_LENGTH + 1> buffer{};
+    auto size = static_cast<DWORD>(buffer.size());
 
     EXPECT(nt::expected([&] {
-        return GetComputerNameW(buffer.data(), &length);
+        return GetComputerNameW(buffer.data(), &size);
     }));
 
     return strings::encode(buffer.data());
 #elif defined(__linux__)
-    std::array<char, HOST_NAME_MAX + 1> buffer = {};
+    std::array<char, HOST_NAME_MAX + 1> buffer{};
 
     EXPECT(unix::expected([&] {
         return gethostname(buffer.data(), buffer.size());
@@ -40,7 +40,7 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
 
     return buffer.data();
 #elif defined(__APPLE__)
-    std::array<char, MAXHOSTNAMELEN> buffer = {};
+    std::array<char, MAXHOSTNAMELEN> buffer{};
 
     EXPECT(unix::expected([&] {
         return gethostname(buffer.data(), buffer.size());
@@ -54,47 +54,45 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
 
 std::expected<std::string, std::error_code> zero::os::username() {
 #ifdef _WIN32
-    std::array<WCHAR, UNLEN + 1> buffer = {};
-    DWORD length = buffer.size();
+    std::array<WCHAR, UNLEN + 1> buffer{};
+    auto size = static_cast<DWORD>(buffer.size());
 
     EXPECT(nt::expected([&] {
-        return GetUserNameW(buffer.data(), &length);
+        return GetUserNameW(buffer.data(), &size);
     }));
 
     return strings::encode(buffer.data());
 #elif defined(__linux__) || __APPLE__
-    const uid_t uid = geteuid();
-    const long max = sysconf(_SC_GETPW_R_SIZE_MAX);
+    const auto uid = geteuid();
+    const auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
 
     std::size_t size = max != -1 ? max : 1024;
     auto buffer = std::make_unique<char[]>(size);
 
-    passwd pwd = {};
-    passwd *ptr = nullptr;
-
-    std::expected<std::string, std::error_code> result;
+    passwd pwd{};
+    passwd *ptr{};
 
     while (true) {
-        if (const int n = getpwuid_r(uid, &pwd, buffer.get(), size, &ptr); n != 0) {
-            if (n == ERANGE) {
-                size *= 2;
-                buffer = std::make_unique<char[]>(size);
-                continue;
-            }
+        const auto n = getpwuid_r(uid, &pwd, buffer.get(), size, &ptr);
 
-            result = std::unexpected(std::error_code(n, std::system_category()));
-            break;
+        if (n == 0) {
+            if (!ptr)
+                return std::unexpected(GetUsernameError::NO_SUCH_ENTRY);
+
+            return pwd.pw_name;
         }
 
-        if (!ptr)
-            break;
+        if (n != ERANGE)
+            return std::unexpected(std::error_code(n, std::system_category()));
 
-        result = pwd.pw_name;
-        break;
+        size *= 2;
+        buffer = std::make_unique<char[]>(size);
     }
-
-    return result;
 #else
 #error "unsupported platform"
 #endif
 }
+
+#ifndef _WIN32
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::GetUsernameError)
+#endif

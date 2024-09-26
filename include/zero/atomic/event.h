@@ -4,13 +4,13 @@
 #include <chrono>
 #include <optional>
 #include <expected>
-#include <system_error>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <zero/error.h>
 #else
 #include <atomic>
+#include <system_error>
 #endif
 
 namespace zero::atomic {

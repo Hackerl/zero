@@ -14,7 +14,7 @@
 class Provider final : public zero::ILogProvider {
 public:
     Provider(std::shared_ptr<std::bitset<4>> bitset, std::shared_ptr<zero::atomic::Event> event)
-        : mBitset(std::move(bitset)), mEvent(std::move(event)) {
+        : mBitset{std::move(bitset)}, mEvent{std::move(event)} {
     }
 
     std::expected<void, std::error_code> init() override {
@@ -154,19 +154,14 @@ TEST_CASE("logging module", "[log]") {
     REQUIRE(zero::filesystem::createDirectory(directory));
 
     SECTION("file provider") {
-        zero::FileProvider fileProvider("zero-test", directory, 10, 3);
+        zero::FileProvider provider{"zero-test", directory, 10, 3};
+        REQUIRE(provider.init());
 
-        auto result = fileProvider.init();
-        REQUIRE(result);
-
-        zero::LogRecord record = {.content = "hello world"};
+        zero::LogRecord record{.content = "hello world"};
 
         SECTION("normal") {
-            result = fileProvider.write(record);
-            REQUIRE(result);
-
-            result = fileProvider.flush();
-            REQUIRE(result);
+            REQUIRE(provider.write(record));
+            REQUIRE(provider.flush());
 
             const auto files = zero::filesystem::readDirectory(directory).transform([](const auto &it) {
                 return it
@@ -187,14 +182,10 @@ TEST_CASE("logging module", "[log]") {
         SECTION("rotate") {
             using namespace std::chrono_literals;
 
-            for (int i = 0; i < 10; ++i) {
+            for (int i{0}; i < 10; ++i) {
                 std::this_thread::sleep_for(10ms);
-
-                result = fileProvider.write(record);
-                REQUIRE(result);
-
-                result = fileProvider.rotate();
-                REQUIRE(result);
+                REQUIRE(provider.write(record));
+                REQUIRE(provider.rotate());
             }
 
             const auto count = zero::filesystem::readDirectory(directory).transform([](const auto &it) {

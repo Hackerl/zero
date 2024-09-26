@@ -145,7 +145,7 @@ namespace zero::filesystem {
 
         NoExcept() = default;
 
-        explicit NoExcept(T it) : mIterator(std::move(it)) {
+        explicit NoExcept(T it) : mIterator{std::move(it)} {
         }
 
         [[nodiscard]] value_type operator*() const {
@@ -167,7 +167,7 @@ namespace zero::filesystem {
         }
 
         EntryProxy operator++(int) {
-            EntryProxy proxy(**this);
+            EntryProxy proxy{**this};
 
             if (mErrorCode) {
                 mErrorCode.clear();

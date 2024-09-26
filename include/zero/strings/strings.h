@@ -23,9 +23,9 @@ namespace zero::strings {
 
     template<typename T>
     std::expected<T, std::error_code> toNumber(const std::string_view str, const int base = 10) {
-        T value;
+        T value{};
 
-        if (const auto result = std::from_chars(str.data(), str.data() + str.length(), value, base);
+        if (const auto result = std::from_chars(str.data(), str.data() + str.size(), value, base);
             result.ec != std::errc())
             return std::unexpected(make_error_code(result.ec));
 

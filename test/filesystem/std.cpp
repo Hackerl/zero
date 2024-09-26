@@ -18,7 +18,7 @@ TEST_CASE("std::filesystem wrapper", "[filesystem]") {
             REQUIRE(it.error() == std::errc::no_such_file_or_directory);
             REQUIRE(zero::filesystem::createDirectory(directory));
 
-            const std::list files = {directory / "a", directory / "b", directory / "c"};
+            const std::list files{directory / "a", directory / "b", directory / "c"};
 
             for (const auto &file: files) {
                 REQUIRE(zero::filesystem::write(file, ""));
@@ -78,7 +78,7 @@ TEST_CASE("std::filesystem wrapper", "[filesystem]") {
             REQUIRE(it.error() == std::errc::no_such_file_or_directory);
             REQUIRE(zero::filesystem::createDirectory(directory));
 
-            const std::list files = {directory / "a", directory / "b" / "c", directory / "d" / "e" / "f"};
+            const std::list files{directory / "a", directory / "b" / "c", directory / "d" / "e" / "f"};
 
             for (const auto &file: files) {
                 REQUIRE(zero::filesystem::createDirectories(file.parent_path()));

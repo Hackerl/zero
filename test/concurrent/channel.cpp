@@ -112,14 +112,14 @@ TEST_CASE("channel", "[concurrent]") {
         auto [sender, receiver] = zero::concurrent::channel<int>(5);
         REQUIRE_FALSE(sender.closed());
 
-        std::thread thread(
+        std::thread thread{
             [](zero::concurrent::Receiver<int> r) {
                 const auto result = r.receive();
                 assert(result);
                 assert(*result == 0);
             },
             std::move(receiver)
-        );
+        };
 
         REQUIRE(sender.trySend(0));
         thread.join();
@@ -134,13 +134,13 @@ TEST_CASE("channel", "[concurrent]") {
         auto [sender, receiver] = zero::concurrent::channel<int>(5);
         REQUIRE_FALSE(receiver.closed());
 
-        std::thread thread(
+        std::thread thread{
             [](zero::concurrent::Sender<int> s) {
                 const auto result = s.trySend(0);
                 assert(result);
             },
             std::move(sender)
-        );
+        };
 
         auto result = receiver.receive();
         REQUIRE(result);
@@ -155,7 +155,7 @@ TEST_CASE("channel", "[concurrent]") {
     }
 
     SECTION("concurrent") {
-        std::array<std::atomic<int>, 2> counters = {};
+        std::array<std::atomic<int>, 2> counters;
         auto [sender, receiver] = zero::concurrent::channel<int>(5);
 
         auto produce = [&] {
@@ -179,20 +179,20 @@ TEST_CASE("channel", "[concurrent]") {
             }
         };
 
-        std::array producers = {
-            std::thread(produce),
-            std::thread(produce),
-            std::thread(produce),
-            std::thread(produce),
-            std::thread(produce)
+        std::array producers{
+            std::thread{produce},
+            std::thread{produce},
+            std::thread{produce},
+            std::thread{produce},
+            std::thread{produce}
         };
 
-        std::array consumers = {
-            std::thread(consume),
-            std::thread(consume),
-            std::thread(consume),
-            std::thread(consume),
-            std::thread(consume)
+        std::array consumers{
+            std::thread{consume},
+            std::thread{consume},
+            std::thread{consume},
+            std::thread{consume},
+            std::thread{consume}
         };
 
         for (auto &producer: producers)

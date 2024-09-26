@@ -482,7 +482,7 @@ std::expected<bool, std::error_code> zero::filesystem::isSymlink(const std::file
     return result;
 }
 
-zero::filesystem::DirectoryEntry::DirectoryEntry(std::filesystem::directory_entry entry) : mEntry(std::move(entry)) {
+zero::filesystem::DirectoryEntry::DirectoryEntry(std::filesystem::directory_entry entry) : mEntry{std::move(entry)} {
 }
 
 std::expected<void, std::error_code> zero::filesystem::DirectoryEntry::assign(const std::filesystem::path &path) {
@@ -662,7 +662,7 @@ std::expected<std::filesystem::file_status, std::error_code> zero::filesystem::D
 }
 
 zero::filesystem::EntryProxy::EntryProxy(std::expected<DirectoryEntry, std::error_code> entry)
-    : mEntry(std::move(entry)) {
+    : mEntry{std::move(entry)} {
 }
 
 const std::expected<zero::filesystem::DirectoryEntry, std::error_code> &
@@ -677,7 +677,7 @@ std::expected<zero::filesystem::DirectoryEntry, std::error_code> zero::filesyste
 std::expected<zero::filesystem::NoExcept<std::filesystem::directory_iterator>, std::error_code>
 zero::filesystem::readDirectory(const std::filesystem::path &path) {
     std::error_code ec;
-    std::filesystem::directory_iterator it(path, ec);
+    std::filesystem::directory_iterator it{path, ec};
 
     if (ec)
         return std::unexpected(ec);
@@ -688,7 +688,7 @@ zero::filesystem::readDirectory(const std::filesystem::path &path) {
 std::expected<zero::filesystem::NoExcept<std::filesystem::recursive_directory_iterator>, std::error_code>
 zero::filesystem::walkDirectory(const std::filesystem::path &path) {
     std::error_code ec;
-    std::filesystem::recursive_directory_iterator it(path, ec);
+    std::filesystem::recursive_directory_iterator it{path, ec};
 
     if (ec)
         return std::unexpected(ec);

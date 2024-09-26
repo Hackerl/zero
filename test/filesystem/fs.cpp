@@ -1,8 +1,7 @@
 #include <zero/filesystem/fs.h>
 #include <zero/filesystem/std.h>
 #include <catch2/catch_test_macros.hpp>
-#include <algorithm>
-#include <array>
+#include <catch2/matchers/catch_matchers_all.hpp>
 
 TEST_CASE("filesystem api", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
@@ -25,20 +24,18 @@ TEST_CASE("filesystem api", "[filesystem]") {
     }
 
     SECTION("read and write") {
-        constexpr std::string_view data = "hello";
+        constexpr std::string_view data{"hello"};
 
         SECTION("bytes") {
-            const auto result = zero::filesystem::write(path, std::as_bytes(std::span{data}));
-            REQUIRE(result);
+            REQUIRE(zero::filesystem::write(path, std::as_bytes(std::span{data})));
 
             const auto content = zero::filesystem::read(path);
             REQUIRE(content);
-            REQUIRE(std::ranges::equal(*content, std::as_bytes(std::span{data})));
+            REQUIRE_THAT(*content, Catch::Matchers::RangeEquals(std::as_bytes(std::span{data})));
         }
 
         SECTION("string") {
-            const auto result = zero::filesystem::write(path, data);
-            REQUIRE(result);
+            REQUIRE(zero::filesystem::write(path, data));
 
             const auto content = zero::filesystem::readString(path);
             REQUIRE(content);

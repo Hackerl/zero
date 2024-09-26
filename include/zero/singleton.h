@@ -5,7 +5,7 @@ namespace zero {
     template<typename T>
     struct Singleton {
         static T &instance() {
-            static T instance = {};
+            static T instance{};
             return instance;
         }
     };

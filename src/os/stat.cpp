@@ -23,7 +23,7 @@
 
 std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 #ifdef _WIN32
-    FILETIME idle, kernel, user;
+    FILETIME idle{}, kernel{}, user{};
 
     EXPECT(nt::expected([&] {
         return GetSystemTimes(&idle, &kernel, &user);
@@ -81,10 +81,10 @@ std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
         static_cast<double>(*idle) / ticks
     };
 #elif defined(__APPLE__)
-    host_cpu_load_info_data_t data;
-    mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
+    host_cpu_load_info_data_t data{};
+    mach_msg_type_number_t count{HOST_CPU_LOAD_INFO_COUNT};
 
-    if (const kern_return_t status = host_statistics(
+    if (const auto status = host_statistics(
         mach_host_self(),
         HOST_CPU_LOAD_INFO,
         reinterpret_cast<host_info_t>(&data),
@@ -109,7 +109,7 @@ std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 
 std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory() {
 #ifdef _WIN32
-    MEMORYSTATUSEX status;
+    MEMORYSTATUSEX status{};
     status.dwLength = sizeof(status);
 
     EXPECT(nt::expected([&] {
@@ -144,7 +144,7 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
     if (!map.contains("MemTotal") || !map.contains("MemFree") || !map.contains("Buffers") || !map.contains("Cached"))
         return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
-    MemoryStat stat = {};
+    MemoryStat stat{};
 
     stat.total = map["MemTotal"];
     stat.free = map["MemFree"];
@@ -163,10 +163,10 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
     stat.available = cached + stat.free;
     return stat;
 #elif defined(__APPLE__)
-    vm_statistics_data_t data;
-    mach_msg_type_number_t count = HOST_VM_INFO_COUNT;
+    vm_statistics_data_t data{};
+    mach_msg_type_number_t count{HOST_VM_INFO_COUNT};
 
-    if (const kern_return_t status = host_statistics(
+    if (const auto status = host_statistics(
         mach_host_self(),
         HOST_VM_INFO,
         reinterpret_cast<host_info_t>(&data),
@@ -174,15 +174,15 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
     ); status != KERN_SUCCESS)
         return std::unexpected(make_error_code(static_cast<darwin::Error>(status)));
 
-    std::uint64_t total;
-    std::size_t size = sizeof(total);
+    std::uint64_t total{};
+    auto size = sizeof(total);
 
     EXPECT(unix::expected([&] {
-        std::array mib = {CTL_HW, HW_MEMSIZE};
+        std::array mib{CTL_HW, HW_MEMSIZE};
         return sysctl(mib.data(), mib.size(), &total, &size, nullptr, 0);
     }));
 
-    MemoryStat stat = {};
+    MemoryStat stat{};
 
     stat.total = total;
     stat.available = (data.inactive_count + data.free_count) * vm_kernel_page_size;

@@ -58,8 +58,8 @@ void zero::Cmdline::help() const {
         "usage: {} [options] {} ... {} ...\n",
         filesystem::applicationPath()->filename(),
         fmt::join(
-            mPositionals | std::views::transform([](const auto &p) {
-                return fmt::format("{}({})", p.name, p.typeInfo.type);
+            mPositionals | std::views::transform([](const auto &positional) {
+                return fmt::format("{}({})", positional.name, positional.typeInfo.name);
             }),
             " "
         ),
@@ -69,7 +69,7 @@ void zero::Cmdline::help() const {
     fmt::print(stderr, "positional:\n");
 
     for (const auto &[name, desc, value, typeInfo]: mPositionals)
-        fmt::print(stderr, "\t{:<30} {}({})\n", name, desc, typeInfo.type);
+        fmt::print(stderr, "\t{:<30} {}({})\n", name, desc, typeInfo.name);
 
     fmt::print(stderr, "optional:\n");
 
@@ -80,7 +80,7 @@ void zero::Cmdline::help() const {
                 "\t    --{:<24} {}{}\n",
                 name,
                 desc,
-                typeInfo ? fmt::format("({})", typeInfo->type) : ""
+                typeInfo ? fmt::format("({})", typeInfo->name) : ""
             );
             continue;
         }
@@ -91,16 +91,16 @@ void zero::Cmdline::help() const {
             shortName,
             name,
             desc,
-            typeInfo ? fmt::format("({})", typeInfo->type) : ""
+            typeInfo ? fmt::format("({})", typeInfo->name) : ""
         );
     }
 }
 
-void zero::Cmdline::addOptional(const char *name, const char shortName, const char *desc) {
-    mOptionals.emplace_back(name, shortName, desc, false);
+void zero::Cmdline::addOptional(std::string name, const char shortName, std::string desc) {
+    mOptionals.emplace_back(std::move(name), shortName, std::move(desc), false);
 }
 
-bool zero::Cmdline::exist(const char *name) const {
+bool zero::Cmdline::exist(const std::string_view name) const {
     return std::any_cast<bool>(find(name).value);
 }
 
@@ -108,14 +108,14 @@ std::vector<std::string> zero::Cmdline::rest() const {
     return mRest;
 }
 
-void zero::Cmdline::footer(const char *message) {
-    mFooter = message;
+void zero::Cmdline::footer(std::string message) {
+    mFooter = std::move(message);
 }
 
 void zero::Cmdline::from(const int argc, const char *const *argv) {
     auto it = mPositionals.begin();
 
-    for (int i = 1; i < argc; ++i) {
+    for (int i{1}; i < argc; ++i) {
         if (*argv[i] != '-') {
             if (it == mPositionals.end()) {
                 mRest.emplace_back(argv[i]);
@@ -151,8 +151,8 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             continue;
         }
 
-        const char *p = std::strchr(argv[i], '=');
-        const std::size_t n = p ? p - argv[i] : strlen(argv[i]);
+        const auto ptr = std::strchr(argv[i], '=');
+        const auto n = ptr ? ptr - argv[i] : std::strlen(argv[i]);
 
         if (n == 2) {
             mRest.insert(mRest.end(), argv + i + 1, argv + argc);
@@ -166,10 +166,10 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             continue;
         }
 
-        if (!p)
+        if (!ptr)
             throw std::runtime_error(fmt::format("optional argument requires value[{}]", argv[i]));
 
-        auto v = typeInfo->parse(p + 1);
+        auto v = typeInfo->parse(ptr + 1);
 
         if (!v)
             throw std::runtime_error(fmt::format("invalid optional argument[{}]", argv[i]));
@@ -179,7 +179,7 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
 
     if (exist("help")) {
         help();
-        exit(EXIT_SUCCESS);
+        std::exit(EXIT_SUCCESS);
     }
 
     if (it != mPositionals.end())
@@ -193,6 +193,6 @@ void zero::Cmdline::parse(const int argc, const char *const *argv) {
     catch (const std::runtime_error &e) {
         fmt::print(stderr, "error:\n\t{}\n", e.what());
         help();
-        exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);
     }
 }

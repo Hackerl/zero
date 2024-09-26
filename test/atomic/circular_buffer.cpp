@@ -31,7 +31,7 @@ TEST_CASE("lock-free circular buffer", "[atomic]") {
     }
 
     SECTION("full buffer") {
-        for (std::size_t i = 0; i < 9; i++) {
+        for (std::size_t i{0}; i < 9; i++) {
             const auto index = buffer.reserve();
             REQUIRE(index);
 

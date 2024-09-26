@@ -3,8 +3,8 @@
 #include <unistd.h>
 
 TEST_CASE("unix error", "[unix]") {
-    std::array<char, 1024> buffer = {};
     const auto result = zero::os::unix::expected([&] {
+        std::array<char, 1024> buffer{};
         return read(-1, buffer.data(), buffer.size());
     });
     REQUIRE_FALSE(result);

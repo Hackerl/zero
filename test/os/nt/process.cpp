@@ -1,6 +1,7 @@
 #include <zero/os/nt/process.h>
 #include <zero/filesystem/fs.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
 
 TEST_CASE("windows process", "[nt]") {
     using namespace std::chrono_literals;
@@ -25,7 +26,7 @@ TEST_CASE("windows process", "[nt]") {
 
     const auto cmdline = process->cmdline();
     REQUIRE(cmdline);
-    REQUIRE(cmdline->at(0).find(path->filename().string()) != std::string::npos);
+    REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
     const auto cwd = process->cwd();
     REQUIRE(cwd);

@@ -48,7 +48,7 @@ namespace zero {
     class FileProvider final : public ILogProvider {
     public:
         explicit FileProvider(
-            const char *name,
+            std::string name,
             std::optional<std::filesystem::path> directory = std::nullopt,
             std::size_t limit = 10 * 1024 * 1024,
             int remain = 10
@@ -95,7 +95,7 @@ namespace zero {
 
         void log(const LogLevel level, const std::string_view filename, const int line, std::string content) {
             std::ignore = mChannel.first.send(
-                LogRecord{
+                {
                     level,
                     line,
                     filename,

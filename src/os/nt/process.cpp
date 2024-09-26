@@ -1,5 +1,6 @@
 #include <zero/os/nt/process.h>
 #include <zero/strings/strings.h>
+#include <zero/filesystem/std.h>
 #include <zero/os/nt/error.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
@@ -20,11 +21,11 @@ static const auto queryInformationProcess = reinterpret_cast<decltype(&NtQueryIn
     GetProcAddress(GetModuleHandleA("ntdll"), "NtQueryInformationProcess")
 );
 
-zero::os::nt::process::Process::Process(const HANDLE handle, const DWORD pid) : mPID(pid), mHandle(handle) {
+zero::os::nt::process::Process::Process(const HANDLE handle, const DWORD pid) : mPID{pid}, mHandle{handle} {
 }
 
 zero::os::nt::process::Process::Process(Process &&rhs) noexcept
-    : mPID(std::exchange(rhs.mPID, -1)), mHandle(std::exchange(rhs.mHandle, nullptr)) {
+    : mPID{std::exchange(rhs.mPID, -1)}, mHandle{std::exchange(rhs.mHandle, nullptr)} {
 }
 
 zero::os::nt::process::Process &zero::os::nt::process::Process::operator=(Process &&rhs) noexcept {
@@ -42,7 +43,7 @@ zero::os::nt::process::Process::~Process() {
 
 std::expected<zero::os::nt::process::Process, std::error_code>
 zero::os::nt::process::Process::from(const HANDLE handle) {
-    const DWORD pid = GetProcessId(handle);
+    const auto pid = GetProcessId(handle);
 
     if (pid == 0)
         return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
@@ -54,7 +55,7 @@ std::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::p
     if (!queryInformationProcess)
         return std::unexpected(Error::API_NOT_AVAILABLE);
 
-    PROCESS_BASIC_INFORMATION info = {};
+    PROCESS_BASIC_INFORMATION info{};
 
     EXPECT(expected([&] {
         return NT_SUCCESS(queryInformationProcess(
@@ -66,7 +67,7 @@ std::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::p
         ));
     }));
 
-    std::uintptr_t ptr;
+    std::uintptr_t ptr{};
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
@@ -93,7 +94,7 @@ std::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() con
     if (!queryInformationProcess)
         return std::unexpected(Error::API_NOT_AVAILABLE);
 
-    PROCESS_BASIC_INFORMATION info = {};
+    PROCESS_BASIC_INFORMATION info{};
 
     EXPECT(expected([&] {
         return NT_SUCCESS(queryInformationProcess(
@@ -118,14 +119,14 @@ std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Pro
     const auto ptr = parameters();
     EXPECT(ptr);
 
-    UNICODE_STRING str;
+    UNICODE_STRING str{};
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
             mHandle,
             reinterpret_cast<LPCVOID>(*ptr + CURRENT_DIRECTORY_OFFSET),
             &str,
-            sizeof(UNICODE_STRING),
+            sizeof(str),
             nullptr
         );
     }));
@@ -145,18 +146,12 @@ std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Pro
         );
     }));
 
-    std::error_code ec;
-    auto path = std::filesystem::canonical(buffer.get(), ec);
-
-    if (ec)
-        return std::unexpected(ec);
-
-    return path;
+    return filesystem::canonical(buffer.get());
 }
 
 std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::exe() const {
-    std::array<WCHAR, MAX_PATH> buffer = {};
-    DWORD size = buffer.size();
+    std::array<WCHAR, MAX_PATH> buffer{};
+    auto size = static_cast<DWORD>(buffer.size());
 
     EXPECT(expected([&] {
         return QueryFullProcessImageNameW(mHandle, 0, buffer.data(), &size);
@@ -169,14 +164,14 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::
     const auto ptr = parameters();
     EXPECT(ptr);
 
-    UNICODE_STRING str;
+    UNICODE_STRING str{};
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
             mHandle,
             reinterpret_cast<LPCVOID>(*ptr + offsetof(RTL_USER_PROCESS_PARAMETERS, CommandLine)),
             &str,
-            sizeof(UNICODE_STRING),
+            sizeof(str),
             nullptr
         );
     }));
@@ -196,53 +191,48 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::
         );
     }));
 
-    int num = 0;
-    LPWSTR *args = CommandLineToArgvW(buffer.get(), &num);
+    int num{0};
+    const auto args = CommandLineToArgvW(buffer.get(), &num);
 
     if (!args)
         return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     DEFER(LocalFree(args));
-    std::expected<std::vector<std::string>, std::error_code> result;
+    std::vector<std::string> cmdline;
 
-    for (int i = 0; i < num; ++i) {
+    for (int i{0}; i < num; ++i) {
         auto arg = strings::encode(args[i]);
-
-        if (!arg) {
-            result = std::unexpected(arg.error());
-            break;
-        }
-
-        result->push_back(*std::move(arg));
+        EXPECT(arg);
+        cmdline.push_back(*std::move(arg));
     }
 
-    return result;
+    return cmdline;
 }
 
 std::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::process::Process::envs() const {
     const auto ptr = parameters();
     EXPECT(ptr);
 
-    PVOID env;
+    PVOID env{};
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
             mHandle,
             reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_OFFSET),
             &env,
-            sizeof(PVOID),
+            sizeof(env),
             nullptr
         );
     }));
 
-    ULONG size;
+    ULONG size{};
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
             mHandle,
             reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_SIZE_OFFSET),
             &size,
-            sizeof(ULONG),
+            sizeof(size),
             nullptr
         );
     }));
@@ -262,30 +252,28 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt:
     const auto str = strings::encode(std::wstring_view(buffer.get(), size / sizeof(WCHAR)));
     EXPECT(str);
 
-    std::expected<std::map<std::string, std::string>, std::error_code> result;
+    std::map<std::string, std::string> envs;
 
     for (const auto &token: strings::split(*str, {"\0", 1})) {
         if (token.empty())
             break;
 
-        const size_t pos = token.find('=');
+        const auto pos = token.find('=');
 
-        if (pos == std::string::npos) {
-            result = std::unexpected<std::error_code>(Error::UNEXPECTED_DATA);
-            break;
-        }
+        if (pos == std::string::npos)
+            return std::unexpected(Error::UNEXPECTED_DATA);
 
         if (pos == 0)
             continue;
 
-        result->emplace(token.substr(0, pos), token.substr(pos + 1));
+        envs.emplace(token.substr(0, pos), token.substr(pos + 1));
     }
 
-    return result;
+    return envs;
 }
 
 std::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::process::Process::cpu() const {
-    FILETIME create, exit, kernel, user;
+    FILETIME create{}, exit{}, kernel{}, user{};
 
     EXPECT(expected([&] {
         return GetProcessTimes(mHandle, &create, &exit, &kernel, &user);
@@ -298,7 +286,7 @@ std::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::pro
 }
 
 std::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::process::Process::memory() const {
-    PROCESS_MEMORY_COUNTERS counters;
+    PROCESS_MEMORY_COUNTERS counters{};
 
     EXPECT(expected([&] {
         return GetProcessMemoryInfo(mHandle, &counters, sizeof(counters));
@@ -311,7 +299,7 @@ std::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::
 }
 
 std::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::process::Process::io() const {
-    IO_COUNTERS counters;
+    IO_COUNTERS counters{};
 
     EXPECT(expected([&] {
         return GetProcessIoCounters(mHandle, &counters);
@@ -326,7 +314,7 @@ std::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::proc
 }
 
 std::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() const {
-    DWORD code;
+    DWORD code{};
 
     EXPECT(expected([&] {
         return GetExitCodeProcess(mHandle, &code);
@@ -340,7 +328,7 @@ std::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode()
 
 std::expected<void, std::error_code>
 zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
-    if (const DWORD result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
+    if (const auto result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         if (result == WAIT_TIMEOUT)
             return std::unexpected(Error::WAIT_PROCESS_TIMEOUT);
@@ -376,31 +364,22 @@ std::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::pro
 }
 
 std::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
-    std::size_t size = 4096;
+    std::size_t size{4096};
     auto buffer = std::make_unique<DWORD[]>(size);
 
-    std::expected<std::list<DWORD>, std::error_code> result;
-
     while (true) {
-        DWORD needed;
+        DWORD needed{};
 
-        if (const auto res = expected([&] {
+        EXPECT(expected([&] {
             return EnumProcesses(buffer.get(), size * sizeof(DWORD), &needed);
-        }); !res) {
-            result = std::unexpected(res.error());
-            break;
-        }
+        }));
 
-        if (needed / sizeof(DWORD) == size) {
-            size *= 2;
-            buffer = std::make_unique<DWORD[]>(size);
-        }
+        if (needed / sizeof(DWORD) < size)
+            return std::list<DWORD>{buffer.get(), buffer.get() + needed / sizeof(DWORD)};
 
-        result->assign(buffer.get(), buffer.get() + needed / sizeof(DWORD));
-        break;
+        size *= 2;
+        buffer = std::make_unique<DWORD[]>(size);
     }
-
-    return result;
 }
 
 DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::nt::process::Process::Error)

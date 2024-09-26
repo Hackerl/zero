@@ -86,7 +86,7 @@ namespace zero::async::promise {
         }
 
         [[nodiscard]] bool hasResult() const {
-            const State s = state;
+            const auto s = state.load();
             return s == State::ONLY_RESULT || s == State::DONE;
         }
     };
@@ -97,11 +97,11 @@ namespace zero::async::promise {
         using value_type = T;
         using error_type = E;
 
-        Promise() : mRetrieved(false), mCore(std::make_shared<Core<T, E>>()) {
+        Promise() : mRetrieved{false}, mCore{std::make_shared<Core<T, E>>()} {
         }
 
         Promise(Promise &&rhs) noexcept
-            : mRetrieved(std::exchange(rhs.mRetrieved, false)), mCore(std::move(rhs.mCore)) {
+            : mRetrieved{std::exchange(rhs.mRetrieved, false)}, mCore{std::move(rhs.mCore)} {
         }
 
         Promise &operator=(Promise &&rhs) noexcept {
@@ -148,7 +148,7 @@ namespace zero::async::promise {
                 mCore->result.emplace(std::in_place, std::forward<Ts>(args)...);
             }
 
-            State state = mCore->state;
+            auto state = mCore->state.load();
 
             if (state == State::PENDING && mCore->state.compare_exchange_strong(state, State::ONLY_RESULT)) {
                 mCore->event.set();
@@ -171,7 +171,7 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             mCore->result.emplace(std::unexpected<E>(std::in_place, std::forward<Ts>(args)...));
-            State state = mCore->state;
+            auto state = mCore->state.load();
 
             if (state == State::PENDING && mCore->state.compare_exchange_strong(state, State::ONLY_RESULT)) {
                 mCore->event.set();
@@ -196,10 +196,10 @@ namespace zero::async::promise {
         using value_type = T;
         using error_type = E;
 
-        explicit Future(std::shared_ptr<Core<T, E>> core) : mCore(std::move(core)) {
+        explicit Future(std::shared_ptr<Core<T, E>> core) : mCore{std::move(core)} {
         }
 
-        Future(Future &&rhs) noexcept : mCore(std::move(rhs.mCore)) {
+        Future(Future &&rhs) noexcept : mCore{std::move(rhs.mCore)} {
         }
 
         Future &operator=(Future &&rhs) noexcept {
@@ -265,7 +265,7 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
             mCore->callback = std::forward<F>(f);
 
-            State state = mCore->state;
+            auto state = mCore->state.load();
 
             if (state == State::PENDING && mCore->state.compare_exchange_strong(state, State::ONLY_CALLBACK))
                 return;
@@ -312,7 +312,7 @@ namespace zero::async::promise {
                     promise->resolve();
                 }
                 else {
-                    Next next = [&] {
+                    auto next = [&] {
                         if constexpr (std::is_void_v<T>) {
                             return f();
                         }
@@ -417,7 +417,7 @@ namespace zero::async::promise {
                     promise->resolve();
                 }
                 else {
-                    Next next = [&] {
+                    auto next = [&] {
                         if constexpr (detail::is_applicable_v<F, T>) {
                             return std::apply(f, std::move(result).error());
                         }
@@ -556,7 +556,7 @@ namespace zero::async::promise {
     template<typename T, typename E, typename F>
     Future<T, E> chain(F &&f) {
         Promise<T, E> promise;
-        Future<T, E> future = promise.getFuture();
+        auto future = promise.getFuture();
         f(std::move(promise));
         return future;
     }
@@ -592,12 +592,12 @@ namespace zero::async::promise {
 
         if constexpr (std::is_void_v<T>) {
             struct Context {
-                explicit Context(const std::size_t n) : count(n) {
+                explicit Context(const std::size_t n) : count{n} {
                 }
 
                 Promise<void, E> promise;
                 std::atomic<std::size_t> count;
-                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+                std::atomic_flag flag;
             };
 
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
@@ -622,18 +622,19 @@ namespace zero::async::promise {
         }
         else {
             struct Context {
-                explicit Context(const std::size_t n) : count(n), values(n) {
+                explicit Context(const std::size_t n) : count{n}, values(n) {
                 }
 
                 Promise<std::vector<T>, E> promise;
                 std::atomic<std::size_t> count;
-                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+                std::atomic_flag flag;
                 std::vector<T> values;
             };
 
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
-            for (std::size_t i = 0; first != last; ++first, ++i) {
+            // waiting for libc++ to implement std::ranges::views::enumerate
+            for (std::size_t i{0}; first != last; ++first, ++i) {
                 (*first).setCallback([=](std::expected<T, E> result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
@@ -655,7 +656,7 @@ namespace zero::async::promise {
         }
     }
 
-    template<std::ranges::range R>
+    template<std::ranges::input_range R>
         requires detail::is_specialization<std::ranges::range_value_t<R>, Future>
     auto all(R futures) {
         return all(futures.begin(), futures.end());
@@ -667,7 +668,7 @@ namespace zero::async::promise {
             struct Context {
                 Promise<void, E> promise;
                 std::atomic<std::size_t> count{sizeof...(Ts)};
-                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+                std::atomic_flag flag;
             };
 
             const auto ctx = std::make_shared<Context>();
@@ -694,7 +695,7 @@ namespace zero::async::promise {
             struct Context {
                 Promise<futures_result_t<Ts...>, E> promise;
                 std::atomic<std::size_t> count{sizeof...(Ts)};
-                std::atomic_flag flag = ATOMIC_FLAG_INIT;
+                std::atomic_flag flag;
                 futures_result_t<Ts...> values;
             };
 
@@ -742,7 +743,7 @@ namespace zero::async::promise {
         using E = typename std::iter_value_t<I>::error_type;
 
         struct Context {
-            explicit Context(const std::size_t n) : count(n), results(n) {
+            explicit Context(const std::size_t n) : count{n}, results(n) {
             }
 
             Promise<std::vector<std::expected<T, E>>> promise;
@@ -752,7 +753,7 @@ namespace zero::async::promise {
 
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
-        for (std::size_t i = 0; first != last; ++first, ++i) {
+        for (std::size_t i{0}; first != last; ++first, ++i) {
             (*first).setCallback([=](std::expected<T, E> result) {
                 if (!result) {
                     ctx->results[i] = std::unexpected(std::move(result).error());
@@ -784,7 +785,7 @@ namespace zero::async::promise {
         return ctx->promise.getFuture();
     }
 
-    template<std::ranges::range R>
+    template<std::ranges::input_range R>
         requires detail::is_specialization<std::ranges::range_value_t<R>, Future>
     auto allSettled(R futures) {
         return allSettled(futures.begin(), futures.end());
@@ -850,18 +851,18 @@ namespace zero::async::promise {
         using E = typename std::iter_value_t<I>::error_type;
 
         struct Context {
-            explicit Context(const std::size_t n) : count(n), errors(n) {
+            explicit Context(const std::size_t n) : count{n}, errors(n) {
             }
 
             Promise<T, std::vector<E>> promise;
             std::atomic<std::size_t> count;
-            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            std::atomic_flag flag;
             std::vector<E> errors;
         };
 
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
-        for (std::size_t i = 0; first != last; ++first, ++i) {
+        for (std::size_t i{0}; first != last; ++first, ++i) {
             (*first).setCallback([=](std::expected<T, E> result) {
                 if (!result) {
                     ctx->errors[i] = std::move(result).error();
@@ -885,7 +886,7 @@ namespace zero::async::promise {
         return ctx->promise.getFuture();
     }
 
-    template<std::ranges::range R>
+    template<std::ranges::input_range R>
         requires detail::is_specialization<std::ranges::range_value_t<R>, Future>
     auto any(R futures) {
         return any(futures.begin(), futures.end());
@@ -893,7 +894,7 @@ namespace zero::async::promise {
 
     template<std::size_t... Is, typename... Ts, typename E>
     auto any(std::index_sequence<Is...>, Future<Ts, E>... futures) {
-        constexpr bool Same = detail::all_same_v<Ts...>;
+        constexpr auto Same = detail::all_same_v<Ts...>;
 
         struct Context {
             Promise<
@@ -906,7 +907,7 @@ namespace zero::async::promise {
             >
             promise;
             std::atomic<std::size_t> count{sizeof...(Ts)};
-            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            std::atomic_flag flag;
             std::array<E, sizeof...(Ts)> errors;
         };
 
@@ -954,7 +955,7 @@ namespace zero::async::promise {
 
         struct Context {
             Promise<T, E> promise;
-            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            std::atomic_flag flag;
         };
 
         const auto ctx = std::make_shared<Context>();
@@ -980,7 +981,7 @@ namespace zero::async::promise {
         return ctx->promise.getFuture();
     }
 
-    template<std::ranges::range R>
+    template<std::ranges::input_range R>
         requires detail::is_specialization<std::ranges::range_value_t<R>, Future>
     auto race(R futures) {
         return race(futures.begin(), futures.end());
@@ -988,11 +989,11 @@ namespace zero::async::promise {
 
     template<typename... Ts, typename E>
     auto race(Future<Ts, E>... futures) {
-        constexpr bool Same = detail::all_same_v<Ts...>;
+        constexpr auto Same = detail::all_same_v<Ts...>;
 
         struct Context {
             Promise<std::conditional_t<Same, detail::first_element_t<Ts...>, std::any>, E> promise;
-            std::atomic_flag flag = ATOMIC_FLAG_INIT;
+            std::atomic_flag flag;
         };
 
         const auto ctx = std::make_shared<Context>();

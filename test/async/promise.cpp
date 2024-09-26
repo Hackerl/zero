@@ -11,8 +11,8 @@ constexpr auto CHANNEL_CAPACITY = 32;
 class ThreadPool {
 public:
     ThreadPool(const std::size_t number, const std::size_t capacity)
-        : mChannel(zero::concurrent::channel<std::function<void()>>(capacity)) {
-        for (int i = 0; i < number; i++)
+        : mChannel{zero::concurrent::channel<std::function<void()>>(capacity)} {
+        for (int i{0}; i < number; i++)
             mThreads.emplace_back(&ThreadPool::dispatch, this);
     }
 
@@ -135,6 +135,8 @@ TEST_CASE("promise", "[async]") {
     }
 
     SECTION("callback chain") {
+        using namespace std::string_view_literals;
+
         zero::async::promise::chain<int, int>([](auto p) {
             p.resolve(1);
         }).then([](const int value) {
@@ -237,11 +239,13 @@ TEST_CASE("promise", "[async]") {
 
             p.resolve(std::move(buffer));
         }).then([](const std::unique_ptr<char[]> &buffer) {
-            REQUIRE(strcmp(buffer.get(), "hello") == 0);
+            REQUIRE(buffer.get() == "hello"sv);
         });
     }
 
     SECTION("concurrent") {
+        using namespace std::string_view_literals;
+
         {
             const auto result = resolve<int, int>(1).get();
             REQUIRE(result);
@@ -309,7 +313,7 @@ TEST_CASE("promise", "[async]") {
 
             const auto result = resolve<std::unique_ptr<char[]>, int>(std::move(buffer)).get();
             REQUIRE(result);
-            REQUIRE(strcmp(result->get(), "hello") == 0);
+            REQUIRE(result->get() == "hello"sv);
         }
     }
 
@@ -460,7 +464,7 @@ TEST_CASE("promise", "[async]") {
                         resolve<int, int>(3)
                     ).get();
                     REQUIRE_FALSE(result);
-                    const int error = result.error();
+                    const auto error = result.error();
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
@@ -823,7 +827,7 @@ TEST_CASE("promise", "[async]") {
                     resolve<void, int>(),
                     reject<void, int>(-3)
                 }).get(); !result) {
-                    const int error = result.error();
+                    const auto error = result.error();
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
@@ -837,11 +841,11 @@ TEST_CASE("promise", "[async]") {
                     resolve<int, int>(3),
                     reject<int, int>(-3)
                 }).get(); result) {
-                    const int value = *result;
+                    const auto value = *result;
                     REQUIRE((value == 1 || value == 2 || value == 3));
                 }
                 else {
-                    const int error = result.error();
+                    const auto error = result.error();
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
@@ -858,7 +862,7 @@ TEST_CASE("promise", "[async]") {
                         resolve<void, int>(),
                         reject<void, int>(-3)
                     ).get(); !result) {
-                        const int error = result.error();
+                        const auto error = result.error();
                         REQUIRE((error == -1 || error == -2 || error == -3));
                     }
                 }
@@ -872,11 +876,11 @@ TEST_CASE("promise", "[async]") {
                         resolve<int, int>(3),
                         reject<int, int>(-3)
                     ).get(); result) {
-                        const int value = *result;
+                        const auto value = *result;
                         REQUIRE((value == 1 || value == 2 || value == 3));
                     }
                     else {
-                        const int error = result.error();
+                        const auto error = result.error();
                         REQUIRE((error == -1 || error == -2 || error == -3));
                     }
                 }
@@ -896,11 +900,11 @@ TEST_CASE("promise", "[async]") {
 #if defined(_CPPRTTI) || defined(__GXX_RTTI)
                     REQUIRE(any.type() == typeid(int));
 #endif
-                    const int value = std::any_cast<int>(any);
+                    const auto value = std::any_cast<int>(any);
                     REQUIRE((value == 1 || value == 2 || value == 3));
                 }
                 else {
-                    const int error = result.error();
+                    const auto error = result.error();
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }

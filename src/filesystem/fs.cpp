@@ -11,40 +11,31 @@
 #include <sys/param.h>
 #include <zero/expect.h>
 #include <zero/os/unix/error.h>
+#include <zero/filesystem/std.h>
+#elif defined(__linux__)
+#include <zero/filesystem/std.h>
 #endif
 
 std::expected<std::filesystem::path, std::error_code> zero::filesystem::applicationPath() {
 #ifdef _WIN32
-    std::array<WCHAR, MAX_PATH> buffer = {};
+    std::array<WCHAR, MAX_PATH> buffer{};
 
-    if (const DWORD length = GetModuleFileNameW(nullptr, buffer.data(), buffer.size());
+    if (const auto length = GetModuleFileNameW(nullptr, buffer.data(), buffer.size());
         length == 0 || length == buffer.size())
         return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
     return buffer.data();
 #elif defined(__linux__)
-    std::error_code ec;
-    auto path = std::filesystem::read_symlink("/proc/self/exe", ec);
-
-    if (ec)
-        return std::unexpected(ec);
-
-    return path;
+    return readSymlink("/proc/self/exe");
 #elif defined(__APPLE__)
-    std::array<char, MAXPATHLEN> buffer = {};
-    std::uint32_t size = buffer.size();
+    std::array<char, MAXPATHLEN> buffer{};
+    auto size = static_cast<std::uint32_t>(buffer.size());
 
     EXPECT(os::unix::expected([&] {
         return _NSGetExecutablePath(buffer.data(), &size);
     }));
 
-    std::error_code ec;
-    auto path = std::filesystem::weakly_canonical(buffer.data(), ec);
-
-    if (ec)
-        return std::unexpected(ec);
-
-    return path;
+    return weaklyCanonical(buffer.data());
 #else
 #error "unsupported platform"
 #endif
@@ -55,62 +46,58 @@ std::expected<std::filesystem::path, std::error_code> zero::filesystem::applicat
 }
 
 std::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(const std::filesystem::path &path) {
-    std::ifstream stream(path, std::ios::binary);
+    std::ifstream stream{path, std::ios::binary};
 
     if (!stream.is_open())
         return std::unexpected(std::error_code(errno, std::generic_category()));
 
-    std::expected<std::vector<std::byte>, std::error_code> result;
+    std::vector<std::byte> content;
 
     while (true) {
-        std::array<char, 1024> buffer = {};
+        std::array<char, 1024> buffer; // NOLINT(*-pro-type-member-init)
 
         stream.read(buffer.data(), buffer.size());
-        std::copy_n(reinterpret_cast<const std::byte *>(buffer.data()), stream.gcount(), std::back_inserter(*result));
+        std::copy_n(reinterpret_cast<const std::byte *>(buffer.data()), stream.gcount(), std::back_inserter(content));
 
         if (stream.fail()) {
-            if (!stream.eof()) {
-                result = std::unexpected(std::error_code(errno, std::generic_category()));
-                break;
-            }
+            if (!stream.eof())
+                return std::unexpected(std::error_code(errno, std::generic_category()));
 
             break;
         }
     }
 
-    return result;
+    return content;
 }
 
 std::expected<std::string, std::error_code> zero::filesystem::readString(const std::filesystem::path &path) {
-    std::ifstream stream(path, std::ios::binary);
+    std::ifstream stream{path, std::ios::binary};
 
     if (!stream.is_open())
         return std::unexpected(std::error_code(errno, std::generic_category()));
 
-    std::expected<std::string, std::error_code> result;
+    std::string content;
 
     while (true) {
-        std::array<char, 1024> buffer = {};
+        std::array<char, 1024> buffer; // NOLINT(*-pro-type-member-init)
 
         stream.read(buffer.data(), buffer.size());
-        result->append(buffer.data(), stream.gcount());
+        content.append(buffer.data(), stream.gcount());
 
         if (stream.fail()) {
-            if (!stream.eof()) {
-                result = std::unexpected(std::error_code(errno, std::generic_category()));
-                break;
-            }
+            if (!stream.eof())
+                return std::unexpected(std::error_code(errno, std::generic_category()));
 
             break;
         }
     }
 
-    return result;
+    return content;
 }
 
 std::expected<void, std::error_code>
 zero::filesystem::write(const std::filesystem::path &path, const std::span<const std::byte> content) {
-    std::ofstream stream(path, std::ios::binary);
+    std::ofstream stream{path, std::ios::binary};
 
     if (!stream.is_open())
         return std::unexpected(std::error_code(errno, std::generic_category()));

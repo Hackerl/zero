@@ -1,5 +1,6 @@
 #include <zero/os/net.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
 
 #ifdef _WIN32
 #include <ws2tcpip.h>
@@ -56,55 +57,62 @@ TEST_CASE("network", "[os]") {
             return zero::strings::encode(s);
         });
         REQUIRE(str);
-        const std::string &result = *str;
+        const auto &result = *str;
 #else
-        const std::string result = {reinterpret_cast<const char *>(output->out.data()), output->out.size()};
+        const std::string result{reinterpret_cast<const char *>(output->out.data()), output->out.size()};
 #endif
 
         for (const auto &[name, mac, addresses]: std::views::values(*interfaces)) {
 #ifdef _WIN32
-            NET_LUID id;
+            NET_LUID id{};
             REQUIRE(ConvertInterfaceNameToLuidA(name.c_str(), &id) == ERROR_SUCCESS);
 
-            std::array<WCHAR, NDIS_IF_MAX_STRING_SIZE + 1> buffer = {};
+            std::array<WCHAR, NDIS_IF_MAX_STRING_SIZE + 1> buffer{};
             REQUIRE(ConvertInterfaceLuidToAlias(&id, buffer.data(), buffer.size()) == ERROR_SUCCESS);
 
             const auto alias = zero::strings::encode(buffer.data());
             REQUIRE(alias);
 
-            REQUIRE(result.find(fmt::format("{}:", *alias)) != std::string::npos);
-            REQUIRE(result.find(
-                to_string(
+            REQUIRE_THAT(result, Catch::Matchers::ContainsSubstring(fmt::format("{}:", *alias)));
+            REQUIRE_THAT(
+                result,
+                Catch::Matchers::ContainsSubstring(to_string(
                     fmt::join(
                         mac | std::views::transform([](const auto byte) {
                             return fmt::format("{:02X}", byte);
                         }),
                         "-"
                     )
-                )
-            ) != std::string::npos);
+                ))
+            );
 #else
-            REQUIRE(result.find(fmt::format("{}:", name)) != std::string::npos);
-            REQUIRE(result.find(
-                to_string(
+            REQUIRE_THAT(result, Catch::Matchers::ContainsSubstring(fmt::format("{}:", name)));
+            REQUIRE_THAT(
+                result,
+                Catch::Matchers::ContainsSubstring(to_string(
                     fmt::join(
                         mac | std::views::transform([](const auto byte) {
                             return fmt::format("{:02x}", byte);
                         }),
                         ":"
                     )
-                )
-            ) != std::string::npos);
+                ))
+            );
 #endif
 
-            for (const auto &ip: addresses | std::views::transform([](const auto &address) {
-                if (std::holds_alternative<zero::os::net::IfAddress4>(address))
-                    return zero::os::net::stringify(std::get<zero::os::net::IfAddress4>(address).ip);
+            REQUIRE_THAT(
+                addresses
+                | std::views::transform([](const auto &address) {
+                    if (std::holds_alternative<zero::os::net::IfAddress4>(address))
+                        return zero::os::net::stringify(std::get<zero::os::net::IfAddress4>(address).ip);
 
-                return zero::os::net::stringify(std::get<zero::os::net::IfAddress6>(address).ip);
-            })) {
-                REQUIRE(result.find(ip) != std::string::npos);
-            }
+                    return zero::os::net::stringify(std::get<zero::os::net::IfAddress6>(address).ip);
+                })
+                | std::ranges::to<std::list>(),
+                Catch::Matchers::AllMatch(Catch::Matchers::Predicate<std::string>([&](const auto &ip) {
+                    return result.contains(ip);
+                }))
+            );
         }
     }
 }
