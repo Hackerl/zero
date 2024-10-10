@@ -1,4 +1,5 @@
 #include <zero/os/process.h>
+#include <zero/env.h>
 #include <zero/os/os.h>
 #include <zero/strings/strings.h>
 #include <zero/filesystem/fs.h>
@@ -159,11 +160,7 @@ TEST_CASE("process", "[os]") {
             );
 #else
             SECTION("inherit") {
-#ifdef _WIN32
-                SetEnvironmentVariableA("ZERO_PROCESS_TESTS", "1");
-#else
-                setenv("ZERO_PROCESS_TESTS", "1", 0);
-#endif
+                REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
 
                 auto child = command
                              .stdOutput(zero::os::process::Command::StdioType::NUL)
@@ -176,12 +173,7 @@ TEST_CASE("process", "[os]") {
                 REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
 
                 REQUIRE(child->wait());
-
-#ifdef _WIN32
-                SetEnvironmentVariableA("ZERO_PROCESS_TESTS", nullptr);
-#else
-                unsetenv("ZERO_PROCESS_TESTS");
-#endif
+                REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS"));
             }
 
             SECTION("without inherit") {
@@ -232,11 +224,7 @@ TEST_CASE("process", "[os]") {
             }
 
             SECTION("remove env") {
-#ifdef _WIN32
-                SetEnvironmentVariableA("ZERO_PROCESS_TESTS", "1");
-#else
-                setenv("ZERO_PROCESS_TESTS", "1", 0);
-#endif
+                REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
 
                 auto child = command
                              .removeEnv("ZERO_PROCESS_TESTS")
@@ -249,12 +237,7 @@ TEST_CASE("process", "[os]") {
                 REQUIRE_FALSE(envs->contains("ZERO_PROCESS_TESTS"));
 
                 REQUIRE(child->wait());
-
-#ifdef _WIN32
-                SetEnvironmentVariableA("ZERO_PROCESS_TESTS", nullptr);
-#else
-                unsetenv("ZERO_PROCESS_TESTS");
-#endif
+                REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS"));
             }
 
             SECTION("set envs") {

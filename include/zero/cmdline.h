@@ -90,27 +90,27 @@ namespace zero {
         }
     }
 
-    struct TypeInfo {
-        std::string name;
-        std::function<std::expected<std::any, std::error_code>(std::string_view)> parse;
-    };
-
-    struct Optional {
-        std::string name;
-        char shortName;
-        std::string desc;
-        std::any value;
-        std::optional<TypeInfo> typeInfo;
-    };
-
-    struct Positional {
-        std::string name;
-        std::string desc;
-        std::any value;
-        TypeInfo typeInfo;
-    };
-
     class Cmdline {
+        struct TypeInfo {
+            std::string name;
+            std::function<std::expected<std::any, std::error_code>(std::string_view)> parse;
+        };
+
+        struct Optional {
+            std::string name;
+            char shortName;
+            std::string desc;
+            std::any value;
+            std::optional<TypeInfo> typeInfo;
+        };
+
+        struct Positional {
+            std::string name;
+            std::string desc;
+            std::any value;
+            TypeInfo typeInfo;
+        };
+
     public:
         Cmdline();
 

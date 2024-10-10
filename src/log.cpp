@@ -1,13 +1,12 @@
 #include <zero/log.h>
+#include <zero/env.h>
 #include <zero/expect.h>
 #include <zero/filesystem/std.h>
 #include <zero/strings/strings.h>
 #include <ranges>
 #include <algorithm>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
+#ifndef _WIN32
 #include <unistd.h>
 #endif
 
@@ -218,29 +217,24 @@ void zero::Logger::addProvider(
     const std::chrono::milliseconds interval
 ) {
     std::call_once(mOnceFlag, [=, this] {
-        const auto getEnv = [](const char *name) -> std::optional<int> {
-#ifdef _WIN32
-            std::array<char, 64> env{};
+        const auto getOption = [](const std::string &name) -> std::optional<int> {
+            const auto value = env::get(name);
 
-            if (const auto n = GetEnvironmentVariableA(name, env.data(), env.size()); n == 0 || n >= env.size())
+            if (!value)
+                throw std::system_error(value.error());
+
+            if (!*value)
                 return std::nullopt;
 
-            const auto result = strings::toNumber<int>(env.data());
-#else
-            const char *env = getenv(name);
+            const auto option = strings::toNumber<int>(**value);
 
-            if (!env)
+            if (!option)
                 return std::nullopt;
 
-            const auto result = strings::toNumber<int>(env);
-#endif
-            if (!result)
-                return std::nullopt;
-
-            return *result;
+            return *option;
         };
 
-        if (const auto value = getEnv("ZERO_LOG_LEVEL")) {
+        if (const auto value = getOption("ZERO_LOG_LEVEL")) {
             if (const auto lv = static_cast<LogLevel>(*value); lv < LogLevel::ERROR_LEVEL || lv > LogLevel::DEBUG_LEVEL)
                 return;
 
@@ -248,7 +242,7 @@ void zero::Logger::addProvider(
             mMaxLogLevel = mMinLogLevel;
         }
 
-        if (const auto value = getEnv("ZERO_LOG_TIMEOUT")) {
+        if (const auto value = getOption("ZERO_LOG_TIMEOUT")) {
             if (*value <= 0) {
                 mTimeout.reset();
                 return;

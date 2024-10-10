@@ -1,4 +1,5 @@
 #include <zero/log.h>
+#include <zero/env.h>
 #include <zero/atomic/event.h>
 #include <zero/filesystem/fs.h>
 #include <zero/filesystem/std.h>
@@ -6,10 +7,6 @@
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
 #include <bitset>
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 class Provider final : public zero::ILogProvider {
 public:
@@ -93,11 +90,8 @@ TEST_CASE("logging module", "[log]") {
             SECTION("enable") {
                 using namespace std::chrono_literals;
 
-    #ifdef _WIN32
-                SetEnvironmentVariableA("ZERO_LOG_LEVEL", "3");
-    #else
-                setenv("ZERO_LOG_LEVEL", "3", 0);
-    #endif
+                REQUIRE(zero::env::set("ZERO_LOG_LEVEL", "3"));
+
                 REQUIRE_FALSE(logger.enabled(zero::LogLevel::DEBUG_LEVEL));
                 logger.addProvider(zero::LogLevel::ERROR_LEVEL, std::move(provider), 50ms);
 
@@ -110,21 +104,15 @@ TEST_CASE("logging module", "[log]") {
                 REQUIRE(bitset->test(1));
                 REQUIRE(bitset->test(2));
                 REQUIRE(bitset->test(3));
-    #ifdef _WIN32
-                SetEnvironmentVariableA("ZERO_LOG_LEVEL", nullptr);
-    #else
-                unsetenv("ZERO_LOG_LEVEL");
-    #endif
+
+                REQUIRE(zero::env::unset("ZERO_LOG_LEVEL"));
             }
 
             SECTION("disable") {
                 using namespace std::chrono_literals;
 
-    #ifdef _WIN32
-                SetEnvironmentVariableA("ZERO_LOG_LEVEL", "2");
-    #else
-                setenv("ZERO_LOG_LEVEL", "2", 0);
-    #endif
+                REQUIRE(zero::env::set("ZERO_LOG_LEVEL", "2"));
+
                 REQUIRE_FALSE(logger.enabled(zero::LogLevel::INFO_LEVEL));
                 logger.addProvider(zero::LogLevel::ERROR_LEVEL, std::move(provider), 50ms);
 
@@ -138,11 +126,8 @@ TEST_CASE("logging module", "[log]") {
                 REQUIRE_FALSE(bitset->test(1));
                 REQUIRE_FALSE(bitset->test(2));
                 REQUIRE(bitset->test(3));
-    #ifdef _WIN32
-                SetEnvironmentVariableA("ZERO_LOG_LEVEL", nullptr);
-    #else
-                unsetenv("ZERO_LOG_LEVEL");
-    #endif
+
+                REQUIRE(zero::env::unset("ZERO_LOG_LEVEL"));
             }
         }
     }

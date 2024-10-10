@@ -22,6 +22,7 @@ find_package(fmt CONFIG REQUIRED)
 add_library(
         zero
         src/log.cpp
+        src/env.cpp
         src/cmdline.cpp
         src/os/os.cpp
         src/os/net.cpp
