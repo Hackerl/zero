@@ -8,7 +8,7 @@
 #include <ranges>
 #include <bitset>
 
-class Provider final : public zero::ILogProvider {
+class Provider final : public zero::log::IProvider {
 public:
     Provider(std::shared_ptr<std::bitset<4>> bitset, std::shared_ptr<zero::atomic::Event> event)
         : mBitset{std::move(bitset)}, mEvent{std::move(event)} {
@@ -30,7 +30,7 @@ public:
         return {};
     }
 
-    std::expected<void, std::error_code> write(const zero::LogRecord &record) override {
+    std::expected<void, std::error_code> write(const zero::log::Record &record) override {
         if (record.content == "hello world")
             mBitset->set(1);
 
@@ -44,7 +44,7 @@ private:
 
 TEST_CASE("logging module", "[log]") {
     SECTION("logger") {
-        zero::Logger logger;
+        zero::log::Logger logger;
 
         const auto bitset = std::make_shared<std::bitset<4>>();
         const auto event = std::make_shared<zero::atomic::Event>();
@@ -55,11 +55,11 @@ TEST_CASE("logging module", "[log]") {
         SECTION("enable") {
             using namespace std::chrono_literals;
 
-            REQUIRE_FALSE(logger.enabled(zero::LogLevel::INFO_LEVEL));
-            logger.addProvider(zero::LogLevel::INFO_LEVEL, std::move(provider), 50ms);
+            REQUIRE_FALSE(logger.enabled(zero::log::Level::INFO_LEVEL));
+            logger.addProvider(zero::log::Level::INFO_LEVEL, std::move(provider), 50ms);
 
-            REQUIRE(logger.enabled(zero::LogLevel::INFO_LEVEL));
-            logger.log(zero::LogLevel::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
+            REQUIRE(logger.enabled(zero::log::Level::INFO_LEVEL));
+            logger.log(zero::log::Level::INFO_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, "hello world");
 
             REQUIRE(event->wait());
             REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
@@ -72,11 +72,11 @@ TEST_CASE("logging module", "[log]") {
         SECTION("disable") {
             using namespace std::chrono_literals;
 
-            REQUIRE_FALSE(logger.enabled(zero::LogLevel::INFO_LEVEL));
-            logger.addProvider(zero::LogLevel::ERROR_LEVEL, std::move(provider), 50ms);
+            REQUIRE_FALSE(logger.enabled(zero::log::Level::INFO_LEVEL));
+            logger.addProvider(zero::log::Level::ERROR_LEVEL, std::move(provider), 50ms);
 
-            REQUIRE_FALSE(logger.enabled(zero::LogLevel::INFO_LEVEL));
-            logger.log(zero::LogLevel::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
+            REQUIRE_FALSE(logger.enabled(zero::log::Level::INFO_LEVEL));
+            logger.log(zero::log::Level::INFO_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, "hello world");
 
             REQUIRE(event->wait());
             REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
@@ -92,11 +92,11 @@ TEST_CASE("logging module", "[log]") {
 
                 REQUIRE(zero::env::set("ZERO_LOG_LEVEL", "3"));
 
-                REQUIRE_FALSE(logger.enabled(zero::LogLevel::DEBUG_LEVEL));
-                logger.addProvider(zero::LogLevel::ERROR_LEVEL, std::move(provider), 50ms);
+                REQUIRE_FALSE(logger.enabled(zero::log::Level::DEBUG_LEVEL));
+                logger.addProvider(zero::log::Level::ERROR_LEVEL, std::move(provider), 50ms);
 
-                REQUIRE(logger.enabled(zero::LogLevel::DEBUG_LEVEL));
-                logger.log(zero::LogLevel::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
+                REQUIRE(logger.enabled(zero::log::Level::DEBUG_LEVEL));
+                logger.log(zero::log::Level::DEBUG_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, "hello world");
 
                 REQUIRE(event->wait());
                 REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
@@ -113,12 +113,12 @@ TEST_CASE("logging module", "[log]") {
 
                 REQUIRE(zero::env::set("ZERO_LOG_LEVEL", "2"));
 
-                REQUIRE_FALSE(logger.enabled(zero::LogLevel::INFO_LEVEL));
-                logger.addProvider(zero::LogLevel::ERROR_LEVEL, std::move(provider), 50ms);
+                REQUIRE_FALSE(logger.enabled(zero::log::Level::INFO_LEVEL));
+                logger.addProvider(zero::log::Level::ERROR_LEVEL, std::move(provider), 50ms);
 
-                REQUIRE(logger.enabled(zero::LogLevel::INFO_LEVEL));
-                REQUIRE_FALSE(logger.enabled(zero::LogLevel::DEBUG_LEVEL));
-                logger.log(zero::LogLevel::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, "hello world");
+                REQUIRE(logger.enabled(zero::log::Level::INFO_LEVEL));
+                REQUIRE_FALSE(logger.enabled(zero::log::Level::DEBUG_LEVEL));
+                logger.log(zero::log::Level::DEBUG_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, "hello world");
 
                 REQUIRE(event->wait());
                 REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
@@ -139,10 +139,10 @@ TEST_CASE("logging module", "[log]") {
     REQUIRE(zero::filesystem::createDirectory(directory));
 
     SECTION("file provider") {
-        zero::FileProvider provider{"zero-test", directory, 10, 3};
+        zero::log::FileProvider provider{"zero-test", directory, 10, 3};
         REQUIRE(provider.init());
 
-        zero::LogRecord record{.content = "hello world"};
+        zero::log::Record record{.content = "hello world"};
 
         SECTION("normal") {
             REQUIRE(provider.write(record));
