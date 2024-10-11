@@ -45,7 +45,7 @@ TEST_CASE("process", "[os]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE(cmdline->at(0).find(path->filename().string()) != std::string::npos);
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
         const auto cwd = process->cwd();
         REQUIRE(cwd);

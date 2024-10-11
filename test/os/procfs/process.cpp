@@ -58,12 +58,9 @@ TEST_CASE("procfs process", "[procfs]") {
             }
         );
         REQUIRE(it != mappings->end());
-
-        auto permissions = zero::os::procfs::process::MemoryPermission::READ |
-            zero::os::procfs::process::MemoryPermission::EXECUTE |
-            zero::os::procfs::process::MemoryPermission::PRIVATE;
-
-        REQUIRE(it->permissions == permissions);
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::EXECUTE));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
 
         it = std::ranges::find_if(
             *mappings,
@@ -72,12 +69,9 @@ TEST_CASE("procfs process", "[procfs]") {
             }
         );
         REQUIRE(it != mappings->end());
-
-        permissions = zero::os::procfs::process::MemoryPermission::READ |
-            zero::os::procfs::process::MemoryPermission::WRITE |
-            zero::os::procfs::process::MemoryPermission::PRIVATE;
-
-        REQUIRE(it->permissions == permissions);
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::WRITE));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
 
         const auto exe = process->exe();
         REQUIRE(exe);
@@ -93,14 +87,14 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(stat->comm == "(test)");
         REQUIRE(stat->state == 'R');
         REQUIRE(stat->ppid == getppid());
-        REQUIRE(stat->pgrp == getpgrp());
-        REQUIRE(stat->session == getsid(pid));
+        REQUIRE(stat->processGroupID == getpgrp());
+        REQUIRE(stat->sessionID == getsid(pid));
 
         const auto status = process->status();
         REQUIRE(status);
         REQUIRE(status->name == "(test)");
         REQUIRE(status->state == "R (running)");
-        REQUIRE(status->tgid == pid);
+        REQUIRE(status->threadGroupID == pid);
         REQUIRE(status->pid == pid);
         REQUIRE(status->ppid == getppid());
 
@@ -154,12 +148,9 @@ TEST_CASE("procfs process", "[procfs]") {
             }
         );
         REQUIRE(it != mappings->end());
-
-        auto permissions = zero::os::procfs::process::MemoryPermission::READ |
-            zero::os::procfs::process::MemoryPermission::EXECUTE |
-            zero::os::procfs::process::MemoryPermission::PRIVATE;
-
-        REQUIRE(it->permissions == permissions);
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::EXECUTE));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
 
         it = std::ranges::find_if(
             *mappings,
@@ -168,12 +159,9 @@ TEST_CASE("procfs process", "[procfs]") {
             }
         );
         REQUIRE(it != mappings->end());
-
-        permissions = zero::os::procfs::process::MemoryPermission::READ |
-            zero::os::procfs::process::MemoryPermission::WRITE |
-            zero::os::procfs::process::MemoryPermission::PRIVATE;
-
-        REQUIRE(it->permissions == permissions);
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::WRITE));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
 
         const auto exe = process->exe();
         REQUIRE(exe);
@@ -189,14 +177,14 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(stat->comm == "(test)");
         REQUIRE(stat->state == 'S');
         REQUIRE(stat->ppid == getpid());
-        REQUIRE(stat->pgrp == getpgrp());
-        REQUIRE(stat->session == getsid(pid));
+        REQUIRE(stat->processGroupID == getpgrp());
+        REQUIRE(stat->sessionID == getsid(pid));
 
         const auto status = process->status();
         REQUIRE(status);
         REQUIRE(status->name == "(test)");
         REQUIRE(status->state == "S (sleeping)");
-        REQUIRE(status->tgid == pid);
+        REQUIRE(status->threadGroupID == pid);
         REQUIRE(status->pid == pid);
         REQUIRE(status->ppid == getpid());
 
@@ -272,15 +260,15 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(stat->comm == "(test)");
         REQUIRE(stat->state == 'Z');
         REQUIRE(stat->ppid == getpid());
-        REQUIRE(stat->pgrp == getpgrp());
-        REQUIRE(stat->session == getsid(pid));
+        REQUIRE(stat->processGroupID == getpgrp());
+        REQUIRE(stat->sessionID == getsid(pid));
         REQUIRE(*stat->exitCode == SIGKILL);
 
         const auto status = process->status();
         REQUIRE(status);
         REQUIRE(status->name == "(test)");
         REQUIRE(status->state == "Z (zombie)");
-        REQUIRE(status->tgid == pid);
+        REQUIRE(status->threadGroupID == pid);
         REQUIRE(status->pid == pid);
         REQUIRE(status->ppid == getpid());
 

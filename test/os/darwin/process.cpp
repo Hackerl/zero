@@ -41,7 +41,7 @@ TEST_CASE("darwin process", "[darwin]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename()));
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
         const auto envs = process->envs();
         REQUIRE(envs);
@@ -90,7 +90,7 @@ TEST_CASE("darwin process", "[darwin]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename()));
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
         const auto envs = process->envs();
         REQUIRE(envs);

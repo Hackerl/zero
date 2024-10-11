@@ -206,8 +206,8 @@ std::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Pr
     EXPECT(stat);
 
     return CPUTime{
-        static_cast<double>(stat->uTime) / ticks,
-        static_cast<double>(stat->sTime) / ticks
+        static_cast<double>(stat->userTime) / ticks,
+        static_cast<double>(stat->systemTime) / ticks
     };
 #else
     return mImpl.cpu().transform([](const auto &cpu) {
@@ -228,8 +228,8 @@ std::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process:
     EXPECT(statM);
 
     return MemoryStat{
-        statM->resident * pageSize,
-        statM->size * pageSize
+        statM->residentSetSize * pageSize,
+        statM->totalSize * pageSize
     };
 #else
     return mImpl.memory().transform([](const auto &memory) {

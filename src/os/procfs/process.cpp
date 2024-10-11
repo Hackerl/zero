@@ -2,6 +2,7 @@
 #include <zero/os/procfs/procfs.h>
 #include <zero/detail/type_traits.h>
 #include <zero/strings/strings.h>
+#include <zero/filesystem/std.h>
 #include <zero/os/unix/error.h>
 #include <zero/defer.h>
 #include <zero/expect.h>
@@ -43,7 +44,7 @@ std::expected<std::string, std::error_code> zero::os::procfs::process::Process::
     EXPECT(fd);
     DEFER(close(*fd));
 
-    std::expected<std::string, std::error_code> result;
+    std::string content;
 
     while (true) {
         std::array<char, 1024> buffer; // NOLINT(*-pro-type-member-init)
@@ -51,19 +52,15 @@ std::expected<std::string, std::error_code> zero::os::procfs::process::Process::
         const auto n = unix::ensure([&] {
             return read(*fd, buffer.data(), buffer.size());
         });
-
-        if (!n) {
-            result = std::unexpected(n.error());
-            break;
-        }
+        EXPECT(n);
 
         if (*n == 0)
             break;
 
-        result->append(buffer.data(), *n);
+        content.append(buffer.data(), *n);
     }
 
-    return result;
+    return content;
 }
 
 pid_t zero::os::procfs::process::Process::pid() const {
@@ -125,20 +122,18 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::pro
         return {};
 
     content->pop_back();
-    std::expected<std::map<std::string, std::string>, std::error_code> result;
+    std::map<std::string, std::string> environ;
 
     for (const auto &env: strings::split(*content, {"\0", 1})) {
         auto tokens = strings::split(env, "=", 1);
 
-        if (tokens.size() != 2) {
-            result = std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
-            break;
-        }
+        if (tokens.size() != 2)
+            return std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
 
-        result->emplace(std::move(tokens[0]), std::move(tokens[1]));
+        environ.emplace(std::move(tokens[0]), std::move(tokens[1]));
     }
 
-    return result;
+    return environ;
 }
 
 std::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs::process::Process::stat() const {
@@ -153,10 +148,13 @@ std::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs
 
     Stat stat{};
 
-    stat.pid = strings::toNumber<pid_t>(content->substr(0, start - 1)).value_or(-1);
+    const auto pid = strings::toNumber<std::int32_t>({content->begin(), content->begin() + start - 1});
+    EXPECT(pid);
+
+    stat.pid = *pid;
     stat.comm = content->substr(start + 1, end - start - 1);
 
-    const auto tokens = strings::split(content->substr(end + 2), " ");
+    const auto tokens = strings::split({content->begin() + end + 2, content->end()}, " ");
 
     if (tokens.size() < STAT_BASIC_FIELDS - 2)
         return std::unexpected(procfs::Error::UNEXPECTED_DATA);
@@ -184,46 +182,46 @@ std::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs
     };
 
     EXPECT(set(stat.ppid));
-    EXPECT(set(stat.pgrp));
-    EXPECT(set(stat.session));
-    EXPECT(set(stat.tty));
-    EXPECT(set(stat.tpgid));
+    EXPECT(set(stat.processGroupID));
+    EXPECT(set(stat.sessionID));
+    EXPECT(set(stat.ttyNumber));
+    EXPECT(set(stat.terminalProcessGroupID));
     EXPECT(set(stat.flags));
-    EXPECT(set(stat.minFlt));
-    EXPECT(set(stat.cMinFlt));
-    EXPECT(set(stat.majFlt));
-    EXPECT(set(stat.cMajFlt));
-    EXPECT(set(stat.uTime));
-    EXPECT(set(stat.sTime));
-    EXPECT(set(stat.cuTime));
-    EXPECT(set(stat.csTime));
+    EXPECT(set(stat.minorFaults));
+    EXPECT(set(stat.childMinorFaults));
+    EXPECT(set(stat.majorFaults));
+    EXPECT(set(stat.childMajorFaults));
+    EXPECT(set(stat.userTime));
+    EXPECT(set(stat.systemTime));
+    EXPECT(set(stat.childUserTime));
+    EXPECT(set(stat.childSystemTime));
     EXPECT(set(stat.priority));
-    EXPECT(set(stat.nice));
+    EXPECT(set(stat.niceValue));
     EXPECT(set(stat.numThreads));
-    EXPECT(set(stat.intervalValue));
+    EXPECT(set(stat.intervalRealValue));
     EXPECT(set(stat.startTime));
-    EXPECT(set(stat.vSize));
+    EXPECT(set(stat.virtualMemorySize));
     EXPECT(set(stat.rss));
     EXPECT(set(stat.rssLimit));
     EXPECT(set(stat.startCode));
     EXPECT(set(stat.endCode));
     EXPECT(set(stat.startStack));
-    EXPECT(set(stat.esp));
-    EXPECT(set(stat.eip));
-    EXPECT(set(stat.signal));
-    EXPECT(set(stat.blocked));
-    EXPECT(set(stat.sigIgnore));
-    EXPECT(set(stat.sigCatch));
-    EXPECT(set(stat.wChan));
-    EXPECT(set(stat.nSwap));
-    EXPECT(set(stat.cnSwap));
+    EXPECT(set(stat.kernelStackPointer));
+    EXPECT(set(stat.kernelInstructionPointer));
+    EXPECT(set(stat.pendingSignals));
+    EXPECT(set(stat.blockedSignals));
+    EXPECT(set(stat.ignoredSignals));
+    EXPECT(set(stat.caughtSignals));
+    EXPECT(set(stat.waitingChannel));
+    EXPECT(set(stat.pagesSwapped));
+    EXPECT(set(stat.childPagesSwapped));
     EXPECT(set(stat.exitSignal));
     EXPECT(set(stat.processor));
-    EXPECT(set(stat.rtPriority));
-    EXPECT(set(stat.policy));
-    EXPECT(set(stat.delayAcctBlkIOTicks));
+    EXPECT(set(stat.realTimePriority));
+    EXPECT(set(stat.schedulingPolicy));
+    EXPECT(set(stat.blockIODelayTicks));
     EXPECT(set(stat.guestTime));
-    EXPECT(set(stat.cGuestTime));
+    EXPECT(set(stat.childGuestTime));
     EXPECT(set(stat.startData));
     EXPECT(set(stat.endData));
     EXPECT(set(stat.startBrk));
@@ -246,19 +244,24 @@ std::expected<zero::os::procfs::process::StatM, std::error_code> zero::os::procf
         return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
     const auto size = strings::toNumber<std::uint64_t>(tokens[0]);
-    const auto resident = strings::toNumber<std::uint64_t>(tokens[1]);
-    const auto shared = strings::toNumber<std::uint64_t>(tokens[2]);
-    const auto text = strings::toNumber<std::uint64_t>(tokens[3]);
-    const auto library = strings::toNumber<std::uint64_t>(tokens[4]);
-    const auto data = strings::toNumber<std::uint64_t>(tokens[5]);
-    const auto dirty = strings::toNumber<std::uint64_t>(tokens[6]);
-
     EXPECT(size);
+
+    const auto resident = strings::toNumber<std::uint64_t>(tokens[1]);
     EXPECT(resident);
+
+    const auto shared = strings::toNumber<std::uint64_t>(tokens[2]);
     EXPECT(shared);
+
+    const auto text = strings::toNumber<std::uint64_t>(tokens[3]);
     EXPECT(text);
+
+    const auto library = strings::toNumber<std::uint64_t>(tokens[4]);
     EXPECT(library);
+
+    const auto data = strings::toNumber<std::uint64_t>(tokens[5]);
     EXPECT(data);
+
+    const auto dirty = strings::toNumber<std::uint64_t>(tokens[6]);
     EXPECT(dirty);
 
     return StatM{
@@ -273,14 +276,57 @@ std::expected<zero::os::procfs::process::StatM, std::error_code> zero::os::procf
 }
 
 template<typename T>
-std::optional<T>
-statusIntegerField(const std::map<std::string, std::string> &map, const char *key, const int base = 10) {
-    const auto it = map.find(key);
+std::expected<std::vector<T>, std::error_code> parseNumbers(const std::string_view str) {
+    std::vector<T> result;
 
-    if (it == map.end())
-        return std::nullopt;
+    for (const auto &token: zero::strings::split(str)) {
+        const auto n = zero::strings::toNumber<T>(token);
+        EXPECT(n);
+        result.emplace_back(*n);
+    }
 
-    return *zero::strings::toNumber<T>(it->second, base);
+    return result;
+}
+
+std::expected<std::vector<std::uint32_t>, std::error_code> parseAllowed(const std::string_view str) {
+    std::vector<std::uint32_t> result;
+
+    for (const auto &token: zero::strings::split(str, ",")) {
+        const auto n = zero::strings::toNumber<std::uint32_t>(token, 16);
+        EXPECT(n);
+        result.emplace_back(*n);
+    }
+
+    return result;
+}
+
+std::expected<std::vector<std::pair<std::uint32_t, std::uint32_t>>, std::error_code>
+parseAllowedList(const std::string_view str) {
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> result;
+
+    for (const auto &token: zero::strings::split(str, ",")) {
+        if (!token.contains('-')) {
+            const auto n = zero::strings::toNumber<std::uint32_t>(token);
+            EXPECT(n);
+            result.emplace_back(*n, *n);
+            continue;
+        }
+
+        const auto tokens = zero::strings::split(token, "-", 1);
+
+        if (tokens.size() != 2)
+            return std::unexpected(zero::os::procfs::Error::UNEXPECTED_DATA);
+
+        const auto begin = zero::strings::toNumber<std::uint32_t>(tokens[0]);
+        EXPECT(begin);
+
+        const auto end = zero::strings::toNumber<std::uint32_t>(tokens[1]);
+        EXPECT(end);
+
+        result.emplace_back(*begin, *end);
+    }
+
+    return result;
 }
 
 std::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procfs::process::Process::status() const {
@@ -298,167 +344,142 @@ std::expected<zero::os::procfs::process::Status, std::error_code> zero::os::proc
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
 
+    const auto take = [&](const std::string &key) -> std::optional<std::string> {
+        const auto it = map.find(key);
+
+        if (it == map.end())
+            return std::nullopt;
+
+        DEFER(map.erase(it));
+        return std::move(it->second);
+    };
+
+    const auto set = []<typename T, typename V>(
+        T &var,
+        std::optional<V> value
+    ) -> std::expected<void, std::error_code> {
+        if (!value) {
+            if constexpr (detail::is_specialization<T, std::optional>)
+                return {};
+            else
+                return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+        }
+
+        if constexpr (detail::is_specialization<V, std::expected>) {
+            EXPECT(*value);
+            var = *std::move(*value);
+        }
+        else {
+            var = *value;
+        }
+
+        return {};
+    };
+
+    const auto setNumber = [&]<typename T>(T &var, const std::string &key, const int base = 10) {
+        return set(
+            var,
+            take(key).transform([=](const auto &value) {
+                if constexpr (detail::is_specialization<T, std::optional>)
+                    return strings::toNumber<typename T::value_type>(value, base);
+                else
+                    return strings::toNumber<T>(value, base);
+            })
+        );
+    };
+
     Status status{};
 
-    status.name = map["Name"];
-    status.umask = statusIntegerField<mode_t>(map, "Umask", 8);
-    status.state = map["State"];
-    status.tgid = *strings::toNumber<pid_t>(map["Tgid"]);
-    status.ngid = statusIntegerField<pid_t>(map, "Ngid");
-    status.pid = *strings::toNumber<pid_t>(map["Pid"]);
-    status.ppid = *strings::toNumber<pid_t>(map["PPid"]);
-    status.tracerPID = *strings::toNumber<pid_t>(map["TracerPid"]);
+    EXPECT(set(status.name, take("Name")));
+    EXPECT(setNumber(status.umask, "Umask", 8));
+    EXPECT(set(status.state, take("State")));
+    EXPECT(setNumber(status.threadGroupID, "Tgid"));
+    EXPECT(setNumber(status.numaGroupID, "Ngid"));
+    EXPECT(setNumber(status.pid, "Pid"));
+    EXPECT(setNumber(status.ppid, "PPid"));
+    EXPECT(setNumber(status.tracerPID, "TracerPid"));
 
-    auto tokens = strings::split(map["Uid"]);
+    const auto parseIDs = [](const auto &value) -> std::expected<std::array<std::uint32_t, 4>, std::error_code> {
+        const auto numbers = parseNumbers<std::uint32_t>(value);
+        EXPECT(numbers);
 
-    if (tokens.size() != 4)
-        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+        if (numbers->size() != 4)
+            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
-    for (std::size_t i{0}; i < 4; ++i)
-        status.uid[i] = *strings::toNumber<uid_t>(tokens[i]);
+        return std::array{numbers->at(0), numbers->at(1), numbers->at(2), numbers->at(3)};
+    };
 
-    tokens = strings::split(map["Gid"]);
+    EXPECT(set(status.uid, take("Uid").transform(parseIDs)));
+    EXPECT(set(status.gid, take("Gid").transform(parseIDs)));
 
-    if (tokens.size() != 4)
-        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+    EXPECT(setNumber(status.fdSize, "FDSize"));
 
-    for (std::size_t i{0}; i < 4; ++i)
-        status.gid[i] = *strings::toNumber<pid_t>(tokens[i]);
+    EXPECT(set(status.supplementaryGroupIDs, take("Groups").transform(parseNumbers<std::int32_t>)));
+    EXPECT(set(status.namespaceThreadGroupIDs, take("NStgid").transform(parseNumbers<std::int32_t>)));
+    EXPECT(set(status.namespaceProcessIDs, take("NSpid").transform(parseNumbers<std::int32_t>)));
+    EXPECT(set(status.namespaceProcessGroupIDs, take("NSpgid").transform(parseNumbers<std::int32_t>)));
+    EXPECT(set(status.namespaceSessionIDs, take("NSsid").transform(parseNumbers<std::int32_t>)));
 
-    status.fdSize = *strings::toNumber<int>(map["FDSize"]);
+    EXPECT(setNumber(status.vmPeak, "VmPeak"));
+    EXPECT(setNumber(status.vmSize, "VmSize"));
+    EXPECT(setNumber(status.vmLocked, "VmLck"));
+    EXPECT(setNumber(status.vmPinned, "VmPin"));
+    EXPECT(setNumber(status.vmHWM, "VmHWM"));
+    EXPECT(setNumber(status.vmRSS, "VmRSS"));
+    EXPECT(setNumber(status.rssAnonymous, "RssAnon"));
+    EXPECT(setNumber(status.rssFile, "RssFile"));
+    EXPECT(setNumber(status.rssSharedMemory, "RssShmem"));
+    EXPECT(setNumber(status.vmData, "VmData"));
+    EXPECT(setNumber(status.vmStack, "VmStk"));
+    EXPECT(setNumber(status.vmExe, "VmExe"));
+    EXPECT(setNumber(status.vmLib, "VmLib"));
+    EXPECT(setNumber(status.vmPTE, "VmPTE"));
+    EXPECT(setNumber(status.vmSwap, "VmSwap"));
+    EXPECT(setNumber(status.hugeTLBPages, "HugetlbPages"));
+    EXPECT(setNumber(status.threads, "Threads"));
 
-    for (const auto &token: strings::split(map["Groups"]))
-        status.groups.emplace_back(*strings::toNumber<pid_t>(token));
-
-    status.nstgid = statusIntegerField<pid_t>(map, "NStgid");
-    status.nspid = statusIntegerField<pid_t>(map, "NSpid");
-    status.nspgid = statusIntegerField<pid_t>(map, "NSpgid");
-    status.nssid = statusIntegerField<int>(map, "NSsid");
-    status.vmPeak = statusIntegerField<unsigned long>(map, "VmPeak");
-    status.vmSize = statusIntegerField<unsigned long>(map, "VmSize");
-    status.vmLck = statusIntegerField<unsigned long>(map, "VmLck");
-    status.vmPin = statusIntegerField<unsigned long>(map, "VmPin");
-    status.vmHWM = statusIntegerField<unsigned long>(map, "VmHWM");
-    status.vmRSS = statusIntegerField<unsigned long>(map, "VmRSS");
-    status.rssAnon = statusIntegerField<unsigned long>(map, "RssAnon");
-    status.rssFile = statusIntegerField<unsigned long>(map, "RssFile");
-    status.rssShMem = statusIntegerField<unsigned long>(map, "RssShmem");
-    status.vmData = statusIntegerField<unsigned long>(map, "VmData");
-    status.vmStk = statusIntegerField<unsigned long>(map, "VmStk");
-    status.vmExe = statusIntegerField<unsigned long>(map, "VmExe");
-    status.vmLib = statusIntegerField<unsigned long>(map, "VmLib");
-    status.vmPTE = statusIntegerField<unsigned long>(map, "VmPTE");
-    status.vmPMD = statusIntegerField<unsigned long>(map, "VmPMD");
-    status.vmSwap = statusIntegerField<unsigned long>(map, "VmSwap");
-    status.hugeTLBPages = statusIntegerField<unsigned long>(map, "HugetlbPages");
-    status.threads = *statusIntegerField<int>(map, "Threads");
-
-    tokens = strings::split(map["SigQ"], "/", 1);
-
-    if (tokens.size() != 2)
-        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
-
-    status.sigQ[0] = *strings::toNumber<int>(tokens[0]);
-    status.sigQ[1] = *strings::toNumber<int>(tokens[1]);
-
-    status.sigPnd = *strings::toNumber<unsigned long>(map["SigPnd"], 16);
-    status.shdPnd = *strings::toNumber<unsigned long>(map["ShdPnd"], 16);
-    status.sigBlk = *strings::toNumber<unsigned long>(map["SigBlk"], 16);
-    status.sigIgn = *strings::toNumber<unsigned long>(map["SigIgn"], 16);
-    status.sigCgt = *strings::toNumber<unsigned long>(map["SigCgt"], 16);
-    status.capInh = *strings::toNumber<unsigned long>(map["CapInh"], 16);
-    status.capPrm = *strings::toNumber<unsigned long>(map["CapPrm"], 16);
-    status.capEff = *strings::toNumber<unsigned long>(map["CapEff"], 16);
-    status.capBnd = statusIntegerField<unsigned long>(map, "CapBnd", 16);
-    status.capAmb = statusIntegerField<unsigned long>(map, "CapAmb", 16);
-    status.noNewPrivileges = statusIntegerField<unsigned long>(map, "NoNewPrivs");
-    status.seccomp = statusIntegerField<int>(map, "Seccomp");
-
-    auto it = map.find("Speculation_Store_Bypass");
-
-    if (it != map.end())
-        status.speculationStoreBypass = it->second;
-
-    it = map.find("Cpus_allowed");
-
-    if (it != map.end()) {
-        status.cpusAllowed.emplace();
-
-        for (const auto &token: strings::split(it->second, ",")) {
-            status.cpusAllowed->emplace_back(*strings::toNumber<unsigned int>(token, 16));
-        }
-    }
-
-    it = map.find("Cpus_allowed_list");
-
-    if (it != map.end()) {
-        status.cpusAllowedList.emplace();
-
-        for (const auto &token: strings::split(it->second, ",")) {
-            if (!token.contains('-')) {
-                const auto n = *strings::toNumber<unsigned int>(token);
-                status.cpusAllowedList->emplace_back(n, n);
-                break;
-            }
-
-            tokens = strings::split(token, "-", 1);
+    EXPECT(set(
+        status.signalQueue,
+        take("SigQ").transform([](const auto &value) -> std::expected<std::array<std::uint64_t, 2>, std::error_code> {
+            const auto tokens = strings::split(value, "/", 1);
 
             if (tokens.size() != 2)
-                continue;
+                return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
-            status.cpusAllowedList->emplace_back(
-                *strings::toNumber<unsigned int>(tokens[0]),
-                *strings::toNumber<unsigned int>(tokens[1])
-            );
-        }
-    }
+            const auto number = strings::toNumber<std::uint64_t>(tokens[0]);
+            EXPECT(number);
 
-    it = map.find("Mems_allowed");
+            const auto limit = strings::toNumber<std::uint64_t>(tokens[1]);
+            EXPECT(limit);
 
-    if (it != map.end()) {
-        status.memoryNodesAllowed.emplace();
+            return std::array{*number, *limit};
+        })
+    ));
 
-        for (const auto &token: strings::split(it->second, ",")) {
-            status.memoryNodesAllowed->emplace_back(*strings::toNumber<unsigned int>(token, 16));
-        }
-    }
+    EXPECT(setNumber(status.pendingSignals, "SigPnd", 16));
+    EXPECT(setNumber(status.blockedSignals, "SigBlk", 16));
+    EXPECT(setNumber(status.ignoredSignals, "SigIgn", 16));
+    EXPECT(setNumber(status.caughtSignals, "SigCgt", 16));
+    EXPECT(setNumber(status.inheritableCapabilities, "CapInh", 16));
+    EXPECT(setNumber(status.permittedCapabilities, "CapPrm", 16));
+    EXPECT(setNumber(status.effectiveCapabilities, "CapEff", 16));
+    EXPECT(setNumber(status.boundingCapabilities, "CapBnd", 16));
+    EXPECT(setNumber(status.ambientCapabilities, "CapAmb", 16));
+    EXPECT(setNumber(status.noNewPrivileges, "NoNewPrivs"));
+    EXPECT(setNumber(status.seccompMode, "Seccomp"));
 
-    it = map.find("Mems_allowed_list");
+    EXPECT(set(status.speculationStoreBypass, take("Speculation_Store_Bypass")));
 
-    if (it != map.end()) {
-        status.memoryNodesAllowedList.emplace();
+    EXPECT(set(status.allowedCpus, take("Cpus_allowed").transform(parseAllowed)));
+    EXPECT(set(status.allowedCpuList, take("Cpus_allowed_list").transform(parseAllowedList)));
+    EXPECT(set(status.allowedMemoryNodes, take("Mems_allowed").transform(parseAllowed)));
+    EXPECT(set(status.allowedMemoryNodeList, take("Mems_allowed_list").transform(parseAllowedList)));
 
-        for (const auto &token: strings::split(it->second, ",")) {
-            if (!token.contains('-')) {
-                const auto n = *strings::toNumber<unsigned int>(token);
-                status.memoryNodesAllowedList->emplace_back(n, n);
-                break;
-            }
+    EXPECT(setNumber(status.voluntaryContextSwitches, "voluntary_ctxt_switches"));
+    EXPECT(setNumber(status.nonVoluntaryContextSwitches, "nonvoluntary_ctxt_switches"));
 
-            tokens = strings::split(token, "-", 1);
-
-            if (tokens.size() != 2)
-                continue;
-
-            status.memoryNodesAllowedList->emplace_back(
-                *strings::toNumber<unsigned int>(tokens[0]),
-                *strings::toNumber<unsigned int>(tokens[1])
-            );
-        }
-    }
-
-    status.voluntaryContextSwitches = statusIntegerField<int>(map, "voluntary_ctxt_switches");
-    status.nonVoluntaryContextSwitches = statusIntegerField<int>(map, "nonvoluntary_ctxt_switches");
-
-    it = map.find("CoreDumping");
-
-    if (it != map.end())
-        status.coreDumping = it->second == "1";
-
-    it = map.find("THP_enabled");
-
-    if (it != map.end())
-        status.thpEnabled = it->second == "1";
+    EXPECT(set(status.coreDumping, take("CoreDumping").transform([](const auto &value) { return value == "1"; })));
+    EXPECT(set(status.thpEnabled, take("THP_enabled").transform([](const auto &value) { return value == "1"; })));
 
     return status;
 }
@@ -479,7 +500,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Proc
     }
 
     DEFER(closedir(dir));
-    std::expected<std::list<pid_t>, std::error_code> result;
+    std::list<pid_t> tasks;
 
     while (true) {
         const auto *e = readdir(dir);
@@ -490,17 +511,13 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Proc
         if (e->d_name == "."sv || e->d_name == ".."sv)
             continue;
 
-        const auto tid = strings::toNumber<pid_t>(e->d_name);
+        const auto id = strings::toNumber<pid_t>(e->d_name);
+        EXPECT(id);
 
-        if (!tid) {
-            result = std::unexpected(tid.error());
-            break;
-        }
-
-        result->push_back(*tid);
+        tasks.push_back(*id);
     }
 
-    return result;
+    return tasks;
 }
 
 std::expected<std::list<zero::os::procfs::process::MemoryMapping>, std::error_code>
@@ -511,50 +528,30 @@ zero::os::procfs::process::Process::maps() const {
     if (content->empty())
         return std::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
 
-    std::expected<std::list<MemoryMapping>, std::error_code> result;
+    std::list<MemoryMapping> mappings;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
         const auto fields = strings::split(line);
 
-        if (fields.size() < MAPPING_BASIC_FIELDS) {
-            result = std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
-            break;
-        }
+        if (fields.size() < MAPPING_BASIC_FIELDS)
+            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
         const auto tokens = strings::split(fields[0], "-", 1);
 
-        if (tokens.size() != 2) {
-            result = std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
-            break;
-        }
+        if (tokens.size() != 2)
+            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
-        const auto start = strings::toNumber<std::uintptr_t>(tokens[0], 16);
+        const auto start = strings::toNumber<std::uint64_t>(tokens[0], 16);
+        EXPECT(start);
 
-        if (!start) {
-            result = std::unexpected(start.error());
-            break;
-        }
+        const auto end = strings::toNumber<std::uint64_t>(tokens[1], 16);
+        EXPECT(end);
 
-        const auto end = strings::toNumber<std::uintptr_t>(tokens[1], 16);
+        const auto offset = strings::toNumber<std::uint64_t>(fields[2], 16);
+        EXPECT(offset);
 
-        if (!end) {
-            result = std::unexpected(end.error());
-            break;
-        }
-
-        const auto offset = strings::toNumber<off_t>(fields[2], 16);
-
-        if (!offset) {
-            result = std::unexpected(offset.error());
-            break;
-        }
-
-        const auto inode = strings::toNumber<ino_t>(fields[4]);
-
-        if (!inode) {
-            result = std::unexpected(inode.error());
-            break;
-        }
+        const auto inode = strings::toNumber<std::uint64_t>(fields[4]);
+        EXPECT(inode);
 
         MemoryMapping memoryMapping{};
 
@@ -569,30 +566,28 @@ zero::os::procfs::process::Process::maps() const {
 
         const auto &permissions = fields[1];
 
-        if (permissions.length() < MAPPING_PERMISSIONS_LENGTH) {
-            result = std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
-            break;
-        }
+        if (permissions.length() < MAPPING_PERMISSIONS_LENGTH)
+            return std::unexpected<std::error_code>(procfs::Error::UNEXPECTED_DATA);
 
         if (permissions.at(0) == 'r')
-            memoryMapping.permissions |= READ;
+            memoryMapping.permissions.set(READ);
 
         if (permissions.at(1) == 'w')
-            memoryMapping.permissions |= WRITE;
+            memoryMapping.permissions.set(WRITE);
 
         if (permissions.at(2) == 'x')
-            memoryMapping.permissions |= EXECUTE;
+            memoryMapping.permissions.set(EXECUTE);
 
         if (permissions.at(3) == 's')
-            memoryMapping.permissions |= SHARED;
+            memoryMapping.permissions.set(SHARED);
 
         if (permissions.at(3) == 'p')
-            memoryMapping.permissions |= PRIVATE;
+            memoryMapping.permissions.set(PRIVATE);
 
-        result->push_back(std::move(memoryMapping));
+        mappings.push_back(std::move(memoryMapping));
     }
 
-    return result;
+    return mappings;
 }
 
 std::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procfs::process::Process::io() const {
@@ -610,31 +605,29 @@ std::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::proc
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
 
-    const auto readCharacters = strings::toNumber<unsigned long long>(map["rchar"]);
-    const auto writeCharacters = strings::toNumber<unsigned long long>(map["wchar"]);
-    const auto readSyscall = strings::toNumber<unsigned long long>(map["syscr"]);
-    const auto writeSyscall = strings::toNumber<unsigned long long>(map["syscw"]);
-    const auto readBytes = strings::toNumber<unsigned long long>(map["read_bytes"]);
-    const auto writeBytes = strings::toNumber<unsigned long long>(map["write_bytes"]);
-    const auto cancelledWriteBytes = strings::toNumber<unsigned long long>(map["cancelled_write_bytes"]);
+    const auto set = [&]<typename T>(T &var, const std::string &key) -> std::expected<void, std::error_code> {
+        const auto it = map.find(key);
 
-    EXPECT(readCharacters);
-    EXPECT(writeCharacters);
-    EXPECT(readSyscall);
-    EXPECT(writeSyscall);
-    EXPECT(readBytes);
-    EXPECT(writeBytes);
-    EXPECT(cancelledWriteBytes);
+        if (it == map.end())
+            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
 
-    return IOStat{
-        *readCharacters,
-        *writeCharacters,
-        *readSyscall,
-        *writeSyscall,
-        *readBytes,
-        *writeBytes,
-        *cancelledWriteBytes
+        const auto value = strings::toNumber<T>(it->second);
+        EXPECT(value);
+        var = *value;
+        return {};
     };
+
+    IOStat stat{};
+
+    EXPECT(set(stat.readCharacters, "rchar"));
+    EXPECT(set(stat.writeCharacters, "wchar"));
+    EXPECT(set(stat.readSyscalls, "syscr"));
+    EXPECT(set(stat.writeSyscalls, "syscw"));
+    EXPECT(set(stat.readBytes, "read_bytes"));
+    EXPECT(set(stat.writeBytes, "write_bytes"));
+    EXPECT(set(stat.cancelledWriteBytes, "cancelled_write_bytes"));
+
+    return stat;
 }
 
 std::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::self() {
@@ -656,22 +649,24 @@ std::expected<zero::os::procfs::process::Process, std::error_code> zero::os::pro
 }
 
 std::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all() {
-    std::error_code ec;
-    auto iterator = std::filesystem::directory_iterator("/proc", ec);
-
-    if (ec)
-        return std::unexpected(ec);
-
-    auto v = iterator
-        | std::views::filter([&](const auto &entry) { return entry.is_directory(ec); })
-        | std::views::transform([](const auto &entry) {
-            return strings::toNumber<pid_t>(entry.path().filename().string());
-        })
-        | std::views::filter([](const auto &result) { return result.has_value(); })
-        | std::views::transform([](const auto &result) { return *result; });
+    const auto iterator = filesystem::readDirectory("/proc");
+    EXPECT(iterator);
 
     std::list<pid_t> ids;
-    std::ranges::copy(v, std::back_inserter(ids));
+
+    for (const auto &entry: *iterator) {
+        EXPECT(entry);
+
+        if (!entry->isDirectory().value_or(false))
+            continue;
+
+        const auto id = strings::toNumber<pid_t>(entry->path().string());
+
+        if (!id)
+            continue;
+
+        ids.push_back(*id);
+    }
 
     return ids;
 }

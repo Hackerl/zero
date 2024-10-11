@@ -5,163 +5,162 @@
 #include <list>
 #include <array>
 #include <vector>
+#include <bitset>
 #include <optional>
 #include <expected>
 #include <filesystem>
-#include <sys/types.h>
 #include <zero/error.h>
 
 namespace zero::os::procfs::process {
     enum MemoryPermission {
-        READ = 0x1,
-        WRITE = 0x2,
-        EXECUTE = 0x4,
-        SHARED = 0x8,
-        PRIVATE = 0x10
+        READ,
+        WRITE,
+        EXECUTE,
+        SHARED,
+        PRIVATE
     };
 
     struct MemoryMapping {
-        std::uintptr_t start;
-        std::uintptr_t end;
-        int permissions;
-        off_t offset;
+        std::uint64_t start;
+        std::uint64_t end;
+        std::bitset<5> permissions;
+        std::uint64_t offset;
         std::string device;
-        ino_t inode;
-        std::string pathname;
+        std::uint64_t inode;
+        std::optional<std::string> pathname;
     };
 
     struct StatM {
-        std::uint64_t size;
-        std::uint64_t resident;
-        std::uint64_t shared;
-        std::uint64_t text;
-        std::uint64_t library;
-        std::uint64_t data;
-        std::uint64_t dirty;
+        std::uint64_t totalSize;
+        std::uint64_t residentSetSize;
+        std::uint64_t sharedPages;
+        std::uint64_t textSegmentSize;
+        std::uint64_t librarySize;
+        std::uint64_t dataAndStackSize;
+        std::uint64_t dirtyPages;
     };
 
     struct Stat {
-        pid_t pid;
+        std::int32_t pid;
         std::string comm;
         char state;
-        pid_t ppid;
-        pid_t pgrp;
-        int session;
-        int tty;
-        pid_t tpgid;
-        unsigned int flags;
-        unsigned long minFlt;
-        unsigned long cMinFlt;
-        unsigned long majFlt;
-        unsigned long cMajFlt;
-        unsigned long uTime;
-        unsigned long sTime;
-        unsigned long cuTime;
-        unsigned long csTime;
-        long priority;
-        long nice;
-        long numThreads;
-        long intervalValue;
-        unsigned long long startTime;
-        unsigned long vSize;
-        long rss;
-        unsigned long rssLimit;
-        unsigned long startCode;
-        unsigned long endCode;
-        unsigned long startStack;
-        unsigned long esp;
-        unsigned long eip;
-        unsigned long signal;
-        unsigned long blocked;
-        unsigned long sigIgnore;
-        unsigned long sigCatch;
-        unsigned long wChan;
-        unsigned long nSwap;
-        unsigned long cnSwap;
-        std::optional<int> exitSignal;
-        std::optional<int> processor;
-        std::optional<unsigned int> rtPriority;
-        std::optional<unsigned int> policy;
-        std::optional<unsigned long long> delayAcctBlkIOTicks;
-        std::optional<unsigned long> guestTime;
-        std::optional<long> cGuestTime;
-        std::optional<unsigned long> startData;
-        std::optional<unsigned long> endData;
-        std::optional<unsigned long> startBrk;
-        std::optional<unsigned long> argStart;
-        std::optional<unsigned long> argEnd;
-        std::optional<unsigned long> envStart;
-        std::optional<unsigned long> envEnd;
-        std::optional<int> exitCode;
+        std::int32_t ppid;
+        std::int32_t processGroupID;
+        std::int32_t sessionID;
+        std::int32_t ttyNumber;
+        std::int32_t terminalProcessGroupID;
+        std::uint32_t flags;
+        std::uint64_t minorFaults;
+        std::uint64_t childMinorFaults;
+        std::uint64_t majorFaults;
+        std::uint64_t childMajorFaults;
+        std::uint64_t userTime;
+        std::uint64_t systemTime;
+        std::int64_t childUserTime;
+        std::int64_t childSystemTime;
+        std::int64_t priority;
+        std::int64_t niceValue;
+        std::int64_t numThreads;
+        std::int64_t intervalRealValue;
+        std::uint64_t startTime;
+        std::uint64_t virtualMemorySize;
+        std::uint64_t rss;
+        std::uint64_t rssLimit;
+        std::uint64_t startCode;
+        std::uint64_t endCode;
+        std::uint64_t startStack;
+        std::uint64_t kernelStackPointer;
+        std::uint64_t kernelInstructionPointer;
+        std::uint64_t pendingSignals;
+        std::uint64_t blockedSignals;
+        std::uint64_t ignoredSignals;
+        std::uint64_t caughtSignals;
+        std::uint64_t waitingChannel;
+        std::uint64_t pagesSwapped;
+        std::uint64_t childPagesSwapped;
+        std::optional<std::int32_t> exitSignal;
+        std::optional<std::int32_t> processor;
+        std::optional<std::uint32_t> realTimePriority;
+        std::optional<std::uint32_t> schedulingPolicy;
+        std::optional<std::uint64_t> blockIODelayTicks;
+        std::optional<std::uint64_t> guestTime;
+        std::optional<std::int64_t> childGuestTime;
+        std::optional<std::uint64_t> startData;
+        std::optional<std::uint64_t> endData;
+        std::optional<std::uint64_t> startBrk;
+        std::optional<std::uint64_t> argStart;
+        std::optional<std::uint64_t> argEnd;
+        std::optional<std::uint64_t> envStart;
+        std::optional<std::uint64_t> envEnd;
+        std::optional<std::int64_t> exitCode;
     };
 
     struct Status {
         std::string name;
-        std::optional<mode_t> umask;
+        std::optional<std::uint32_t> umask;
         std::string state;
-        pid_t tgid;
-        std::optional<pid_t> ngid;
-        pid_t pid;
-        pid_t ppid;
-        pid_t tracerPID;
-        std::array<uid_t, 4> uid;
-        std::array<pid_t, 4> gid;
-        int fdSize;
-        std::vector<pid_t> groups;
-        std::optional<pid_t> nstgid;
-        std::optional<pid_t> nspid;
-        std::optional<pid_t> nspgid;
-        std::optional<int> nssid;
-        std::optional<unsigned long> vmPeak;
-        std::optional<unsigned long> vmSize;
-        std::optional<unsigned long> vmLck;
-        std::optional<unsigned long> vmPin;
-        std::optional<unsigned long> vmHWM;
-        std::optional<unsigned long> vmRSS;
-        std::optional<unsigned long> rssAnon;
-        std::optional<unsigned long> rssFile;
-        std::optional<unsigned long> rssShMem;
-        std::optional<unsigned long> vmData;
-        std::optional<unsigned long> vmStk;
-        std::optional<unsigned long> vmExe;
-        std::optional<unsigned long> vmLib;
-        std::optional<unsigned long> vmPTE;
-        std::optional<unsigned long> vmPMD;
-        std::optional<unsigned long> vmSwap;
-        std::optional<unsigned long> hugeTLBPages;
-        int threads;
-        std::array<int, 2> sigQ;
-        unsigned long sigPnd;
-        unsigned long shdPnd;
-        unsigned long sigBlk;
-        unsigned long sigIgn;
-        unsigned long sigCgt;
-        unsigned long capInh;
-        unsigned long capPrm;
-        unsigned long capEff;
-        std::optional<unsigned long> capBnd;
-        std::optional<unsigned long> capAmb;
-        std::optional<unsigned long> noNewPrivileges;
-        std::optional<int> seccomp;
+        std::int32_t threadGroupID;
+        std::optional<std::int32_t> numaGroupID;
+        std::int32_t pid;
+        std::int32_t ppid;
+        std::int32_t tracerPID;
+        std::array<std::uint32_t, 4> uid;
+        std::array<std::uint32_t, 4> gid;
+        std::uint32_t fdSize;
+        std::vector<std::int32_t> supplementaryGroupIDs;
+        std::optional<std::vector<std::int32_t>> namespaceThreadGroupIDs;
+        std::optional<std::vector<std::int32_t>> namespaceProcessIDs;
+        std::optional<std::vector<std::int32_t>> namespaceProcessGroupIDs;
+        std::optional<std::vector<std::int32_t>> namespaceSessionIDs;
+        std::optional<std::uint64_t> vmPeak;
+        std::optional<std::uint64_t> vmSize;
+        std::optional<std::uint64_t> vmLocked;
+        std::optional<std::uint64_t> vmPinned;
+        std::optional<std::uint64_t> vmHWM;
+        std::optional<std::uint64_t> vmRSS;
+        std::optional<std::uint64_t> rssAnonymous;
+        std::optional<std::uint64_t> rssFile;
+        std::optional<std::uint64_t> rssSharedMemory;
+        std::optional<std::uint64_t> vmData;
+        std::optional<std::uint64_t> vmStack;
+        std::optional<std::uint64_t> vmExe;
+        std::optional<std::uint64_t> vmLib;
+        std::optional<std::uint64_t> vmPTE;
+        std::optional<std::uint64_t> vmSwap;
+        std::optional<std::uint64_t> hugeTLBPages;
+        std::uint64_t threads;
+        std::array<std::uint64_t, 2> signalQueue;
+        std::uint64_t pendingSignals;
+        std::uint64_t sharedPendingSignals;
+        std::uint64_t blockedSignals;
+        std::uint64_t ignoredSignals;
+        std::uint64_t caughtSignals;
+        std::uint64_t inheritableCapabilities;
+        std::uint64_t permittedCapabilities;
+        std::uint64_t effectiveCapabilities;
+        std::optional<std::uint64_t> boundingCapabilities;
+        std::optional<std::uint64_t> ambientCapabilities;
+        std::optional<std::uint64_t> noNewPrivileges;
+        std::optional<std::uint32_t> seccompMode;
         std::optional<std::string> speculationStoreBypass;
-        std::optional<std::vector<unsigned int>> cpusAllowed;
-        std::optional<std::vector<std::pair<unsigned int, unsigned int>>> cpusAllowedList;
-        std::optional<std::vector<unsigned int>> memoryNodesAllowed;
-        std::optional<std::vector<std::pair<unsigned int, unsigned int>>> memoryNodesAllowedList;
-        std::optional<int> voluntaryContextSwitches;
-        std::optional<int> nonVoluntaryContextSwitches;
+        std::optional<std::vector<std::uint32_t>> allowedCpus;
+        std::optional<std::vector<std::pair<std::uint32_t, std::uint32_t>>> allowedCpuList;
+        std::optional<std::vector<std::uint32_t>> allowedMemoryNodes;
+        std::optional<std::vector<std::pair<std::uint32_t, std::uint32_t>>> allowedMemoryNodeList;
+        std::optional<std::uint64_t> voluntaryContextSwitches;
+        std::optional<std::uint64_t> nonVoluntaryContextSwitches;
         std::optional<bool> coreDumping;
         std::optional<bool> thpEnabled;
     };
 
     struct IOStat {
-        unsigned long long readCharacters;
-        unsigned long long writeCharacters;
-        unsigned long long readSyscall;
-        unsigned long long writeSyscall;
-        unsigned long long readBytes;
-        unsigned long long writeBytes;
-        unsigned long long cancelledWriteBytes;
+        std::uint64_t readCharacters;
+        std::uint64_t writeCharacters;
+        std::uint64_t readSyscalls;
+        std::uint64_t writeSyscalls;
+        std::uint64_t readBytes;
+        std::uint64_t writeBytes;
+        std::uint64_t cancelledWriteBytes;
     };
 
     class Process {
