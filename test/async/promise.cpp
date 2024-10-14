@@ -139,64 +139,44 @@ TEST_CASE("promise", "[async]") {
 
         zero::async::promise::chain<int, int>([](auto p) {
             p.resolve(1);
-        }).then([](const int value) {
+        }).then([](const auto &value) {
             REQUIRE(value == 1);
         });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) {
+            .then([](const auto &value) {
                 REQUIRE(value == 1);
             });
 
         zero::async::promise::reject<void, int>(-1)
-            .fail([](const int error) {
+            .fail([](const auto &error) {
                 REQUIRE(error == -1);
             });
 
-        zero::async::promise::resolve<std::array<int, 2>, int>(std::array{1, 2})
-            .then([](const int r1, const int r2) {
-                REQUIRE(r1 == 1);
-                REQUIRE(r2 == 2);
-            });
-
-        zero::async::promise::resolve<std::pair<int, long>, int>(1, 2L)
-            .then(
-                [](const int r1, const long r2) {
-                    REQUIRE(r1 == 1);
-                    REQUIRE(r2 == 2L);
-                }
-            );
-
-        zero::async::promise::resolve<std::tuple<int, long>, int>(1, 2L)
-            .then([](const int r1, const long r2) {
-                REQUIRE(r1 == 1);
-                REQUIRE(r2 == 2L);
-            });
-
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) {
+            .then([](const auto &value) {
                 return zero::async::promise::resolve<int, int>(value * 10);
-            }).then([](const int value) {
+            }).then([](const auto &value) {
                 REQUIRE(value == 10);
             });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) -> std::expected<int, int> {
+            .then([](const auto &value) -> std::expected<int, int> {
                 if (value == 2)
                     return std::unexpected(2);
 
                 return 2;
-            }).then([](const int value) {
+            }).then([](const auto &value) {
                 REQUIRE(value == 2);
             });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) -> std::expected<int, int> {
+            .then([](const auto &value) -> std::expected<int, int> {
                 if (value == 1)
                     return std::unexpected(-1);
 
                 return 2;
-            }).fail([](const int error) {
+            }).fail([](const auto &error) {
                 REQUIRE(error == -1);
                 return std::unexpected(error);
             });
@@ -206,14 +186,14 @@ TEST_CASE("promise", "[async]") {
         zero::async::promise::resolve<int, int>(1)
             .finally([=] {
                 *i = 1;
-            }).then([=](const int value) {
+            }).then([=](const auto &value) {
                 REQUIRE(*i == 1);
                 REQUIRE(value == 1);
             });
 
         zero::async::promise::resolve<std::string, int>("hello world")
             .then(&std::string::size)
-            .then([](const std::size_t length) {
+            .then([](const auto &length) {
                 REQUIRE(length == 11);
             });
 
@@ -224,7 +204,7 @@ TEST_CASE("promise", "[async]") {
 
         zero::async::promise::resolve<People, int>(People{"jack", 18})
             .then(&People::age)
-            .then([](const int age) {
+            .then([](const auto &age) {
                 REQUIRE(age == 18);
             });
 
@@ -238,7 +218,7 @@ TEST_CASE("promise", "[async]") {
             buffer[4] = 'o';
 
             p.resolve(std::move(buffer));
-        }).then([](const std::unique_ptr<char[]> &buffer) {
+        }).then([](const auto &buffer) {
             REQUIRE(buffer.get() == "hello"sv);
         });
     }
@@ -260,7 +240,7 @@ TEST_CASE("promise", "[async]") {
 
         {
             const auto result = resolve<int, int>(1)
-                                .then([](const int value) {
+                                .then([](const auto &value) {
                                     return resolve<int, int>(value * 10);
                                 }).get();
             REQUIRE(result);
@@ -269,7 +249,7 @@ TEST_CASE("promise", "[async]") {
 
         {
             const auto result = resolve<int, int>(1)
-                                .then([](const int value) -> std::expected<int, int> {
+                                .then([](const auto &value) -> std::expected<int, int> {
                                     if (value == 2)
                                         return std::unexpected(2);
 
@@ -281,7 +261,7 @@ TEST_CASE("promise", "[async]") {
 
         {
             const auto result = resolve<int, int>(1)
-                                .then([](const int value) -> std::expected<int, int> {
+                                .then([](const auto &value) -> std::expected<int, int> {
                                     if (value == 1)
                                         return std::unexpected(-1);
 
@@ -446,12 +426,12 @@ TEST_CASE("promise", "[async]") {
                         resolve<long, int>(4)
                     ).get();
                     REQUIRE(result);
-                    const auto [r1, r2, r3, r4] = *result;
+                    const auto [r1, r2, r3, r4, r5] = *result;
 
                     REQUIRE(r1 == 1);
-                    REQUIRE(r2 == 2);
-                    REQUIRE(r3 == 3);
-                    REQUIRE(r4 == 4);
+                    REQUIRE(r3 == 2);
+                    REQUIRE(r4 == 3);
+                    REQUIRE(r5 == 4);
                 }
 
                 SECTION("reject") {
