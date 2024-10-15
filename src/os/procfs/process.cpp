@@ -164,7 +164,7 @@ std::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs
     stat.state = it++->at(0);
 
     const auto set = [&]<typename T>(T &var) -> std::expected<void, std::error_code> {
-        if constexpr (detail::is_specialization<T, std::optional>) {
+        if constexpr (detail::is_specialization_v<T, std::optional>) {
             if (it == tokens.end())
                 return {};
 
@@ -359,13 +359,13 @@ std::expected<zero::os::procfs::process::Status, std::error_code> zero::os::proc
         std::optional<V> value
     ) -> std::expected<void, std::error_code> {
         if (!value) {
-            if constexpr (detail::is_specialization<T, std::optional>)
+            if constexpr (detail::is_specialization_v<T, std::optional>)
                 return {};
             else
                 return std::unexpected(procfs::Error::UNEXPECTED_DATA);
         }
 
-        if constexpr (detail::is_specialization<V, std::expected>) {
+        if constexpr (detail::is_specialization_v<V, std::expected>) {
             EXPECT(*value);
             var = *std::move(*value);
         }
@@ -380,7 +380,7 @@ std::expected<zero::os::procfs::process::Status, std::error_code> zero::os::proc
         return set(
             var,
             take(key).transform([=](const auto &value) {
-                if constexpr (detail::is_specialization<T, std::optional>)
+                if constexpr (detail::is_specialization_v<T, std::optional>)
                     return strings::toNumber<typename T::value_type>(value, base);
                 else
                     return strings::toNumber<T>(value, base);

@@ -7,32 +7,25 @@
 
 namespace zero::detail {
     template<typename, template<typename...> class>
-    inline constexpr bool is_specialization = false;
+    inline constexpr bool is_specialization_v = false;
 
     template<template<typename...> class T, typename... Args>
-    inline constexpr bool is_specialization<T<Args...>, T> = true;
-
-    template<typename, typename>
-    struct is_applicable : std::false_type {
-    };
-
-    template<typename F, typename... Ts>
-    struct is_applicable<F, std::tuple<Ts...>> {
-        static constexpr bool value = std::is_invocable_v<F, Ts...>;
-    };
-
-    template<typename F, typename T1, typename T2>
-    struct is_applicable<F, std::pair<T1, T2>> {
-        static constexpr bool value = std::is_invocable_v<F, T1, T2>;
-    };
-
-    template<typename F, typename T, std::size_t N>
-    struct is_applicable<F, std::array<T, N>>
-        : is_applicable<F, decltype(std::tuple_cat(std::declval<std::array<T, N>>()))> {
-    };
+    inline constexpr bool is_specialization_v<T<Args...>, T> = true;
 
     template<typename F, typename T>
-    inline constexpr bool is_applicable_v = is_applicable<F, T>::value;
+    inline constexpr bool is_applicable_v = false;
+
+    template<typename F, typename... Ts>
+    inline constexpr bool is_applicable_v<F, std::tuple<Ts...>> = std::is_invocable_v<F, Ts...>;
+
+    template<typename F, typename T1, typename T2>
+    inline constexpr bool is_applicable_v<F, std::pair<T1, T2>> = std::is_invocable_v<F, T1, T2>;
+
+    template<typename F, typename T, std::size_t N>
+    inline constexpr bool is_applicable_v<F, std::array<T, N>> = is_applicable_v<
+        F,
+        decltype(std::tuple_cat(std::declval<std::array<T, N>>()))
+    >;
 
     template<std::size_t I, typename... Ts>
     using element_t = std::tuple_element_t<I, std::tuple<Ts...>>;
@@ -41,16 +34,17 @@ namespace zero::detail {
     using first_element_t = element_t<0, Ts...>;
 
     template<typename T, typename... Ts>
-    inline constexpr bool all_same_as_v = (std::is_same_v<T, Ts> && ...);
-
-    template<typename... Ts>
-    inline constexpr bool all_same_v = all_same_as_v<first_element_t<Ts...>, Ts...>;
+    inline constexpr bool all_same_v = (std::is_same_v<T, Ts> && ...);
 
     template<typename F>
     struct function_traits;
 
     template<typename R, typename... Args>
     struct function_traits<R(*)(Args...)> : function_traits<R(Args...)> {
+    };
+
+    template<typename R, typename... Args>
+    struct function_traits<R(*)(Args...) noexcept> : function_traits<R(Args...)> {
     };
 
     template<typename R, typename... Args>
@@ -68,6 +62,10 @@ namespace zero::detail {
 
     template<typename C, typename R, typename... Args>
     struct function_traits<R(C::*)(Args...)> : function_traits<R(C &, Args...)> {
+    };
+
+    template<typename C, typename R, typename... Args>
+    struct function_traits<R(C::*)(Args...) noexcept> : function_traits<R(C &, Args...)> {
     };
 
     template<typename C, typename R, typename... Args>

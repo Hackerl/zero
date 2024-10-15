@@ -23,6 +23,7 @@ add_executable(
         strings/strings.cpp
         filesystem/fs.cpp
         filesystem/std.cpp
+        detail/type_traits.cpp
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>
         $<$<PLATFORM_ID:Windows>:os/nt/error.cpp os/nt/process.cpp>
         $<$<PLATFORM_ID:Darwin>:os/darwin/error.cpp os/darwin/process.cpp>

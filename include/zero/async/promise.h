@@ -143,6 +143,13 @@ namespace zero::async::promise {
         std::shared_ptr<Core<T, E>> mCore;
     };
 
+    template<typename F, typename T>
+    using callback_result_t = typename std::conditional_t<
+        std::is_void_v<T>,
+        std::invoke_result<F>,
+        std::invoke_result<F, T>
+    >::type;
+
     template<typename T, typename E>
     class Future {
     public:
@@ -230,14 +237,14 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization<std::invoke_result_t<F, T &&>, Future>
+            requires detail::is_specialization_v<callback_result_t<F, T>, Future>
         auto then(F &&f) && {
             assert(mCore);
             assert(!mCore->callback);
             assert(mCore->state != State::ONLY_CALLBACK);
             assert(mCore->state != State::DONE);
 
-            const auto promise = std::make_shared<Promise<typename std::invoke_result_t<F, T &&>::value_type, E>>();
+            const auto promise = std::make_shared<Promise<typename callback_result_t<F, T>::value_type, E>>();
 
             setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
                 auto next = std::move(result).transform(f);
@@ -258,9 +265,9 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization<std::invoke_result_t<F, T &&>, std::expected>
+            requires detail::is_specialization_v<callback_result_t<F, T>, std::expected>
         auto then(F &&f) && {
-            using NextValue = typename std::invoke_result_t<F, T &&>::value_type;
+            using NextValue = typename callback_result_t<F, T>::value_type;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -287,8 +294,12 @@ namespace zero::async::promise {
         }
 
         template<typename F>
+            requires (
+                !detail::is_specialization_v<callback_result_t<F, T>, Future> &&
+                !detail::is_specialization_v<callback_result_t<F, T>, std::expected>
+            )
         auto then(F &&f) && {
-            using NextValue = std::decay_t<std::invoke_result_t<F, T &&>>;
+            using NextValue = std::decay_t<callback_result_t<F, T>>;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -318,9 +329,9 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization<std::invoke_result_t<F, T &&>, Future>
+            requires detail::is_specialization_v<callback_result_t<F, E>, Future>
         auto fail(F &&f) && {
-            using NextError = typename std::invoke_result_t<F, T &&>::error_type;
+            using NextError = typename callback_result_t<F, E>::error_type;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -350,14 +361,14 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization<std::invoke_result_t<F, T &&>, std::expected>
+            requires detail::is_specialization_v<callback_result_t<F, E>, std::expected>
         auto fail(F &&f) && {
             assert(mCore);
             assert(!mCore->callback);
             assert(mCore->state != State::ONLY_CALLBACK);
             assert(mCore->state != State::DONE);
 
-            const auto promise = std::make_shared<Promise<T, typename std::invoke_result_t<F, T &&>::error_type>>();
+            const auto promise = std::make_shared<Promise<T, typename callback_result_t<F, E>::error_type>>();
 
             setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
                 auto next = std::move(result).or_else(f);
@@ -377,7 +388,7 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization<std::invoke_result_t<F, T &&>, std::unexpected>
+            requires detail::is_specialization_v<callback_result_t<F, E>, std::unexpected>
         auto fail(F &&f) && {
             assert(mCore);
             assert(!mCore->callback);
@@ -385,7 +396,7 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<
-                Promise<T, std::decay_t<decltype(std::declval<std::invoke_result_t<F, T &&>>().error())>>
+                Promise<T, std::decay_t<decltype(std::declval<callback_result_t<F, E>>().error())>>
             >();
 
             setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
@@ -404,6 +415,11 @@ namespace zero::async::promise {
         }
 
         template<typename F>
+            requires (
+                !detail::is_specialization_v<callback_result_t<F, E>, Future> &&
+                !detail::is_specialization_v<callback_result_t<F, E>, std::expected> &&
+                !detail::is_specialization_v<callback_result_t<F, E>, std::unexpected>
+            )
         auto fail(F &&f) && {
             assert(mCore);
             assert(!mCore->callback);
@@ -499,7 +515,7 @@ namespace zero::async::promise {
     }
 
     template<std::input_iterator I, std::sentinel_for<I> S>
-        requires detail::is_specialization<std::iter_value_t<I>, Future>
+        requires detail::is_specialization_v<std::iter_value_t<I>, Future>
     auto all(I first, S last) {
         using T = typename std::iter_value_t<I>::value_type;
         using E = typename std::iter_value_t<I>::error_type;
@@ -571,7 +587,7 @@ namespace zero::async::promise {
     }
 
     template<std::ranges::input_range R>
-        requires detail::is_specialization<std::ranges::range_value_t<R>, Future>
+        requires detail::is_specialization_v<std::ranges::range_value_t<R>, Future>
     auto all(R futures) {
         return all(futures.begin(), futures.end());
     }
@@ -661,7 +677,7 @@ namespace zero::async::promise {
     }
 
     template<std::input_iterator I, std::sentinel_for<I> S>
-        requires detail::is_specialization<std::iter_value_t<I>, Future>
+        requires detail::is_specialization_v<std::iter_value_t<I>, Future>
     auto allSettled(I first, S last) {
         using T = typename std::iter_value_t<I>::value_type;
         using E = typename std::iter_value_t<I>::error_type;
@@ -710,7 +726,7 @@ namespace zero::async::promise {
     }
 
     template<std::ranges::input_range R>
-        requires detail::is_specialization<std::ranges::range_value_t<R>, Future>
+        requires detail::is_specialization_v<std::ranges::range_value_t<R>, Future>
     auto allSettled(R futures) {
         return allSettled(futures.begin(), futures.end());
     }
@@ -769,7 +785,7 @@ namespace zero::async::promise {
     }
 
     template<std::input_iterator I, std::sentinel_for<I> S>
-        requires detail::is_specialization<std::iter_value_t<I>, Future>
+        requires detail::is_specialization_v<std::iter_value_t<I>, Future>
     auto any(I first, S last) {
         using T = typename std::iter_value_t<I>::value_type;
         using E = typename std::iter_value_t<I>::error_type;
@@ -811,7 +827,7 @@ namespace zero::async::promise {
     }
 
     template<std::ranges::input_range R>
-        requires detail::is_specialization<std::ranges::range_value_t<R>, Future>
+        requires detail::is_specialization_v<std::ranges::range_value_t<R>, Future>
     auto any(R futures) {
         return any(futures.begin(), futures.end());
     }
@@ -872,7 +888,7 @@ namespace zero::async::promise {
     }
 
     template<std::input_iterator I, std::sentinel_for<I> S>
-        requires detail::is_specialization<std::iter_value_t<I>, Future>
+        requires detail::is_specialization_v<std::iter_value_t<I>, Future>
     auto race(I first, S last) {
         using T = typename std::iter_value_t<I>::value_type;
         using E = typename std::iter_value_t<I>::error_type;
@@ -906,7 +922,7 @@ namespace zero::async::promise {
     }
 
     template<std::ranges::input_range R>
-        requires detail::is_specialization<std::ranges::range_value_t<R>, Future>
+        requires detail::is_specialization_v<std::ranges::range_value_t<R>, Future>
     auto race(R futures) {
         return race(futures.begin(), futures.end());
     }

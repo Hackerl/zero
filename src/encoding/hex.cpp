@@ -1,7 +1,6 @@
 #include <zero/encoding/hex.h>
 #include <zero/strings/strings.h>
 #include <cassert>
-#include <ranges>
 
 std::string zero::encoding::hex::encode(const std::span<const std::byte> data) {
     constexpr std::array mapping{

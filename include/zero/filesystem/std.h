@@ -142,6 +142,8 @@ namespace zero::filesystem {
         using iterator_category = std::input_iterator_tag;
         using value_type = std::expected<DirectoryEntry, std::error_code>;
         using difference_type = std::ptrdiff_t;
+        using pointer = void;
+        using reference = value_type;
 
         NoExcept() = default;
 
