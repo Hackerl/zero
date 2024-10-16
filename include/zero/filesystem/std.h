@@ -181,20 +181,12 @@ namespace zero::filesystem {
             return proxy;
         }
 
-        [[nodiscard]] bool operator==(const NoExcept &rhs) const {
-            // some standard libraries reset iterator immediately when an error occurs
-            if (mErrorCode && rhs.mIterator == T{})
-                return false;
-
-            return mIterator == rhs.mIterator;
+        friend bool operator==(const NoExcept &lhs, const NoExcept &rhs) {
+            return lhs.mErrorCode == rhs.mErrorCode && lhs.mIterator == rhs.mIterator;
         }
 
         [[nodiscard]] bool operator==(std::default_sentinel_t) const {
-            // some standard libraries reset iterator immediately when an error occurs
-            if (mErrorCode)
-                return false;
-
-            return mIterator == std::default_sentinel;
+            return *this == NoExcept{};
         }
 
     private:
