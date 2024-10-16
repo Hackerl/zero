@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <tl/expected.hpp>
+#include <range/v3/iterator.hpp>
 
 namespace zero::filesystem {
     tl::expected<std::filesystem::path, std::error_code> absolute(const std::filesystem::path &path);
@@ -183,16 +184,20 @@ namespace zero::filesystem {
             return proxy;
         }
 
-        [[nodiscard]] bool operator==(const NoExcept &rhs) const {
-            // some standard libraries reset iterator immediately when an error occurs
-            if (mErrorCode && rhs.mIterator == T{})
-                return false;
-
-            return mIterator == rhs.mIterator;
+        friend bool operator==(const NoExcept &lhs, const NoExcept &rhs) {
+            return lhs.mErrorCode == rhs.mErrorCode && lhs.mIterator == rhs.mIterator;
         }
 
-        [[nodiscard]] bool operator!=(const NoExcept &rhs) const {
-            return !operator==(rhs);
+        friend bool operator!=(const NoExcept &lhs, const NoExcept &rhs) {
+            return !(lhs == rhs);
+        }
+
+        [[nodiscard]] bool operator==(ranges::default_sentinel_t) const {
+            return *this == NoExcept{};
+        }
+
+        [[nodiscard]] bool operator!=(ranges::default_sentinel_t) const {
+            return !operator==(ranges::default_sentinel);
         }
 
     private:
