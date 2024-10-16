@@ -20,14 +20,14 @@ namespace zero::atomic {
 
     public:
         explicit CircularBuffer(const std::size_t capacity)
-            : mModulo((std::numeric_limits<std::size_t>::max)() / capacity * capacity),
-              mCapacity(capacity), mHead(0), mTail(0),
-              mBuffer(std::make_unique<T[]>(capacity)), mState(std::make_unique<std::atomic<State>[]>(capacity)) {
+            : mModulo{(std::numeric_limits<std::size_t>::max)() / capacity * capacity},
+              mCapacity{capacity}, mHead{0}, mTail{0},
+              mBuffer{std::make_unique<T[]>(capacity)}, mState{std::make_unique<std::atomic<State>[]>(capacity)} {
             assert(mCapacity > 1);
         }
 
         std::optional<std::size_t> reserve() {
-            std::size_t index = mTail;
+            auto index = mTail.load();
 
             do {
                 if (full())
@@ -38,7 +38,7 @@ namespace zero::atomic {
             index %= mCapacity;
 
             while (true) {
-                if (State expected = State::IDLE; mState[index].compare_exchange_weak(expected, State::PUTTING))
+                if (auto expected = State::IDLE; mState[index].compare_exchange_weak(expected, State::PUTTING))
                     break;
             }
 
@@ -50,7 +50,7 @@ namespace zero::atomic {
         }
 
         std::optional<std::size_t> acquire() {
-            std::size_t index = mHead;
+            auto index = mHead.load();
 
             do {
                 if (empty())
@@ -61,7 +61,7 @@ namespace zero::atomic {
             index %= mCapacity;
 
             while (true) {
-                if (State expected = State::VALID; mState[index].compare_exchange_weak(expected, State::TAKING))
+                if (auto expected = State::VALID; mState[index].compare_exchange_weak(expected, State::TAKING))
                     break;
             }
 

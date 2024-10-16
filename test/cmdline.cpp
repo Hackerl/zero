@@ -1,5 +1,6 @@
 #include <zero/cmdline.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
 
 struct Config {
     std::string username;
@@ -17,7 +18,7 @@ tl::expected<Config, std::error_code> zero::scan(const std::string_view input) {
 }
 
 TEST_CASE("parse command line arguments", "[cmdline]") {
-    constexpr std::array argv = {
+    constexpr std::array argv{
         "cmdline",
         "--output=/tmp/out",
         "-c",
@@ -44,13 +45,20 @@ TEST_CASE("parse command line arguments", "[cmdline]") {
 
     REQUIRE(cmdline.exist("http"));
     REQUIRE(cmdline.get<std::string>("host") == "localhost");
-    REQUIRE(cmdline.get<std::vector<short>>("ports") == std::vector<short>{8080, 8090, 9090});
-    REQUIRE(*cmdline.getOptional<std::filesystem::path>("output") == "/tmp/out");
-    REQUIRE(!cmdline.getOptional<std::string>("decompress"));
-    REQUIRE(*cmdline.getOptional<int>("count") == 6);
+
+    REQUIRE_THAT(cmdline.get<std::vector<short>>("ports"), Catch::Matchers::RangeEquals(std::vector{8080, 8090, 9090}));
+
+    const auto output = cmdline.getOptional<std::filesystem::path>("output");
+    REQUIRE(output);
+    REQUIRE(*output == "/tmp/out");
+
+    REQUIRE_FALSE(cmdline.getOptional<std::string>("decompress"));
+
+    const auto count = cmdline.getOptional<int>("count");
+    REQUIRE(count);
+    REQUIRE(*count == 6);
 
     const auto config = cmdline.getOptional<Config>("config");
-
     REQUIRE(config);
     REQUIRE(config->username == "root");
     REQUIRE(config->password == "123456");

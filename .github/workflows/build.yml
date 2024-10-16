@@ -1,8 +1,11 @@
 name: zero
 on: [ push ]
 jobs:
-  linux-amd64:
+  linux:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shared: [ ON, OFF ]
     steps:
       - uses: actions/checkout@v4
       - name: Install LLVM
@@ -13,7 +16,10 @@ jobs:
           sudo apt install -y libc++abi-18-dev libc++-18-dev
       - name: Build
         run: |
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET="x64-linux-dynamic" \
+            -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           cmake --build build -j$(nproc)
         env:
           CC: clang-18
@@ -27,7 +33,7 @@ jobs:
           # https://github.com/llvm/llvm-project/issues/59432
           ASAN_OPTIONS: alloc_dealloc_mismatch=0
 
-  linux-static-amd64:
+  linux-static:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +51,11 @@ jobs:
       - name: Test
         run: ctest --output-on-failure --test-dir build
 
-  windows-amd64:
+  windows:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        shared: [ ON, OFF ]
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
@@ -59,9 +68,11 @@ jobs:
           set(VCPKG_C_FLAGS $Env:CFLAGS)
           set(VCPKG_CXX_FLAGS $Env:CXXFLAGS)
           "@
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE="$Env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+          cmake -B build `
+            -DCMAKE_TOOLCHAIN_FILE="$Env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_OVERLAY_TRIPLETS="$(pwd)" `
-            -DVCPKG_TARGET_TRIPLET="x64-windows-sanitizer"
+            -DVCPKG_TARGET_TRIPLET="x64-windows-sanitizer" `
+            -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           cmake --build build -j $Env:NUMBER_OF_PROCESSORS
         env:
           CFLAGS: -fsanitize=address
@@ -69,8 +80,42 @@ jobs:
       - name: Test
         run: ctest --output-on-failure --test-dir build
 
-  macos-amd64:
+  windows-32:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shared: [ ON, OFF ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - name: Build
+        run: |
+          Set-Content x86-windows-sanitizer.cmake @"
+          set(VCPKG_TARGET_ARCHITECTURE x86)
+          set(VCPKG_CRT_LINKAGE dynamic)
+          set(VCPKG_LIBRARY_LINKAGE dynamic)
+          set(VCPKG_C_FLAGS $Env:CFLAGS)
+          set(VCPKG_CXX_FLAGS $Env:CXXFLAGS)
+          "@
+          cmake -B build -A Win32 `
+            -DCMAKE_TOOLCHAIN_FILE="$Env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_OVERLAY_TRIPLETS="$(pwd)" `
+            -DVCPKG_TARGET_TRIPLET="x86-windows-sanitizer" `
+            -DBUILD_SHARED_LIBS=${{ matrix.shared }}
+          cmake --build build -j $Env:NUMBER_OF_PROCESSORS
+        env:
+          CFLAGS: -fsanitize=address
+          CXXFLAGS: -fsanitize=address
+      - name: Test
+        run: ctest --output-on-failure --test-dir build
+
+  macos:
     runs-on: macos-13
+    strategy:
+      matrix:
+        shared: [ ON, OFF ]
     steps:
       - uses: actions/checkout@v4
       - name: Install LLVM
@@ -79,18 +124,21 @@ jobs:
           echo "LLVM_HOME=$(brew --prefix llvm)" >> $GITHUB_ENV
       - name: Build
         run: |
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET="x64-osx-dynamic" \
+            -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           cmake --build build -j$(sysctl -n hw.physicalcpu)
         env:
           CC: ${{ env.LLVM_HOME }}/bin/clang
           CXX: ${{ env.LLVM_HOME }}/bin/clang++
           CFLAGS: -fsanitize=address
           CXXFLAGS: -fsanitize=address
-          LDFLAGS: -fsanitize=address -L${{ env.LLVM_HOME }}/lib/c++ -Wl,-rpath,${{ env.LLVM_HOME }}/lib/c++
+          LDFLAGS: -fsanitize=address -L${{ env.LLVM_HOME }}/lib/c++ -L${{ env.LLVM_HOME }}/lib -L${{ env.LLVM_HOME }}/lib/unwind -lunwind -Wl,-rpath,${{ env.LLVM_HOME }}/lib/c++ -Wl,-rpath,${{ env.LLVM_HOME }}/lib -Wl,-rpath,${{ env.LLVM_HOME }}/lib/unwind
       - name: Test
         run: ctest --output-on-failure --test-dir build
 
-  android-arm64:
+  android:
     runs-on: ubuntu-latest
     strategy:
       matrix:

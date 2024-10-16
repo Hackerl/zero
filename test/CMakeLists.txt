@@ -3,6 +3,7 @@ find_package(Catch2 CONFIG REQUIRED)
 add_executable(
         zero_test
         log.cpp
+        env.cpp
         defer.cpp
         error.cpp
         expect.cpp
@@ -20,7 +21,9 @@ add_executable(
         encoding/hex.cpp
         encoding/base64.cpp
         strings/strings.cpp
-        filesystem/file.cpp
+        filesystem/fs.cpp
+        filesystem/std.cpp
+        detail/type_traits.cpp
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>
         $<$<PLATFORM_ID:Windows>:os/nt/error.cpp os/nt/process.cpp>
         $<$<PLATFORM_ID:Darwin>:os/darwin/error.cpp os/darwin/process.cpp>
@@ -31,7 +34,20 @@ if (MSVC)
     target_compile_options(zero_test PRIVATE /utf-8)
 endif ()
 
-target_link_libraries(zero_test PRIVATE zero Catch2::Catch2WithMain)
+target_link_libraries(
+        zero_test
+        PRIVATE
+        zero
+        Threads::Threads
+        Catch2::Catch2WithMain
+        $<$<PLATFORM_ID:Windows>:Iphlpapi>
+)
 
 include(Catch)
-catch_discover_tests(zero_test)
+
+# Catch2 v3.7.0 will inherit the PATH environment variable, so we don't need to set it manually.
+catch_discover_tests(
+        zero_test
+        DL_PATHS
+        $<$<AND:$<PLATFORM_ID:Windows>,$<BOOL:${BUILD_SHARED_LIBS}>>:$ENV{PATH};$<TARGET_FILE_DIR:zero>>
+)

@@ -1,7 +1,9 @@
 #include <zero/os/darwin/process.h>
-#include <zero/filesystem/path.h>
 #include <zero/os/unix/error.h>
+#include <zero/filesystem/fs.h>
+#include <zero/filesystem/std.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
 #include <csignal>
 #include <thread>
 #include <unistd.h>
@@ -13,14 +15,20 @@ TEST_CASE("darwin process", "[darwin]") {
         REQUIRE(ids);
     }
 
+    const auto currentPath = zero::filesystem::currentPath();
+    REQUIRE(currentPath);
+
     SECTION("self") {
         const auto pid = getpid();
         const auto process = zero::os::darwin::process::self();
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
-        REQUIRE(process->ppid() == getppid());
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto ppid = process->ppid();
+        REQUIRE(ppid);
+        REQUIRE(*ppid == getppid());
+
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto name = process->name();
@@ -33,7 +41,7 @@ TEST_CASE("darwin process", "[darwin]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
         const auto envs = process->envs();
         REQUIRE(envs);
@@ -44,7 +52,7 @@ TEST_CASE("darwin process", "[darwin]") {
 
         const auto cwd = process->cwd();
         REQUIRE(cwd);
-        REQUIRE(*cwd == std::filesystem::current_path());
+        REQUIRE(*cwd == *currentPath);
 
         const auto memory = process->memory();
         REQUIRE(memory);
@@ -59,21 +67,21 @@ TEST_CASE("darwin process", "[darwin]") {
     SECTION("child") {
         using namespace std::chrono_literals;
 
-        const pid_t pid = fork();
+        const auto pid = fork();
 
         if (pid == 0) {
             pause();
-            exit(0);
+            std::exit(EXIT_FAILURE);
         }
 
         REQUIRE(pid > 0);
         std::this_thread::sleep_for(100ms);
 
-        const auto process = zero::os::darwin::process::open(pid);
+        auto process = zero::os::darwin::process::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
@@ -82,7 +90,7 @@ TEST_CASE("darwin process", "[darwin]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
         const auto envs = process->envs();
         REQUIRE(envs);
@@ -93,7 +101,7 @@ TEST_CASE("darwin process", "[darwin]") {
 
         const auto cwd = process->cwd();
         REQUIRE(cwd);
-        REQUIRE(*cwd == std::filesystem::current_path());
+        REQUIRE(*cwd == *currentPath);
 
         const auto memory = process->memory();
         REQUIRE(memory);
@@ -104,7 +112,8 @@ TEST_CASE("darwin process", "[darwin]") {
         const auto io = process->io();
         REQUIRE(io);
 
-        kill(pid, SIGKILL);
+        REQUIRE(process->kill(SIGKILL));
+
         const auto id = zero::os::unix::ensure([&] {
             return waitpid(pid, nullptr, 0);
         });
@@ -115,11 +124,11 @@ TEST_CASE("darwin process", "[darwin]") {
     SECTION("zombie") {
         using namespace std::chrono_literals;
 
-        const pid_t pid = fork();
+        const auto pid = fork();
 
         if (pid == 0) {
             pause();
-            exit(0);
+            std::exit(EXIT_FAILURE);
         }
 
         REQUIRE(pid > 0);
@@ -131,27 +140,27 @@ TEST_CASE("darwin process", "[darwin]") {
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
-        REQUIRE(!comm);
+        REQUIRE_FALSE(comm);
         REQUIRE(comm.error() == std::errc::no_such_process);
 
         const auto cmdline = process->cmdline();
-        REQUIRE(!cmdline);
+        REQUIRE_FALSE(cmdline);
         REQUIRE(cmdline.error() == std::errc::invalid_argument);
 
         const auto envs = process->envs();
-        REQUIRE(!envs);
+        REQUIRE_FALSE(envs);
         REQUIRE(envs.error() == std::errc::invalid_argument);
 
         const auto exe = process->exe();
-        REQUIRE(!exe);
+        REQUIRE_FALSE(exe);
         REQUIRE(exe.error() == std::errc::no_such_process);
 
         const auto cwd = process->cwd();
-        REQUIRE(!cwd);
+        REQUIRE_FALSE(cwd);
         REQUIRE(cwd.error() == std::errc::no_such_process);
 
         const auto id = zero::os::unix::ensure([&] {
@@ -163,7 +172,7 @@ TEST_CASE("darwin process", "[darwin]") {
 
     SECTION("no such process") {
         const auto process = zero::os::darwin::process::open(99999);
-        REQUIRE(!process);
+        REQUIRE_FALSE(process);
         REQUIRE(process.error() == std::errc::no_such_process);
     }
 }

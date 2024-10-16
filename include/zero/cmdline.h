@@ -8,8 +8,8 @@
 #include <list>
 #include <optional>
 #include <filesystem>
+#include <functional>
 #include <fmt/format.h>
-#include <range/v3/view.hpp>
 #include <range/v3/algorithm.hpp>
 
 #ifdef __GNUC__
@@ -33,7 +33,7 @@ namespace zero {
         else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return std::filesystem::path{input};
         }
-        else if constexpr (detail::is_specialization<T, std::vector>) {
+        else if constexpr (detail::is_specialization_v<T, std::vector>) {
             T v;
 
             for (const auto &token: strings::split(input, ",")) {
@@ -52,22 +52,22 @@ namespace zero {
     }
 
     template<typename T>
-    std::string getType() {
+    std::string getTypeName() {
         if constexpr (std::is_same_v<T, std::string>) {
             return "string";
         }
         else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return "path";
         }
-        else if constexpr (detail::is_specialization<T, std::vector>) {
-            return fmt::format("{}[]", getType<typename T::value_type>());
+        else if constexpr (detail::is_specialization_v<T, std::vector>) {
+            return fmt::format("{}[]", getTypeName<typename T::value_type>());
         }
         else {
 #if defined(_CPPRTTI) || defined(__GXX_RTTI)
 #ifdef _MSC_VER
             return typeid(T).name();
 #elif defined(__GNUC__)
-            int status = 0;
+            int status{};
 
             const std::unique_ptr<char, decltype(&free)> buffer(
                 abi::__cxa_demangle(
@@ -90,27 +90,27 @@ namespace zero {
         }
     }
 
-    struct TypeInfo {
-        std::string type;
-        std::function<tl::expected<std::any, std::error_code>(std::string_view)> parse;
-    };
-
-    struct Optional {
-        std::string name;
-        char shortName;
-        std::string desc;
-        std::any value;
-        std::optional<TypeInfo> typeInfo;
-    };
-
-    struct Positional {
-        std::string name;
-        std::string desc;
-        std::any value;
-        TypeInfo typeInfo;
-    };
-
     class Cmdline {
+        struct TypeInfo {
+            std::string name;
+            std::function<tl::expected<std::any, std::error_code>(std::string_view)> parse;
+        };
+
+        struct Optional {
+            std::string name;
+            char shortName;
+            std::string desc;
+            std::any value;
+            std::optional<TypeInfo> typeInfo;
+        };
+
+        struct Positional {
+            std::string name;
+            std::string desc;
+            std::any value;
+            TypeInfo typeInfo;
+        };
+
     public:
         Cmdline();
 
@@ -123,31 +123,41 @@ namespace zero {
 
     public:
         template<typename T>
-        void add(const char *name, const char *desc) {
-            mPositionals.push_back({name, desc, std::any{}, TypeInfo{getType<T>(), parseValue<T>}});
+        void add(std::string name, std::string desc) {
+            mPositionals.push_back({
+                std::move(name),
+                std::move(desc),
+                std::any{},
+                TypeInfo{getTypeName<T>(), parseValue<T>}
+            });
         }
 
         template<typename T>
-        void addOptional(const char *name, const char shortName, const char *desc, std::optional<T> def = std::nullopt) {
+        void addOptional(
+            std::string name,
+            const char shortName,
+            std::string desc,
+            std::optional<T> def = std::nullopt
+        ) {
             mOptionals.push_back({
-                name,
+                std::move(name),
                 shortName,
-                desc,
+                std::move(desc),
                 def ? std::any{*std::move(def)} : std::any{},
                 TypeInfo{
-                    getType<T>(),
+                    getTypeName<T>(),
                     parseValue<T>
                 }
             });
         }
 
-        void addOptional(const char *name, char shortName, const char *desc);
+        void addOptional(std::string name, char shortName, std::string desc);
 
         template<typename T>
-        T get(const char *name) const {
+        T get(const std::string_view name) const {
             const auto it = ranges::find_if(
                 mPositionals,
-                [=](const auto &positional) {
+                [&](const auto &positional) {
                     return positional.name == name;
                 }
             );
@@ -159,7 +169,7 @@ namespace zero {
         }
 
         template<typename T>
-        std::optional<T> getOptional(const char *name) const {
+        std::optional<T> getOptional(const std::string_view name) const {
             const auto &value = find(name).value;
 
             if (!value.has_value())
@@ -168,10 +178,10 @@ namespace zero {
             return std::any_cast<T>(value);
         }
 
-        [[nodiscard]] bool exist(const char *name) const;
+        [[nodiscard]] bool exist(std::string_view name) const;
         [[nodiscard]] std::vector<std::string> rest() const;
 
-        void footer(const char *message);
+        void footer(std::string message);
         void from(int argc, const char *const argv[]);
         void parse(int argc, const char *const argv[]);
 

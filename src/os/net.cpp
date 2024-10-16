@@ -5,6 +5,7 @@
 #include <cassert>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
+#include <zero/expect.h>
 #include <zero/strings/strings.h>
 #elif defined(__linux__)
 #include <cstring>
@@ -33,7 +34,7 @@
 #endif
 
 std::string zero::os::net::stringify(const nonstd::span<const std::byte, 4> ip) {
-    std::array<char, INET_ADDRSTRLEN> address = {};
+    std::array<char, INET_ADDRSTRLEN> address{};
 
     if (!inet_ntop(AF_INET, ip.data(), address.data(), address.size()))
         throw std::runtime_error("unable to convert IPv4 address from binary to text form");
@@ -42,7 +43,7 @@ std::string zero::os::net::stringify(const nonstd::span<const std::byte, 4> ip) 
 }
 
 std::string zero::os::net::stringify(const nonstd::span<const std::byte, 16> ip) {
-    std::array<char, INET6_ADDRSTRLEN> address = {};
+    std::array<char, INET6_ADDRSTRLEN> address{};
 
     if (!inet_ntop(AF_INET6, ip.data(), address.data(), address.size()))
         throw std::runtime_error("unable to convert IPv6 address from binary to text form");
@@ -52,7 +53,7 @@ std::string zero::os::net::stringify(const nonstd::span<const std::byte, 16> ip)
 
 tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> zero::os::net::interfaces() {
 #ifdef _WIN32
-    ULONG size = 10240;
+    ULONG size{10240};
     auto buffer = std::make_unique<std::byte[]>(size);
 
     while (true) {
@@ -64,18 +65,16 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
             &size
         );
 
-        if (result != ERROR_SUCCESS) {
-            if (result != ERROR_BUFFER_OVERFLOW)
-                return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        if (result == ERROR_SUCCESS)
+            break;
 
-            buffer = std::make_unique<std::byte[]>(size);
-            continue;
-        }
+        if (result != ERROR_BUFFER_OVERFLOW)
+            return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
-        break;
+        buffer = std::make_unique<std::byte[]>(size);
     }
 
-    tl::expected<std::map<std::string, Interface>, std::error_code> result;
+    std::map<std::string, Interface> interfaces;
 
     for (auto adapter = reinterpret_cast<const IP_ADAPTER_ADDRESSES *>(buffer.get()); adapter;
          adapter = adapter->Next) {
@@ -85,26 +84,20 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
         if (adapter->IfType == IF_TYPE_SOFTWARE_LOOPBACK)
             continue;
 
-        std::array<WCHAR, NDIS_IF_MAX_STRING_SIZE + 1> buf = {};
+        std::array<WCHAR, NDIS_IF_MAX_STRING_SIZE + 1> buf{};
 
-        if (ConvertInterfaceLuidToNameW(&adapter->Luid, buf.data(), buf.size()) != ERROR_SUCCESS) {
-            result = tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
-            break;
-        }
+        if (ConvertInterfaceLuidToNameW(&adapter->Luid, buf.data(), buf.size()) != ERROR_SUCCESS)
+            return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
 
         const auto name = strings::encode(buf.data());
-
-        if (!name) {
-            result = tl::unexpected(name.error());
-            break;
-        }
+        EXPECT(name);
 
         std::vector<Address> addresses;
 
-        for (PIP_ADAPTER_UNICAST_ADDRESS addr = adapter->FirstUnicastAddress; addr; addr = addr->Next) {
+        for (const auto *addr = adapter->FirstUnicastAddress; addr; addr = addr->Next) {
             switch (addr->Address.lpSockaddr->sa_family) {
             case AF_INET: {
-                IfAddress4 address = {};
+                IfAddress4 address{};
 
                 std::memcpy(
                     address.ip.data(),
@@ -118,7 +111,7 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
             }
 
             case AF_INET6: {
-                IfAddress6 address = {};
+                IfAddress6 address{};
 
                 std::memcpy(
                     address.ip.data(),
@@ -136,7 +129,7 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
             }
         }
 
-        result->emplace(
+        interfaces.emplace(
             *name,
             Interface{
                 *name,
@@ -149,7 +142,7 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
         );
     }
 
-    return result;
+    return interfaces;
 #elif defined(__linux__) || __APPLE__
 #if defined(__ANDROID__) && __ANDROID_API__ < 24
     static const auto getifaddrs = reinterpret_cast<int (*)(ifaddrs **)>(dlsym(RTLD_DEFAULT, "getifaddrs"));
@@ -158,16 +151,16 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
     if (!getifaddrs || !freeifaddrs)
         return tl::unexpected(GetInterfacesError::API_NOT_AVAILABLE);
 #endif
-    ifaddrs *addr;
+    ifaddrs *addr{};
 
     EXPECT(unix::expected([&] {
         return getifaddrs(&addr);
     }));
-
     DEFER(freeifaddrs(addr));
+
     std::map<std::string, Interface> interfaces;
 
-    for (const ifaddrs *p = addr; p; p = p->ifa_next) {
+    for (const auto *p = addr; p; p = p->ifa_next) {
         if (!(p->ifa_flags & IFF_UP && p->ifa_flags & IFF_RUNNING))
             continue;
 
@@ -182,14 +175,14 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
 
         switch (p->ifa_addr->sa_family) {
         case AF_INET: {
-            IfAddress4 address = {};
+            IfAddress4 address{};
 
             std::memcpy(address.ip.data(), &reinterpret_cast<const sockaddr_in *>(p->ifa_addr)->sin_addr, 4);
 
-            IPv4 mask = {};
+            IPv4 mask{};
             std::memcpy(mask.data(), &reinterpret_cast<const sockaddr_in *>(p->ifa_netmask)->sin_addr, 4);
 
-            int prefix = 0;
+            int prefix{0};
 
             for (auto b: mask) {
                 while (std::to_integer<int>(b)) {
@@ -206,13 +199,13 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
         }
 
         case AF_INET6: {
-            IfAddress6 address = {};
+            IfAddress6 address{};
             std::memcpy(address.ip.data(), &reinterpret_cast<const sockaddr_in6 *>(p->ifa_addr)->sin6_addr, 16);
 
-            IPv6 mask = {};
+            IPv6 mask{};
             std::memcpy(mask.data(), &reinterpret_cast<const sockaddr_in6 *>(p->ifa_netmask)->sin6_addr, 16);
 
-            int prefix = 0;
+            int prefix{0};
 
             for (auto b: mask) {
                 while (std::to_integer<int>(b)) {
@@ -265,7 +258,7 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
     DEFER(close(*fd));
 
     for (auto &[name, mac, addresses]: ranges::views::values(interfaces)) {
-        ifreq request = {};
+        ifreq request{};
 
         request.ifr_addr.sa_family = AF_INET;
         std::strncpy(request.ifr_name, name.c_str(), IFNAMSIZ);
@@ -286,3 +279,7 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
 #error "unsupported platform"
 #endif
 }
+
+#if defined(__ANDROID__) && __ANDROID_API__ < 24
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::net::GetInterfacesError)
+#endif

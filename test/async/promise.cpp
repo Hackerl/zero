@@ -1,7 +1,6 @@
 #include <zero/async/promise.h>
 #include <zero/concurrent/channel.h>
 #include <catch2/catch_test_macros.hpp>
-#include <range/v3/iterator.hpp>
 #include <cstring>
 #include <thread>
 #include <list>
@@ -12,8 +11,8 @@ constexpr auto CHANNEL_CAPACITY = 32;
 class ThreadPool {
 public:
     ThreadPool(const std::size_t number, const std::size_t capacity)
-        : mChannel(zero::concurrent::channel<std::function<void()>>(capacity)) {
-        for (int i = 0; i < number; i++)
+        : mChannel{zero::concurrent::channel<std::function<void()>>(capacity)} {
+        for (int i{0}; i < number; i++)
             mThreads.emplace_back(&ThreadPool::dispatch, this);
     }
 
@@ -94,14 +93,14 @@ TEST_CASE("promise", "[async]") {
 
         zero::async::promise::Promise<int, int> promise;
         REQUIRE(promise.valid());
-        REQUIRE(!promise.isFulfilled());
+        REQUIRE_FALSE(promise.isFulfilled());
 
         auto future = promise.getFuture();
         REQUIRE(future.valid());
-        REQUIRE(!future.isReady());
+        REQUIRE_FALSE(future.isReady());
 
         const auto result = future.wait(10ms);
-        REQUIRE(!result);
+        REQUIRE_FALSE(result);
         REQUIRE(result.error() == std::errc::timed_out);
 
         SECTION("resolve") {
@@ -128,72 +127,54 @@ TEST_CASE("promise", "[async]") {
             REQUIRE(future.wait());
 
             const auto &res = future.result();
-            REQUIRE(!res);
+            REQUIRE_FALSE(res);
             REQUIRE(res.error() == -1);
         }
     }
 
     SECTION("callback chain") {
+        using namespace std::string_view_literals;
+
         zero::async::promise::chain<int, int>([](auto p) {
             p.resolve(1);
-        }).then([](const int value) {
+        }).then([](const auto &value) {
             REQUIRE(value == 1);
         });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) {
+            .then([](const auto &value) {
                 REQUIRE(value == 1);
             });
 
         zero::async::promise::reject<void, int>(-1)
-            .fail([](const int error) {
+            .fail([](const auto &error) {
                 REQUIRE(error == -1);
             });
 
-        zero::async::promise::resolve<std::array<int, 2>, int>(std::array{1, 2})
-            .then([](const int r1, const int r2) {
-                REQUIRE(r1 == 1);
-                REQUIRE(r2 == 2);
-            });
-
-        zero::async::promise::resolve<std::pair<int, long>, int>(1, 2L)
-            .then(
-                [](const int r1, const long r2) {
-                    REQUIRE(r1 == 1);
-                    REQUIRE(r2 == 2L);
-                }
-            );
-
-        zero::async::promise::resolve<std::tuple<int, long>, int>(1, 2L)
-            .then([](const int r1, const long r2) {
-                REQUIRE(r1 == 1);
-                REQUIRE(r2 == 2L);
-            });
-
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) {
+            .then([](const auto &value) {
                 return zero::async::promise::resolve<int, int>(value * 10);
-            }).then([](const int value) {
+            }).then([](const auto &value) {
                 REQUIRE(value == 10);
             });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) -> tl::expected<int, int> {
+            .then([](const auto &value) -> tl::expected<int, int> {
                 if (value == 2)
                     return tl::unexpected(2);
 
                 return 2;
-            }).then([](const int value) {
+            }).then([](const auto &value) {
                 REQUIRE(value == 2);
             });
 
         zero::async::promise::resolve<int, int>(1)
-            .then([](const int value) -> tl::expected<int, int> {
+            .then([](const auto &value) -> tl::expected<int, int> {
                 if (value == 1)
                     return tl::unexpected(-1);
 
                 return 2;
-            }).fail([](const int error) {
+            }).fail([](const auto &error) {
                 REQUIRE(error == -1);
                 return tl::unexpected(error);
             });
@@ -203,14 +184,14 @@ TEST_CASE("promise", "[async]") {
         zero::async::promise::resolve<int, int>(1)
             .finally([=] {
                 *i = 1;
-            }).then([=](const int value) {
+            }).then([=](const auto &value) {
                 REQUIRE(*i == 1);
                 REQUIRE(value == 1);
             });
 
         zero::async::promise::resolve<std::string, int>("hello world")
             .then(&std::string::size)
-            .then([](const std::size_t length) {
+            .then([](const auto &length) {
                 REQUIRE(length == 11);
             });
 
@@ -221,7 +202,7 @@ TEST_CASE("promise", "[async]") {
 
         zero::async::promise::resolve<People, int>(People{"jack", 18})
             .then(&People::age)
-            .then([](const int age) {
+            .then([](const auto &age) {
                 REQUIRE(age == 18);
             });
 
@@ -235,12 +216,14 @@ TEST_CASE("promise", "[async]") {
             buffer[4] = 'o';
 
             p.resolve(std::move(buffer));
-        }).then([](const std::unique_ptr<char[]> &buffer) {
-            REQUIRE(strcmp(buffer.get(), "hello") == 0);
+        }).then([](const auto &buffer) {
+            REQUIRE(buffer.get() == "hello"sv);
         });
     }
 
     SECTION("concurrent") {
+        using namespace std::string_view_literals;
+
         {
             const auto result = resolve<int, int>(1).get();
             REQUIRE(result);
@@ -249,13 +232,13 @@ TEST_CASE("promise", "[async]") {
 
         {
             const auto result = reject<void, int>(-1).get();
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == -1);
         }
 
         {
             const auto result = resolve<int, int>(1)
-                                .then([](const int value) {
+                                .then([](const auto &value) {
                                     return resolve<int, int>(value * 10);
                                 }).get();
             REQUIRE(result);
@@ -264,7 +247,7 @@ TEST_CASE("promise", "[async]") {
 
         {
             const auto result = resolve<int, int>(1)
-                                .then([](const int value) -> tl::expected<int, int> {
+                                .then([](const auto &value) -> tl::expected<int, int> {
                                     if (value == 2)
                                         return tl::unexpected(2);
 
@@ -276,13 +259,13 @@ TEST_CASE("promise", "[async]") {
 
         {
             const auto result = resolve<int, int>(1)
-                                .then([](const int value) -> tl::expected<int, int> {
+                                .then([](const auto &value) -> tl::expected<int, int> {
                                     if (value == 1)
                                         return tl::unexpected(-1);
 
                                     return 2;
                                 }).get();
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == -1);
         }
 
@@ -308,7 +291,7 @@ TEST_CASE("promise", "[async]") {
 
             const auto result = resolve<std::unique_ptr<char[]>, int>(std::move(buffer)).get();
             REQUIRE(result);
-            REQUIRE(strcmp(result->get(), "hello") == 0);
+            REQUIRE(result->get() == "hello"sv);
         }
     }
 
@@ -334,7 +317,7 @@ TEST_CASE("promise", "[async]") {
                         resolve<void, int>(),
                         resolve<void, int>()
                     }).get();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
                     REQUIRE(result.error() == -1);
                 }
             }
@@ -365,7 +348,7 @@ TEST_CASE("promise", "[async]") {
                         resolve<int, int>(4),
                         resolve<int, int>(5)
                     }).get();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
                     REQUIRE(result.error() == -1);
                 }
             }
@@ -393,7 +376,7 @@ TEST_CASE("promise", "[async]") {
                             resolve<void, int>(),
                             resolve<void, int>()
                         ).get();
-                        REQUIRE(!result);
+                        REQUIRE_FALSE(result);
                         REQUIRE(result.error() == -1);
                     }
                 }
@@ -425,7 +408,7 @@ TEST_CASE("promise", "[async]") {
                             resolve<int, int>(4),
                             resolve<int, int>(5)
                         ).get();
-                        REQUIRE(!result);
+                        REQUIRE_FALSE(result);
                         REQUIRE(result.error() == -1);
                     }
                 }
@@ -441,12 +424,12 @@ TEST_CASE("promise", "[async]") {
                         resolve<long, int>(4)
                     ).get();
                     REQUIRE(result);
-                    const auto [r1, r2, r3, r4] = *result;
+                    const auto [r1, r2, r3, r4, r5] = *result;
 
                     REQUIRE(r1 == 1);
-                    REQUIRE(r2 == 2);
-                    REQUIRE(r3 == 3);
-                    REQUIRE(r4 == 4);
+                    REQUIRE(r3 == 2);
+                    REQUIRE(r4 == 3);
+                    REQUIRE(r5 == 4);
                 }
 
                 SECTION("reject") {
@@ -458,8 +441,8 @@ TEST_CASE("promise", "[async]") {
                         resolve<int, int>(2),
                         resolve<int, int>(3)
                     ).get();
-                    REQUIRE(!result);
-                    const int error = result.error();
+                    REQUIRE_FALSE(result);
+                    const auto error = result.error();
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
@@ -590,7 +573,7 @@ TEST_CASE("promise", "[async]") {
                         reject<void, int>(-6),
                         reject<void, int>(-7)
                     }).get();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
 
                     const auto &errors = result.error();
                     REQUIRE(errors[0] == -1);
@@ -628,7 +611,7 @@ TEST_CASE("promise", "[async]") {
                         reject<int, int>(-6),
                         reject<int, int>(-7)
                     }).get();
-                    REQUIRE(!result);
+                    REQUIRE_FALSE(result);
 
                     const auto &errors = result.error();
                     REQUIRE(errors[0] == -1);
@@ -669,7 +652,7 @@ TEST_CASE("promise", "[async]") {
                                 reject<void, int>(-6),
                                 reject<void, int>(-7)
                             ).get();
-                            REQUIRE(!result);
+                            REQUIRE_FALSE(result);
 
                             const auto &errors = result.error();
                             REQUIRE(errors[0] == -1);
@@ -709,7 +692,7 @@ TEST_CASE("promise", "[async]") {
                                 reject<int, int>(-6),
                                 reject<int, int>(-7)
                             ).get();
-                            REQUIRE(!result);
+                            REQUIRE_FALSE(result);
 
                             const auto &errors = result.error();
                             REQUIRE(errors[0] == -1);
@@ -738,7 +721,7 @@ TEST_CASE("promise", "[async]") {
                             resolve<void, int>()
                         ).get();
                         REQUIRE(result);
-                        REQUIRE(!result->has_value());
+                        REQUIRE_FALSE(result->has_value());
                     }
 
                     SECTION("reject") {
@@ -751,7 +734,7 @@ TEST_CASE("promise", "[async]") {
                             reject<long, int>(-6),
                             reject<void, int>(-7)
                         ).get();
-                        REQUIRE(!result);
+                        REQUIRE_FALSE(result);
 
                         const auto &errors = result.error();
                         REQUIRE(errors[0] == -1);
@@ -794,7 +777,7 @@ TEST_CASE("promise", "[async]") {
                             reject<long, int>(-6),
                             reject<int, int>(-7)
                         ).get();
-                        REQUIRE(!result);
+                        REQUIRE_FALSE(result);
 
                         const auto &errors = result.error();
                         REQUIRE(errors[0] == -1);
@@ -822,7 +805,7 @@ TEST_CASE("promise", "[async]") {
                     resolve<void, int>(),
                     reject<void, int>(-3)
                 }).get(); !result) {
-                    const int error = result.error();
+                    const auto error = result.error();
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
@@ -836,11 +819,11 @@ TEST_CASE("promise", "[async]") {
                     resolve<int, int>(3),
                     reject<int, int>(-3)
                 }).get(); result) {
-                    const int value = *result;
+                    const auto value = *result;
                     REQUIRE((value == 1 || value == 2 || value == 3));
                 }
                 else {
-                    const int error = result.error();
+                    const auto error = result.error();
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }
@@ -857,7 +840,7 @@ TEST_CASE("promise", "[async]") {
                         resolve<void, int>(),
                         reject<void, int>(-3)
                     ).get(); !result) {
-                        const int error = result.error();
+                        const auto error = result.error();
                         REQUIRE((error == -1 || error == -2 || error == -3));
                     }
                 }
@@ -871,11 +854,11 @@ TEST_CASE("promise", "[async]") {
                         resolve<int, int>(3),
                         reject<int, int>(-3)
                     ).get(); result) {
-                        const int value = *result;
+                        const auto value = *result;
                         REQUIRE((value == 1 || value == 2 || value == 3));
                     }
                     else {
-                        const int error = result.error();
+                        const auto error = result.error();
                         REQUIRE((error == -1 || error == -2 || error == -3));
                     }
                 }
@@ -895,11 +878,11 @@ TEST_CASE("promise", "[async]") {
 #if defined(_CPPRTTI) || defined(__GXX_RTTI)
                     REQUIRE(any.type() == typeid(int));
 #endif
-                    const int value = std::any_cast<int>(any);
+                    const auto value = std::any_cast<int>(any);
                     REQUIRE((value == 1 || value == 2 || value == 3));
                 }
                 else {
-                    const int error = result.error();
+                    const auto error = result.error();
                     REQUIRE((error == -1 || error == -2 || error == -3));
                 }
             }

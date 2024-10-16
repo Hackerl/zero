@@ -6,15 +6,15 @@ TEST_CASE("lock-free circular buffer", "[atomic]") {
 
     REQUIRE(buffer.empty());
     REQUIRE(buffer.empty());
-    REQUIRE(!buffer.full());
+    REQUIRE_FALSE(buffer.full());
 
     SECTION("producer/consumer") {
         auto index = buffer.reserve();
 
         REQUIRE(index);
-        REQUIRE(!buffer.empty());
+        REQUIRE_FALSE(buffer.empty());
         REQUIRE(buffer.size() == 1);
-        REQUIRE(!buffer.full());
+        REQUIRE_FALSE(buffer.full());
 
         buffer[*index] = 1;
         buffer.commit(*index);
@@ -23,7 +23,7 @@ TEST_CASE("lock-free circular buffer", "[atomic]") {
 
         REQUIRE(index);
         REQUIRE(buffer.empty());
-        REQUIRE(!buffer.full());
+        REQUIRE_FALSE(buffer.full());
 
         REQUIRE(buffer[*index] == 1);
 
@@ -31,7 +31,7 @@ TEST_CASE("lock-free circular buffer", "[atomic]") {
     }
 
     SECTION("full buffer") {
-        for (std::size_t i = 0; i < 9; i++) {
+        for (std::size_t i{0}; i < 9; i++) {
             const auto index = buffer.reserve();
             REQUIRE(index);
 
@@ -39,8 +39,8 @@ TEST_CASE("lock-free circular buffer", "[atomic]") {
             buffer.commit(*index);
         }
 
-        REQUIRE(!buffer.reserve());
-        REQUIRE(!buffer.empty());
+        REQUIRE_FALSE(buffer.reserve());
+        REQUIRE_FALSE(buffer.empty());
         REQUIRE(buffer.size() == 9);
         REQUIRE(buffer.full());
     }

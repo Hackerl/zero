@@ -1,7 +1,6 @@
 #ifndef ZERO_LOG_H
 #define ZERO_LOG_H
 
-#include "singleton.h"
 #include "interface.h"
 #include "concurrent/channel.h"
 #include <thread>
@@ -12,44 +11,44 @@
 #include <fmt/format.h>
 #include <fmt/chrono.h>
 
-namespace zero {
-    constexpr std::array LOG_TAGS = {"ERROR", "WARN", "INFO", "DEBUG"};
+namespace zero::log {
+    constexpr std::array TAGS = {"ERROR", "WARN", "INFO", "DEBUG"};
 
-    enum class LogLevel {
+    enum class Level {
         ERROR_LEVEL,
         WARNING_LEVEL,
         INFO_LEVEL,
         DEBUG_LEVEL
     };
 
-    struct LogRecord {
-        LogLevel level{};
+    struct Record {
+        Level level{};
         int line{};
         std::string_view filename;
         std::chrono::system_clock::time_point timestamp;
         std::string content;
     };
 
-    class ILogProvider : public Interface {
+    class IProvider : public Interface {
     public:
         virtual tl::expected<void, std::error_code> init() = 0;
         virtual tl::expected<void, std::error_code> rotate() = 0;
         virtual tl::expected<void, std::error_code> flush() = 0;
-        virtual tl::expected<void, std::error_code> write(const LogRecord &record) = 0;
+        virtual tl::expected<void, std::error_code> write(const Record &record) = 0;
     };
 
-    class ConsoleProvider final : public ILogProvider {
+    class ConsoleProvider final : public IProvider {
     public:
         tl::expected<void, std::error_code> init() override;
         tl::expected<void, std::error_code> rotate() override;
         tl::expected<void, std::error_code> flush() override;
-        tl::expected<void, std::error_code> write(const LogRecord &record) override;
+        tl::expected<void, std::error_code> write(const Record &record) override;
     };
 
-    class FileProvider final : public ILogProvider {
+    class FileProvider final : public IProvider {
     public:
         explicit FileProvider(
-            const char *name,
+            std::string name,
             std::optional<std::filesystem::path> directory = std::nullopt,
             std::size_t limit = 10 * 1024 * 1024,
             int remain = 10
@@ -58,7 +57,7 @@ namespace zero {
         tl::expected<void, std::error_code> init() override;
         tl::expected<void, std::error_code> rotate() override;
         tl::expected<void, std::error_code> flush() override;
-        tl::expected<void, std::error_code> write(const LogRecord &record) override;
+        tl::expected<void, std::error_code> write(const Record &record) override;
 
     private:
         int mPID;
@@ -72,8 +71,8 @@ namespace zero {
 
     class Logger {
         struct Config {
-            LogLevel level;
-            std::unique_ptr<ILogProvider> provider;
+            Level level;
+            std::unique_ptr<IProvider> provider;
             std::chrono::milliseconds flushInterval;
             std::chrono::system_clock::time_point flushDeadline;
         };
@@ -86,17 +85,17 @@ namespace zero {
         void consume();
 
     public:
-        [[nodiscard]] bool enabled(LogLevel level) const;
+        [[nodiscard]] bool enabled(Level level) const;
 
         void addProvider(
-            LogLevel level,
-            std::unique_ptr<ILogProvider> provider,
+            Level level,
+            std::unique_ptr<IProvider> provider,
             std::chrono::milliseconds interval = std::chrono::seconds{1}
         );
 
-        void log(const LogLevel level, const std::string_view filename, const int line, std::string content) {
+        void log(const Level level, const std::string_view filename, const int line, std::string content) {
             std::ignore = mChannel.first.send(
-                LogRecord{
+                {
                     level,
                     line,
                     filename,
@@ -112,14 +111,16 @@ namespace zero {
         std::thread mThread;
         std::once_flag mOnceFlag;
         std::list<Config> mConfigs;
-        std::optional<LogLevel> mMinLogLevel;
-        std::optional<LogLevel> mMaxLogLevel;
+        std::optional<Level> mMinLogLevel;
+        std::optional<Level> mMaxLogLevel;
         std::optional<std::chrono::milliseconds> mTimeout;
-        concurrent::Channel<LogRecord> mChannel;
+        concurrent::Channel<Record> mChannel;
     };
 
+    Logger &globalLogger();
+
     // ReSharper disable once CppDFALocalValueEscapesFunction
-    static constexpr std::string_view sourceFilename(const std::string_view path) {
+    constexpr std::string_view sourceFilename(const std::string_view path) {
         const auto pos = path.find_last_of("/\\");
 
         if (pos == std::string_view::npos)
@@ -130,19 +131,19 @@ namespace zero {
 }
 
 template<typename Char>
-struct fmt::formatter<zero::LogRecord, Char> {
+struct fmt::formatter<zero::log::Record, Char> {
     template<typename ParseContext>
     static constexpr auto parse(ParseContext &ctx) {
         return ctx.begin();
     }
 
     template<typename FmtContext>
-    static auto format(const zero::LogRecord &record, FmtContext &ctx) {
+    static auto format(const zero::log::Record &record, FmtContext &ctx) {
         return fmt::format_to(
             ctx.out(),
             "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
             localtime(std::chrono::system_clock::to_time_t(record.timestamp)),
-            zero::LOG_TAGS[static_cast<int>(record.level)],
+            zero::log::TAGS[static_cast<int>(record.level)],
             record.filename,
             record.line,
             record.content
@@ -150,18 +151,18 @@ struct fmt::formatter<zero::LogRecord, Char> {
     }
 };
 
-#define GLOBAL_LOGGER                       zero::Singleton<zero::Logger>::getInstance()
-#define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::ConsoleProvider>())
-#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::FileProvider>(name, ## __VA_ARGS__))
+#define GLOBAL_LOGGER                       zero::log::globalLogger()
+#define INIT_CONSOLE_LOG(level)             GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::log::ConsoleProvider>())
+#define INIT_FILE_LOG(level, name, ...)     GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::log::FileProvider>(name, ## __VA_ARGS__))
 
 #undef LOG_DEBUG
 #undef LOG_INFO
 #undef LOG_WARNING
 #undef LOG_ERROR
 
-#define LOG_DEBUG(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::LogLevel::DEBUG_LEVEL)) logger.log(zero::LogLevel::DEBUG_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
-#define LOG_INFO(message, ...)              if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::LogLevel::INFO_LEVEL)) logger.log(zero::LogLevel::INFO_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
-#define LOG_WARNING(message, ...)           if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::LogLevel::WARNING_LEVEL)) logger.log(zero::LogLevel::WARNING_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
-#define LOG_ERROR(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::LogLevel::ERROR_LEVEL)) logger.log(zero::LogLevel::ERROR_LEVEL, zero::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_DEBUG(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::log::Level::DEBUG_LEVEL)) logger.log(zero::log::Level::DEBUG_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_INFO(message, ...)              if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::log::Level::INFO_LEVEL)) logger.log(zero::log::Level::INFO_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_WARNING(message, ...)           if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::log::Level::WARNING_LEVEL)) logger.log(zero::log::Level::WARNING_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define LOG_ERROR(message, ...)             if (auto &logger = GLOBAL_LOGGER; logger.enabled(zero::log::Level::ERROR_LEVEL)) logger.log(zero::log::Level::ERROR_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 
 #endif //ZERO_LOG_H

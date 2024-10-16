@@ -14,7 +14,7 @@ namespace zero::concurrent {
 
     template<typename T>
     struct ChannelCore {
-        explicit ChannelCore(const std::size_t capacity) : buffer(capacity) {
+        explicit ChannelCore(const std::size_t capacity) : buffer{capacity} {
         }
 
         std::mutex mutex;
@@ -26,7 +26,7 @@ namespace zero::concurrent {
 
         void trigger(const std::size_t index) {
             {
-                std::lock_guard guard(mutex);
+                std::lock_guard guard{mutex};
 
                 if (!waiting[index])
                     return;
@@ -39,7 +39,7 @@ namespace zero::concurrent {
 
         void close() {
             {
-                std::lock_guard guard(mutex);
+                std::lock_guard guard{mutex};
 
                 if (closed)
                     return;
@@ -69,11 +69,11 @@ namespace zero::concurrent {
     template<typename T>
     class Sender {
     public:
-        explicit Sender(std::shared_ptr<ChannelCore<T>> core) : mCore(std::move(core)) {
+        explicit Sender(std::shared_ptr<ChannelCore<T>> core) : mCore{std::move(core)} {
             ++mCore->counters[SENDER];
         }
 
-        Sender(const Sender &rhs) : mCore(rhs.mCore) {
+        Sender(const Sender &rhs) : mCore{rhs.mCore} {
             ++mCore->counters[SENDER];
         }
 
@@ -120,45 +120,34 @@ namespace zero::concurrent {
             if (mCore->closed)
                 return tl::unexpected(SendError::DISCONNECTED);
 
-            tl::expected<void, SendError> result;
-
             while (true) {
                 const auto index = mCore->buffer.reserve();
 
-                if (!index) {
-                    std::unique_lock lock(mCore->mutex);
+                if (index) {
+                    mCore->buffer[*index] = std::forward<U>(element);
+                    mCore->buffer.commit(*index);
+                    mCore->trigger(RECEIVER);
+                    return {};
+                }
 
-                    if (mCore->closed) {
-                        result = tl::unexpected(SendError::DISCONNECTED);
-                        break;
-                    }
+                std::unique_lock lock{mCore->mutex};
 
-                    if (!mCore->buffer.full())
-                        continue;
+                if (mCore->closed)
+                    return tl::unexpected(SendError::DISCONNECTED);
 
-                    mCore->waiting[SENDER] = true;
+                if (!mCore->buffer.full())
+                    continue;
 
-                    if (!timeout) {
-                        mCore->cvs[SENDER].wait(lock);
-                        continue;
-                    }
+                mCore->waiting[SENDER] = true;
 
-                    if (mCore->cvs[SENDER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected(SendError::TIMEOUT);
-                        break;
-                    }
-
+                if (!timeout) {
+                    mCore->cvs[SENDER].wait(lock);
                     continue;
                 }
 
-                mCore->buffer[*index] = std::forward<U>(element);
-                mCore->buffer.commit(*index);
-
-                mCore->trigger(RECEIVER);
-                break;
+                if (mCore->cvs[SENDER].wait_for(lock, *timeout) == std::cv_status::timeout)
+                    return tl::unexpected(SendError::TIMEOUT);
             }
-
-            return result;
         }
 
         void close() {
@@ -206,11 +195,11 @@ namespace zero::concurrent {
     template<typename T>
     class Receiver {
     public:
-        explicit Receiver(std::shared_ptr<ChannelCore<T>> core) : mCore(std::move(core)) {
+        explicit Receiver(std::shared_ptr<ChannelCore<T>> core) : mCore{std::move(core)} {
             ++mCore->counters[RECEIVER];
         }
 
-        Receiver(const Receiver &rhs) : mCore(rhs.mCore) {
+        Receiver(const Receiver &rhs) : mCore{rhs.mCore} {
             ++mCore->counters[RECEIVER];
         }
 
@@ -248,43 +237,34 @@ namespace zero::concurrent {
         }
 
         tl::expected<T, ReceiveError> receive(const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
-            tl::expected<T, ReceiveError> result = tl::unexpected(ReceiveError::DISCONNECTED);
-
             while (true) {
                 const auto index = mCore->buffer.acquire();
 
-                if (!index) {
-                    std::unique_lock lock(mCore->mutex);
+                if (index) {
+                    auto element = std::move(mCore->buffer[*index]);
+                    mCore->buffer.release(*index);
+                    mCore->trigger(SENDER);
+                    return element;
+                }
 
-                    if (!mCore->buffer.empty())
-                        continue;
+                std::unique_lock lock{mCore->mutex};
 
-                    if (mCore->closed)
-                        break;
+                if (!mCore->buffer.empty())
+                    continue;
 
-                    mCore->waiting[RECEIVER] = true;
+                if (mCore->closed)
+                    return tl::unexpected(ReceiveError::DISCONNECTED);
 
-                    if (!timeout) {
-                        mCore->cvs[RECEIVER].wait(lock);
-                        continue;
-                    }
+                mCore->waiting[RECEIVER] = true;
 
-                    if (mCore->cvs[RECEIVER].wait_for(lock, *timeout) == std::cv_status::timeout) {
-                        result = tl::unexpected(ReceiveError::TIMEOUT);
-                        break;
-                    }
-
+                if (!timeout) {
+                    mCore->cvs[RECEIVER].wait(lock);
                     continue;
                 }
 
-                result = std::move(mCore->buffer[*index]);
-                mCore->buffer.release(*index);
-
-                mCore->trigger(SENDER);
-                break;
+                if (mCore->cvs[RECEIVER].wait_for(lock, *timeout) == std::cv_status::timeout)
+                    return tl::unexpected(ReceiveError::TIMEOUT);
             }
-
-            return result;
         }
 
         [[nodiscard]] std::size_t size() const {

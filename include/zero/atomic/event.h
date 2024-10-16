@@ -3,7 +3,6 @@
 
 #include <chrono>
 #include <optional>
-#include <system_error>
 #include <tl/expected.hpp>
 
 #ifdef _WIN32
@@ -11,6 +10,7 @@
 #include <zero/error.h>
 #else
 #include <atomic>
+#include <system_error>
 #endif
 
 namespace zero::atomic {
@@ -36,8 +36,6 @@ namespace zero::atomic {
     private:
         HANDLE mEvent;
     };
-
-    std::error_code make_error_code(Event::Error e);
 #else
     class Event {
 #ifdef __APPLE__

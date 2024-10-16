@@ -2,17 +2,17 @@
 #include <zero/strings/strings.h>
 #include <cassert>
 
-constexpr std::array HEX_MAP = {
-    '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-};
-
 std::string zero::encoding::hex::encode(const nonstd::span<const std::byte> data) {
+    constexpr std::array mapping{
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+    };
+
     std::string encoded;
 
     for (const auto &byte: data) {
-        encoded.push_back(HEX_MAP[std::to_integer<unsigned char>((byte & std::byte{0xf0}) >> 4)]);
-        encoded.push_back(HEX_MAP[std::to_integer<unsigned char>(byte & std::byte{0x0f})]);
+        encoded.push_back(mapping[std::to_integer<unsigned char>((byte & std::byte{0xf0}) >> 4)]);
+        encoded.push_back(mapping[std::to_integer<unsigned char>(byte & std::byte{0x0f})]);
     }
 
     return encoded;
@@ -23,19 +23,21 @@ zero::encoding::hex::decode(const std::string_view encoded) {
     if (encoded.length() % 2)
         return tl::unexpected(DecodeError::INVALID_LENGTH);
 
-    tl::expected<std::vector<std::byte>, DecodeError> result;
+    std::vector<std::byte> data;
 
-    for (std::size_t i = 0; i < encoded.size(); i += 2) {
-        auto n = strings::toNumber<unsigned int>(encoded.substr(i, 2), 16);
+    // waiting for libc++ to implement ranges::views::chunk
+    for (std::size_t i{0}; i < encoded.size(); i += 2) {
+        const auto n = strings::toNumber<unsigned int>({encoded.data() + i, 2}, 16);
 
         if (!n) {
             assert(n.error() == std::errc::invalid_argument);
-            result = tl::unexpected(DecodeError::INVALID_HEX_CHARACTER);
-            break;
+            return tl::unexpected(DecodeError::INVALID_HEX_CHARACTER);
         }
 
-        result->push_back(static_cast<std::byte>(*n & 0xff));
+        data.push_back(static_cast<std::byte>(*n & 0xff));
     }
 
-    return result;
+    return data;
 }
+
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::encoding::hex::DecodeError)

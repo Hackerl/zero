@@ -1,60 +1,66 @@
 #include <zero/log.h>
+#include <zero/env.h>
+#include <zero/expect.h>
+#include <zero/filesystem/std.h>
 #include <zero/strings/strings.h>
-#include <range/v3/all.hpp>
+#include <range/v3/algorithm.hpp>
+#include <range/v3/view.hpp>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
+#ifndef _WIN32
 #include <unistd.h>
 #endif
 
 constexpr auto LOGGER_BUFFER_SIZE = 1024;
 
-tl::expected<void, std::error_code> zero::ConsoleProvider::init() {
+tl::expected<void, std::error_code> zero::log::ConsoleProvider::init() {
     assert(stderr);
     return {};
 }
 
-tl::expected<void, std::error_code> zero::ConsoleProvider::rotate() {
+tl::expected<void, std::error_code> zero::log::ConsoleProvider::rotate() {
     return {};
 }
 
-tl::expected<void, std::error_code> zero::ConsoleProvider::flush() {
+tl::expected<void, std::error_code> zero::log::ConsoleProvider::flush() {
     if (fflush(stderr) != 0)
         return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
 
-tl::expected<void, std::error_code> zero::ConsoleProvider::write(const LogRecord &record) {
-    const std::string message = fmt::format("{}\n", record);
+tl::expected<void, std::error_code> zero::log::ConsoleProvider::write(const Record &record) {
+    const auto message = fmt::format("{}\n", record);
 
-    if (fwrite(message.data(), 1, message.length(), stderr) != message.length())
+    if (fwrite(message.data(), 1, message.size(), stderr) != message.size())
         return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
 
-zero::FileProvider::FileProvider(
-    const char *name,
+zero::log::FileProvider::FileProvider(
+    std::string name,
     std::optional<std::filesystem::path> directory,
     const std::size_t limit,
     const int remain
-) : mRemain(remain), mLimit(limit), mPosition(0), mName(name),
-    mDirectory(std::move(directory).value_or(std::filesystem::temp_directory_path())) {
-#ifndef _WIN32
-    mPID = getpid();
+) : mPID{
+#ifdef _WIN32
+        _getpid()
 #else
-    mPID = _getpid();
+        getpid()
 #endif
+    },
+    mRemain{remain}, mLimit{limit}, mPosition{0}, mName{std::move(name)},
+    mDirectory{std::move(directory).value_or(std::filesystem::temp_directory_path())} {
 }
 
-tl::expected<void, std::error_code> zero::FileProvider::init() {
-    const std::string name = fmt::format(
+tl::expected<void, std::error_code> zero::log::FileProvider::init() {
+    const auto name = fmt::format(
         "{}.{}.{}.log",
         mName,
         mPID,
-        std::time(nullptr)
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count()
     );
 
     mStream.open(mDirectory / name);
@@ -65,7 +71,7 @@ tl::expected<void, std::error_code> zero::FileProvider::init() {
     return {};
 }
 
-tl::expected<void, std::error_code> zero::FileProvider::rotate() {
+tl::expected<void, std::error_code> zero::log::FileProvider::rotate() {
     if (mPosition < mLimit)
         return {};
 
@@ -73,68 +79,68 @@ tl::expected<void, std::error_code> zero::FileProvider::rotate() {
     mStream.close();
     mStream.clear();
 
-    std::error_code ec;
-    const auto iterator = std::filesystem::directory_iterator(mDirectory, ec);
+    const auto iterator = filesystem::readDirectory(mDirectory);
+    EXPECT(iterator);
 
-    if (ec)
-        return tl::unexpected(ec);
-
-    const std::string prefix = fmt::format("{}.{}", mName, mPID);
+    const auto prefix = fmt::format("{}.{}", mName, mPID);
 
     std::list<std::filesystem::path> logs;
-    ranges::copy(
-        iterator
-        | ranges::views::filter([&](const auto &entry) { return entry.is_regular_file(ec); })
-        | ranges::views::transform(&std::filesystem::directory_entry::path)
-        | ranges::views::filter([&](const auto &path) {
-            return strings::startsWith(path.filename().string(), prefix);
-        }),
-        ranges::back_inserter(logs)
-    );
+
+    for (const auto &entry: *iterator) {
+        EXPECT(entry);
+
+        if (!entry->isRegularFile().value_or(false))
+            continue;
+
+        const auto &path = entry->path();
+
+        if (!strings::startsWith(path.filename().string(), prefix))
+            continue;
+
+        logs.push_back(path);
+    }
 
     logs.sort();
 
-    if (!ranges::all_of(
-        logs | ranges::views::reverse | ranges::views::drop(mRemain),
-        [&](const auto &path) {
-            return std::filesystem::remove(path, ec);
-        }
-    ))
-        return tl::unexpected(std::error_code(errno, std::generic_category()));
+    for (const auto &log: logs | ranges::views::reverse | ranges::views::drop(mRemain)) {
+        EXPECT(filesystem::remove(log));
+    }
 
     return init();
 }
 
-tl::expected<void, std::error_code> zero::FileProvider::flush() {
+tl::expected<void, std::error_code> zero::log::FileProvider::flush() {
     if (!mStream.flush().good())
         return tl::unexpected(std::error_code(errno, std::generic_category()));
 
     return {};
 }
 
-tl::expected<void, std::error_code> zero::FileProvider::write(const LogRecord &record) {
-    const std::string message = fmt::format("{}\n", record);
+tl::expected<void, std::error_code> zero::log::FileProvider::write(const Record &record) {
+    const auto message = fmt::format("{}\n", record);
 
-    if (!mStream.write(message.c_str(), static_cast<std::streamsize>(message.length())))
+    if (!mStream.write(message.c_str(), static_cast<std::streamsize>(message.size())))
         return tl::unexpected(std::error_code(errno, std::generic_category()));
 
-    mPosition += message.length();
+    mPosition += message.size();
     return {};
 }
 
-zero::Logger::Logger() : mChannel(concurrent::channel<LogRecord>(LOGGER_BUFFER_SIZE)) {
+zero::log::Logger::Logger() : mChannel{concurrent::channel<Record>(LOGGER_BUFFER_SIZE)} {
 }
 
-zero::Logger::~Logger() {
+zero::log::Logger::~Logger() {
     mChannel.first.close();
-    mThread.join();
+
+    if (mThread.joinable())
+        mThread.join();
 }
 
-void zero::Logger::consume() {
+void zero::log::Logger::consume() {
     auto &receiver = mChannel.second;
 
     while (true) {
-        tl::expected<LogRecord, std::error_code> record = receiver.tryReceive();
+        tl::expected<Record, std::error_code> record = receiver.tryReceive();
 
         if (!record) {
             if (record.error() == concurrent::TryReceiveError::DISCONNECTED)
@@ -143,7 +149,7 @@ void zero::Logger::consume() {
             std::list<std::chrono::milliseconds> durations;
 
             {
-                std::lock_guard guard(mMutex);
+                std::lock_guard guard{mMutex};
 
                 const auto now = std::chrono::system_clock::now();
                 auto it = mConfigs.begin();
@@ -177,13 +183,13 @@ void zero::Logger::consume() {
                 continue;
         }
 
-        std::lock_guard guard(mMutex);
+        std::lock_guard guard{mMutex};
 
         const auto now = std::chrono::system_clock::now();
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(LogLevel::ERROR_LEVEL))) {
+            if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(Level::ERROR_LEVEL))) {
                 if (!it->provider->write(*record) || !it->provider->rotate()) {
                     it = mConfigs.erase(it);
                     continue;
@@ -205,47 +211,42 @@ void zero::Logger::consume() {
     }
 }
 
-bool zero::Logger::enabled(const LogLevel level) const {
+bool zero::log::Logger::enabled(const Level level) const {
     return mMaxLogLevel && *mMaxLogLevel >= level;
 }
 
-void zero::Logger::addProvider(
-    const LogLevel level,
-    std::unique_ptr<ILogProvider> provider,
+void zero::log::Logger::addProvider(
+    const Level level,
+    std::unique_ptr<IProvider> provider,
     const std::chrono::milliseconds interval
 ) {
     std::call_once(mOnceFlag, [=] {
-        const auto getEnv = [](const char *name) -> std::optional<int> {
-#ifdef _WIN32
-            std::array<char, 64> env = {};
+        const auto getOption = [](const std::string &name) -> std::optional<int> {
+            const auto value = env::get(name);
 
-            if (const DWORD n = GetEnvironmentVariableA(name, env.data(), env.size()); n == 0 || n >= env.size())
+            if (!value)
+                throw std::system_error(value.error());
+
+            if (!*value)
                 return std::nullopt;
 
-            const auto result = strings::toNumber<int>(env.data());
-#else
-            const char *env = getenv(name);
+            const auto option = strings::toNumber<int>(**value);
 
-            if (!env)
+            if (!option)
                 return std::nullopt;
 
-            const auto result = strings::toNumber<int>(env);
-#endif
-            if (!result)
-                return std::nullopt;
-
-            return *result;
+            return *option;
         };
 
-        if (const auto value = getEnv("ZERO_LOG_LEVEL")) {
-            if (const auto lv = static_cast<LogLevel>(*value); lv < LogLevel::ERROR_LEVEL || lv > LogLevel::DEBUG_LEVEL)
+        if (const auto value = getOption("ZERO_LOG_LEVEL")) {
+            if (const auto lv = static_cast<Level>(*value); lv < Level::ERROR_LEVEL || lv > Level::DEBUG_LEVEL)
                 return;
 
-            mMinLogLevel = static_cast<LogLevel>(*value);
+            mMinLogLevel = static_cast<Level>(*value);
             mMaxLogLevel = mMinLogLevel;
         }
 
-        if (const auto value = getEnv("ZERO_LOG_TIMEOUT")) {
+        if (const auto value = getOption("ZERO_LOG_TIMEOUT")) {
             if (*value <= 0) {
                 mTimeout.reset();
                 return;
@@ -254,15 +255,15 @@ void zero::Logger::addProvider(
             mTimeout = std::chrono::milliseconds{*value};
         }
 
-        mThread = std::thread(&Logger::consume, this);
+        mThread = std::thread{&Logger::consume, this};
     });
 
     if (!provider->init())
         return;
 
-    std::lock_guard guard(mMutex);
+    std::lock_guard guard{mMutex};
 
-    mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(LogLevel::ERROR_LEVEL));
+    mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(Level::ERROR_LEVEL));
 
     mConfigs.push_back({
         level,
@@ -270,4 +271,9 @@ void zero::Logger::addProvider(
         interval,
         std::chrono::system_clock::now() + interval
     });
+}
+
+zero::log::Logger &zero::log::globalLogger() {
+    static Logger instance;
+    return instance;
 }

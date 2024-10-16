@@ -3,23 +3,16 @@
 #include <optional>
 
 std::string stringify(const int value) {
-    std::string msg;
-
     switch (value) {
     case EINVAL:
-        msg = "invalid argument";
-        break;
+        return "invalid argument";
 
     case ETIMEDOUT:
-        msg = "timeout";
-        break;
+        return "timeout";
 
     default:
-        msg = "unknown";
-        break;
+        return "unknown";
     }
-
-    return msg;
 }
 
 DEFINE_ERROR_CODE(
@@ -30,6 +23,7 @@ DEFINE_ERROR_CODE(
 )
 
 DECLARE_ERROR_CODE(ErrorCode)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCode)
 
 DEFINE_ERROR_CONDITION(
     ErrorCondition,
@@ -39,6 +33,7 @@ DEFINE_ERROR_CONDITION(
 )
 
 DECLARE_ERROR_CONDITION(ErrorCondition)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCondition)
 
 DEFINE_ERROR_CODE_EX(
     ErrorCodeEx,
@@ -48,6 +43,7 @@ DEFINE_ERROR_CODE_EX(
 )
 
 DECLARE_ERROR_CODE(ErrorCodeEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeEx)
 
 DEFINE_ERROR_TRANSFORMER(
     ErrorTransformer,
@@ -56,32 +52,28 @@ DEFINE_ERROR_TRANSFORMER(
 )
 
 DECLARE_ERROR_CODE(ErrorTransformer)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformer)
 
 DEFINE_ERROR_TRANSFORMER_EX(
     ErrorTransformerEx,
     "ErrorTransformerEx",
     stringify,
-    [](const int value) {
-        std::optional<std::error_condition> condition;
-
+    [](const int value) -> std::optional<std::error_condition> {
         switch (value) {
         case EINVAL:
-            condition = ErrorCondition::INVALID_ARGUMENT;
-            break;
+            return ErrorCondition::INVALID_ARGUMENT;
 
         case ETIMEDOUT:
-            condition = ErrorCondition::TIMEOUT;
-            break;
+            return ErrorCondition::TIMEOUT;
 
         default:
-            break;
+            return std::nullopt;
         }
-
-        return condition;
     }
 )
 
 DECLARE_ERROR_CODE(ErrorTransformerEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerEx)
 
 DEFINE_ERROR_CONDITION_EX(
     ErrorConditionEx,
@@ -105,6 +97,7 @@ DEFINE_ERROR_CONDITION_EX(
 )
 
 DECLARE_ERROR_CONDITION(ErrorConditionEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionEx)
 
 struct ErrorCodeWrapper {
     DEFINE_ERROR_CODE_INNER(
@@ -116,6 +109,7 @@ struct ErrorCodeWrapper {
 };
 
 DECLARE_ERROR_CODE(ErrorCodeWrapper::ErrorCode)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeWrapper::ErrorCode)
 
 struct ErrorConditionWrapper {
     DEFINE_ERROR_CONDITION_INNER(
@@ -127,6 +121,7 @@ struct ErrorConditionWrapper {
 };
 
 DECLARE_ERROR_CONDITION(ErrorConditionWrapper::ErrorCondition)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionWrapper::ErrorCondition)
 
 struct ErrorCodeExWrapper {
     DEFINE_ERROR_CODE_INNER_EX(
@@ -138,6 +133,7 @@ struct ErrorCodeExWrapper {
 };
 
 DECLARE_ERROR_CODE(ErrorCodeExWrapper::ErrorCodeEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeExWrapper::ErrorCodeEx)
 
 struct ErrorTransformerWrapper {
     DEFINE_ERROR_TRANSFORMER_INNER(
@@ -148,34 +144,30 @@ struct ErrorTransformerWrapper {
 };
 
 DECLARE_ERROR_CODE(ErrorTransformerWrapper::ErrorTransformer)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerWrapper::ErrorTransformer)
 
 struct ErrorTransformerExWrapper {
     DEFINE_ERROR_TRANSFORMER_INNER_EX(
         ErrorTransformerEx,
         "ErrorTransformerEx",
         stringify,
-        [](const int value) {
-            std::optional<std::error_condition> condition;
-
+        [](const int value) -> std::optional<std::error_condition> {
             switch (value) {
             case EINVAL:
-                condition = ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT;
-                break;
+                return ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT;
 
             case ETIMEDOUT:
-                condition = ErrorConditionWrapper::ErrorCondition::TIMEOUT;
-                break;
+                return ErrorConditionWrapper::ErrorCondition::TIMEOUT;
 
             default:
-                break;
+                return std::nullopt;
             }
-
-            return condition;
         }
     )
 };
 
 DECLARE_ERROR_CODE(ErrorTransformerExWrapper::ErrorTransformerEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerExWrapper::ErrorTransformerEx)
 
 struct ErrorConditionExWrapper {
     DEFINE_ERROR_CONDITION_INNER_EX(
@@ -201,13 +193,14 @@ struct ErrorConditionExWrapper {
 };
 
 DECLARE_ERROR_CONDITION(ErrorConditionExWrapper::ErrorConditionEx)
+DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionExWrapper::ErrorConditionEx)
 
 TEST_CASE("macro for define error code", "[error]") {
     SECTION("normal") {
         SECTION("error code") {
             using namespace std::string_view_literals;
 
-            std::error_code ec = ErrorCode::INVALID_ARGUMENT;
+            std::error_code ec{ErrorCode::INVALID_ARGUMENT};
             REQUIRE(ec.category().name() == "ErrorCode"sv);
             REQUIRE(ec.message() == "invalid argument");
             REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
@@ -255,7 +248,7 @@ TEST_CASE("macro for define error code", "[error]") {
         SECTION("error condition") {
             using namespace std::string_view_literals;
 
-            std::error_condition condition = ErrorCondition::INVALID_ARGUMENT;
+            std::error_condition condition{ErrorCondition::INVALID_ARGUMENT};
             REQUIRE(condition.category().name() == "ErrorCondition"sv);
             REQUIRE(condition.message() == "invalid argument");
             REQUIRE(condition == ErrorCodeEx::INVALID_ARGUMENT);
@@ -289,7 +282,7 @@ TEST_CASE("macro for define error code", "[error]") {
         SECTION("error code") {
             using namespace std::string_view_literals;
 
-            std::error_code ec = ErrorCodeWrapper::ErrorCode::INVALID_ARGUMENT;
+            std::error_code ec{ErrorCodeWrapper::ErrorCode::INVALID_ARGUMENT};
             REQUIRE(ec.category().name() == "ErrorCode"sv);
             REQUIRE(ec.message() == "invalid argument");
             REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
@@ -337,7 +330,7 @@ TEST_CASE("macro for define error code", "[error]") {
         SECTION("error condition") {
             using namespace std::string_view_literals;
 
-            std::error_condition condition = ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT;
+            std::error_condition condition{ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT};
             REQUIRE(condition.category().name() == "ErrorCondition"sv);
             REQUIRE(condition.message() == "invalid argument");
             REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::INVALID_ARGUMENT);

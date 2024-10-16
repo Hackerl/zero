@@ -1,7 +1,8 @@
 #include <zero/os/procfs/process.h>
-#include <zero/filesystem/path.h>
+#include <zero/filesystem/fs.h>
 #include <zero/os/unix/error.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
 #include <range/v3/algorithm.hpp>
 #include <thread>
 #include <unistd.h>
@@ -9,12 +10,18 @@
 #include <sys/prctl.h>
 
 TEST_CASE("procfs process", "[procfs]") {
-    std::array<char, 16> name = {};
-    prctl(PR_GET_NAME, name.data());
-    prctl(PR_SET_NAME, "(test)");
+    std::array<char, 16> name{};
+
+    REQUIRE(zero::os::unix::expected([&] {
+        return prctl(PR_GET_NAME, name.data());
+    }));
+
+    REQUIRE(zero::os::unix::expected([] {
+        return prctl(PR_SET_NAME, "(test)");
+    }));
 
     const auto variable = reinterpret_cast<std::uintptr_t>(stdout);
-    const auto function = reinterpret_cast<std::uintptr_t>(zero::filesystem::getApplicationPath);
+    const auto function = reinterpret_cast<std::uintptr_t>(zero::filesystem::applicationPath);
 
     SECTION("all") {
         const auto ids = zero::os::procfs::process::all();
@@ -27,7 +34,7 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
@@ -36,7 +43,7 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
         const auto env = process->environ();
         REQUIRE(env);
@@ -46,17 +53,14 @@ TEST_CASE("procfs process", "[procfs]") {
 
         auto it = ranges::find_if(
             *mappings,
-            [=](const zero::os::procfs::process::MemoryMapping &mapping) {
+            [=](const auto &mapping) {
                 return function >= mapping.start && function < mapping.end;
             }
         );
         REQUIRE(it != mappings->end());
-
-        auto permissions = zero::os::procfs::process::MemoryPermission::READ |
-            zero::os::procfs::process::MemoryPermission::EXECUTE |
-            zero::os::procfs::process::MemoryPermission::PRIVATE;
-
-        REQUIRE(it->permissions == permissions);
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::EXECUTE));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
 
         it = ranges::find_if(
             *mappings,
@@ -65,12 +69,9 @@ TEST_CASE("procfs process", "[procfs]") {
             }
         );
         REQUIRE(it != mappings->end());
-
-        permissions = zero::os::procfs::process::MemoryPermission::READ |
-            zero::os::procfs::process::MemoryPermission::WRITE |
-            zero::os::procfs::process::MemoryPermission::PRIVATE;
-
-        REQUIRE(it->permissions == permissions);
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::WRITE));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
 
         const auto exe = process->exe();
         REQUIRE(exe);
@@ -86,21 +87,21 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(stat->comm == "(test)");
         REQUIRE(stat->state == 'R');
         REQUIRE(stat->ppid == getppid());
-        REQUIRE(stat->pgrp == getpgrp());
-        REQUIRE(stat->session == getsid(pid));
+        REQUIRE(stat->processGroupID == getpgrp());
+        REQUIRE(stat->sessionID == getsid(pid));
 
         const auto status = process->status();
         REQUIRE(status);
         REQUIRE(status->name == "(test)");
         REQUIRE(status->state == "R (running)");
-        REQUIRE(status->tgid == pid);
+        REQUIRE(status->threadGroupID == pid);
         REQUIRE(status->pid == pid);
         REQUIRE(status->ppid == getppid());
 
         const auto tasks = process->tasks();
         REQUIRE(tasks);
-        REQUIRE(!tasks->empty());
-        REQUIRE(tasks->front() == pid);
+        REQUIRE_THAT(*tasks, !Catch::Matchers::IsEmpty());
+        REQUIRE_THAT(*tasks, Catch::Matchers::Contains(pid));
 
         const auto io = process->io();
         REQUIRE(io);
@@ -109,11 +110,11 @@ TEST_CASE("procfs process", "[procfs]") {
     SECTION("child") {
         using namespace std::chrono_literals;
 
-        const pid_t pid = fork();
+        const auto pid = fork();
 
         if (pid == 0) {
             pause();
-            exit(0);
+            std::exit(EXIT_FAILURE);
         }
 
         REQUIRE(pid > 0);
@@ -123,7 +124,7 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
@@ -132,7 +133,7 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE(cmdline->at(0).find(path->filename()) != std::string::npos);
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
         const auto env = process->environ();
         REQUIRE(env);
@@ -147,12 +148,9 @@ TEST_CASE("procfs process", "[procfs]") {
             }
         );
         REQUIRE(it != mappings->end());
-
-        auto permissions = zero::os::procfs::process::MemoryPermission::READ |
-            zero::os::procfs::process::MemoryPermission::EXECUTE |
-            zero::os::procfs::process::MemoryPermission::PRIVATE;
-
-        REQUIRE(it->permissions == permissions);
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::EXECUTE));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
 
         it = ranges::find_if(
             *mappings,
@@ -161,12 +159,9 @@ TEST_CASE("procfs process", "[procfs]") {
             }
         );
         REQUIRE(it != mappings->end());
-
-        permissions = zero::os::procfs::process::MemoryPermission::READ |
-            zero::os::procfs::process::MemoryPermission::WRITE |
-            zero::os::procfs::process::MemoryPermission::PRIVATE;
-
-        REQUIRE(it->permissions == permissions);
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::WRITE));
+        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
 
         const auto exe = process->exe();
         REQUIRE(exe);
@@ -182,26 +177,29 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(stat->comm == "(test)");
         REQUIRE(stat->state == 'S');
         REQUIRE(stat->ppid == getpid());
-        REQUIRE(stat->pgrp == getpgrp());
-        REQUIRE(stat->session == getsid(pid));
+        REQUIRE(stat->processGroupID == getpgrp());
+        REQUIRE(stat->sessionID == getsid(pid));
 
         const auto status = process->status();
         REQUIRE(status);
         REQUIRE(status->name == "(test)");
         REQUIRE(status->state == "S (sleeping)");
-        REQUIRE(status->tgid == pid);
+        REQUIRE(status->threadGroupID == pid);
         REQUIRE(status->pid == pid);
         REQUIRE(status->ppid == getpid());
 
         const auto tasks = process->tasks();
         REQUIRE(tasks);
-        REQUIRE(tasks->size() == 1);
-        REQUIRE(tasks->front() == pid);
+        REQUIRE_THAT(*tasks, Catch::Matchers::SizeIs(1));
+        REQUIRE_THAT(*tasks, Catch::Matchers::Contains(pid));
 
         const auto io = process->io();
         REQUIRE(io);
 
-        kill(pid, SIGKILL);
+        REQUIRE(zero::os::unix::expected([=] {
+            return kill(pid, SIGKILL);
+        }));
+
         const auto id = zero::os::unix::ensure([&] {
             return waitpid(pid, nullptr, 0);
         });
@@ -212,23 +210,25 @@ TEST_CASE("procfs process", "[procfs]") {
     SECTION("zombie") {
         using namespace std::chrono_literals;
 
-        const pid_t pid = fork();
+        const auto pid = fork();
 
         if (pid == 0) {
             pause();
-            exit(0);
+            std::exit(EXIT_FAILURE);
         }
 
         REQUIRE(pid > 0);
+        REQUIRE(zero::os::unix::expected([=] {
+            return kill(pid, SIGKILL);
+        }));
 
-        kill(pid, SIGKILL);
         std::this_thread::sleep_for(100ms);
 
         const auto process = zero::os::procfs::process::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::getApplicationPath();
+        const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
 
         const auto comm = process->comm();
@@ -236,22 +236,22 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(*comm == "(test)");
 
         const auto cmdline = process->cmdline();
-        REQUIRE(!cmdline);
+        REQUIRE_FALSE(cmdline);
         REQUIRE(cmdline.error() == zero::os::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto env = process->environ();
         REQUIRE((!env || env->empty()));
 
         const auto mappings = process->maps();
-        REQUIRE(!mappings);
+        REQUIRE_FALSE(mappings);
         REQUIRE(mappings.error() == zero::os::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto exe = process->exe();
-        REQUIRE(!exe);
+        REQUIRE_FALSE(exe);
         REQUIRE(exe.error() == std::errc::no_such_file_or_directory);
 
         const auto cwd = process->cwd();
-        REQUIRE(!cwd);
+        REQUIRE_FALSE(cwd);
         REQUIRE(cwd.error() == std::errc::no_such_file_or_directory);
 
         const auto stat = process->stat();
@@ -260,22 +260,22 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(stat->comm == "(test)");
         REQUIRE(stat->state == 'Z');
         REQUIRE(stat->ppid == getpid());
-        REQUIRE(stat->pgrp == getpgrp());
-        REQUIRE(stat->session == getsid(pid));
+        REQUIRE(stat->processGroupID == getpgrp());
+        REQUIRE(stat->sessionID == getsid(pid));
         REQUIRE(*stat->exitCode == SIGKILL);
 
         const auto status = process->status();
         REQUIRE(status);
         REQUIRE(status->name == "(test)");
         REQUIRE(status->state == "Z (zombie)");
-        REQUIRE(status->tgid == pid);
+        REQUIRE(status->threadGroupID == pid);
         REQUIRE(status->pid == pid);
         REQUIRE(status->ppid == getpid());
 
         const auto tasks = process->tasks();
         REQUIRE(tasks);
-        REQUIRE(tasks->size() == 1);
-        REQUIRE(tasks->front() == pid);
+        REQUIRE_THAT(*tasks, Catch::Matchers::SizeIs(1));
+        REQUIRE_THAT(*tasks, Catch::Matchers::Contains(pid));
 
         const auto id = zero::os::unix::ensure([&] {
             return waitpid(pid, nullptr, 0);
@@ -286,9 +286,11 @@ TEST_CASE("procfs process", "[procfs]") {
 
     SECTION("no such process") {
         const auto process = zero::os::procfs::process::open(99999);
-        REQUIRE(!process);
+        REQUIRE_FALSE(process);
         REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }
 
-    prctl(PR_SET_NAME, name.data());
+    REQUIRE(zero::os::unix::expected([&] {
+        return prctl(PR_SET_NAME, name.data());
+    }));
 }

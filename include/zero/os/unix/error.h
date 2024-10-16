@@ -22,14 +22,11 @@ namespace zero::os::unix {
         while (true) {
             const auto result = expected(std::forward<F>(f));
 
-            if (!result) {
-                if (result.error() == std::errc::interrupted)
-                    continue;
+            if (result)
+                return *result;
 
+            if (result.error() != std::errc::interrupted)
                 return tl::unexpected(result.error());
-            }
-
-            return *result;
         }
     }
 }

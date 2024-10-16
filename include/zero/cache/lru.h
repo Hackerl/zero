@@ -9,7 +9,7 @@ namespace zero::cache {
     template<typename K, typename V>
     class LRUCache {
     public:
-        explicit LRUCache(const std::size_t capacity) : mCapacity(capacity) {
+        explicit LRUCache(const std::size_t capacity) : mCapacity{capacity} {
         }
 
         template<typename T = V>
@@ -40,7 +40,7 @@ namespace zero::cache {
             }
         }
 
-        std::optional<std::reference_wrapper<V>> get(const K &key) {
+        std::optional<std::reference_wrapper<const V>> get(const K &key) {
             const auto it = mMap.find(key);
 
             if (it == mMap.end())

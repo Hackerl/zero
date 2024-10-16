@@ -16,56 +16,6 @@
 #include <range/v3/algorithm.hpp>
 
 namespace zero::async::promise {
-    template<typename T, typename E = std::nullptr_t>
-    class Future;
-
-    template<typename T>
-    struct future_next_value {
-        using type = T;
-    };
-
-    template<typename T, typename E>
-    struct future_next_value<Future<T, E>> {
-        using type = T;
-    };
-
-    template<typename T, typename E>
-    struct future_next_value<tl::expected<T, E>> {
-        using type = T;
-    };
-
-    template<typename T>
-    using future_next_value_t = typename future_next_value<T>::type;
-
-    template<typename T>
-    struct future_next_error {
-        using type = T;
-    };
-
-    template<typename T, typename E>
-    struct future_next_error<Future<T, E>> {
-        using type = E;
-    };
-
-    template<typename T, typename E>
-    struct future_next_error<tl::expected<T, E>> {
-        using type = E;
-    };
-
-    template<typename T>
-    struct future_next_error<tl::unexpected<T>> {
-        using type = T;
-    };
-
-    template<typename T>
-    using future_next_error_t = typename future_next_error<T>::type;
-
-    template<typename T>
-    inline constexpr bool is_future_v = false;
-
-    template<typename T, typename E>
-    inline constexpr bool is_future_v<Future<T, E>> = true;
-
     enum class State {
         PENDING,
         ONLY_CALLBACK,
@@ -86,10 +36,13 @@ namespace zero::async::promise {
         }
 
         [[nodiscard]] bool hasResult() const {
-            const State s = state;
+            const auto s = state.load();
             return s == State::ONLY_RESULT || s == State::DONE;
         }
     };
+
+    template<typename T, typename E = std::nullptr_t>
+    class Future;
 
     template<typename T, typename E = std::nullptr_t>
     class Promise {
@@ -97,11 +50,11 @@ namespace zero::async::promise {
         using value_type = T;
         using error_type = E;
 
-        Promise() : mRetrieved(false), mCore(std::make_shared<Core<T, E>>()) {
+        Promise() : mRetrieved{false}, mCore{std::make_shared<Core<T, E>>()} {
         }
 
         Promise(Promise &&rhs) noexcept
-            : mRetrieved(std::exchange(rhs.mRetrieved, false)), mCore(std::move(rhs.mCore)) {
+            : mRetrieved{std::exchange(rhs.mRetrieved, false)}, mCore{std::move(rhs.mCore)} {
         }
 
         Promise &operator=(Promise &&rhs) noexcept {
@@ -148,7 +101,7 @@ namespace zero::async::promise {
                 mCore->result.emplace(tl::in_place, std::forward<Ts>(args)...);
             }
 
-            State state = mCore->state;
+            auto state = mCore->state.load();
 
             if (state == State::PENDING && mCore->state.compare_exchange_strong(state, State::ONLY_RESULT)) {
                 mCore->event.set();
@@ -171,7 +124,7 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             mCore->result.emplace(tl::unexpected<E>(std::forward<Ts>(args)...));
-            State state = mCore->state;
+            auto state = mCore->state.load();
 
             if (state == State::PENDING && mCore->state.compare_exchange_strong(state, State::ONLY_RESULT)) {
                 mCore->event.set();
@@ -190,16 +143,23 @@ namespace zero::async::promise {
         std::shared_ptr<Core<T, E>> mCore;
     };
 
+    template<typename F, typename T>
+    using callback_result_t = typename std::conditional_t<
+        std::is_void_v<T>,
+        std::invoke_result<F>,
+        std::invoke_result<F, T>
+    >::type;
+
     template<typename T, typename E>
     class Future {
     public:
         using value_type = T;
         using error_type = E;
 
-        explicit Future(std::shared_ptr<Core<T, E>> core) : mCore(std::move(core)) {
+        explicit Future(std::shared_ptr<Core<T, E>> core) : mCore{std::move(core)} {
         }
 
-        Future(Future &&rhs) noexcept : mCore(std::move(rhs.mCore)) {
+        Future(Future &&rhs) noexcept : mCore{std::move(rhs.mCore)} {
         }
 
         Future &operator=(Future &&rhs) noexcept {
@@ -265,7 +225,7 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
             mCore->callback = std::forward<F>(f);
 
-            State state = mCore->state;
+            auto state = mCore->state.load();
 
             if (state == State::PENDING && mCore->state.compare_exchange_strong(state, State::ONLY_CALLBACK))
                 return;
@@ -276,204 +236,223 @@ namespace zero::async::promise {
             mCore->trigger();
         }
 
-        template<typename F>
+        template<typename F, std::enable_if_t<detail::is_specialization_v<callback_result_t<F, T>, Future>>* = nullptr>
         auto then(F &&f) && {
-            using Next = detail::function_result_t<F>;
-            using NextValue = std::conditional_t<
-                detail::is_specialization<Next, tl::unexpected>, T, future_next_value_t<Next>>;
-            using NextError = std::conditional_t<
-                detail::is_specialization<Next, tl::unexpected>, future_next_error_t<Next>, E>;
-
             assert(mCore);
             assert(!mCore->callback);
             assert(mCore->state != State::ONLY_CALLBACK);
             assert(mCore->state != State::DONE);
 
-            const auto promise = std::make_shared<Promise<NextValue, NextError>>();
+            const auto promise = std::make_shared<Promise<typename callback_result_t<F, T>::value_type, E>>();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> result) {
-                if (!result) {
-                    static_assert(std::is_same_v<NextError, E>);
-                    promise->reject(std::move(result).error());
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+                auto next = std::move(result).transform(f);
+
+                if (!next) {
+                    promise->reject(std::move(next).error());
                     return;
                 }
 
-                if constexpr (std::is_void_v<Next>) {
-                    if constexpr (std::is_void_v<T>) {
-                        f();
-                    }
-                    else if constexpr (detail::is_applicable_v<F, T>) {
-                        std::apply(f, *std::move(result));
-                    }
-                    else {
-                        std::invoke(f, *std::move(result));
-                    }
-
-                    promise->resolve();
-                }
-                else {
-                    Next next = [&] {
-                        if constexpr (std::is_void_v<T>) {
-                            return f();
-                        }
-                        else if constexpr (detail::is_applicable_v<F, T>) {
-                            return std::apply(f, *std::move(result));
-                        }
-                        else {
-                            return std::invoke(f, *std::move(result));
-                        }
-                    }();
-
-                    if constexpr (!is_future_v<Next>) {
-                        if constexpr (detail::is_specialization<Next, tl::expected>) {
-                            static_assert(std::is_same_v<future_next_error_t<Next>, E>);
-
-                            if (next) {
-                                if constexpr (std::is_void_v<NextValue>) {
-                                    promise->resolve();
-                                }
-                                else {
-                                    promise->resolve(*std::move(next));
-                                }
-                            }
-                            else {
-                                promise->reject(std::move(next).error());
-                            }
-                        }
-                        else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
-                            promise->reject(std::move(next).value());
-                        }
-                        else {
-                            promise->resolve(std::move(next));
-                        }
-                    }
-                    else {
-                        static_assert(std::is_same_v<future_next_error_t<Next>, E>);
-
-                        if constexpr (std::is_void_v<NextValue>) {
-                            std::move(next).then(
-                                [=] {
-                                    promise->resolve();
-                                },
-                                [=](E error) {
-                                    promise->reject(std::move(error));
-                                }
-                            );
-                        }
-                        else {
-                            std::move(next).then(
-                                [=](NextValue value) {
-                                    promise->resolve(std::move(value));
-                                },
-                                [=](E error) {
-                                    promise->reject(std::move(error));
-                                }
-                            );
-                        }
-                    }
-                }
+                std::move(*next).then([=](auto &&... args) {
+                    promise->resolve(std::forward<decltype(args)>(args)...);
+                }).fail([=](E &&error) {
+                    promise->reject(std::move(error));
+                });
             });
 
             return promise->getFuture();
         }
 
-        template<typename F>
-        auto fail(F &&f) && {
-            using Next = detail::function_result_t<F>;
-            using NextValue = std::conditional_t<
-                detail::is_specialization<Next, tl::unexpected>, T, future_next_value_t<Next>>;
-            using NextError = std::conditional_t<
-                detail::is_specialization<Next, tl::unexpected>, future_next_error_t<Next>, E>;
+        template<
+            typename F,
+            std::enable_if_t<detail::is_specialization_v<callback_result_t<F, T>, tl::expected>>* = nullptr
+        >
+        auto then(F &&f) && {
+            using NextValue = typename callback_result_t<F, T>::value_type;
 
             assert(mCore);
             assert(!mCore->callback);
             assert(mCore->state != State::ONLY_CALLBACK);
             assert(mCore->state != State::DONE);
 
-            const auto promise = std::make_shared<Promise<NextValue, NextError>>();
+            const auto promise = std::make_shared<Promise<NextValue, E>>();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> result) {
-                if (result) {
-                    static_assert(std::is_same_v<NextValue, T>);
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+                auto next = std::move(result).and_then(f);
 
+                if (!next) {
+                    promise->reject(std::move(next).error());
+                    return;
+                }
+
+                if constexpr (std::is_void_v<NextValue>)
+                    promise->resolve();
+                else
+                    promise->resolve(*std::move(next));
+            });
+
+            return promise->getFuture();
+        }
+
+        template<
+            typename F,
+            std::enable_if_t<
+                !detail::is_specialization_v<callback_result_t<F, T>, Future> &&
+                !detail::is_specialization_v<callback_result_t<F, T>, tl::expected>
+            >* = nullptr
+        >
+        auto then(F &&f) && {
+            using NextValue = std::decay_t<callback_result_t<F, T>>;
+
+            assert(mCore);
+            assert(!mCore->callback);
+            assert(mCore->state != State::ONLY_CALLBACK);
+            assert(mCore->state != State::DONE);
+
+            const auto promise = std::make_shared<Promise<NextValue, E>>();
+
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+                auto next = std::move(result).transform([&](T &&value) {
+                    // the result may be a reference type, so transform cannot be called directly.
+                    return std::invoke(f, std::move(value));
+                });
+
+                if (!next) {
+                    promise->reject(std::move(next).error());
+                    return;
+                }
+
+                if constexpr (std::is_void_v<NextValue>)
+                    promise->resolve();
+                else
+                    promise->resolve(*std::move(next));
+            });
+
+            return promise->getFuture();
+        }
+
+        template<typename F, std::enable_if_t<detail::is_specialization_v<callback_result_t<F, E>, Future>>* = nullptr>
+        auto fail(F &&f) && {
+            using NextError = typename callback_result_t<F, E>::error_type;
+
+            assert(mCore);
+            assert(!mCore->callback);
+            assert(mCore->state != State::ONLY_CALLBACK);
+            assert(mCore->state != State::DONE);
+
+            const auto promise = std::make_shared<Promise<T, NextError>>();
+
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+                if (!result) {
+                    std::invoke(f, std::move(result).error()).then([=](auto &&... args) {
+                        promise->resolve(std::forward<decltype(args)>(args)...);
+                    }).fail([=](NextError &&error) {
+                        promise->reject(std::move(error));
+                    });
+
+                    return;
+                }
+
+                if constexpr (std::is_void_v<T>)
+                    promise->resolve();
+                else
+                    promise->resolve(*std::move(result));
+            });
+
+            return promise->getFuture();
+        }
+
+        template<
+            typename F,
+            std::enable_if_t<detail::is_specialization_v<callback_result_t<F, E>, tl::expected>>* = nullptr
+        >
+        auto fail(F &&f) && {
+            assert(mCore);
+            assert(!mCore->callback);
+            assert(mCore->state != State::ONLY_CALLBACK);
+            assert(mCore->state != State::DONE);
+
+            const auto promise = std::make_shared<Promise<T, typename callback_result_t<F, E>::error_type>>();
+
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+                auto next = std::move(result).or_else(f);
+
+                if (!next) {
+                    promise->reject(std::move(next).error());
+                    return;
+                }
+
+                if constexpr (std::is_void_v<T>)
+                    promise->resolve();
+                else
+                    promise->resolve(*std::move(next));
+            });
+
+            return promise->getFuture();
+        }
+
+        template<
+            typename F,
+            std::enable_if_t<detail::is_specialization_v<callback_result_t<F, E>, tl::unexpected>>* = nullptr
+        >
+        auto fail(F &&f) && {
+            assert(mCore);
+            assert(!mCore->callback);
+            assert(mCore->state != State::ONLY_CALLBACK);
+            assert(mCore->state != State::DONE);
+
+            const auto promise = std::make_shared<
+                Promise<T, std::decay_t<decltype(std::declval<callback_result_t<F, E>>().value())>>
+            >();
+
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+                if (!result) {
+                    promise->reject(std::invoke(f, std::move(result).error()).value());
+                    return;
+                }
+
+                if constexpr (std::is_void_v<T>)
+                    promise->resolve();
+                else
+                    promise->resolve(*std::move(result));
+            });
+
+            return promise->getFuture();
+        }
+
+        template<
+            typename F,
+            std::enable_if_t<
+                !detail::is_specialization_v<callback_result_t<F, E>, Future> &&
+                !detail::is_specialization_v<callback_result_t<F, E>, tl::expected> &&
+                !detail::is_specialization_v<callback_result_t<F, E>, tl::unexpected>
+            >* = nullptr
+        >
+        auto fail(F &&f) && {
+            assert(mCore);
+            assert(!mCore->callback);
+            assert(mCore->state != State::ONLY_CALLBACK);
+            assert(mCore->state != State::DONE);
+
+            const auto promise = std::make_shared<Promise<T, E>>();
+
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+                if (!result) {
                     if constexpr (std::is_void_v<T>) {
+                        std::invoke(f, std::move(result).error());
                         promise->resolve();
                     }
                     else {
-                        promise->resolve(*std::move(result));
+                        promise->resolve(std::invoke(f, std::move(result).error()));
                     }
 
                     return;
                 }
 
-                if constexpr (std::is_void_v<Next>) {
-                    if constexpr (detail::is_applicable_v<F, T>) {
-                        std::apply(f, std::move(result).error());
-                    }
-                    else {
-                        std::invoke(f, std::move(result).error());
-                    }
-
+                if constexpr (std::is_void_v<T>)
                     promise->resolve();
-                }
-                else {
-                    Next next = [&] {
-                        if constexpr (detail::is_applicable_v<F, T>) {
-                            return std::apply(f, std::move(result).error());
-                        }
-                        else {
-                            return std::invoke(f, std::move(result).error());
-                        }
-                    }();
-
-                    if constexpr (!is_future_v<Next>) {
-                        if constexpr (detail::is_specialization<Next, tl::expected>) {
-                            static_assert(std::is_same_v<future_next_error_t<Next>, E>);
-
-                            if (next) {
-                                if constexpr (std::is_void_v<NextValue>) {
-                                    promise->resolve();
-                                }
-                                else {
-                                    promise->resolve(*std::move(next));
-                                }
-                            }
-                            else {
-                                promise->reject(std::move(next).error());
-                            }
-                        }
-                        else if constexpr (detail::is_specialization<Next, tl::unexpected>) {
-                            promise->reject(std::move(next).value());
-                        }
-                        else {
-                            promise->resolve(std::move(next));
-                        }
-                    }
-                    else {
-                        static_assert(std::is_same_v<future_next_error_t<Next>, E>);
-
-                        if constexpr (std::is_void_v<NextValue>) {
-                            std::move(next).then(
-                                [=] {
-                                    promise->resolve();
-                                },
-                                [=](E error) {
-                                    promise->reject(std::move(error));
-                                }
-                            );
-                        }
-                        else {
-                            std::move(next).then(
-                                [=](NextValue value) {
-                                    promise->resolve(std::move(value));
-                                },
-                                [=](E error) {
-                                    promise->reject(std::move(error));
-                                }
-                            );
-                        }
-                    }
-                }
+                else
+                    promise->resolve(*std::move(result));
             });
 
             return promise->getFuture();
@@ -488,7 +467,7 @@ namespace zero::async::promise {
 
             const auto promise = std::make_shared<Promise<T, E>>();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> result) {
+            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
                 if (!result) {
                     f();
                     promise->reject(std::move(result).error());
@@ -508,55 +487,14 @@ namespace zero::async::promise {
             return promise->getFuture();
         }
 
-        template<typename F1, typename F2>
-        auto then(F1 &&f1, F2 &&f2) && {
-            return std::move(*this).then(std::forward<F1>(f1)).fail(std::forward<F2>(f2));
-        }
-
     private:
         std::shared_ptr<Core<T, E>> mCore;
     };
 
-    template<typename... Ts>
-    using futures_result_t = std::conditional_t<
-        detail::all_same_v<Ts...>,
-        std::conditional_t<
-            std::is_void_v<detail::first_element_t<Ts...>>,
-            void,
-            std::array<detail::first_element_t<Ts...>, sizeof...(Ts)>
-        >,
-        decltype(
-            std::tuple_cat(
-                std::declval<
-                    std::conditional_t<
-                        std::is_void_v<Ts>,
-                        std::tuple<>,
-                        std::tuple<Ts>
-                    >
-                >()...
-            )
-        )
-    >;
-
-    template<std::size_t Count, std::size_t Index, std::size_t N, std::size_t... Is>
-    struct futures_result_index_sequence : futures_result_index_sequence<Count - 1, Index + N, Is..., Index> {
-    };
-
-    template<std::size_t Index, std::size_t N, std::size_t... Is>
-    struct futures_result_index_sequence<0, Index, N, Is...> : std::index_sequence<N, Is...> {
-    };
-
-    template<typename... Ts>
-    using futures_result_index_sequence_for = futures_result_index_sequence<
-        sizeof...(Ts),
-        0,
-        std::is_void_v<Ts> ? 0 : 1 ...
-    >;
-
     template<typename T, typename E, typename F>
     Future<T, E> chain(F &&f) {
         Promise<T, E> promise;
-        Future<T, E> future = promise.getFuture();
+        auto future = promise.getFuture();
         f(std::move(promise));
         return future;
     }
@@ -590,9 +528,11 @@ namespace zero::async::promise {
     template<
         typename I,
         typename S,
-        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
-        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
-        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr
+        std::enable_if_t<
+            ranges::input_iterator<I> &&
+            ranges::sentinel_for<S, I> &&
+            detail::is_specialization_v<ranges::iter_value_t<I>, Future>
+        >* = nullptr
     >
     auto all(I first, S last) {
         using T = typename ranges::iter_value_t<I>::value_type;
@@ -600,7 +540,7 @@ namespace zero::async::promise {
 
         if constexpr (std::is_void_v<T>) {
             struct Context {
-                explicit Context(const std::size_t n) : count(n) {
+                explicit Context(const std::size_t n) : count{n} {
                 }
 
                 Promise<void, E> promise;
@@ -630,7 +570,7 @@ namespace zero::async::promise {
         }
         else {
             struct Context {
-                explicit Context(const std::size_t n) : count(n), values(n) {
+                explicit Context(const std::size_t n) : count{n}, values(n) {
                 }
 
                 Promise<std::vector<T>, E> promise;
@@ -641,7 +581,8 @@ namespace zero::async::promise {
 
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
 
-            for (std::size_t i = 0; first != last; ++first, ++i) {
+            // waiting for libc++ to implement ranges::views::enumerate
+            for (std::size_t i{0}; first != last; ++first, ++i) {
                 (*first).setCallback([=](tl::expected<T, E> result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
@@ -665,8 +606,10 @@ namespace zero::async::promise {
 
     template<
         typename R,
-        std::enable_if_t<ranges::range<R>>* = nullptr,
-        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr
+        std::enable_if_t<
+            ranges::input_range<R> &&
+            detail::is_specialization_v<ranges::range_value_t<R>, Future>
+        >* = nullptr
     >
     auto all(R futures) {
         return all(futures.begin(), futures.end());
@@ -674,7 +617,17 @@ namespace zero::async::promise {
 
     template<std::size_t... Is, typename... Ts, typename E>
     auto all(std::index_sequence<Is...>, Future<Ts, E>... futures) {
-        if constexpr (std::is_void_v<futures_result_t<Ts...>>) {
+        using T = std::conditional_t<
+            detail::all_same_v<Ts...>,
+            std::conditional_t<
+                std::is_void_v<detail::first_element_t<Ts...>>,
+                void,
+                std::array<detail::first_element_t<Ts...>, sizeof...(Ts)>
+            >,
+            std::tuple<std::conditional_t<std::is_void_v<Ts>, std::nullptr_t, Ts>...>
+        >;
+
+        if constexpr (std::is_void_v<T>) {
             struct Context {
                 Promise<void, E> promise;
                 std::atomic<std::size_t> count{sizeof...(Ts)};
@@ -703,10 +656,10 @@ namespace zero::async::promise {
         }
         else {
             struct Context {
-                Promise<futures_result_t<Ts...>, E> promise;
+                Promise<T, E> promise;
                 std::atomic<std::size_t> count{sizeof...(Ts)};
                 std::atomic_flag flag = ATOMIC_FLAG_INIT;
-                futures_result_t<Ts...> values;
+                T values;
             };
 
             const auto ctx = std::make_shared<Context>();
@@ -743,22 +696,24 @@ namespace zero::async::promise {
 
     template<typename... Ts, typename E>
     auto all(Future<Ts, E>... futures) {
-        return all(futures_result_index_sequence_for<Ts...>{}, std::move(futures)...);
+        return all(std::index_sequence_for<Ts...>{}, std::move(futures)...);
     }
 
     template<
         typename I,
         typename S,
-        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
-        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
-        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr
+        std::enable_if_t<
+            ranges::input_iterator<I> &&
+            ranges::sentinel_for<S, I> &&
+            detail::is_specialization_v<ranges::iter_value_t<I>, Future>
+        >* = nullptr
     >
     auto allSettled(I first, S last) {
         using T = typename ranges::iter_value_t<I>::value_type;
         using E = typename ranges::iter_value_t<I>::error_type;
 
         struct Context {
-            explicit Context(const std::size_t n) : count(n), results(n) {
+            explicit Context(const std::size_t n) : count{n}, results(n) {
             }
 
             Promise<std::vector<tl::expected<T, E>>> promise;
@@ -768,7 +723,7 @@ namespace zero::async::promise {
 
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
 
-        for (std::size_t i = 0; first != last; ++first, ++i) {
+        for (std::size_t i{0}; first != last; ++first, ++i) {
             (*first).setCallback([=](tl::expected<T, E> result) {
                 if (!result) {
                     ctx->results[i] = tl::unexpected(std::move(result).error());
@@ -802,8 +757,10 @@ namespace zero::async::promise {
 
     template<
         typename R,
-        std::enable_if_t<ranges::range<R>>* = nullptr,
-        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr
+        std::enable_if_t<
+            ranges::input_range<R> &&
+            detail::is_specialization_v<ranges::range_value_t<R>, Future>
+        >* = nullptr
     >
     auto allSettled(R futures) {
         return allSettled(futures.begin(), futures.end());
@@ -865,16 +822,18 @@ namespace zero::async::promise {
     template<
         typename I,
         typename S,
-        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
-        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
-        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr
+        std::enable_if_t<
+            ranges::input_iterator<I> &&
+            ranges::sentinel_for<S, I> &&
+            detail::is_specialization_v<ranges::iter_value_t<I>, Future>
+        >* = nullptr
     >
     auto any(I first, S last) {
         using T = typename ranges::iter_value_t<I>::value_type;
         using E = typename ranges::iter_value_t<I>::error_type;
 
         struct Context {
-            explicit Context(const std::size_t n) : count(n), errors(n) {
+            explicit Context(const std::size_t n) : count{n}, errors(n) {
             }
 
             Promise<T, std::vector<E>> promise;
@@ -885,7 +844,7 @@ namespace zero::async::promise {
 
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
 
-        for (std::size_t i = 0; first != last; ++first, ++i) {
+        for (std::size_t i{0}; first != last; ++first, ++i) {
             (*first).setCallback([=](tl::expected<T, E> result) {
                 if (!result) {
                     ctx->errors[i] = std::move(result).error();
@@ -911,8 +870,10 @@ namespace zero::async::promise {
 
     template<
         typename R,
-        std::enable_if_t<ranges::range<R>>* = nullptr,
-        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr
+        std::enable_if_t<
+            ranges::input_range<R> &&
+            detail::is_specialization_v<ranges::range_value_t<R>, Future>
+        >* = nullptr
     >
     auto any(R futures) {
         return any(futures.begin(), futures.end());
@@ -920,7 +881,7 @@ namespace zero::async::promise {
 
     template<std::size_t... Is, typename... Ts, typename E>
     auto any(std::index_sequence<Is...>, Future<Ts, E>... futures) {
-        constexpr bool Same = detail::all_same_v<Ts...>;
+        constexpr auto Same = detail::all_same_v<Ts...>;
 
         struct Context {
             Promise<
@@ -976,9 +937,11 @@ namespace zero::async::promise {
     template<
         typename I,
         typename S,
-        std::enable_if_t<ranges::input_iterator<I>>* = nullptr,
-        std::enable_if_t<ranges::sentinel_for<S, I>>* = nullptr,
-        std::enable_if_t<detail::is_specialization<ranges::iter_value_t<I>, Future>>* = nullptr
+        std::enable_if_t<
+            ranges::input_iterator<I> &&
+            ranges::sentinel_for<S, I> &&
+            detail::is_specialization_v<ranges::iter_value_t<I>, Future>
+        >* = nullptr
     >
     auto race(I first, S last) {
         using T = typename ranges::iter_value_t<I>::value_type;
@@ -1014,8 +977,10 @@ namespace zero::async::promise {
 
     template<
         typename R,
-        std::enable_if_t<ranges::range<R>>* = nullptr,
-        std::enable_if_t<detail::is_specialization<ranges::range_value_t<R>, Future>>* = nullptr
+        std::enable_if_t<
+            ranges::input_range<R> &&
+            detail::is_specialization_v<ranges::range_value_t<R>, Future>
+        >* = nullptr
     >
     auto race(R futures) {
         return race(futures.begin(), futures.end());
@@ -1023,7 +988,7 @@ namespace zero::async::promise {
 
     template<typename... Ts, typename E>
     auto race(Future<Ts, E>... futures) {
-        constexpr bool Same = detail::all_same_v<Ts...>;
+        constexpr auto Same = detail::all_same_v<Ts...>;
 
         struct Context {
             Promise<std::conditional_t<Same, detail::first_element_t<Ts...>, std::any>, E> promise;

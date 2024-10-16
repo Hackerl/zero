@@ -10,13 +10,13 @@ TEST_CASE("custom type formatter", "[formatter]") {
         e1 = tl::unexpected(make_error_code(std::errc::io_error));
         REQUIRE(fmt::to_string(e1) == fmt::format("unexpected(generic:{})", static_cast<int>(std::errc::io_error)));
 
-        tl::expected<int, std::error_code> e2 = 1;
+        tl::expected<int, std::error_code> e2{1};
         REQUIRE(fmt::to_string(e2) == "expected(1)");
 
         e2 = tl::unexpected(make_error_code(std::errc::io_error));
         REQUIRE(fmt::to_string(e2) == fmt::format("unexpected(generic:{})", static_cast<int>(std::errc::io_error)));
 
-        tl::expected<std::string, std::error_code> e3 = "hello world";
+        tl::expected<std::string, std::error_code> e3{"hello world"};
         REQUIRE(fmt::to_string(e3) == "expected(hello world)");
 
         e3 = tl::unexpected(make_error_code(std::errc::io_error));

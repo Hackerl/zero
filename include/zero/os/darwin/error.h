@@ -10,23 +10,17 @@ namespace zero::os::darwin {
         Error,
         "zero::os::darwin",
         mach_error_string,
-        [](const int value) {
-            std::optional<std::error_condition> condition;
-
+        [](const int value) -> std::optional<std::error_condition> {
             switch (value) {
             case KERN_INVALID_ARGUMENT:
-                condition = std::errc::invalid_argument;
-                break;
+                return std::errc::invalid_argument;
 
             case KERN_OPERATION_TIMED_OUT:
-                condition = std::errc::timed_out;
-                break;
+                return std::errc::timed_out;
 
             default:
-                break;
+                return std::nullopt;
             }
-
-            return condition;
         }
     )
 }

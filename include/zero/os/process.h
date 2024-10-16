@@ -23,7 +23,7 @@ namespace zero::os::process {
 #elif defined(__linux__)
     using ProcessImpl = procfs::process::Process;
 #endif
-    using ID = int;
+    using ID = std::uint32_t;
 
     struct CPUTime {
         double user;
