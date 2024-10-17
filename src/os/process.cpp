@@ -151,19 +151,9 @@ zero::os::process::ID zero::os::process::Process::pid() const {
 }
 
 std::expected<zero::os::process::ID, std::error_code> zero::os::process::Process::ppid() const {
-#ifdef _WIN32
     return mImpl.ppid().transform([](const auto &id) {
         return static_cast<ID>(id);
     });
-#elif defined(__APPLE__)
-    return mImpl.ppid().transform([](const auto &id) {
-        return static_cast<ID>(id);
-    });
-#elif defined(__linux__)
-    return mImpl.stat().transform([](const auto &stat) {
-        return static_cast<ID>(stat.ppid);
-    });
-#endif
 }
 
 std::expected<std::string, std::error_code> zero::os::process::Process::name() const {
@@ -187,55 +177,19 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::process::Proc
 }
 
 std::expected<std::map<std::string, std::string>, std::error_code> zero::os::process::Process::envs() const {
-#ifdef __linux__
-    return mImpl.environ();
-#else
     return mImpl.envs();
-#endif
 }
 
 std::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Process::cpu() const {
-#ifdef __linux__
-    const auto result = unix::expected([&] {
-        return sysconf(_SC_CLK_TCK);
-    });
-    EXPECT(result);
-
-    const auto ticks = static_cast<double>(*result);
-    const auto stat = mImpl.stat();
-    EXPECT(stat);
-
-    return CPUTime{
-        static_cast<double>(stat->userTime) / ticks,
-        static_cast<double>(stat->systemTime) / ticks
-    };
-#else
     return mImpl.cpu().transform([](const auto &cpu) {
         return CPUTime{cpu.user, cpu.system};
     });
-#endif
 }
 
 std::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::Process::memory() const {
-#ifdef __linux__
-    const auto result = unix::expected([&] {
-        return sysconf(_SC_PAGE_SIZE);
-    });
-    EXPECT(result);
-
-    const auto pageSize = static_cast<std::uint64_t>(*result);
-    const auto statM = mImpl.statM();
-    EXPECT(statM);
-
-    return MemoryStat{
-        statM->residentSetSize * pageSize,
-        statM->totalSize * pageSize
-    };
-#else
     return mImpl.memory().transform([](const auto &memory) {
         return MemoryStat{memory.rss, memory.vms};
     });
-#endif
 }
 
 std::expected<zero::os::process::IOStat, std::error_code> zero::os::process::Process::io() const {
@@ -249,72 +203,51 @@ std::expected<void, std::error_code> zero::os::process::Process::kill() {
 #ifdef _WIN32
     return mImpl.terminate(EXIT_FAILURE);
 #else
-    EXPECT(unix::expected([&] {
-        return ::kill(mImpl.pid(), SIGKILL);
-    }));
-    return {};
+    return mImpl.kill(SIGKILL);
 #endif
 }
 
 std::expected<zero::os::process::Process, std::error_code> zero::os::process::self() {
 #ifdef _WIN32
-    return windows::process::self().transform([](windows::process::Process &&process) {
-        return Process{std::move(process)};
-    });
+    return windows::process::self()
 #elif defined(__APPLE__)
-    return macos::process::self().transform([](macos::process::Process &&process) {
-        return Process{std::move(process)};
-    });
+    return macos::process::self()
 #elif defined(__linux__)
-    return linux::procfs::process::self().transform([](linux::procfs::process::Process &&process) {
-        return Process{std::move(process)};
-    });
+    return linux::process::self()
 #endif
+        .transform([](auto process) {
+            return Process{std::move(process)};
+        });
 }
 
 std::expected<zero::os::process::Process, std::error_code> zero::os::process::open(const ID pid) {
 #ifdef _WIN32
-    return windows::process::open(pid).transform([](windows::process::Process &&process) {
-        return Process{std::move(process)};
-    });
+    return windows::process::open(pid)
 #elif defined(__APPLE__)
-    return macos::process::open(static_cast<pid_t>(pid)).transform([](macos::process::Process &&process) {
-        return Process{std::move(process)};
-    });
+    return macos::process::open(static_cast<pid_t>(pid))
 #elif defined(__linux__)
-    return linux::procfs::process::open(static_cast<pid_t>(pid))
-        .transform([](linux::procfs::process::Process &&process) {
+    return linux::process::open(static_cast<pid_t>(pid))
+#endif
+        .transform([](auto process) {
             return Process{std::move(process)};
         });
-#endif
 }
 
 std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::process::all() {
 #ifdef _WIN32
-    return windows::process::all().transform([](const auto &ids) {
-        return ids
-            | std::views::transform([](const DWORD pid) {
-                return static_cast<ID>(pid);
-            })
-            | std::ranges::to<std::list>();
-    });
+    return windows::process::all()
 #elif defined(__APPLE__)
-    return macos::process::all().transform([](const auto &ids) {
-        return ids
-            | std::views::transform([](const pid_t pid) {
-                return static_cast<ID>(pid);
-            })
-            | std::ranges::to<std::list>();
-    });
+    return macos::process::all()
 #elif defined(__linux__)
-    return linux::procfs::process::all().transform([](const auto &ids) {
-        return ids
-            | std::views::transform([](const pid_t pid) {
-                return static_cast<ID>(pid);
-            })
-            | std::ranges::to<std::list>();
-    });
+    return linux::process::all()
 #endif
+        .transform([](const auto &ids) {
+            return ids
+                | std::views::transform([](const auto &pid) {
+                    return static_cast<ID>(pid);
+                })
+                | std::ranges::to<std::list>();
+        });
 }
 
 zero::os::process::ExitStatus::ExitStatus(const Status status) : mStatus{status} {
@@ -881,7 +814,8 @@ std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process:
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<std::optional<zero::os::process::ExitStatus>, std::error_code> zero::os::process::ChildProcess::tryWait() {
+std::expected<std::optional<zero::os::process::ExitStatus>, std::error_code>
+zero::os::process::ChildProcess::tryWait() {
 #ifdef _WIN32
     using namespace std::chrono_literals;
 

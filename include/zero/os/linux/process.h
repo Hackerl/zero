@@ -1,14 +1,11 @@
- #ifndef ZERO_MACOS_PROCESS_H
-#define ZERO_MACOS_PROCESS_H
+#ifndef ZERO_LINUX_PROCESS_H
+#define ZERO_LINUX_PROCESS_H
 
-#include <map>
-#include <list>
-#include <vector>
-#include <expected>
-#include <filesystem>
-#include <zero/error.h>
+#include "procfs/process.h"
 
-namespace zero::os::macos::process {
+#undef linux
+
+namespace zero::os::linux::process {
     struct CPUTime {
         double user;
         double system;
@@ -17,35 +14,20 @@ namespace zero::os::macos::process {
     struct MemoryStat {
         std::uint64_t rss;
         std::uint64_t vms;
-        std::uint64_t swap;
     };
 
-    struct IOStat {
-        std::uint64_t readBytes;
-        std::uint64_t writeBytes;
-    };
+    using IOStat = procfs::process::IOStat;
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_INNER(
-            Error,
-            "zero::os::macos::process::Process",
-            UNEXPECTED_DATA, "unexpected data"
-        )
-
-        explicit Process(pid_t pid);
+        explicit Process(procfs::process::Process process);
         Process(Process &&rhs) noexcept;
         Process &operator=(Process &&rhs) noexcept;
 
-    private:
-        [[nodiscard]] std::expected<std::vector<char>, std::error_code> arguments() const;
-
-    public:
         [[nodiscard]] pid_t pid() const;
         [[nodiscard]] std::expected<pid_t, std::error_code> ppid() const;
 
         [[nodiscard]] std::expected<std::string, std::error_code> comm() const;
-        [[nodiscard]] std::expected<std::string, std::error_code> name() const;
         [[nodiscard]] std::expected<std::filesystem::path, std::error_code> cwd() const;
         [[nodiscard]] std::expected<std::filesystem::path, std::error_code> exe() const;
         [[nodiscard]] std::expected<std::vector<std::string>, std::error_code> cmdline() const;
@@ -58,7 +40,7 @@ namespace zero::os::macos::process {
         std::expected<void, std::error_code> kill(int sig);
 
     private:
-        pid_t mPID;
+        procfs::process::Process mProcess;
     };
 
     std::expected<Process, std::error_code> self();
@@ -66,6 +48,4 @@ namespace zero::os::macos::process {
     std::expected<std::list<pid_t>, std::error_code> all();
 }
 
-DECLARE_ERROR_CODE(zero::os::macos::process::Process::Error)
-
-#endif //ZERO_MACOS_PROCESS_H
+#endif //ZERO_LINUX_PROCESS_H

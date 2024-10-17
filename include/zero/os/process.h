@@ -8,7 +8,7 @@
 #elif defined(__APPLE__)
 #include "macos/process.h"
 #elif defined(__linux__)
-#include "linux/procfs/process.h"
+#include "linux/process.h"
 #endif
 
 #if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
@@ -21,7 +21,7 @@ namespace zero::os::process {
 #elif defined(__APPLE__)
     using ProcessImpl = macos::process::Process;
 #elif defined(__linux__)
-    using ProcessImpl = linux::procfs::process::Process;
+    using ProcessImpl = linux::process::Process;
 #endif
     using ID = std::uint32_t;
 
