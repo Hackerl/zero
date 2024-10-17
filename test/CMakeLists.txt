@@ -27,7 +27,7 @@ add_executable(
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>
         $<$<PLATFORM_ID:Windows>:os/windows/error.cpp os/windows/process.cpp>
         $<$<PLATFORM_ID:Darwin>:os/macos/error.cpp os/macos/process.cpp>
-        $<$<PLATFORM_ID:Linux,Android>:os/linux/procfs/process.cpp>
+        $<$<PLATFORM_ID:Linux,Android>:os/linux/procfs/procfs.cpp os/linux/procfs/process.cpp>
 )
 
 if (MSVC)

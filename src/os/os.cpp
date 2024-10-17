@@ -64,9 +64,13 @@ std::expected<std::string, std::error_code> zero::os::username() {
     return strings::encode(buffer.data());
 #elif defined(__linux__) || __APPLE__
     const auto uid = geteuid();
-    const auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
+    const auto max = unix::expected([] {
+        return sysconf(_SC_GETPW_R_SIZE_MAX);
+    }).transform([](const auto &result) {
+        return static_cast<std::size_t>(result);
+    });
 
-    std::size_t size = max != -1 ? max : 1024;
+    auto size = max.value_or(1024);
     auto buffer = std::make_unique<char[]>(size);
 
     passwd pwd{};

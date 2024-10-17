@@ -145,8 +145,8 @@ namespace zero::os::linux::procfs::process {
         std::optional<std::uint64_t> noNewPrivileges;
         std::optional<std::uint32_t> seccompMode;
         std::optional<std::string> speculationStoreBypass;
-        std::optional<std::vector<std::uint32_t>> allowedCpus;
-        std::optional<std::vector<std::pair<std::uint32_t, std::uint32_t>>> allowedCpuList;
+        std::optional<std::vector<std::uint32_t>> allowedCPUs;
+        std::optional<std::vector<std::pair<std::uint32_t, std::uint32_t>>> allowedCPUList;
         std::optional<std::vector<std::uint32_t>> allowedMemoryNodes;
         std::optional<std::vector<std::pair<std::uint32_t, std::uint32_t>>> allowedMemoryNodeList;
         std::optional<std::uint64_t> voluntaryContextSwitches;

@@ -476,8 +476,8 @@ zero::os::linux::procfs::process::Process::status() const {
 
     EXPECT(set(status.speculationStoreBypass, take("Speculation_Store_Bypass")));
 
-    EXPECT(set(status.allowedCpus, take("Cpus_allowed").transform(parseAllowed)));
-    EXPECT(set(status.allowedCpuList, take("Cpus_allowed_list").transform(parseAllowedList)));
+    EXPECT(set(status.allowedCPUs, take("Cpus_allowed").transform(parseAllowed)));
+    EXPECT(set(status.allowedCPUList, take("Cpus_allowed_list").transform(parseAllowedList)));
     EXPECT(set(status.allowedMemoryNodes, take("Mems_allowed").transform(parseAllowed)));
     EXPECT(set(status.allowedMemoryNodeList, take("Mems_allowed_list").transform(parseAllowedList)));
 

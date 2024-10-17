@@ -49,34 +49,36 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::lin
 }
 
 std::expected<zero::os::linux::process::CPUTime, std::error_code> zero::os::linux::process::Process::cpu() const {
-    const auto result = unix::expected([&] {
+    const auto ticks = unix::expected([] {
         return sysconf(_SC_CLK_TCK);
+    }).transform([](const auto &result) {
+        return static_cast<double>(result);
     });
-    EXPECT(result);
+    EXPECT(ticks);
 
-    const auto ticks = static_cast<double>(*result);
     const auto stat = mProcess.stat();
     EXPECT(stat);
 
     return CPUTime{
-        static_cast<double>(stat->userTime) / ticks,
-        static_cast<double>(stat->systemTime) / ticks
+        static_cast<double>(stat->userTime) / *ticks,
+        static_cast<double>(stat->systemTime) / *ticks
     };
 }
 
 std::expected<zero::os::linux::process::MemoryStat, std::error_code> zero::os::linux::process::Process::memory() const {
-    const auto result = unix::expected([&] {
+    const auto pageSize = unix::expected([&] {
         return sysconf(_SC_PAGE_SIZE);
+    }).transform([](const auto &result) {
+        return static_cast<std::uint64_t>(result);
     });
-    EXPECT(result);
+    EXPECT(pageSize);
 
-    const auto pageSize = static_cast<std::uint64_t>(*result);
     const auto statM = mProcess.statM();
     EXPECT(statM);
 
     return MemoryStat{
-        statM->residentSetSize * pageSize,
-        statM->totalSize * pageSize
+        statM->residentSetSize * *pageSize,
+        statM->totalSize * *pageSize
     };
 }
 
@@ -87,7 +89,7 @@ std::expected<zero::os::linux::process::IOStat, std::error_code> zero::os::linux
 std::expected<void, std::error_code> zero::os::linux::process::Process::kill(const int sig) {
     EXPECT(unix::expected([&] {
         return ::kill(mProcess.pid(), sig);
-        }));
+    }));
     return {};
 }
 
