@@ -8,7 +8,7 @@
 #include <future>
 
 #ifdef _WIN32
-#include <zero/os/nt/error.h>
+#include <zero/os/windows/error.h>
 #else
 #include <csignal>
 #include <algorithm>
@@ -258,15 +258,15 @@ std::expected<void, std::error_code> zero::os::process::Process::kill() {
 
 std::expected<zero::os::process::Process, std::error_code> zero::os::process::self() {
 #ifdef _WIN32
-    return nt::process::self().transform([](nt::process::Process &&process) {
+    return windows::process::self().transform([](windows::process::Process &&process) {
         return Process{std::move(process)};
     });
 #elif defined(__APPLE__)
-    return darwin::process::self().transform([](darwin::process::Process &&process) {
+    return macos::process::self().transform([](macos::process::Process &&process) {
         return Process{std::move(process)};
     });
 #elif defined(__linux__)
-    return procfs::process::self().transform([](procfs::process::Process &&process) {
+    return linux::procfs::process::self().transform([](linux::procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
 #endif
@@ -274,23 +274,24 @@ std::expected<zero::os::process::Process, std::error_code> zero::os::process::se
 
 std::expected<zero::os::process::Process, std::error_code> zero::os::process::open(const ID pid) {
 #ifdef _WIN32
-    return nt::process::open(pid).transform([](nt::process::Process &&process) {
+    return windows::process::open(pid).transform([](windows::process::Process &&process) {
         return Process{std::move(process)};
     });
 #elif defined(__APPLE__)
-    return darwin::process::open(static_cast<pid_t>(pid)).transform([](darwin::process::Process &&process) {
+    return macos::process::open(static_cast<pid_t>(pid)).transform([](macos::process::Process &&process) {
         return Process{std::move(process)};
     });
 #elif defined(__linux__)
-    return procfs::process::open(static_cast<pid_t>(pid)).transform([](procfs::process::Process &&process) {
-        return Process{std::move(process)};
-    });
+    return linux::procfs::process::open(static_cast<pid_t>(pid))
+        .transform([](linux::procfs::process::Process &&process) {
+            return Process{std::move(process)};
+        });
 #endif
 }
 
 std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::process::all() {
 #ifdef _WIN32
-    return nt::process::all().transform([](const auto &ids) {
+    return windows::process::all().transform([](const auto &ids) {
         return ids
             | std::views::transform([](const DWORD pid) {
                 return static_cast<ID>(pid);
@@ -298,7 +299,7 @@ std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::proce
             | std::ranges::to<std::list>();
     });
 #elif defined(__APPLE__)
-    return darwin::process::all().transform([](const auto &ids) {
+    return macos::process::all().transform([](const auto &ids) {
         return ids
             | std::views::transform([](const pid_t pid) {
                 return static_cast<ID>(pid);
@@ -306,7 +307,7 @@ std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::proce
             | std::ranges::to<std::list>();
     });
 #elif defined(__linux__)
-    return procfs::process::all().transform([](const auto &ids) {
+    return linux::procfs::process::all().transform([](const auto &ids) {
         return ids
             | std::views::transform([](const pid_t pid) {
                 return static_cast<ID>(pid);
@@ -453,7 +454,7 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
         }
     );
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return DuplicateHandle(
             GetCurrentProcess(),
             handles[1],
@@ -474,7 +475,7 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
         0,
         &hPC
     ); result != S_OK)
-        return std::unexpected(static_cast<nt::ResultHandle>(result));
+        return std::unexpected(static_cast<windows::ResultHandle>(result));
 
     return PseudoConsole{hPC, std::exchange(handles, {})};
 }
@@ -487,7 +488,7 @@ void zero::os::process::PseudoConsole::close() {
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
     if (const auto result = resizePseudoConsole(mPC, {columns, rows}); result != S_OK)
-        return std::unexpected(static_cast<nt::ResultHandle>(result));
+        return std::unexpected(static_cast<windows::ResultHandle>(result));
 
     return {};
 }
@@ -507,11 +508,11 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     const auto buffer = std::make_unique<std::byte[]>(size);
     siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
     }));
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return UpdateProcThreadAttribute(
             siEx.lpAttributeList,
             0,
@@ -578,7 +579,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
 
     PROCESS_INFORMATION info{};
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return CreateProcessW(
             nullptr,
             cmd->data(),
@@ -597,7 +598,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     CloseHandle(std::exchange(mHandles[1], nullptr));
     CloseHandle(std::exchange(mHandles[2], nullptr));
 
-    return ChildProcess{Process{nt::process::Process{info.hProcess, info.dwProcessId}}, {}};
+    return ChildProcess{Process{windows::process::Process{info.hProcess, info.dwProcessId}}, {}};
 }
 
 HANDLE &zero::os::process::PseudoConsole::file() {
@@ -1022,7 +1023,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             if (!handle)
                 continue;
 
-            EXPECT(nt::expected([&] {
+            EXPECT(windows::expected([&] {
                 return DuplicateHandle(
                     GetCurrentProcess(),
                     handle,
@@ -1090,11 +1091,11 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     const auto buffer = std::make_unique<std::byte[]>(size);
     siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
     }));
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return UpdateProcThreadAttribute(
             siEx.lpAttributeList,
             0,
@@ -1161,7 +1162,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     PROCESS_INFORMATION info{};
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return CreateProcessW(
             nullptr,
             cmd->data(),
@@ -1189,7 +1190,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     if (handles[STDERR_R])
         stdio[2] = std::exchange(handles[STDERR_R], nullptr);
 
-    return ChildProcess{Process{nt::process::Process{info.hProcess, info.dwProcessId}}, stdio};
+    return ChildProcess{Process{windows::process::Process{info.hProcess, info.dwProcessId}}, stdio};
 #else
     std::array<int, 8> fds{};
     std::ranges::fill(fds, -1);
@@ -1429,7 +1430,7 @@ zero::os::process::Command::output() const {
             DWORD n{};
             std::array<std::byte, 1024> buffer; // NOLINT(*-pro-type-member-init)
 
-            if (const auto result = nt::expected([&] {
+            if (const auto result = windows::expected([&] {
                 return ReadFile(*fd, buffer.data(), buffer.size(), &n, nullptr);
             }); !result) {
                 if (result.error() != std::errc::broken_pipe)

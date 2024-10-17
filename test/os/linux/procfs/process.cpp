@@ -1,4 +1,4 @@
-#include <zero/os/procfs/process.h>
+#include <zero/os/linux/procfs/process.h>
 #include <zero/filesystem/fs.h>
 #include <zero/os/unix/error.h>
 #include <catch2/catch_test_macros.hpp>
@@ -24,13 +24,13 @@ TEST_CASE("procfs process", "[procfs]") {
     const auto function = reinterpret_cast<std::uintptr_t>(zero::filesystem::applicationPath);
 
     SECTION("all") {
-        const auto ids = zero::os::procfs::process::all();
+        const auto ids = zero::os::linux::procfs::process::all();
         REQUIRE(ids);
     }
 
     SECTION("self") {
         const auto pid = getpid();
-        const auto process = zero::os::procfs::process::self();
+        const auto process = zero::os::linux::procfs::process::self();
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
@@ -58,20 +58,20 @@ TEST_CASE("procfs process", "[procfs]") {
             }
         );
         REQUIRE(it != mappings->end());
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::EXECUTE));
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::EXECUTE));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::PRIVATE));
 
         it = std::ranges::find_if(
             *mappings,
-            [=](const zero::os::procfs::process::MemoryMapping &mapping) {
+            [=](const zero::os::linux::procfs::process::MemoryMapping &mapping) {
                 return variable >= mapping.start && variable < mapping.end;
             }
         );
         REQUIRE(it != mappings->end());
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::WRITE));
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::WRITE));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::PRIVATE));
 
         const auto exe = process->exe();
         REQUIRE(exe);
@@ -120,7 +120,7 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(pid > 0);
         std::this_thread::sleep_for(100ms);
 
-        const auto process = zero::os::procfs::process::open(pid);
+        const auto process = zero::os::linux::procfs::process::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
@@ -143,25 +143,25 @@ TEST_CASE("procfs process", "[procfs]") {
 
         auto it = std::ranges::find_if(
             *mappings,
-            [=](const zero::os::procfs::process::MemoryMapping &mapping) {
+            [=](const zero::os::linux::procfs::process::MemoryMapping &mapping) {
                 return function >= mapping.start && function < mapping.end;
             }
         );
         REQUIRE(it != mappings->end());
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::EXECUTE));
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::EXECUTE));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::PRIVATE));
 
         it = std::ranges::find_if(
             *mappings,
-            [=](const zero::os::procfs::process::MemoryMapping &mapping) {
+            [=](const zero::os::linux::procfs::process::MemoryMapping &mapping) {
                 return variable >= mapping.start && variable < mapping.end;
             }
         );
         REQUIRE(it != mappings->end());
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::READ));
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::WRITE));
-        REQUIRE(it->permissions.test(zero::os::procfs::process::MemoryPermission::PRIVATE));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::READ));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::WRITE));
+        REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::PRIVATE));
 
         const auto exe = process->exe();
         REQUIRE(exe);
@@ -224,7 +224,7 @@ TEST_CASE("procfs process", "[procfs]") {
 
         std::this_thread::sleep_for(100ms);
 
-        const auto process = zero::os::procfs::process::open(pid);
+        const auto process = zero::os::linux::procfs::process::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
@@ -237,14 +237,14 @@ TEST_CASE("procfs process", "[procfs]") {
 
         const auto cmdline = process->cmdline();
         REQUIRE_FALSE(cmdline);
-        REQUIRE(cmdline.error() == zero::os::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
+        REQUIRE(cmdline.error() == zero::os::linux::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto env = process->environ();
         REQUIRE((!env || env->empty()));
 
         const auto mappings = process->maps();
         REQUIRE_FALSE(mappings);
-        REQUIRE(mappings.error() == zero::os::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
+        REQUIRE(mappings.error() == zero::os::linux::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto exe = process->exe();
         REQUIRE_FALSE(exe);
@@ -285,7 +285,7 @@ TEST_CASE("procfs process", "[procfs]") {
     }
 
     SECTION("no such process") {
-        const auto process = zero::os::procfs::process::open(99999);
+        const auto process = zero::os::linux::procfs::process::open(99999);
         REQUIRE_FALSE(process);
         REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }

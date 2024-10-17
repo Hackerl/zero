@@ -3,14 +3,16 @@
 
 #include <zero/error.h>
 
-namespace zero::os::procfs {
+#undef linux
+
+namespace zero::os::linux::procfs {
     DEFINE_ERROR_CODE(
         Error,
-        "zero::os::procfs",
+        "zero::os::linux::procfs",
         UNEXPECTED_DATA, "unexpected data"
     )
 }
 
-DECLARE_ERROR_CODE(zero::os::procfs::Error)
+DECLARE_ERROR_CODE(zero::os::linux::procfs::Error)
 
 #endif //ZERO_PROCFS_H

@@ -1,7 +1,7 @@
-#include <zero/os/nt/process.h>
+#include <zero/os/windows/process.h>
 #include <zero/strings/strings.h>
 #include <zero/filesystem/std.h>
-#include <zero/os/nt/error.h>
+#include <zero/os/windows/error.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
 #include <winternl.h>
@@ -21,28 +21,28 @@ static const auto queryInformationProcess = reinterpret_cast<decltype(&NtQueryIn
     GetProcAddress(GetModuleHandleA("ntdll"), "NtQueryInformationProcess")
 );
 
-zero::os::nt::process::Process::Process(const HANDLE handle, const DWORD pid) : mPID{pid}, mHandle{handle} {
+zero::os::windows::process::Process::Process(const HANDLE handle, const DWORD pid) : mPID{pid}, mHandle{handle} {
 }
 
-zero::os::nt::process::Process::Process(Process &&rhs) noexcept
+zero::os::windows::process::Process::Process(Process &&rhs) noexcept
     : mPID{std::exchange(rhs.mPID, -1)}, mHandle{std::exchange(rhs.mHandle, nullptr)} {
 }
 
-zero::os::nt::process::Process &zero::os::nt::process::Process::operator=(Process &&rhs) noexcept {
+zero::os::windows::process::Process &zero::os::windows::process::Process::operator=(Process &&rhs) noexcept {
     mPID = std::exchange(rhs.mPID, -1);
     mHandle = std::exchange(rhs.mHandle, nullptr);
     return *this;
 }
 
-zero::os::nt::process::Process::~Process() {
+zero::os::windows::process::Process::~Process() {
     if (!mHandle)
         return;
 
     CloseHandle(mHandle);
 }
 
-std::expected<zero::os::nt::process::Process, std::error_code>
-zero::os::nt::process::Process::from(const HANDLE handle) {
+std::expected<zero::os::windows::process::Process, std::error_code>
+zero::os::windows::process::Process::from(const HANDLE handle) {
     const auto pid = GetProcessId(handle);
 
     if (pid == 0)
@@ -51,7 +51,7 @@ zero::os::nt::process::Process::from(const HANDLE handle) {
     return Process{handle, pid};
 }
 
-std::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::parameters() const {
+std::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Process::parameters() const {
     if (!queryInformationProcess)
         return std::unexpected(Error::API_NOT_AVAILABLE);
 
@@ -82,15 +82,15 @@ std::expected<std::uintptr_t, std::error_code> zero::os::nt::process::Process::p
     return ptr;
 }
 
-HANDLE zero::os::nt::process::Process::handle() const {
+HANDLE zero::os::windows::process::Process::handle() const {
     return mHandle;
 }
 
-DWORD zero::os::nt::process::Process::pid() const {
+DWORD zero::os::windows::process::Process::pid() const {
     return mPID;
 }
 
-std::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() const {
+std::expected<DWORD, std::error_code> zero::os::windows::process::Process::ppid() const {
     if (!queryInformationProcess)
         return std::unexpected(Error::API_NOT_AVAILABLE);
 
@@ -109,13 +109,13 @@ std::expected<DWORD, std::error_code> zero::os::nt::process::Process::ppid() con
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
 }
 
-std::expected<std::string, std::error_code> zero::os::nt::process::Process::name() const {
+std::expected<std::string, std::error_code> zero::os::windows::process::Process::name() const {
     return exe().transform([](const auto &path) {
         return path.filename().string();
     });
 }
 
-std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::cwd() const {
+std::expected<std::filesystem::path, std::error_code> zero::os::windows::process::Process::cwd() const {
     const auto ptr = parameters();
     EXPECT(ptr);
 
@@ -149,7 +149,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Pro
     return filesystem::canonical(buffer.get());
 }
 
-std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Process::exe() const {
+std::expected<std::filesystem::path, std::error_code> zero::os::windows::process::Process::exe() const {
     std::array<WCHAR, MAX_PATH> buffer{};
     auto size = static_cast<DWORD>(buffer.size());
 
@@ -160,7 +160,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::nt::process::Pro
     return buffer.data();
 }
 
-std::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::Process::cmdline() const {
+std::expected<std::vector<std::string>, std::error_code> zero::os::windows::process::Process::cmdline() const {
     const auto ptr = parameters();
     EXPECT(ptr);
 
@@ -209,7 +209,7 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::nt::process::
     return cmdline;
 }
 
-std::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt::process::Process::envs() const {
+std::expected<std::map<std::string, std::string>, std::error_code> zero::os::windows::process::Process::envs() const {
     const auto ptr = parameters();
     EXPECT(ptr);
 
@@ -272,7 +272,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::nt:
     return envs;
 }
 
-std::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::process::Process::cpu() const {
+std::expected<zero::os::windows::process::CPUTime, std::error_code> zero::os::windows::process::Process::cpu() const {
     FILETIME create{}, exit{}, kernel{}, user{};
 
     EXPECT(expected([&] {
@@ -285,7 +285,8 @@ std::expected<zero::os::nt::process::CPUTime, std::error_code> zero::os::nt::pro
     };
 }
 
-std::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::process::Process::memory() const {
+std::expected<zero::os::windows::process::MemoryStat, std::error_code>
+zero::os::windows::process::Process::memory() const {
     PROCESS_MEMORY_COUNTERS counters{};
 
     EXPECT(expected([&] {
@@ -298,7 +299,7 @@ std::expected<zero::os::nt::process::MemoryStat, std::error_code> zero::os::nt::
     };
 }
 
-std::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::process::Process::io() const {
+std::expected<zero::os::windows::process::IOStat, std::error_code> zero::os::windows::process::Process::io() const {
     IO_COUNTERS counters{};
 
     EXPECT(expected([&] {
@@ -313,7 +314,7 @@ std::expected<zero::os::nt::process::IOStat, std::error_code> zero::os::nt::proc
     };
 }
 
-std::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode() const {
+std::expected<DWORD, std::error_code> zero::os::windows::process::Process::exitCode() const {
     DWORD code{};
 
     EXPECT(expected([&] {
@@ -327,7 +328,7 @@ std::expected<DWORD, std::error_code> zero::os::nt::process::Process::exitCode()
 }
 
 std::expected<void, std::error_code>
-zero::os::nt::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
+zero::os::windows::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
     if (const auto result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         if (result == WAIT_TIMEOUT)
@@ -340,17 +341,17 @@ zero::os::nt::process::Process::wait(const std::optional<std::chrono::millisecon
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<void, std::error_code> zero::os::nt::process::Process::terminate(const DWORD code) {
+std::expected<void, std::error_code> zero::os::windows::process::Process::terminate(const DWORD code) {
     return expected([&] {
         return TerminateProcess(mHandle, code);
     });
 }
 
-std::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::self() {
+std::expected<zero::os::windows::process::Process, std::error_code> zero::os::windows::process::self() {
     return Process{GetCurrentProcess(), GetCurrentProcessId()};
 }
 
-std::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::process::open(const DWORD pid) {
+std::expected<zero::os::windows::process::Process, std::error_code> zero::os::windows::process::open(const DWORD pid) {
     const auto handle = OpenProcess(
         PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
         false,
@@ -363,7 +364,7 @@ std::expected<zero::os::nt::process::Process, std::error_code> zero::os::nt::pro
     return Process{handle, pid};
 }
 
-std::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
+std::expected<std::list<DWORD>, std::error_code> zero::os::windows::process::all() {
     std::size_t size{4096};
     auto buffer = std::make_unique<DWORD[]>(size);
 
@@ -382,4 +383,4 @@ std::expected<std::list<DWORD>, std::error_code> zero::os::nt::process::all() {
     }
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::nt::process::Process::Error)
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::windows::process::Process::Error)

@@ -10,7 +10,7 @@
 
 #ifdef _WIN32
 #include <future>
-#include <zero/os/nt/error.h>
+#include <zero/os/windows/error.h>
 #else
 #include <unistd.h>
 #include <zero/os/unix/error.h>
@@ -373,7 +373,7 @@ TEST_CASE("process", "[os]") {
                     DWORD n{};
                     std::array<char, 1024> buffer; // NOLINT(*-pro-type-member-init)
 
-                    if (const auto result = zero::os::nt::expected([&] {
+                    if (const auto result = zero::os::windows::expected([&] {
                         return ReadFile(handle, buffer.data(), buffer.size(), &n, nullptr);
                     }); !result) {
                         if (result.error() != std::errc::broken_pipe)

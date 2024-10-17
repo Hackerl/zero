@@ -4,11 +4,11 @@
 #include <fmt/core.h>
 
 #ifdef _WIN32
-#include "nt/process.h"
+#include "windows/process.h"
 #elif defined(__APPLE__)
-#include "darwin/process.h"
+#include "macos/process.h"
 #elif defined(__linux__)
-#include "procfs/process.h"
+#include "linux/procfs/process.h"
 #endif
 
 #if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
@@ -17,11 +17,11 @@
 
 namespace zero::os::process {
 #ifdef _WIN32
-    using ProcessImpl = nt::process::Process;
+    using ProcessImpl = windows::process::Process;
 #elif defined(__APPLE__)
-    using ProcessImpl = darwin::process::Process;
+    using ProcessImpl = macos::process::Process;
 #elif defined(__linux__)
-    using ProcessImpl = procfs::process::Process;
+    using ProcessImpl = linux::procfs::process::Process;
 #endif
     using ID = std::uint32_t;
 

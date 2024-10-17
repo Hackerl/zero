@@ -11,7 +11,9 @@
 #include <filesystem>
 #include <zero/error.h>
 
-namespace zero::os::procfs::process {
+#undef linux
+
+namespace zero::os::linux::procfs::process {
     enum MemoryPermission {
         READ,
         WRITE,
@@ -167,7 +169,7 @@ namespace zero::os::procfs::process {
     public:
         DEFINE_ERROR_CODE_INNER(
             Error,
-            "zero::os::procfs::process::Process",
+            "zero::os::linux::procfs::process::Process",
             MAYBE_ZOMBIE_PROCESS, "maybe zombie process"
         )
 
@@ -205,6 +207,6 @@ namespace zero::os::procfs::process {
     std::expected<std::list<pid_t>, std::error_code> all();
 }
 
-DECLARE_ERROR_CODE(zero::os::procfs::process::Process::Error)
+DECLARE_ERROR_CODE(zero::os::linux::procfs::process::Process::Error)
 
 #endif //ZERO_PROCFS_PROCESS_H

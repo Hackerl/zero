@@ -5,7 +5,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <Lmcons.h>
-#include <zero/os/nt/error.h>
+#include <zero/os/windows/error.h>
 #include <zero/strings/strings.h>
 #elif defined(__linux__)
 #include <pwd.h>
@@ -26,7 +26,7 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
     std::array<WCHAR, MAX_COMPUTERNAME_LENGTH + 1> buffer{};
     auto size = static_cast<DWORD>(buffer.size());
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return GetComputerNameW(buffer.data(), &size);
     }));
 
@@ -57,7 +57,7 @@ std::expected<std::string, std::error_code> zero::os::username() {
     std::array<WCHAR, UNLEN + 1> buffer{};
     auto size = static_cast<DWORD>(buffer.size());
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return GetUserNameW(buffer.data(), &size);
     }));
 

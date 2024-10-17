@@ -7,7 +7,7 @@
 #include <fmt/core.h>
 #include <zero/error.h>
 
-namespace zero::os::nt {
+namespace zero::os::windows {
     DEFINE_ERROR_TRANSFORMER_EX(
         ResultHandle,
         "HRESULT",
@@ -37,6 +37,6 @@ namespace zero::os::nt {
     }
 }
 
-DECLARE_ERROR_CODE(zero::os::nt::ResultHandle)
+DECLARE_ERROR_CODE(zero::os::windows::ResultHandle)
 
 #endif //ZERO_NT_ERROR_H
