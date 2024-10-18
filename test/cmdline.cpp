@@ -12,7 +12,7 @@ tl::expected<Config, std::error_code> zero::scan(const std::string_view input) {
     const auto tokens = strings::split(input, ":", 1);
 
     if (tokens.size() != 2)
-        return tl::unexpected(make_error_code(std::errc::invalid_argument));
+        return tl::unexpected{make_error_code(std::errc::invalid_argument)};
 
     return Config{strings::trim(tokens[0]), strings::trim(tokens[1])};
 }

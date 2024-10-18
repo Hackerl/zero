@@ -729,7 +729,7 @@ namespace zero::async::promise {
         for (std::size_t i{0}; first != last; ++first, ++i) {
             (*first).setCallback([=](tl::expected<T, E> result) {
                 if (!result) {
-                    ctx->results[i] = tl::unexpected(std::move(result).error());
+                    ctx->results[i] = tl::unexpected{std::move(result).error()};
 
                     if (--ctx->count > 0)
                         return;
@@ -788,7 +788,7 @@ namespace zero::async::promise {
         ([&] {
             futures.setCallback([=](tl::expected<Ts, Es> result) {
                 if (!result) {
-                    std::get<Is>(ctx->results) = tl::unexpected(std::move(result).error());
+                    std::get<Is>(ctx->results) = tl::unexpected{std::move(result).error()};
 
                     if (--ctx->count > 0)
                         return;

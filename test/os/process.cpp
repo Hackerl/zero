@@ -384,7 +384,7 @@ TEST_CASE("process", "[os]") {
                         return ReadFile(handle, buffer.data(), buffer.size(), &n, nullptr);
                     }); !result) {
                         if (result.error() != std::errc::broken_pipe)
-                            return tl::unexpected(result.error());
+                            return tl::unexpected{result.error()};
 
                         break;
                     }

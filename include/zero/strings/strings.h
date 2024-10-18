@@ -30,7 +30,7 @@ namespace zero::strings {
 
         if (const auto result = std::from_chars(str.data(), str.data() + str.size(), value, base);
             result.ec != std::errc())
-            return tl::unexpected(make_error_code(result.ec));
+            return tl::unexpected{make_error_code(result.ec)};
 
         return value;
     }

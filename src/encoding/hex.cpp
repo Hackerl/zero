@@ -21,7 +21,7 @@ std::string zero::encoding::hex::encode(const nonstd::span<const std::byte> data
 tl::expected<std::vector<std::byte>, zero::encoding::hex::DecodeError>
 zero::encoding::hex::decode(const std::string_view encoded) {
     if (encoded.length() % 2)
-        return tl::unexpected(DecodeError::INVALID_LENGTH);
+        return tl::unexpected{DecodeError::INVALID_LENGTH};
 
     std::vector<std::byte> data;
 
@@ -31,7 +31,7 @@ zero::encoding::hex::decode(const std::string_view encoded) {
 
         if (!n) {
             assert(n.error() == std::errc::invalid_argument);
-            return tl::unexpected(DecodeError::INVALID_HEX_CHARACTER);
+            return tl::unexpected{DecodeError::INVALID_HEX_CHARACTER};
         }
 
         data.push_back(static_cast<std::byte>(*n & 0xff));

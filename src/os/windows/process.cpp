@@ -46,14 +46,14 @@ zero::os::windows::process::Process::from(const HANDLE handle) {
     const auto pid = GetProcessId(handle);
 
     if (pid == 0)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
     return Process{handle, pid};
 }
 
 tl::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Process::parameters() const {
     if (!queryInformationProcess)
-        return tl::unexpected(Error::API_NOT_AVAILABLE);
+        return tl::unexpected{Error::API_NOT_AVAILABLE};
 
     PROCESS_BASIC_INFORMATION info{};
 
@@ -92,7 +92,7 @@ DWORD zero::os::windows::process::Process::pid() const {
 
 tl::expected<DWORD, std::error_code> zero::os::windows::process::Process::ppid() const {
     if (!queryInformationProcess)
-        return tl::unexpected(Error::API_NOT_AVAILABLE);
+        return tl::unexpected{Error::API_NOT_AVAILABLE};
 
     PROCESS_BASIC_INFORMATION info{};
 
@@ -132,7 +132,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::windows::process:
     }));
 
     if (!str.Buffer || str.Length == 0)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -177,7 +177,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::windows::proce
     }));
 
     if (!str.Buffer || str.Length == 0)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -195,7 +195,7 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::windows::proce
     const auto args = CommandLineToArgvW(buffer.get(), &num);
 
     if (!args)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
     DEFER(LocalFree(args));
     std::vector<std::string> cmdline;
@@ -261,7 +261,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::wind
         const auto pos = token.find('=');
 
         if (pos == std::string::npos)
-            return tl::unexpected(Error::UNEXPECTED_DATA);
+            return tl::unexpected{Error::UNEXPECTED_DATA};
 
         if (pos == 0)
             continue;
@@ -335,7 +335,7 @@ tl::expected<DWORD, std::error_code> zero::os::windows::process::Process::exitCo
     }));
 
     if (code == STILL_ACTIVE)
-        return tl::unexpected(Error::PROCESS_STILL_ACTIVE);
+        return tl::unexpected{Error::PROCESS_STILL_ACTIVE};
 
     return code;
 }
@@ -345,9 +345,9 @@ zero::os::windows::process::Process::wait(const std::optional<std::chrono::milli
     if (const auto result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         if (result == WAIT_TIMEOUT)
-            return tl::unexpected(Error::WAIT_PROCESS_TIMEOUT);
+            return tl::unexpected{Error::WAIT_PROCESS_TIMEOUT};
 
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
     }
 
     return {};
@@ -372,7 +372,7 @@ tl::expected<zero::os::windows::process::Process, std::error_code> zero::os::win
     );
 
     if (!handle)
-        return tl::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return tl::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
     return Process{handle, pid};
 }

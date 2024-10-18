@@ -161,7 +161,7 @@ TEST_CASE("promise", "[async]") {
         zero::async::promise::resolve<int, int>(1)
             .then([](const auto &value) -> tl::expected<int, int> {
                 if (value == 2)
-                    return tl::unexpected(2);
+                    return tl::unexpected{2};
 
                 return 2;
             }).then([](const auto &value) {
@@ -171,12 +171,12 @@ TEST_CASE("promise", "[async]") {
         zero::async::promise::resolve<int, int>(1)
             .then([](const auto &value) -> tl::expected<int, int> {
                 if (value == 1)
-                    return tl::unexpected(-1);
+                    return tl::unexpected{-1};
 
                 return 2;
             }).fail([](const auto &error) {
                 REQUIRE(error == -1);
-                return tl::unexpected(error);
+                return tl::unexpected{error};
             });
 
         const auto i = std::make_shared<int>(0);
@@ -249,7 +249,7 @@ TEST_CASE("promise", "[async]") {
             const auto result = resolve<int, int>(1)
                                 .then([](const auto &value) -> tl::expected<int, int> {
                                     if (value == 2)
-                                        return tl::unexpected(2);
+                                        return tl::unexpected{2};
 
                                     return 2;
                                 }).get();
@@ -261,7 +261,7 @@ TEST_CASE("promise", "[async]") {
             const auto result = resolve<int, int>(1)
                                 .then([](const auto &value) -> tl::expected<int, int> {
                                     if (value == 1)
-                                        return tl::unexpected(-1);
+                                        return tl::unexpected{-1};
 
                                     return 2;
                                 }).get();

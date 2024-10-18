@@ -35,7 +35,7 @@ tl::expected<std::vector<char>, std::error_code> zero::os::macos::process::Proce
             break;
 
         if (result.error() != std::errc::not_enough_memory)
-            return tl::unexpected(result.error());
+            return tl::unexpected{result.error()};
 
         size *= 2;
         buffer = std::make_unique<char[]>(size);
@@ -52,7 +52,7 @@ tl::expected<pid_t, std::error_code> zero::os::macos::process::Process::ppid() c
     proc_bsdshortinfo info{};
 
     if (proc_pidinfo(mPID, PROC_PIDT_SHORTBSDINFO, 0, &info, PROC_PIDT_SHORTBSDINFO_SIZE) <= 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected{std::error_code{errno, std::system_category()}};
 
     return static_cast<pid_t>(info.pbsi_ppid);
 }
@@ -61,7 +61,7 @@ tl::expected<std::string, std::error_code> zero::os::macos::process::Process::co
     proc_bsdshortinfo info{};
 
     if (proc_pidinfo(mPID, PROC_PIDT_SHORTBSDINFO, 0, &info, PROC_PIDT_SHORTBSDINFO_SIZE) <= 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected{std::error_code{errno, std::system_category()}};
 
     return info.pbsi_comm;
 }
@@ -70,7 +70,7 @@ tl::expected<std::string, std::error_code> zero::os::macos::process::Process::na
     std::array<char, 2 * MAXCOMLEN> buffer{};
 
     if (proc_name(mPID, buffer.data(), buffer.size()) <= 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected{std::error_code{errno, std::system_category()}};
 
     return buffer.data();
 }
@@ -79,7 +79,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::macos::process::P
     proc_vnodepathinfo info{};
 
     if (proc_pidinfo(mPID, PROC_PIDVNODEPATHINFO, 0, &info, PROC_PIDVNODEPATHINFO_SIZE) <= 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected{std::error_code{errno, std::system_category()}};
 
     return info.pvi_cdir.vip_path;
 }
@@ -88,7 +88,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::macos::process::P
     std::array<char, PROC_PIDPATHINFO_MAXSIZE> buffer{};
 
     if (proc_pidpath(mPID, buffer.data(), buffer.size()) <= 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected{std::error_code{errno, std::system_category()}};
 
     return buffer.data();
 }
@@ -98,13 +98,13 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::macos::process
     EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     const auto argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     it = std::find_if(
         it,
@@ -115,12 +115,12 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::macos::process
     );
 
     if (it == arguments->end())
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     auto tokens = strings::split(std::string{it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     tokens.pop_back();
     return tokens;
@@ -131,13 +131,13 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::maco
     EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     const auto argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     it = std::find_if(
         it,
@@ -148,12 +148,12 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::maco
     );
 
     if (it == arguments->end())
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     const auto tokens = strings::split(std::string{it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return tl::unexpected(Error::UNEXPECTED_DATA);
+        return tl::unexpected{Error::UNEXPECTED_DATA};
 
     const auto &str = tokens[argc];
 
@@ -165,7 +165,7 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::maco
 
     while (true) {
         if (str.length() <= prev)
-            return tl::unexpected(Error::UNEXPECTED_DATA);
+            return tl::unexpected{Error::UNEXPECTED_DATA};
 
         if (str[prev] == '\0')
             break;
@@ -173,14 +173,14 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::maco
         auto pos = str.find('\0', prev);
 
         if (pos == std::string::npos)
-            return tl::unexpected(Error::UNEXPECTED_DATA);
+            return tl::unexpected{Error::UNEXPECTED_DATA};
 
         const auto item = str.substr(prev, pos - prev);
         prev = pos + 1;
         pos = item.find('=');
 
         if (pos == std::string::npos)
-            return tl::unexpected(Error::UNEXPECTED_DATA);
+            return tl::unexpected{Error::UNEXPECTED_DATA};
 
         envs.emplace(item.substr(0, pos), item.substr(pos + 1));
     }
@@ -193,7 +193,7 @@ zero::os::macos::process::Process::startTime() const {
     proc_bsdinfo info{};
 
     if (proc_pidinfo(mPID, PROC_PIDTBSDINFO, 0, &info, PROC_PIDTBSDINFO_SIZE) <= 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected{std::error_code{errno, std::system_category()}};
 
     return std::chrono::system_clock::from_time_t(info.pbi_start_tvsec);
 }
@@ -202,12 +202,12 @@ tl::expected<zero::os::macos::process::CPUTime, std::error_code> zero::os::macos
     proc_taskinfo info{};
 
     if (proc_pidinfo(mPID, PROC_PIDTASKINFO, 0, &info, PROC_PIDTASKINFO_SIZE) <= 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected{std::error_code{errno, std::system_category()}};
 
     struct mach_timebase_info tb{};
 
     if (const auto status = mach_timebase_info(&tb); status != KERN_SUCCESS)
-        return tl::unexpected(make_error_code(static_cast<macos::Error>(status)));
+        return tl::unexpected{static_cast<macos::Error>(status)};
 
     const auto scale = static_cast<double>(tb.numer) / static_cast<double>(tb.denom);
 
@@ -222,7 +222,7 @@ zero::os::macos::process::Process::memory() const {
     proc_taskinfo info{};
 
     if (proc_pidinfo(mPID, PROC_PIDTASKINFO, 0, &info, PROC_PIDTASKINFO_SIZE) <= 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected{std::error_code{errno, std::system_category()}};
 
     return MemoryStat{
         info.pti_resident_size,
@@ -236,7 +236,7 @@ zero::os::macos::process::Process::io() const {
     rusage_info_v2 info{};
 
     if (proc_pid_rusage(mPID, RUSAGE_INFO_V2, reinterpret_cast<rusage_info_t *>(&info)) < 0)
-        return tl::unexpected(std::error_code(errno, std::system_category()));
+        return tl::unexpected{std::error_code{errno, std::system_category()}};
 
     return IOStat{
         info.ri_diskio_bytesread,
@@ -271,7 +271,7 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::macos::process::all() 
         const auto n = proc_listallpids(buffer.get(), static_cast<int>(size * sizeof(pid_t)));
 
         if (n == -1)
-            return tl::unexpected(std::error_code(errno, std::system_category()));
+            return tl::unexpected{std::error_code{errno, std::system_category()}};
 
         if (n < size)
             return std::list<pid_t>{buffer.get(), buffer.get() + n};

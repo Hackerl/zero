@@ -28,7 +28,7 @@ tl::expected<std::optional<std::string>, std::error_code> zero::env::get(const s
 
         if (result == 0) {
             if (const auto error = GetLastError(); error != ERROR_ENVVAR_NOT_FOUND)
-                return tl::unexpected(std::error_code(static_cast<int>(error), std::system_category()));
+                return tl::unexpected{std::error_code{static_cast<int>(error), std::system_category()}};
 
             return std::nullopt;
         }

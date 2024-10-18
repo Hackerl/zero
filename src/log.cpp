@@ -23,7 +23,7 @@ tl::expected<void, std::error_code> zero::log::ConsoleProvider::rotate() {
 
 tl::expected<void, std::error_code> zero::log::ConsoleProvider::flush() {
     if (fflush(stderr) != 0)
-        return tl::unexpected(std::error_code(errno, std::generic_category()));
+        return tl::unexpected{std::error_code{errno, std::generic_category()}};
 
     return {};
 }
@@ -32,7 +32,7 @@ tl::expected<void, std::error_code> zero::log::ConsoleProvider::write(const Reco
     const auto message = fmt::format("{}\n", record);
 
     if (fwrite(message.data(), 1, message.size(), stderr) != message.size())
-        return tl::unexpected(std::error_code(errno, std::generic_category()));
+        return tl::unexpected{std::error_code{errno, std::generic_category()}};
 
     return {};
 }
@@ -66,7 +66,7 @@ tl::expected<void, std::error_code> zero::log::FileProvider::init() {
     mStream.open(mDirectory / name);
 
     if (!mStream.is_open())
-        return tl::unexpected(std::error_code(errno, std::generic_category()));
+        return tl::unexpected{std::error_code{errno, std::generic_category()}};
 
     return {};
 }
@@ -111,7 +111,7 @@ tl::expected<void, std::error_code> zero::log::FileProvider::rotate() {
 
 tl::expected<void, std::error_code> zero::log::FileProvider::flush() {
     if (!mStream.flush().good())
-        return tl::unexpected(std::error_code(errno, std::generic_category()));
+        return tl::unexpected{std::error_code{errno, std::generic_category()}};
 
     return {};
 }
@@ -120,7 +120,7 @@ tl::expected<void, std::error_code> zero::log::FileProvider::write(const Record 
     const auto message = fmt::format("{}\n", record);
 
     if (!mStream.write(message.c_str(), static_cast<std::streamsize>(message.size())))
-        return tl::unexpected(std::error_code(errno, std::generic_category()));
+        return tl::unexpected{std::error_code{errno, std::generic_category()}};
 
     mPosition += message.size();
     return {};

@@ -155,7 +155,7 @@ namespace zero::filesystem {
 
         [[nodiscard]] value_type operator*() const {
             if (mErrorCode)
-                return tl::unexpected(mErrorCode);
+                return tl::unexpected{mErrorCode};
 
             return DirectoryEntry{*mIterator};
         }

@@ -5,7 +5,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::absolute(
     auto result = std::filesystem::absolute(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -15,7 +15,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::canonical
     auto result = std::filesystem::canonical(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -26,7 +26,7 @@ zero::filesystem::weaklyCanonical(const std::filesystem::path &path) {
     auto result = weakly_canonical(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -36,7 +36,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::relative(
     auto result = std::filesystem::relative(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -47,7 +47,7 @@ zero::filesystem::relative(const std::filesystem::path &path, const std::filesys
     auto result = std::filesystem::relative(path, base, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -57,7 +57,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::proximate
     auto result = std::filesystem::proximate(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -68,7 +68,7 @@ zero::filesystem::proximate(const std::filesystem::path &path, const std::filesy
     auto result = std::filesystem::proximate(path, base, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -79,7 +79,7 @@ zero::filesystem::copy(const std::filesystem::path &from, const std::filesystem:
     std::filesystem::copy(from, to, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -94,7 +94,7 @@ zero::filesystem::copy(
     std::filesystem::copy(from, to, options, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -105,7 +105,7 @@ zero::filesystem::copyFile(const std::filesystem::path &from, const std::filesys
     const auto result = copy_file(from, to, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -120,7 +120,7 @@ zero::filesystem::copyFile(
     const auto result = copy_file(from, to, options, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -131,7 +131,7 @@ zero::filesystem::copySymlink(const std::filesystem::path &from, const std::file
     copy_symlink(from, to, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -141,7 +141,7 @@ tl::expected<bool, std::error_code> zero::filesystem::createDirectory(const std:
     const auto result = create_directory(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -152,7 +152,7 @@ zero::filesystem::createDirectory(const std::filesystem::path &path, const std::
     const auto result = create_directory(path, existing, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -162,7 +162,7 @@ tl::expected<bool, std::error_code> zero::filesystem::createDirectories(const st
     const auto result = create_directories(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -173,7 +173,7 @@ zero::filesystem::createHardLink(const std::filesystem::path &target, const std:
     create_hard_link(target, link, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -184,7 +184,7 @@ zero::filesystem::createSymlink(const std::filesystem::path &target, const std::
     create_symlink(target, link, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -195,7 +195,7 @@ zero::filesystem::createDirectorySymlink(const std::filesystem::path &target, co
     create_directory_symlink(target, link, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -205,7 +205,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::currentPa
     auto result = std::filesystem::current_path(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -215,7 +215,7 @@ tl::expected<void, std::error_code> zero::filesystem::currentPath(const std::fil
     current_path(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -225,7 +225,7 @@ tl::expected<bool, std::error_code> zero::filesystem::exists(const std::filesyst
     const auto result = std::filesystem::exists(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -236,7 +236,7 @@ zero::filesystem::equivalent(const std::filesystem::path &p1, const std::filesys
     const auto result = std::filesystem::equivalent(p1, p2, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -246,7 +246,7 @@ tl::expected<std::uintmax_t, std::error_code> zero::filesystem::fileSize(const s
     const auto result = file_size(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -256,7 +256,7 @@ tl::expected<std::uintmax_t, std::error_code> zero::filesystem::hardLinkCount(co
     const auto result = hard_link_count(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -267,7 +267,7 @@ zero::filesystem::lastWriteTime(const std::filesystem::path &path) {
     const auto result = last_write_time(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -278,7 +278,7 @@ zero::filesystem::lastWriteTime(const std::filesystem::path &path, const std::fi
     last_write_time(path, time, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -293,7 +293,7 @@ zero::filesystem::permissions(
     std::filesystem::permissions(path, perms, opts, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -303,7 +303,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::readSymli
     auto result = read_symlink(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -313,7 +313,7 @@ tl::expected<bool, std::error_code> zero::filesystem::remove(const std::filesyst
     const auto result = std::filesystem::remove(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -323,7 +323,7 @@ tl::expected<std::uintmax_t, std::error_code> zero::filesystem::removeAll(const 
     const auto result = remove_all(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -334,7 +334,7 @@ zero::filesystem::rename(const std::filesystem::path &from, const std::filesyste
     std::filesystem::rename(from, to, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -345,7 +345,7 @@ zero::filesystem::resizeFile(const std::filesystem::path &path, const std::uintm
     resize_file(path, size, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -355,7 +355,7 @@ tl::expected<std::filesystem::space_info, std::error_code> zero::filesystem::spa
     const auto result = std::filesystem::space(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -366,7 +366,7 @@ zero::filesystem::status(const std::filesystem::path &path) {
     const auto result = std::filesystem::status(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -377,7 +377,7 @@ zero::filesystem::symlinkStatus(const std::filesystem::path &path) {
     const auto result = symlink_status(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -387,7 +387,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::filesystem::temporary
     auto result = std::filesystem::temp_directory_path(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -397,7 +397,7 @@ tl::expected<bool, std::error_code> zero::filesystem::isBlockFile(const std::fil
     const auto result = is_block_file(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -407,7 +407,7 @@ tl::expected<bool, std::error_code> zero::filesystem::isCharacterFile(const std:
     const auto result = is_character_file(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -417,7 +417,7 @@ tl::expected<bool, std::error_code> zero::filesystem::isDirectory(const std::fil
     const auto result = is_directory(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -427,7 +427,7 @@ tl::expected<bool, std::error_code> zero::filesystem::isEmpty(const std::filesys
     const auto result = is_empty(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -437,7 +437,7 @@ tl::expected<bool, std::error_code> zero::filesystem::isFIFO(const std::filesyst
     const auto result = is_fifo(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -447,7 +447,7 @@ tl::expected<bool, std::error_code> zero::filesystem::isOther(const std::filesys
     const auto result = is_other(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -457,7 +457,7 @@ tl::expected<bool, std::error_code> zero::filesystem::isRegularFile(const std::f
     const auto result = is_regular_file(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -467,7 +467,7 @@ tl::expected<bool, std::error_code> zero::filesystem::isSocket(const std::filesy
     const auto result = is_socket(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -477,7 +477,7 @@ tl::expected<bool, std::error_code> zero::filesystem::isSymlink(const std::files
     const auto result = is_symlink(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -490,7 +490,7 @@ tl::expected<void, std::error_code> zero::filesystem::DirectoryEntry::assign(con
     mEntry.assign(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -501,7 +501,7 @@ zero::filesystem::DirectoryEntry::replaceFilename(const std::filesystem::path &p
     mEntry.replace_filename(path, ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -511,7 +511,7 @@ tl::expected<void, std::error_code> zero::filesystem::DirectoryEntry::refresh() 
     mEntry.refresh(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return {};
 }
@@ -525,7 +525,7 @@ tl::expected<bool, std::error_code> zero::filesystem::DirectoryEntry::exists() c
     const auto result = mEntry.exists(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -535,7 +535,7 @@ tl::expected<bool, std::error_code> zero::filesystem::DirectoryEntry::isBlockFil
     const auto result = mEntry.is_block_file(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -545,7 +545,7 @@ tl::expected<bool, std::error_code> zero::filesystem::DirectoryEntry::isCharacte
     const auto result = mEntry.is_character_file(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -555,7 +555,7 @@ tl::expected<bool, std::error_code> zero::filesystem::DirectoryEntry::isDirector
     const auto result = mEntry.is_directory(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -565,7 +565,7 @@ tl::expected<bool, std::error_code> zero::filesystem::DirectoryEntry::isFIFO() c
     const auto result = mEntry.is_fifo(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -575,7 +575,7 @@ tl::expected<bool, std::error_code> zero::filesystem::DirectoryEntry::isOther() 
     const auto result = mEntry.is_other(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -585,7 +585,7 @@ tl::expected<bool, std::error_code> zero::filesystem::DirectoryEntry::isRegularF
     const auto result = mEntry.is_regular_file(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -595,7 +595,7 @@ tl::expected<bool, std::error_code> zero::filesystem::DirectoryEntry::isSocket()
     const auto result = mEntry.is_socket(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -605,7 +605,7 @@ tl::expected<bool, std::error_code> zero::filesystem::DirectoryEntry::isSymlink(
     const auto result = mEntry.is_symlink(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -615,7 +615,7 @@ tl::expected<std::uintmax_t, std::error_code> zero::filesystem::DirectoryEntry::
     const auto result = mEntry.file_size(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -625,7 +625,7 @@ tl::expected<std::uintmax_t, std::error_code> zero::filesystem::DirectoryEntry::
     const auto result = mEntry.hard_link_count(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -636,7 +636,7 @@ zero::filesystem::DirectoryEntry::lastWriteTime() const {
     const auto result = mEntry.last_write_time(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -646,7 +646,7 @@ tl::expected<std::filesystem::file_status, std::error_code> zero::filesystem::Di
     const auto result = mEntry.status(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -656,7 +656,7 @@ tl::expected<std::filesystem::file_status, std::error_code> zero::filesystem::Di
     const auto result = mEntry.symlink_status(ec);
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return result;
 }
@@ -680,7 +680,7 @@ zero::filesystem::readDirectory(const std::filesystem::path &path) {
     std::filesystem::directory_iterator it{path, ec};
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return NoExcept{std::move(it)};
 }
@@ -691,7 +691,7 @@ zero::filesystem::walkDirectory(const std::filesystem::path &path) {
     std::filesystem::recursive_directory_iterator it{path, ec};
 
     if (ec)
-        return tl::unexpected(ec);
+        return tl::unexpected{ec};
 
     return NoExcept{std::move(it)};
 }
