@@ -1,4 +1,4 @@
-#include <zero/os/macos/process.h>
+#include <zero/os/linux/process.h>
 #include <zero/os/unix/error.h>
 #include <zero/filesystem/fs.h>
 #include <zero/filesystem/std.h>
@@ -9,9 +9,9 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-TEST_CASE("macos process", "[macos]") {
+TEST_CASE("linux process", "[linux]") {
     SECTION("all") {
-        const auto ids = zero::os::macos::process::all();
+        const auto ids = zero::os::linux::process::all();
         REQUIRE(ids);
     }
 
@@ -22,7 +22,7 @@ TEST_CASE("macos process", "[macos]") {
         using namespace std::chrono_literals;
 
         const auto pid = getpid();
-        const auto process = zero::os::macos::process::self();
+        const auto process = zero::os::linux::process::self();
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
@@ -32,10 +32,6 @@ TEST_CASE("macos process", "[macos]") {
 
         const auto path = zero::filesystem::applicationPath();
         REQUIRE(path);
-
-        const auto name = process->name();
-        REQUIRE(name);
-        REQUIRE(*name == "zero_test");
 
         const auto comm = process->comm();
         REQUIRE(comm);
@@ -83,7 +79,7 @@ TEST_CASE("macos process", "[macos]") {
         REQUIRE(pid > 0);
         std::this_thread::sleep_for(100ms);
 
-        auto process = zero::os::macos::process::open(pid);
+        auto process = zero::os::linux::process::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
@@ -144,29 +140,28 @@ TEST_CASE("macos process", "[macos]") {
 
         std::this_thread::sleep_for(100ms);
 
-        const auto process = zero::os::macos::process::open(pid);
+        const auto process = zero::os::linux::process::open(pid);
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
         const auto comm = process->comm();
-        REQUIRE_FALSE(comm);
-        REQUIRE(comm.error() == std::errc::no_such_process);
+        REQUIRE(comm);
+        REQUIRE(*comm == "zero_test");
 
         const auto cmdline = process->cmdline();
         REQUIRE_FALSE(cmdline);
-        REQUIRE(cmdline.error() == std::errc::invalid_argument);
+        REQUIRE(cmdline.error() == zero::os::linux::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
         const auto envs = process->envs();
-        REQUIRE_FALSE(envs);
-        REQUIRE(envs.error() == std::errc::invalid_argument);
+        REQUIRE((!envs || envs->empty()));
 
         const auto exe = process->exe();
         REQUIRE_FALSE(exe);
-        REQUIRE(exe.error() == std::errc::no_such_process);
+        REQUIRE(exe.error() == std::errc::no_such_file_or_directory);
 
         const auto cwd = process->cwd();
         REQUIRE_FALSE(cwd);
-        REQUIRE(cwd.error() == std::errc::no_such_process);
+        REQUIRE(cwd.error() == std::errc::no_such_file_or_directory);
 
         const auto id = zero::os::unix::ensure([&] {
             return waitpid(pid, nullptr, 0);
@@ -176,8 +171,8 @@ TEST_CASE("macos process", "[macos]") {
     }
 
     SECTION("no such process") {
-        const auto process = zero::os::macos::process::open(99999);
+        const auto process = zero::os::linux::process::open(99999);
         REQUIRE_FALSE(process);
-        REQUIRE(process.error() == std::errc::no_such_process);
+        REQUIRE(process.error() == std::errc::no_such_file_or_directory);
     }
 }

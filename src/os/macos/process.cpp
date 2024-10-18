@@ -188,6 +188,16 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
     return envs;
 }
 
+std::expected<std::chrono::system_clock::time_point, std::error_code>
+zero::os::macos::process::Process::startTime() const {
+    proc_bsdinfo info{};
+
+    if (proc_pidinfo(mPID, PROC_PIDTBSDINFO, 0, &info, PROC_PIDTBSDINFO_SIZE) <= 0)
+        return std::unexpected(std::error_code(errno, std::system_category()));
+
+    return std::chrono::system_clock::from_time_t(info.pbi_start_tvsec);
+}
+
 std::expected<zero::os::macos::process::CPUTime, std::error_code> zero::os::macos::process::Process::cpu() const {
     proc_taskinfo info{};
 

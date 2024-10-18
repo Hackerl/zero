@@ -55,6 +55,7 @@ namespace zero::os::process {
         [[nodiscard]] std::expected<std::filesystem::path, std::error_code> exe() const;
         [[nodiscard]] std::expected<std::vector<std::string>, std::error_code> cmdline() const;
         [[nodiscard]] std::expected<std::map<std::string, std::string>, std::error_code> envs() const;
+        [[nodiscard]] std::expected<std::chrono::system_clock::time_point, std::error_code> startTime() const;
 
         [[nodiscard]] std::expected<CPUTime, std::error_code> cpu() const;
         [[nodiscard]] std::expected<MemoryStat, std::error_code> memory() const;

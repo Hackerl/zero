@@ -180,6 +180,10 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::pro
     return mImpl.envs();
 }
 
+std::expected<std::chrono::system_clock::time_point, std::error_code> zero::os::process::Process::startTime() const {
+    return mImpl.startTime();
+}
+
 std::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Process::cpu() const {
     return mImpl.cpu().transform([](const auto &cpu) {
         return CPUTime{cpu.user, cpu.system};

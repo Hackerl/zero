@@ -26,6 +26,8 @@ constexpr auto ARGUMENTS = {"1"};
 
 TEST_CASE("process", "[os]") {
     SECTION("process") {
+        using namespace std::chrono_literals;
+
         const auto ids = zero::os::process::all();
         REQUIRE(ids);
 
@@ -53,6 +55,10 @@ TEST_CASE("process", "[os]") {
 
         const auto envs = process->envs();
         REQUIRE(envs);
+
+        const auto startTime = process->startTime();
+        REQUIRE(startTime);
+        REQUIRE(std::chrono::system_clock::now() - *startTime < 1min);
 
         const auto memory = process->memory();
         REQUIRE(memory);

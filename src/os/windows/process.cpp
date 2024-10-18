@@ -272,6 +272,19 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
     return envs;
 }
 
+std::expected<std::chrono::system_clock::time_point, std::error_code>
+zero::os::windows::process::Process::startTime() const {
+    FILETIME create{}, exit{}, kernel{}, user{};
+
+    EXPECT(expected([&] {
+        return GetProcessTimes(mHandle, &create, &exit, &kernel, &user);
+    }));
+
+    return std::chrono::system_clock::from_time_t(
+        (static_cast<std::int64_t>(create.dwHighDateTime) << 32 | create.dwLowDateTime) / 10000000 - 11644473600
+    );
+}
+
 std::expected<zero::os::windows::process::CPUTime, std::error_code> zero::os::windows::process::Process::cpu() const {
     FILETIME create{}, exit{}, kernel{}, user{};
 

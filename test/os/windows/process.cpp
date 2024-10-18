@@ -35,6 +35,10 @@ TEST_CASE("windows process", "[windows]") {
     const auto envs = process->envs();
     REQUIRE(envs);
 
+    const auto startTime = process->startTime();
+    REQUIRE(startTime);
+    REQUIRE(std::chrono::system_clock::now() - *startTime < 1min);
+
     const auto memory = process->memory();
     REQUIRE(memory);
 

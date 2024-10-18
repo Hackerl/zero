@@ -45,8 +45,8 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(cmdline);
         REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
-        const auto env = process->environ();
-        REQUIRE(env);
+        const auto envs = process->environ();
+        REQUIRE(envs);
 
         const auto mappings = process->maps();
         REQUIRE(mappings);
@@ -135,8 +135,8 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(cmdline);
         REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
-        const auto env = process->environ();
-        REQUIRE(env);
+        const auto envs = process->environ();
+        REQUIRE(envs);
 
         const auto mappings = process->maps();
         REQUIRE(mappings);
@@ -228,9 +228,6 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE(process);
         REQUIRE(process->pid() == pid);
 
-        const auto path = zero::filesystem::applicationPath();
-        REQUIRE(path);
-
         const auto comm = process->comm();
         REQUIRE(comm);
         REQUIRE(*comm == "(test)");
@@ -239,8 +236,8 @@ TEST_CASE("procfs process", "[procfs]") {
         REQUIRE_FALSE(cmdline);
         REQUIRE(cmdline.error() == zero::os::linux::procfs::process::Process::Error::MAYBE_ZOMBIE_PROCESS);
 
-        const auto env = process->environ();
-        REQUIRE((!env || env->empty()));
+        const auto envs = process->environ();
+        REQUIRE((!envs || envs->empty()));
 
         const auto mappings = process->maps();
         REQUIRE_FALSE(mappings);

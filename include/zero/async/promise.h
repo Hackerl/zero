@@ -299,7 +299,7 @@ namespace zero::async::promise {
                 !detail::is_specialization_v<callback_result_t<F, T>, std::expected>
             )
         auto then(F &&f) && {
-            using NextValue = std::decay_t<callback_result_t<F, T>>;
+            using NextValue = std::remove_cv_t<std::remove_reference_t<callback_result_t<F, T>>>;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -396,7 +396,10 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<
-                Promise<T, std::decay_t<decltype(std::declval<callback_result_t<F, E>>().error())>>
+                Promise<
+                    T,
+                    std::remove_cv_t<std::remove_reference_t<decltype(std::declval<callback_result_t<F, E>>().error())>>
+                >
             >();
 
             setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {

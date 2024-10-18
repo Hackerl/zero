@@ -1,4 +1,5 @@
 #include <zero/os/linux/process.h>
+#include <zero/os/linux/procfs/procfs.h>
 #include <zero/os/unix/error.h>
 #include <zero/expect.h>
 #include <unistd.h>
@@ -46,6 +47,26 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::linux::proces
 
 std::expected<std::map<std::string, std::string>, std::error_code> zero::os::linux::process::Process::envs() const {
     return mProcess.environ();
+}
+
+std::expected<std::chrono::system_clock::time_point, std::error_code>
+zero::os::linux::process::Process::startTime() const {
+    const auto ticks = unix::expected([] {
+        return sysconf(_SC_CLK_TCK);
+    }).transform([](const auto &result) {
+        return static_cast<double>(result);
+    });
+    EXPECT(ticks);
+
+    const auto stat = mProcess.stat();
+    EXPECT(stat);
+
+    const auto kernelStat = procfs::stat();
+    EXPECT(kernelStat);
+
+    return std::chrono::system_clock::from_time_t(
+        static_cast<std::int64_t>(kernelStat->bootTime + static_cast<double>(stat->startTime) / *ticks)
+    );
 }
 
 std::expected<zero::os::linux::process::CPUTime, std::error_code> zero::os::linux::process::Process::cpu() const {
