@@ -31,7 +31,7 @@ namespace zero::os::windows {
         const auto result = f();
 
         if (!result)
-            return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
         return {};
     }

@@ -14,7 +14,7 @@ namespace zero::os::unix {
         const auto result = f();
 
         if (result == -1)
-            return std::unexpected(std::error_code(errno, std::system_category()));
+            return std::unexpected{std::error_code{errno, std::system_category()}};
 
         return result;
     }
@@ -25,7 +25,7 @@ namespace zero::os::unix {
         const auto result = f();
 
         if (reinterpret_cast<std::intptr_t>(result) == -1)
-            return std::unexpected(std::error_code(errno, std::system_category()));
+            return std::unexpected{std::error_code{errno, std::system_category()}};
 
         return result;
     }
@@ -40,7 +40,7 @@ namespace zero::os::unix {
                 return *result;
 
             if (result.error() != std::errc::interrupted)
-                return std::unexpected(result.error());
+                return std::unexpected{result.error()};
         }
     }
 }

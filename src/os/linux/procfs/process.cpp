@@ -10,8 +10,6 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <ranges>
-#include <algorithm>
 
 constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
@@ -94,7 +92,7 @@ std::expected<std::string, std::error_code> zero::os::linux::procfs::process::Pr
     EXPECT(content);
 
     if (content->size() < 2)
-        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
     content->pop_back();
     return *std::move(content);
@@ -105,13 +103,13 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::linux::procfs
     EXPECT(content);
 
     if (content->empty())
-        return std::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
+        return std::unexpected{Error::MAYBE_ZOMBIE_PROCESS};
 
     content->pop_back();
     auto tokens = strings::split(*content, {"\0", 1});
 
     if (tokens.empty())
-        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
     return tokens;
 }
@@ -148,7 +146,7 @@ zero::os::linux::procfs::process::Process::stat() const {
     const auto end = content->rfind(')');
 
     if (start == std::string::npos || end == std::string::npos)
-        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
     Stat stat{};
 
@@ -161,7 +159,7 @@ zero::os::linux::procfs::process::Process::stat() const {
     const auto tokens = strings::split({content->begin() + end + 2, content->end()}, " ");
 
     if (tokens.size() < STAT_BASIC_FIELDS - 2)
-        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
     auto it = tokens.begin();
 
@@ -246,7 +244,7 @@ zero::os::linux::procfs::process::Process::statM() const {
     const auto tokens = strings::split(*content, " ");
 
     if (tokens.size() != 7)
-        return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
     const auto size = strings::toNumber<std::uint64_t>(tokens[0]);
     EXPECT(size);
@@ -320,7 +318,7 @@ parseAllowedList(const std::string_view str) {
         const auto tokens = zero::strings::split(token, "-", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected(zero::os::linux::procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected{zero::os::linux::procfs::Error::UNEXPECTED_DATA};
 
         const auto begin = zero::strings::toNumber<std::uint32_t>(tokens[0]);
         EXPECT(begin);
@@ -345,7 +343,7 @@ zero::os::linux::procfs::process::Process::status() const {
         auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
@@ -368,7 +366,7 @@ zero::os::linux::procfs::process::Process::status() const {
             if constexpr (detail::is_specialization_v<T, std::optional>)
                 return {};
             else
-                return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+                return std::unexpected{procfs::Error::UNEXPECTED_DATA};
         }
 
         if constexpr (detail::is_specialization_v<V, std::expected>) {
@@ -410,7 +408,7 @@ zero::os::linux::procfs::process::Process::status() const {
         EXPECT(numbers);
 
         if (numbers->size() != 4)
-            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
         return std::array{numbers->at(0), numbers->at(1), numbers->at(2), numbers->at(3)};
     };
@@ -450,7 +448,7 @@ zero::os::linux::procfs::process::Process::status() const {
             const auto tokens = strings::split(value, "/", 1);
 
             if (tokens.size() != 2)
-                return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+                return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
             const auto number = strings::toNumber<std::uint64_t>(tokens[0]);
             EXPECT(number);
@@ -502,7 +500,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
 
     if (!dir) {
         close(*fd);
-        return std::unexpected(std::error_code(errno, std::system_category()));
+        return std::unexpected{std::error_code{errno, std::system_category()}};
     }
 
     DEFER(closedir(dir));
@@ -532,7 +530,7 @@ zero::os::linux::procfs::process::Process::maps() const {
     EXPECT(content);
 
     if (content->empty())
-        return std::unexpected(Error::MAYBE_ZOMBIE_PROCESS);
+        return std::unexpected{Error::MAYBE_ZOMBIE_PROCESS};
 
     std::list<MemoryMapping> mappings;
 
@@ -540,12 +538,12 @@ zero::os::linux::procfs::process::Process::maps() const {
         const auto fields = strings::split(line);
 
         if (fields.size() < MAPPING_BASIC_FIELDS)
-            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
         const auto tokens = strings::split(fields[0], "-", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
         const auto start = strings::toNumber<std::uint64_t>(tokens[0], 16);
         EXPECT(start);
@@ -607,7 +605,7 @@ zero::os::linux::procfs::process::Process::io() const {
         auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
@@ -616,7 +614,7 @@ zero::os::linux::procfs::process::Process::io() const {
         const auto it = map.find(key);
 
         if (it == map.end())
-            return std::unexpected(procfs::Error::UNEXPECTED_DATA);
+            return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
         const auto value = strings::toNumber<T>(it->second);
         EXPECT(value);
@@ -643,7 +641,7 @@ std::expected<zero::os::linux::procfs::process::Process, std::error_code> zero::
 
 std::expected<zero::os::linux::procfs::process::Process, std::error_code>
 zero::os::linux::procfs::process::open(const pid_t pid) {
-    const auto path = std::filesystem::path("/proc") / std::to_string(pid);
+    const auto path = std::filesystem::path{"/proc"} / std::to_string(pid);
     const auto fd = unix::expected([&] {
 #ifdef O_PATH
         return ::open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);

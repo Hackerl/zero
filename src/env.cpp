@@ -28,7 +28,7 @@ std::expected<std::optional<std::string>, std::error_code> zero::env::get(const 
 
         if (result == 0) {
             if (const auto error = GetLastError(); error != ERROR_ENVVAR_NOT_FOUND)
-                return std::unexpected(std::error_code(static_cast<int>(error), std::system_category()));
+                return std::unexpected{std::error_code{static_cast<int>(error), std::system_category()}};
 
             return std::nullopt;
         }

@@ -69,7 +69,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
             break;
 
         if (result != ERROR_BUFFER_OVERFLOW)
-            return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
         buffer = std::make_unique<std::byte[]>(size);
     }
@@ -87,7 +87,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
         std::array<WCHAR, NDIS_IF_MAX_STRING_SIZE + 1> buf{};
 
         if (ConvertInterfaceLuidToNameW(&adapter->Luid, buf.data(), buf.size()) != ERROR_SUCCESS)
-            return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
         const auto name = strings::encode(buf.data());
         EXPECT(name);
@@ -149,7 +149,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
     static const auto freeifaddrs = reinterpret_cast<void (*)(ifaddrs *)>(dlsym(RTLD_DEFAULT, "freeifaddrs"));
 
     if (!getifaddrs || !freeifaddrs)
-        return std::unexpected(GetInterfacesError::API_NOT_AVAILABLE);
+        return std::unexpected{GetInterfacesError::API_NOT_AVAILABLE};
 #endif
     ifaddrs *addr{};
 

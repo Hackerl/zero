@@ -39,7 +39,7 @@ std::string zero::encoding::base64::encode(const std::span<const std::byte> data
 std::expected<std::vector<std::byte>, zero::encoding::base64::DecodeError>
 zero::encoding::base64::decode(const std::string_view encoded) {
     if (encoded.length() % 4)
-        return std::unexpected(DecodeError::INVALID_LENGTH);
+        return std::unexpected{DecodeError::INVALID_LENGTH};
 
     constexpr std::array mapping{
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,

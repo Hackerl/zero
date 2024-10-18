@@ -10,7 +10,7 @@ std::expected<zero::os::linux::procfs::CPUTime, std::error_code> parseCPUTime(co
     const auto tokens = zero::strings::split(str);
 
     if (tokens.size() < 5)
-        return std::unexpected(zero::os::linux::procfs::Error::UNEXPECTED_DATA);
+        return std::unexpected{zero::os::linux::procfs::Error::UNEXPECTED_DATA};
 
     auto it = tokens.begin() + 1;
 
@@ -105,7 +105,7 @@ std::expected<zero::os::linux::procfs::MemoryStat, std::error_code> zero::os::li
         auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected(Error::UNEXPECTED_DATA);
+            return std::unexpected{Error::UNEXPECTED_DATA};
 
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
@@ -123,7 +123,7 @@ std::expected<zero::os::linux::procfs::MemoryStat, std::error_code> zero::os::li
         }
         else {
             if (it == map.end())
-                return std::unexpected(Error::UNEXPECTED_DATA);
+                return std::unexpected{Error::UNEXPECTED_DATA};
 
             const auto value = strings::toNumber<T>(it->second);
             EXPECT(value);

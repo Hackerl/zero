@@ -33,11 +33,11 @@ zero::atomic::Event::~Event() {
 std::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
     if (const auto result = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
-        return std::unexpected(
+        return std::unexpected{
             result == WAIT_TIMEOUT
                 ? make_error_code(Error::WAIT_EVENT_TIMEOUT)
-                : std::error_code(static_cast<int>(GetLastError()), std::system_category())
-        );
+                : std::error_code{static_cast<int>(GetLastError()), std::system_category()}
+        };
     }
 
     return {};
@@ -80,7 +80,7 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
         if (const auto result = os::unix::ensure([&] {
             return syscall(SYS_futex, &mState, FUTEX_WAIT, 0, ts ? &*ts : nullptr, nullptr, 0);
         }); !result && result.error() != std::errc::resource_unavailable_try_again)
-            return std::unexpected(result.error());
+            return std::unexpected{result.error()};
 #elif defined(__APPLE__)
         EXPECT(os::unix::ensure([&] {
             return __ulock_wait(

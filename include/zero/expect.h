@@ -3,11 +3,11 @@
 
 #define EXPECT(...)                                                 \
     if (auto &&_result = __VA_ARGS__; !_result)                     \
-        return std::unexpected(std::move(_result).error())
+        return std::unexpected{std::move(_result).error()}
 
 #define CO_EXPECT(...)                                              \
     if (auto &&_result = __VA_ARGS__; !_result)                     \
-        co_return std::unexpected(std::move(_result).error())
+        co_return std::unexpected{std::move(_result).error()}
 
 #ifdef __GNUC__
 #define TRY(...)                                                    \
@@ -15,7 +15,7 @@
         auto &&_result = __VA_ARGS__;                               \
                                                                     \
         if (!_result)                                               \
-            return std::unexpected(std::move(_result).error());     \
+            return std::unexpected{std::move(_result).error()};     \
                                                                     \
         *std::move(_result);                                        \
     })
@@ -27,7 +27,7 @@
         auto &&_result = __VA_ARGS__;                               \
                                                                     \
         if (!_result)                                               \
-            co_return std::unexpected(std::move(_result).error());  \
+            co_return std::unexpected{std::move(_result).error()};  \
                                                                     \
         *std::move(_result);                                        \
     })

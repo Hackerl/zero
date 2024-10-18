@@ -22,7 +22,7 @@ std::expected<std::filesystem::path, std::error_code> zero::filesystem::applicat
 
     if (const auto length = GetModuleFileNameW(nullptr, buffer.data(), buffer.size());
         length == 0 || length == buffer.size())
-        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
     return buffer.data();
 #elif defined(__linux__)
@@ -49,7 +49,7 @@ std::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(co
     std::ifstream stream{path, std::ios::binary};
 
     if (!stream.is_open())
-        return std::unexpected(std::error_code(errno, std::generic_category()));
+        return std::unexpected{std::error_code{errno, std::generic_category()}};
 
     std::vector<std::byte> content;
 
@@ -61,7 +61,7 @@ std::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(co
 
         if (stream.fail()) {
             if (!stream.eof())
-                return std::unexpected(std::error_code(errno, std::generic_category()));
+                return std::unexpected{std::error_code{errno, std::generic_category()}};
 
             break;
         }
@@ -74,7 +74,7 @@ std::expected<std::string, std::error_code> zero::filesystem::readString(const s
     std::ifstream stream{path, std::ios::binary};
 
     if (!stream.is_open())
-        return std::unexpected(std::error_code(errno, std::generic_category()));
+        return std::unexpected{std::error_code{errno, std::generic_category()}};
 
     std::string content;
 
@@ -86,7 +86,7 @@ std::expected<std::string, std::error_code> zero::filesystem::readString(const s
 
         if (stream.fail()) {
             if (!stream.eof())
-                return std::unexpected(std::error_code(errno, std::generic_category()));
+                return std::unexpected{std::error_code{errno, std::generic_category()}};
 
             break;
         }
@@ -100,10 +100,10 @@ zero::filesystem::write(const std::filesystem::path &path, const std::span<const
     std::ofstream stream{path, std::ios::binary};
 
     if (!stream.is_open())
-        return std::unexpected(std::error_code(errno, std::generic_category()));
+        return std::unexpected{std::error_code{errno, std::generic_category()}};
 
     if (!stream.write(reinterpret_cast<const char *>(content.data()), static_cast<std::streamsize>(content.size())))
-        return std::unexpected(std::error_code(errno, std::generic_category()));
+        return std::unexpected{std::error_code{errno, std::generic_category()}};
 
     return {};
 }

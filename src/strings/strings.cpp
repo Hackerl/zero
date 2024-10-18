@@ -134,7 +134,7 @@ zero::strings::encode(const std::wstring_view str, const std::string &encoding) 
     const auto cd = iconv_open(encoding.c_str(), "WCHAR_T");
 
     if (cd == reinterpret_cast<iconv_t>(-1))
-        return std::unexpected(std::error_code(errno, std::generic_category()));
+        return std::unexpected{std::error_code{errno, std::generic_category()}};
 
     DEFER(iconv_close(cd));
     std::string output;
@@ -149,7 +149,7 @@ zero::strings::encode(const std::wstring_view str, const std::string &encoding) 
         auto outBytesLeft = buffer.size();
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG)
-            return std::unexpected(std::error_code(errno, std::generic_category()));
+            return std::unexpected{std::error_code{errno, std::generic_category()}};
 
         output.append(buffer.data(), buffer.size() - outBytesLeft);
     }
@@ -162,7 +162,7 @@ zero::strings::decode(const std::string_view str, const std::string &encoding) {
     const auto cd = iconv_open("WCHAR_T", encoding.c_str());
 
     if (cd == reinterpret_cast<iconv_t>(-1))
-        return std::unexpected(std::error_code(errno, std::generic_category()));
+        return std::unexpected{std::error_code{errno, std::generic_category()}};
 
     DEFER(iconv_close(cd));
     std::wstring output;
@@ -177,7 +177,7 @@ zero::strings::decode(const std::string_view str, const std::string &encoding) {
         auto outBytesLeft = buffer.size();
 
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG)
-            return std::unexpected(std::error_code(errno, std::generic_category()));
+            return std::unexpected{std::error_code{errno, std::generic_category()}};
 
         output.append(reinterpret_cast<const wchar_t *>(buffer.data()), (buffer.size() - outBytesLeft) / sizeof(wchar_t));
     }

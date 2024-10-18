@@ -152,7 +152,7 @@ namespace zero::filesystem {
 
         [[nodiscard]] value_type operator*() const {
             if (mErrorCode)
-                return std::unexpected(mErrorCode);
+                return std::unexpected{mErrorCode};
 
             return DirectoryEntry{*mIterator};
         }

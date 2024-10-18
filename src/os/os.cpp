@@ -81,13 +81,13 @@ std::expected<std::string, std::error_code> zero::os::username() {
 
         if (n == 0) {
             if (!ptr)
-                return std::unexpected(GetUsernameError::NO_SUCH_ENTRY);
+                return std::unexpected{GetUsernameError::NO_SUCH_ENTRY};
 
             return pwd.pw_name;
         }
 
         if (n != ERANGE)
-            return std::unexpected(std::error_code(n, std::system_category()));
+            return std::unexpected{std::error_code{n, std::system_category()}};
 
         size *= 2;
         buffer = std::make_unique<char[]>(size);

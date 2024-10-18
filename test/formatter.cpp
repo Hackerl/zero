@@ -7,19 +7,19 @@ TEST_CASE("custom type formatter", "[formatter]") {
         std::expected<void, std::error_code> e1;
         REQUIRE(fmt::to_string(e1) == "expected()");
 
-        e1 = std::unexpected(make_error_code(std::errc::io_error));
+        e1 = std::unexpected{make_error_code(std::errc::io_error)};
         REQUIRE(fmt::to_string(e1) == fmt::format("unexpected(generic:{})", std::to_underlying(std::errc::io_error)));
 
         std::expected<int, std::error_code> e2{1};
         REQUIRE(fmt::to_string(e2) == "expected(1)");
 
-        e2 = std::unexpected(make_error_code(std::errc::io_error));
+        e2 = std::unexpected{make_error_code(std::errc::io_error)};
         REQUIRE(fmt::to_string(e2) == fmt::format("unexpected(generic:{})", std::to_underlying(std::errc::io_error)));
 
         std::expected<std::string, std::error_code> e3{"hello world"};
         REQUIRE(fmt::to_string(e3) == "expected(hello world)");
 
-        e3 = std::unexpected(make_error_code(std::errc::io_error));
+        e3 = std::unexpected{make_error_code(std::errc::io_error)};
         REQUIRE(fmt::to_string(e3) == fmt::format("unexpected(generic:{})", std::to_underlying(std::errc::io_error)));
     }
 

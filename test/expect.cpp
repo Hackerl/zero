@@ -11,11 +11,11 @@ std::expected<std::unique_ptr<int>, std::error_code> func2(const int value) {
 }
 
 std::expected<std::unique_ptr<int>, std::error_code> func3(const int) {
-    return std::unexpected(make_error_code(std::errc::operation_canceled));
+    return std::unexpected{make_error_code(std::errc::operation_canceled)};
 }
 
 std::expected<std::unique_ptr<int>, std::error_code> func4(const int) {
-    return std::unexpected(make_error_code(std::errc::timed_out));
+    return std::unexpected{make_error_code(std::errc::timed_out)};
 }
 
 std::expected<int, std::error_code> test1() {

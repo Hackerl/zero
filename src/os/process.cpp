@@ -111,7 +111,7 @@ createPipe(const bool duplex, SECURITY_ATTRIBUTES *attributes = nullptr) {
     );
 
     if (first == INVALID_HANDLE_VALUE)
-        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
     DEFER(
         if (first)
@@ -129,7 +129,7 @@ createPipe(const bool duplex, SECURITY_ATTRIBUTES *attributes = nullptr) {
     );
 
     if (second == INVALID_HANDLE_VALUE)
-        return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
     return std::array{std::exchange(first, nullptr), second};
 }
@@ -375,7 +375,7 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
 std::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
-        return std::unexpected(Error::API_NOT_AVAILABLE);
+        return std::unexpected{Error::API_NOT_AVAILABLE};
 
     const auto pipes = createPipe(true);
     EXPECT(pipes);
@@ -412,7 +412,7 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
         0,
         &hPC
     ); result != S_OK)
-        return std::unexpected(static_cast<windows::ResultHandle>(result));
+        return std::unexpected{static_cast<windows::ResultHandle>(result)};
 
     return PseudoConsole{hPC, std::exchange(handles, {})};
 }
@@ -425,7 +425,7 @@ void zero::os::process::PseudoConsole::close() {
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
     if (const auto result = resizePseudoConsole(mPC, {columns, rows}); result != S_OK)
-        return std::unexpected(static_cast<windows::ResultHandle>(result));
+        return std::unexpected{static_cast<windows::ResultHandle>(result)};
 
     return {};
 }
@@ -467,7 +467,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         const auto ptr = GetEnvironmentStringsW();
 
         if (!ptr)
-            return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
         DEFER(FreeEnvironmentStringsW(ptr));
 
@@ -571,7 +571,7 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     );
 
     if (!openpty)
-        return std::unexpected(Error::API_NOT_AVAILABLE);
+        return std::unexpected{Error::API_NOT_AVAILABLE};
 #endif
     int master{}, slave{};
 
@@ -769,7 +769,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         });
         assert(id);
         assert(*id == pid);
-        return std::unexpected(std::error_code(error, std::system_category()));
+        return std::unexpected{std::error_code{error, std::system_category()}};
     }
 
     close(std::exchange(mSlave, -1));
@@ -783,7 +783,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         });
         assert(id);
         assert(*id == *pid);
-        return std::unexpected(process.error());
+        return std::unexpected{process.error()};
     }
 
     return ChildProcess{*std::move(process), {}};
@@ -829,7 +829,7 @@ zero::os::process::ChildProcess::tryWait() {
         if (result.error() == std::errc::timed_out)
             return std::nullopt;
 
-        return std::unexpected(result.error());
+        return std::unexpected{result.error()};
     }
 
     return impl.exitCode().transform([](const DWORD code) {
@@ -995,7 +995,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         );
 
         if (handle == INVALID_HANDLE_VALUE)
-            return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
         handles[indexMapping[i]] = handle;
     }
@@ -1051,7 +1051,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         const auto ptr = GetEnvironmentStringsW();
 
         if (!ptr)
-            return std::unexpected(std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
         DEFER(FreeEnvironmentStringsW(ptr));
 
@@ -1306,7 +1306,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         });
         assert(id);
         assert(*id == pid);
-        return std::unexpected(std::error_code(error, std::system_category()));
+        return std::unexpected{std::error_code{error, std::system_category()}};
     }
 
     auto process = open(*pid);
@@ -1318,7 +1318,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         });
         assert(id);
         assert(*id == pid);
-        return std::unexpected(process.error());
+        return std::unexpected{process.error()};
     }
 
     std::array<std::optional<ChildProcess::StdioFile>, 3> stdio;
@@ -1372,7 +1372,7 @@ zero::os::process::Command::output() const {
                 return ReadFile(*fd, buffer.data(), buffer.size(), &n, nullptr);
             }); !result) {
                 if (result.error() != std::errc::broken_pipe)
-                    return std::unexpected(result.error());
+                    return std::unexpected{result.error()};
 
                 break;
             }
@@ -1405,7 +1405,7 @@ zero::os::process::Command::output() const {
     if (!out) {
         std::ignore = child->kill();
         std::ignore = child->wait();
-        return std::unexpected(out.error());
+        return std::unexpected{out.error()};
     }
 
     auto err = future.get();
@@ -1413,7 +1413,7 @@ zero::os::process::Command::output() const {
     if (!err) {
         std::ignore = child->kill();
         std::ignore = child->wait();
-        return std::unexpected(err.error());
+        return std::unexpected{err.error()};
     }
 
     const auto status = child->wait();

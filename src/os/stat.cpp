@@ -58,7 +58,7 @@ std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
         reinterpret_cast<host_info_t>(&data),
         &count
     ); status != KERN_SUCCESS)
-        return std::unexpected(make_error_code(static_cast<macos::Error>(status)));
+        return std::unexpected{static_cast<macos::Error>(status)};
 
     const auto ticks = unix::expected([] {
         return sysconf(_SC_CLK_TCK);
@@ -123,7 +123,7 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
         reinterpret_cast<host_info_t>(&data),
         &count
     ); status != KERN_SUCCESS)
-        return std::unexpected(make_error_code(static_cast<macos::Error>(status)));
+        return std::unexpected{static_cast<macos::Error>(status)};
 
     std::uint64_t total{};
     auto size = sizeof(total);
