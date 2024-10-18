@@ -312,9 +312,9 @@ namespace zero::async::promise {
             const auto promise = std::make_shared<Promise<NextValue, E>>();
 
             setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
-                auto next = std::move(result).transform([&](T &&value) {
+                auto next = std::move(result).transform([&](auto &&... args) {
                     // the result may be a reference type, so transform cannot be called directly.
-                    return std::invoke(f, std::move(value));
+                    return std::invoke(f, std::forward<decltype(args)>(args)...);
                 });
 
                 if (!next) {
