@@ -4,7 +4,7 @@
 #ifdef _WIN32
 #include <memory>
 #include <cassert>
-#include <zero/os/nt/error.h>
+#include <zero/os/windows/error.h>
 #include <zero/strings/strings.h>
 #else
 #include <cstdlib>
@@ -54,7 +54,7 @@ tl::expected<void, std::error_code> zero::env::set(const std::string &name, cons
     const auto v = strings::decode(value);
     EXPECT(v);
 
-    return os::nt::expected([&] {
+    return os::windows::expected([&] {
         return SetEnvironmentVariableW(k->c_str(), v->c_str());
     });
 #else
@@ -68,7 +68,7 @@ tl::expected<void, std::error_code> zero::env::set(const std::string &name, cons
 tl::expected<void, std::error_code> zero::env::unset(const std::string &name) {
 #ifdef _WIN32
     return strings::decode(name).and_then([](const auto &str) {
-        return os::nt::expected([&] {
+        return os::windows::expected([&] {
             return SetEnvironmentVariableW(str.c_str(), nullptr);
         });
     });

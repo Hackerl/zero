@@ -3,29 +3,24 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include <zero/os/nt/error.h>
+#include <zero/os/windows/error.h>
 #elif defined(__linux__)
-#include <map>
-#include <regex>
 #include <unistd.h>
 #include <zero/os/unix/error.h>
-#include <zero/strings/strings.h>
-#include <zero/os/procfs/procfs.h>
-#include <zero/filesystem/fs.h>
-#include <range/v3/algorithm.hpp>
+#include <zero/os/linux/procfs/procfs.h>
 #elif defined(__APPLE__)
 #include <unistd.h>
 #include <sys/sysctl.h>
 #include <mach/mach.h>
 #include <zero/os/unix/error.h>
-#include <zero/os/darwin/error.h>
+#include <zero/os/macos/error.h>
 #endif
 
 tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 #ifdef _WIN32
     FILETIME idle{}, kernel{}, user{};
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return GetSystemTimes(&idle, &kernel, &user);
     }));
 
@@ -38,47 +33,20 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     time.system = time.system - time.idle;
     return time;
 #elif defined(__linux__)
-    const auto content = filesystem::readString("/proc/stat");
-    EXPECT(content);
+    const auto stat = linux::procfs::stat();
+    EXPECT(stat);
 
-    const auto lines = strings::split(strings::trim(*content), "\n");
-    const auto it = ranges::find_if(
-        lines,
-        [](const auto &line) {
-            if (line.length() < 4)
-                return false;
-
-            return std::regex_match(line.substr(0, 4), std::regex(R"(^cpu\s)"));
-        }
-    );
-
-    if (it == lines.end())
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
-
-    const auto tokens = strings::split(*it);
-
-    if (tokens.size() != 11)
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
-
-    const auto user = strings::toNumber<std::uint64_t>(tokens[1]);
-    const auto system = strings::toNumber<std::uint64_t>(tokens[3]);
-    const auto idle = strings::toNumber<std::uint64_t>(tokens[4]);
-
-    EXPECT(user);
-    EXPECT(system);
-    EXPECT(idle);
-
-    const auto result = unix::expected([] {
+    const auto ticks = unix::expected([] {
         return sysconf(_SC_CLK_TCK);
+    }).transform([](const auto &result) {
+        return static_cast<double>(result);
     });
-    EXPECT(result);
-
-    const auto ticks = static_cast<double>(*result);
+    EXPECT(ticks);
 
     return CPUTime{
-        static_cast<double>(*user) / ticks,
-        static_cast<double>(*system) / ticks,
-        static_cast<double>(*idle) / ticks
+        static_cast<double>(stat->total.user) / *ticks,
+        static_cast<double>(stat->total.system) / *ticks,
+        static_cast<double>(stat->total.idle) / *ticks
     };
 #elif defined(__APPLE__)
     host_cpu_load_info_data_t data{};
@@ -90,19 +58,19 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
         reinterpret_cast<host_info_t>(&data),
         &count
     ); status != KERN_SUCCESS)
-        return tl::unexpected(make_error_code(static_cast<darwin::Error>(status)));
+        return tl::unexpected(make_error_code(static_cast<macos::Error>(status)));
 
-    const auto result = unix::expected([&] {
+    const auto ticks = unix::expected([] {
         return sysconf(_SC_CLK_TCK);
+    }).transform([](const auto &result) {
+        return static_cast<double>(result);
     });
-    EXPECT(result);
-
-    const auto ticks = static_cast<double>(*result);
+    EXPECT(ticks);
 
     return CPUTime{
-        data.cpu_ticks[CPU_STATE_USER] / ticks,
-        data.cpu_ticks[CPU_STATE_SYSTEM] / ticks,
-        data.cpu_ticks[CPU_STATE_IDLE] / ticks
+        data.cpu_ticks[CPU_STATE_USER] / *ticks,
+        data.cpu_ticks[CPU_STATE_SYSTEM] / *ticks,
+        data.cpu_ticks[CPU_STATE_IDLE] / *ticks
     };
 #endif
 }
@@ -112,7 +80,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     MEMORYSTATUSEX status{};
     status.dwLength = sizeof(status);
 
-    EXPECT(nt::expected([&] {
+    EXPECT(windows::expected([&] {
         return GlobalMemoryStatusEx(&status);
     }));
 
@@ -124,40 +92,22 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         static_cast<double>(status.dwMemoryLoad)
     };
 #elif defined(__linux__)
-    const auto content = filesystem::readString("/proc/meminfo");
-    EXPECT(content);
-
-    std::map<std::string, std::uint64_t> map;
-
-    for (const auto &line: strings::split(strings::trim(*content), "\n")) {
-        auto tokens = strings::split(line, ":", 1);
-
-        if (tokens.size() != 2)
-            return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
-
-        const auto n = strings::toNumber<std::uint64_t>(strings::trim(tokens[1]));
-        EXPECT(n);
-
-        map.emplace(std::move(tokens[0]), *n * 1024);
-    }
-
-    if (map.find("MemTotal") == map.end() || map.find("MemFree") == map.end() ||
-        map.find("Buffers") == map.end() || map.find("Cached") == map.end())
-        return tl::unexpected(procfs::Error::UNEXPECTED_DATA);
+    const auto memory = linux::procfs::memory();
+    EXPECT(memory);
 
     MemoryStat stat{};
 
-    stat.total = map["MemTotal"];
-    stat.free = map["MemFree"];
+    stat.total = memory->memoryTotal * 1024;
+    stat.free = memory->memoryFree * 1024;
 
-    const auto buffers = map["Buffers"];
-    const auto cached = map["Cached"];
+    const auto buffers = memory->buffers * 1024;
+    const auto cached = memory->cached * 1024;
 
     stat.used = stat.total - stat.free - buffers - cached;
     stat.usedPercent = static_cast<double>(stat.used) / static_cast<double>(stat.total) * 100.0;
 
-    if (const auto it = map.find("Available"); it != map.end()) {
-        stat.available = it->second;
+    if (const auto &available = memory->memoryAvailable) {
+        stat.available = *available * 1024;
         return stat;
     }
 
@@ -173,7 +123,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         reinterpret_cast<host_info_t>(&data),
         &count
     ); status != KERN_SUCCESS)
-        return tl::unexpected(make_error_code(static_cast<darwin::Error>(status)));
+        return tl::unexpected(make_error_code(static_cast<macos::Error>(status)));
 
     std::uint64_t total{};
     auto size = sizeof(total);

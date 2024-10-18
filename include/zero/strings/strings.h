@@ -24,7 +24,7 @@ namespace zero::strings {
     tl::expected<std::string, std::error_code> encode(std::wstring_view str, const std::string &encoding = "UTF-8");
     tl::expected<std::wstring, std::error_code> decode(std::string_view str, const std::string &encoding = "UTF-8");
 
-    template<typename T>
+    template<typename T, std::enable_if_t<std::is_arithmetic_v<T>>* = nullptr>
     tl::expected<T, std::error_code> toNumber(const std::string_view str, const int base = 10) {
         T value{};
 

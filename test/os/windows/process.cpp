@@ -1,15 +1,15 @@
-#include <zero/os/nt/process.h>
+#include <zero/os/windows/process.h>
 #include <zero/filesystem/fs.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 
-TEST_CASE("windows process", "[nt]") {
+TEST_CASE("windows process", "[windows]") {
     using namespace std::chrono_literals;
 
-    const auto ids = zero::os::nt::process::all();
+    const auto ids = zero::os::windows::process::all();
     REQUIRE(ids);
 
-    const auto process = zero::os::nt::process::self();
+    const auto process = zero::os::windows::process::self();
     REQUIRE(process);
     REQUIRE(process->pid() == GetCurrentProcessId());
 
@@ -35,6 +35,10 @@ TEST_CASE("windows process", "[nt]") {
     const auto envs = process->envs();
     REQUIRE(envs);
 
+    const auto startTime = process->startTime();
+    REQUIRE(startTime);
+    REQUIRE(std::chrono::system_clock::now() - *startTime < 1min);
+
     const auto memory = process->memory();
     REQUIRE(memory);
 
@@ -46,7 +50,7 @@ TEST_CASE("windows process", "[nt]") {
 
     const auto code = process->exitCode();
     REQUIRE_FALSE(code);
-    REQUIRE(code.error() == zero::os::nt::process::Process::Error::PROCESS_STILL_ACTIVE);
+    REQUIRE(code.error() == zero::os::windows::process::Process::Error::PROCESS_STILL_ACTIVE);
 
     const auto result = process->wait(10ms);
     REQUIRE_FALSE(result);

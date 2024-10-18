@@ -25,9 +25,9 @@ add_executable(
         filesystem/std.cpp
         detail/type_traits.cpp
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>
-        $<$<PLATFORM_ID:Windows>:os/nt/error.cpp os/nt/process.cpp>
-        $<$<PLATFORM_ID:Darwin>:os/darwin/error.cpp os/darwin/process.cpp>
-        $<$<PLATFORM_ID:Linux,Android>:os/procfs/process.cpp>
+        $<$<PLATFORM_ID:Windows>:os/windows/error.cpp os/windows/process.cpp>
+        $<$<PLATFORM_ID:Darwin>:os/macos/error.cpp os/macos/process.cpp>
+        $<$<PLATFORM_ID:Linux,Android>:os/linux/process.cpp os/linux/procfs/procfs.cpp os/linux/procfs/process.cpp>
 )
 
 if (MSVC)

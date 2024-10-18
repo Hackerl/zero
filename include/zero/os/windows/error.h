@@ -1,5 +1,5 @@
-#ifndef ZERO_NT_ERROR_H
-#define ZERO_NT_ERROR_H
+#ifndef ZERO_WINDOWS_ERROR_H
+#define ZERO_WINDOWS_ERROR_H
 
 #include <optional>
 #include <windows.h>
@@ -7,7 +7,7 @@
 #include <zero/error.h>
 #include <tl/expected.hpp>
 
-namespace zero::os::nt {
+namespace zero::os::windows {
     DEFINE_ERROR_TRANSFORMER_EX(
         ResultHandle,
         "HRESULT",
@@ -36,6 +36,6 @@ namespace zero::os::nt {
     }
 }
 
-DECLARE_ERROR_CODE(zero::os::nt::ResultHandle)
+DECLARE_ERROR_CODE(zero::os::windows::ResultHandle)
 
-#endif //ZERO_NT_ERROR_H
+#endif //ZERO_WINDOWS_ERROR_H

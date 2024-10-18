@@ -3,7 +3,7 @@ project(zero)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-set(ZERO_VERSION 1.0.3)
+set(ZERO_VERSION 1.0.4)
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 
@@ -38,9 +38,9 @@ add_library(
         src/strings/strings.cpp
         src/filesystem/fs.cpp
         src/filesystem/std.cpp
-        $<$<PLATFORM_ID:Windows>:src/os/nt/error.cpp src/os/nt/process.cpp>
-        $<$<PLATFORM_ID:Darwin>:src/os/darwin/error.cpp src/os/darwin/process.cpp>
-        $<$<PLATFORM_ID:Linux,Android>:src/os/procfs/procfs.cpp src/os/procfs/process.cpp>
+        $<$<PLATFORM_ID:Windows>:src/os/windows/error.cpp src/os/windows/process.cpp>
+        $<$<PLATFORM_ID:Darwin>:src/os/macos/error.cpp src/os/macos/process.cpp>
+        $<$<PLATFORM_ID:Linux,Android>:src/os/linux/process.cpp src/os/linux/procfs/procfs.cpp src/os/linux/procfs/process.cpp>
 )
 
 if (WIN32)
@@ -75,8 +75,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
             EXCLUDE_HEADERS
             ${EXCLUDE_HEADERS}
             PATTERN "os/unix" EXCLUDE
-            PATTERN "os/darwin" EXCLUDE
-            PATTERN "os/procfs" EXCLUDE
+            PATTERN "os/macos" EXCLUDE
+            PATTERN "os/linux" EXCLUDE
     )
 endif ()
 
@@ -84,8 +84,8 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
     set(
             EXCLUDE_HEADERS
             ${EXCLUDE_HEADERS}
-            PATTERN "os/nt" EXCLUDE
-            PATTERN "os/darwin" EXCLUDE
+            PATTERN "os/windows" EXCLUDE
+            PATTERN "os/macos" EXCLUDE
     )
 endif ()
 
@@ -93,8 +93,8 @@ if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     set(
             EXCLUDE_HEADERS
             ${EXCLUDE_HEADERS}
-            PATTERN "os/nt" EXCLUDE
-            PATTERN "os/procfs" EXCLUDE
+            PATTERN "os/windows" EXCLUDE
+            PATTERN "os/linux" EXCLUDE
     )
 endif ()
 

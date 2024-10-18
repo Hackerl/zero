@@ -1,14 +1,14 @@
-#ifndef ZERO_DARWIN_ERROR_H
-#define ZERO_DARWIN_ERROR_H
+#ifndef ZERO_MACOS_ERROR_H
+#define ZERO_MACOS_ERROR_H
 
 #include <optional>
 #include <zero/error.h>
 #include <mach/mach.h>
 
-namespace zero::os::darwin {
+namespace zero::os::macos {
     DEFINE_ERROR_TRANSFORMER_EX(
         Error,
-        "zero::os::darwin",
+        "zero::os::macos",
         mach_error_string,
         [](const int value) -> std::optional<std::error_condition> {
             switch (value) {
@@ -25,6 +25,6 @@ namespace zero::os::darwin {
     )
 }
 
-DECLARE_ERROR_CODE(zero::os::darwin::Error)
+DECLARE_ERROR_CODE(zero::os::macos::Error)
 
-#endif //ZERO_DARWIN_ERROR_H
+#endif //ZERO_MACOS_ERROR_H

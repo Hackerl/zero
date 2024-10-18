@@ -11,7 +11,7 @@
 
 #ifdef _WIN32
 #include <future>
-#include <zero/os/nt/error.h>
+#include <zero/os/windows/error.h>
 #else
 #include <unistd.h>
 #include <zero/os/unix/error.h>
@@ -27,6 +27,8 @@ constexpr auto ARGUMENTS = {"1"};
 
 TEST_CASE("process", "[os]") {
     SECTION("process") {
+        using namespace std::chrono_literals;
+
         const auto ids = zero::os::process::all();
         REQUIRE(ids);
 
@@ -54,6 +56,10 @@ TEST_CASE("process", "[os]") {
 
         const auto envs = process->envs();
         REQUIRE(envs);
+
+        const auto startTime = process->startTime();
+        REQUIRE(startTime);
+        REQUIRE(std::chrono::system_clock::now() - *startTime < 1min);
 
         const auto memory = process->memory();
         REQUIRE(memory);
@@ -374,7 +380,7 @@ TEST_CASE("process", "[os]") {
                     DWORD n{};
                     std::array<char, 1024> buffer; // NOLINT(*-pro-type-member-init)
 
-                    if (const auto result = zero::os::nt::expected([&] {
+                    if (const auto result = zero::os::windows::expected([&] {
                         return ReadFile(handle, buffer.data(), buffer.size(), &n, nullptr);
                     }); !result) {
                         if (result.error() != std::errc::broken_pipe)

@@ -1,5 +1,5 @@
-#include <zero/os/procfs/process.h>
-#include <zero/os/procfs/procfs.h>
+#include <zero/os/linux/procfs/process.h>
+#include <zero/os/linux/procfs/procfs.h>
 #include <zero/detail/type_traits.h>
 #include <zero/strings/strings.h>
 #include <zero/filesystem/std.h>
@@ -10,33 +10,34 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <algorithm>
 
 constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
-zero::os::procfs::process::Process::Process(const int fd, const pid_t pid) : mFD{fd}, mPID{pid} {
+zero::os::linux::procfs::process::Process::Process(const int fd, const pid_t pid) : mFD{fd}, mPID{pid} {
 }
 
-zero::os::procfs::process::Process::Process(Process &&rhs) noexcept
+zero::os::linux::procfs::process::Process::Process(Process &&rhs) noexcept
     : mFD{std::exchange(rhs.mFD, -1)}, mPID{std::exchange(rhs.mPID, -1)} {
 }
 
-zero::os::procfs::process::Process &zero::os::procfs::process::Process::operator=(Process &&rhs) noexcept {
+zero::os::linux::procfs::process::Process &
+zero::os::linux::procfs::process::Process::operator=(Process &&rhs) noexcept {
     mFD = std::exchange(rhs.mFD, -1);
     mPID = std::exchange(rhs.mPID, -1);
     return *this;
 }
 
-zero::os::procfs::process::Process::~Process() {
+zero::os::linux::procfs::process::Process::~Process() {
     if (mFD < 0)
         return;
 
     close(mFD);
 }
 
-tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::readFile(const char *filename) const {
+tl::expected<std::string, std::error_code>
+zero::os::linux::procfs::process::Process::readFile(const char *filename) const {
     const auto fd = unix::expected([&] {
         return openat(mFD, filename, O_RDONLY);
     });
@@ -62,11 +63,11 @@ tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::r
     return content;
 }
 
-pid_t zero::os::procfs::process::Process::pid() const {
+pid_t zero::os::linux::procfs::process::Process::pid() const {
     return mPID;
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::exe() const {
+tl::expected<std::filesystem::path, std::error_code> zero::os::linux::procfs::process::Process::exe() const {
     std::array<char, PATH_MAX + 1> buffer{};
 
     EXPECT(unix::expected([&] {
@@ -76,7 +77,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::
     return buffer.data();
 }
 
-tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::Process::cwd() const {
+tl::expected<std::filesystem::path, std::error_code> zero::os::linux::procfs::process::Process::cwd() const {
     std::array<char, PATH_MAX + 1> buffer{};
 
     EXPECT(unix::expected([&] {
@@ -86,7 +87,7 @@ tl::expected<std::filesystem::path, std::error_code> zero::os::procfs::process::
     return buffer.data();
 }
 
-tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::comm() const {
+tl::expected<std::string, std::error_code> zero::os::linux::procfs::process::Process::comm() const {
     auto content = readFile("comm");
     EXPECT(content);
 
@@ -97,7 +98,7 @@ tl::expected<std::string, std::error_code> zero::os::procfs::process::Process::c
     return *std::move(content);
 }
 
-tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::process::Process::cmdline() const {
+tl::expected<std::vector<std::string>, std::error_code> zero::os::linux::procfs::process::Process::cmdline() const {
     auto content = readFile("cmdline");
     EXPECT(content);
 
@@ -113,7 +114,8 @@ tl::expected<std::vector<std::string>, std::error_code> zero::os::procfs::proces
     return tokens;
 }
 
-tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::procfs::process::Process::environ() const {
+tl::expected<std::map<std::string, std::string>, std::error_code>
+zero::os::linux::procfs::process::Process::environ() const {
     auto content = readFile("environ");
     EXPECT(content);
 
@@ -135,7 +137,8 @@ tl::expected<std::map<std::string, std::string>, std::error_code> zero::os::proc
     return environ;
 }
 
-tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs::process::Process::stat() const {
+tl::expected<zero::os::linux::procfs::process::Stat, std::error_code>
+zero::os::linux::procfs::process::Process::stat() const {
     const auto content = readFile("stat");
     EXPECT(content);
 
@@ -163,7 +166,7 @@ tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs:
     stat.state = it++->at(0);
 
     const auto set = [&](auto &var) -> tl::expected<void, std::error_code> {
-        using T = std::decay_t<decltype(var)>;
+        using T = std::remove_reference_t<decltype(var)>;
 
         if constexpr (detail::is_specialization_v<T, std::optional>) {
             if (it == tokens.end())
@@ -235,7 +238,8 @@ tl::expected<zero::os::procfs::process::Stat, std::error_code> zero::os::procfs:
     return stat;
 }
 
-tl::expected<zero::os::procfs::process::StatM, std::error_code> zero::os::procfs::process::Process::statM() const {
+tl::expected<zero::os::linux::procfs::process::StatM, std::error_code>
+zero::os::linux::procfs::process::Process::statM() const {
     const auto content = readFile("statm");
     EXPECT(content);
 
@@ -316,7 +320,7 @@ parseAllowedList(const std::string_view str) {
         const auto tokens = zero::strings::split(token, "-", 1);
 
         if (tokens.size() != 2)
-            return tl::unexpected(zero::os::procfs::Error::UNEXPECTED_DATA);
+            return tl::unexpected(zero::os::linux::procfs::Error::UNEXPECTED_DATA);
 
         const auto begin = zero::strings::toNumber<std::uint32_t>(tokens[0]);
         EXPECT(begin);
@@ -338,7 +342,8 @@ std::optional<std::invoke_result_t<F, T>> transform(std::optional<T> optional, F
     return f(*optional);
 }
 
-tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procfs::process::Process::status() const {
+tl::expected<zero::os::linux::procfs::process::Status, std::error_code>
+zero::os::linux::procfs::process::Process::status() const {
     const auto content = readFile("status");
     EXPECT(content);
 
@@ -364,7 +369,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     };
 
     const auto set = [](auto &var, auto value) -> tl::expected<void, std::error_code> {
-        using T = std::decay_t<decltype(var)>;
+        using T = std::remove_reference_t<decltype(var)>;
         using V = typename decltype(value)::value_type;
 
         if (!value) {
@@ -386,7 +391,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     };
 
     const auto setNumber = [&](auto &var, const std::string &key, const int base = 10) {
-        using T = std::decay_t<decltype(var)>;
+        using T = std::remove_reference_t<decltype(var)>;
 
         return set(
             var,
@@ -487,8 +492,8 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
 
     EXPECT(set(status.speculationStoreBypass, take("Speculation_Store_Bypass")));
 
-    EXPECT(set(status.allowedCpus, transform(take("Cpus_allowed"), parseAllowed)));
-    EXPECT(set(status.allowedCpuList, transform(take("Cpus_allowed_list"), parseAllowedList)));
+    EXPECT(set(status.allowedCPUs, transform(take("Cpus_allowed"), parseAllowed)));
+    EXPECT(set(status.allowedCPUList, transform(take("Cpus_allowed_list"), parseAllowedList)));
     EXPECT(set(status.allowedMemoryNodes, transform(take("Mems_allowed"), parseAllowed)));
     EXPECT(set(status.allowedMemoryNodeList, transform(take("Mems_allowed_list"), parseAllowedList)));
 
@@ -501,7 +506,7 @@ tl::expected<zero::os::procfs::process::Status, std::error_code> zero::os::procf
     return status;
 }
 
-tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Process::tasks() const {
+tl::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::process::Process::tasks() const {
     using namespace std::string_view_literals;
 
     const auto fd = unix::expected([&] {
@@ -537,8 +542,8 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::Proce
     return tasks;
 }
 
-tl::expected<std::list<zero::os::procfs::process::MemoryMapping>, std::error_code>
-zero::os::procfs::process::Process::maps() const {
+tl::expected<std::list<zero::os::linux::procfs::process::MemoryMapping>, std::error_code>
+zero::os::linux::procfs::process::Process::maps() const {
     const auto content = readFile("maps");
     EXPECT(content);
 
@@ -607,7 +612,8 @@ zero::os::procfs::process::Process::maps() const {
     return mappings;
 }
 
-tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procfs::process::Process::io() const {
+tl::expected<zero::os::linux::procfs::process::IOStat, std::error_code>
+zero::os::linux::procfs::process::Process::io() const {
     const auto content = readFile("io");
     EXPECT(content);
 
@@ -623,7 +629,7 @@ tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procf
     }
 
     const auto set = [&](auto &var, const std::string &key) -> tl::expected<void, std::error_code> {
-        using T = std::decay_t<decltype(var)>;
+        using T = std::remove_reference_t<decltype(var)>;
 
         const auto it = map.find(key);
 
@@ -649,11 +655,12 @@ tl::expected<zero::os::procfs::process::IOStat, std::error_code> zero::os::procf
     return stat;
 }
 
-tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::self() {
+tl::expected<zero::os::linux::procfs::process::Process, std::error_code> zero::os::linux::procfs::process::self() {
     return open(getpid());
 }
 
-tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::procfs::process::open(const pid_t pid) {
+tl::expected<zero::os::linux::procfs::process::Process, std::error_code>
+zero::os::linux::procfs::process::open(const pid_t pid) {
     const auto path = std::filesystem::path("/proc") / std::to_string(pid);
     const auto fd = unix::expected([&] {
 #ifdef O_PATH
@@ -667,7 +674,7 @@ tl::expected<zero::os::procfs::process::Process, std::error_code> zero::os::proc
     return Process{*fd, pid};
 }
 
-tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all() {
+tl::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::process::all() {
     const auto iterator = filesystem::readDirectory("/proc");
     EXPECT(iterator);
 
@@ -690,4 +697,4 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::procfs::process::all()
     return ids;
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::procfs::process::Process::Error)
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::linux::procfs::process::Process::Error)

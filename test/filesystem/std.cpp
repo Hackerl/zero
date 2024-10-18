@@ -92,7 +92,7 @@ TEST_CASE("std::filesystem wrapper", "[filesystem]") {
             SECTION("error while traversing") {
                 REQUIRE(zero::filesystem::permissions(directory / "b", std::filesystem::perms::none));
 
-                auto entries = *it | ranges::to<std::list>();
+                const auto entries = ranges::to<std::list>(*it);
                 REQUIRE(!entries.back());
                 REQUIRE(entries.back().error() == std::errc::permission_denied);
 

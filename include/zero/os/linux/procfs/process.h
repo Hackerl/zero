@@ -11,7 +11,9 @@
 #include <zero/error.h>
 #include <tl/expected.hpp>
 
-namespace zero::os::procfs::process {
+#undef linux
+
+namespace zero::os::linux::procfs::process {
     enum MemoryPermission {
         READ,
         WRITE,
@@ -143,8 +145,8 @@ namespace zero::os::procfs::process {
         std::optional<std::uint64_t> noNewPrivileges;
         std::optional<std::uint32_t> seccompMode;
         std::optional<std::string> speculationStoreBypass;
-        std::optional<std::vector<std::uint32_t>> allowedCpus;
-        std::optional<std::vector<std::pair<std::uint32_t, std::uint32_t>>> allowedCpuList;
+        std::optional<std::vector<std::uint32_t>> allowedCPUs;
+        std::optional<std::vector<std::pair<std::uint32_t, std::uint32_t>>> allowedCPUList;
         std::optional<std::vector<std::uint32_t>> allowedMemoryNodes;
         std::optional<std::vector<std::pair<std::uint32_t, std::uint32_t>>> allowedMemoryNodeList;
         std::optional<std::uint64_t> voluntaryContextSwitches;
@@ -167,7 +169,7 @@ namespace zero::os::procfs::process {
     public:
         DEFINE_ERROR_CODE_INNER(
             Error,
-            "zero::os::procfs::process::Process",
+            "zero::os::linux::procfs::process::Process",
             MAYBE_ZOMBIE_PROCESS, "maybe zombie process"
         )
 
@@ -205,6 +207,6 @@ namespace zero::os::procfs::process {
     tl::expected<std::list<pid_t>, std::error_code> all();
 }
 
-DECLARE_ERROR_CODE(zero::os::procfs::process::Process::Error)
+DECLARE_ERROR_CODE(zero::os::linux::procfs::process::Process::Error)
 
 #endif //ZERO_PROCFS_PROCESS_H
