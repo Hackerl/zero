@@ -163,7 +163,7 @@ namespace zero {
             );
 
             if (it == mPositionals.end())
-                throw std::runtime_error(fmt::format("positional argument not found[{}]", name));
+                throw std::runtime_error{fmt::format("positional argument not found[{}]", name)};
 
             return std::any_cast<T>(it->value);
         }

@@ -27,7 +27,7 @@ TEST_CASE("custom type formatter", "[formatter]") {
         std::exception_ptr ptr;
         REQUIRE(fmt::to_string(ptr) == "nullptr");
 
-        ptr = std::make_exception_ptr(std::runtime_error("hello world"));
+        ptr = std::make_exception_ptr(std::runtime_error{"hello world"});
         REQUIRE(fmt::to_string(ptr) == "exception(hello world)");
     }
 }

@@ -22,7 +22,7 @@ zero::atomic::Event::Event(const bool manual, const bool initialState) {
     mEvent = CreateEventA(nullptr, manual, initialState, nullptr);
 
     if (!mEvent)
-        throw std::system_error(static_cast<int>(GetLastError()), std::system_category());
+        throw std::system_error{static_cast<int>(GetLastError()), std::system_category()};
 }
 
 zero::atomic::Event::~Event() {

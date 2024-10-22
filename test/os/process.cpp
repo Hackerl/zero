@@ -389,7 +389,7 @@ TEST_CASE("process", "[os]") {
                     }
 
                     assert(n > 0);
-                    std::copy_n(buffer.begin(), n, std::back_inserter(data));
+                    data.insert(data.end(), buffer.begin(), buffer.begin() + n);
                 }
 
                 return data;
@@ -435,7 +435,7 @@ TEST_CASE("process", "[os]") {
                 if (*n == 0)
                     break;
 
-                std::copy_n(buffer.begin(), *n, std::back_inserter(data));
+                data.insert(data.end(), buffer.begin(), buffer.begin() + *n);
             }
 
             REQUIRE_THAT((std::string{data.data(), data.size()}), Catch::Matchers::ContainsSubstring(keyword));

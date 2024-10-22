@@ -221,7 +221,7 @@ void zero::log::Logger::addProvider(
             const auto value = env::get(name);
 
             if (!value)
-                throw std::system_error(value.error());
+                throw std::system_error{value.error()};
 
             if (!*value)
                 return std::nullopt;

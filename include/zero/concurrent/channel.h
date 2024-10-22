@@ -229,7 +229,7 @@ namespace zero::concurrent {
             if (!index)
                 return std::unexpected{mCore->closed ? TryReceiveError::DISCONNECTED : TryReceiveError::EMPTY};
 
-            T element = std::move(mCore->buffer[*index]);
+            auto element = std::move(mCore->buffer[*index]);
             mCore->buffer.release(*index);
 
             mCore->trigger(SENDER);

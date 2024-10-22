@@ -17,7 +17,7 @@ zero::Cmdline::Optional &zero::Cmdline::find(const char shortName) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error(fmt::format("optional argument not exists[-{}]", shortName));
+        throw std::runtime_error{fmt::format("optional argument not exists[-{}]", shortName)};
 
     return *it;
 }
@@ -32,7 +32,7 @@ zero::Cmdline::Optional &zero::Cmdline::find(const std::string_view name) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error(fmt::format("optional argument not exists[--{}]", name));
+        throw std::runtime_error{fmt::format("optional argument not exists[--{}]", name)};
 
     return *it;
 }
@@ -47,7 +47,7 @@ const zero::Cmdline::Optional &zero::Cmdline::find(const std::string_view name) 
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error(fmt::format("optional argument not exists[--{}]", name));
+        throw std::runtime_error{fmt::format("optional argument not exists[--{}]", name)};
 
     return *it;
 }
@@ -125,7 +125,7 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             auto value = it->typeInfo.parse(argv[i]);
 
             if (!value)
-                throw std::runtime_error(fmt::format("invalid positional argument[{}]", argv[i]));
+                throw std::runtime_error{fmt::format("invalid positional argument[{}]", argv[i])};
 
             it++->value = *std::move(value);
             continue;
@@ -140,12 +140,12 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             }
 
             if (!argv[i + 1])
-                throw std::runtime_error(fmt::format("invalid optional argument[{}]", argv[i]));
+                throw std::runtime_error{fmt::format("invalid optional argument[{}]", argv[i])};
 
             auto v = typeInfo->parse(argv[++i]);
 
             if (!v)
-                throw std::runtime_error(fmt::format("invalid optional argument[{}]", argv[i]));
+                throw std::runtime_error{fmt::format("invalid optional argument[{}]", argv[i])};
 
             value = *std::move(v);
             continue;
@@ -167,12 +167,12 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
         }
 
         if (!ptr)
-            throw std::runtime_error(fmt::format("optional argument requires value[{}]", argv[i]));
+            throw std::runtime_error{fmt::format("optional argument requires value[{}]", argv[i])};
 
         auto v = typeInfo->parse(ptr + 1);
 
         if (!v)
-            throw std::runtime_error(fmt::format("invalid optional argument[{}]", argv[i]));
+            throw std::runtime_error{fmt::format("invalid optional argument[{}]", argv[i])};
 
         value = *std::move(v);
     }
@@ -183,7 +183,7 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
     }
 
     if (it != mPositionals.end())
-        throw std::runtime_error(fmt::format("positional arguments not enough[{}]", it->name));
+        throw std::runtime_error{fmt::format("positional arguments not enough[{}]", it->name)};
 }
 
 void zero::Cmdline::parse(const int argc, const char *const *argv) {

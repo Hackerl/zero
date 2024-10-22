@@ -54,10 +54,13 @@ std::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(co
     std::vector<std::byte> content;
 
     while (true) {
-        std::array<char, 1024> buffer; // NOLINT(*-pro-type-member-init)
+        std::array<std::byte, 1024> buffer; // NOLINT(*-pro-type-member-init)
 
-        stream.read(buffer.data(), buffer.size());
-        std::copy_n(reinterpret_cast<const std::byte *>(buffer.data()), stream.gcount(), std::back_inserter(content));
+        stream.read(reinterpret_cast<char *>(buffer.data()), buffer.size());
+
+        // waiting for libstdc++ to implement std::vector::append_range
+        // content.append_range(std::span{buffer.data(), static_cast<std::size_t>(stream.gcount())});
+        content.insert(content.end(), buffer.begin(), buffer.begin() + stream.gcount());
 
         if (stream.fail()) {
             if (!stream.eof())
