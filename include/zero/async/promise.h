@@ -299,7 +299,7 @@ namespace zero::async::promise {
                 !detail::is_specialization_v<callback_result_t<F, T>, std::expected>
             )
         auto then(F &&f) && {
-            using NextValue = std::remove_cvref_t<callback_result_t<F, T>>;
+            using NextValue = callback_result_t<F, T>;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -309,10 +309,7 @@ namespace zero::async::promise {
             const auto promise = std::make_shared<Promise<NextValue, E>>();
 
             setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
-                auto next = std::move(result).transform([&]<typename... Ts>(Ts &&... args) {
-                    // the result may be a reference type, so transform cannot be called directly.
-                    return std::invoke(f, std::forward<Ts>(args)...);
-                });
+                auto next = std::move(result).transform(f);
 
                 if (!next) {
                     promise->reject(std::move(next).error());

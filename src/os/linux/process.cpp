@@ -21,7 +21,6 @@ pid_t zero::os::linux::process::Process::pid() const {
 }
 
 std::expected<pid_t, std::error_code> zero::os::linux::process::Process::ppid() const {
-    // why can't gcc 14 compile `transform(&procfs::process::Stat::ppid)`
     return mProcess.stat().transform([](const auto &stat) {
         return stat.ppid;
     });

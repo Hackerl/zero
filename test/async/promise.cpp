@@ -1,7 +1,6 @@
 #include <zero/async/promise.h>
 #include <zero/concurrent/channel.h>
 #include <catch2/catch_test_macros.hpp>
-#include <cstring>
 #include <thread>
 #include <list>
 
@@ -203,7 +202,9 @@ TEST_CASE("promise", "[async]") {
         };
 
         zero::async::promise::resolve<People, int>(People{"jack", 18})
-            .then(&People::age)
+            .then([](const auto &people) {
+                return people.age;
+            })
             .then([](const auto &age) {
                 REQUIRE(age == 18);
             });
