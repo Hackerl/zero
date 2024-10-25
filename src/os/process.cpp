@@ -1082,7 +1082,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     auto environment = strings::decode(to_string(fmt::join(
         envs | std::views::transform([](const auto &it) {
-            std::string env = it.first + "=" + it.second;
+            auto env = it.first + "=" + it.second;
             env.push_back('\0');
             return env;
         }),

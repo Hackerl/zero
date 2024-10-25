@@ -3,11 +3,14 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 
-TEST_CASE("windows process", "[windows]") {
-    using namespace std::chrono_literals;
-
+TEST_CASE("list process ids", "[windows]") {
     const auto ids = zero::os::windows::process::all();
     REQUIRE(ids);
+    REQUIRE_THAT(*ids, Catch::Matchers::Contains(GetCurrentProcessId()));
+}
+
+TEST_CASE("process", "[windows]") {
+    using namespace std::chrono_literals;
 
     const auto process = zero::os::windows::process::self();
     REQUIRE(process);

@@ -194,168 +194,242 @@ struct ErrorConditionExWrapper {
 DECLARE_ERROR_CONDITION(ErrorConditionExWrapper::ErrorConditionEx)
 DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionExWrapper::ErrorConditionEx)
 
-TEST_CASE("macro for define error code", "[error]") {
-    SECTION("normal") {
-        SECTION("error code") {
-            using namespace std::string_view_literals;
+TEST_CASE("custom error code", "[error]") {
+    using namespace std::string_view_literals;
 
-            std::error_code ec{ErrorCode::INVALID_ARGUMENT};
-            REQUIRE(ec.category().name() == "ErrorCode"sv);
-            REQUIRE(ec.message() == "invalid argument");
-            REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
-
-            ec = ErrorCode::TIMEOUT;
-            REQUIRE(ec.category().name() == "ErrorCode"sv);
-            REQUIRE(ec.message() == "timeout");
-            REQUIRE(ec == ErrorConditionEx::TIMEOUT);
-
-            ec = ErrorCodeEx::INVALID_ARGUMENT;
-            REQUIRE(ec.category().name() == "ErrorCodeEx"sv);
-            REQUIRE(ec.message() == "invalid argument");
-            REQUIRE(ec == ErrorCondition::INVALID_ARGUMENT);
-            REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
-
-            ec = ErrorCodeEx::TIMEOUT;
-            REQUIRE(ec.category().name() == "ErrorCodeEx"sv);
-            REQUIRE(ec.message() == "timeout");
-            REQUIRE(ec == ErrorCondition::TIMEOUT);
-            REQUIRE(ec == ErrorConditionEx::TIMEOUT);
-
-            ec = static_cast<ErrorTransformer>(EINVAL);
-            REQUIRE(ec.category().name() == "ErrorTransformer"sv);
-            REQUIRE(ec.message() == "invalid argument");
-            REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
-
-            ec = static_cast<ErrorTransformer>(ETIMEDOUT);
-            REQUIRE(ec.category().name() == "ErrorTransformer"sv);
-            REQUIRE(ec.message() == "timeout");
-            REQUIRE(ec == ErrorConditionEx::TIMEOUT);
-
-            ec = static_cast<ErrorTransformerEx>(EINVAL);
-            REQUIRE(ec.category().name() == "ErrorTransformerEx"sv);
-            REQUIRE(ec.message() == "invalid argument");
-            REQUIRE(ec == ErrorCondition::INVALID_ARGUMENT);
-            REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
-
-            ec = static_cast<ErrorTransformerEx>(ETIMEDOUT);
-            REQUIRE(ec.category().name() == "ErrorTransformerEx"sv);
-            REQUIRE(ec.message() == "timeout");
-            REQUIRE(ec == ErrorCondition::TIMEOUT);
-            REQUIRE(ec == ErrorConditionEx::TIMEOUT);
-        }
-
-        SECTION("error condition") {
-            using namespace std::string_view_literals;
-
-            std::error_condition condition{ErrorCondition::INVALID_ARGUMENT};
-            REQUIRE(condition.category().name() == "ErrorCondition"sv);
-            REQUIRE(condition.message() == "invalid argument");
-            REQUIRE(condition == ErrorCodeEx::INVALID_ARGUMENT);
-            REQUIRE(condition == static_cast<ErrorTransformerEx>(EINVAL));
-
-            condition = ErrorCondition::TIMEOUT;
-            REQUIRE(condition.category().name() == "ErrorCondition"sv);
-            REQUIRE(condition.message() == "timeout");
-            REQUIRE(condition == ErrorCodeEx::TIMEOUT);
-            REQUIRE(condition == static_cast<ErrorTransformerEx>(ETIMEDOUT));
-
-            condition = ErrorConditionEx::INVALID_ARGUMENT;
-            REQUIRE(condition.category().name() == "ErrorConditionEx"sv);
-            REQUIRE(condition.message() == "invalid argument");
-            REQUIRE(condition == ErrorCode::INVALID_ARGUMENT);
-            REQUIRE(condition == ErrorCodeEx::INVALID_ARGUMENT);
-            REQUIRE(condition == static_cast<ErrorTransformer>(EINVAL));
-            REQUIRE(condition == static_cast<ErrorTransformerEx>(EINVAL));
-
-            condition = ErrorConditionEx::TIMEOUT;
-            REQUIRE(condition.category().name() == "ErrorConditionEx"sv);
-            REQUIRE(condition.message() == "timeout");
-            REQUIRE(condition == ErrorCode::TIMEOUT);
-            REQUIRE(condition == ErrorCodeEx::TIMEOUT);
-            REQUIRE(condition == static_cast<ErrorTransformer>(ETIMEDOUT));
-            REQUIRE(condition == static_cast<ErrorTransformerEx>(ETIMEDOUT));
-        }
+    SECTION("invalid argument") {
+        std::error_code ec{ErrorCode::INVALID_ARGUMENT};
+        REQUIRE(ec.category().name() == "ErrorCode"sv);
+        REQUIRE(ec.message() == "invalid argument");
+        REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
     }
 
-    SECTION("inner") {
-        SECTION("error code") {
-            using namespace std::string_view_literals;
+    SECTION("timeout") {
+        std::error_code ec{ErrorCode::TIMEOUT};
+        REQUIRE(ec.category().name() == "ErrorCode"sv);
+        REQUIRE(ec.message() == "timeout");
+        REQUIRE(ec == ErrorConditionEx::TIMEOUT);
+    }
+}
 
-            std::error_code ec{ErrorCodeWrapper::ErrorCode::INVALID_ARGUMENT};
-            REQUIRE(ec.category().name() == "ErrorCode"sv);
-            REQUIRE(ec.message() == "invalid argument");
-            REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
+TEST_CASE("custom extended error code", "[error]") {
+    using namespace std::string_view_literals;
 
-            ec = ErrorCodeWrapper::ErrorCode::TIMEOUT;
-            REQUIRE(ec.category().name() == "ErrorCode"sv);
-            REQUIRE(ec.message() == "timeout");
-            REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT);
+    SECTION("invalid argument") {
+        std::error_code ec{ErrorCodeEx::INVALID_ARGUMENT};
+        REQUIRE(ec.category().name() == "ErrorCodeEx"sv);
+        REQUIRE(ec.message() == "invalid argument");
+        REQUIRE(ec == ErrorCondition::INVALID_ARGUMENT);
+        REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
+    }
 
-            ec = ErrorCodeExWrapper::ErrorCodeEx::INVALID_ARGUMENT;
-            REQUIRE(ec.category().name() == "ErrorCodeEx"sv);
-            REQUIRE(ec.message() == "invalid argument");
-            REQUIRE(ec == ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT);
-            REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
+    SECTION("timeout") {
+        std::error_code ec{ErrorCodeEx::TIMEOUT};
+        REQUIRE(ec.category().name() == "ErrorCodeEx"sv);
+        REQUIRE(ec.message() == "timeout");
+        REQUIRE(ec == ErrorCondition::TIMEOUT);
+        REQUIRE(ec == ErrorConditionEx::TIMEOUT);
+    }
+}
 
-            ec = ErrorCodeExWrapper::ErrorCodeEx::TIMEOUT;
-            REQUIRE(ec.category().name() == "ErrorCodeEx"sv);
-            REQUIRE(ec.message() == "timeout");
-            REQUIRE(ec == ErrorConditionWrapper::ErrorCondition::TIMEOUT);
-            REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT);
+TEST_CASE("custom error transformer", "[error]") {
+    using namespace std::string_view_literals;
 
-            ec = static_cast<ErrorTransformerWrapper::ErrorTransformer>(EINVAL);
-            REQUIRE(ec.category().name() == "ErrorTransformer"sv);
-            REQUIRE(ec.message() == "invalid argument");
-            REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
+    SECTION("invalid argument") {
+        std::error_code ec{static_cast<ErrorTransformer>(EINVAL)};
+        REQUIRE(ec.category().name() == "ErrorTransformer"sv);
+        REQUIRE(ec.message() == "invalid argument");
+        REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
+    }
 
-            ec = static_cast<ErrorTransformerWrapper::ErrorTransformer>(ETIMEDOUT);
-            REQUIRE(ec.category().name() == "ErrorTransformer"sv);
-            REQUIRE(ec.message() == "timeout");
-            REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT);
+    SECTION("timeout") {
+        std::error_code ec{static_cast<ErrorTransformer>(ETIMEDOUT)};
+        REQUIRE(ec.category().name() == "ErrorTransformer"sv);
+        REQUIRE(ec.message() == "timeout");
+        REQUIRE(ec == ErrorConditionEx::TIMEOUT);
+    }
+}
 
-            ec = static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(EINVAL);
-            REQUIRE(ec.category().name() == "ErrorTransformerEx"sv);
-            REQUIRE(ec.message() == "invalid argument");
-            REQUIRE(ec == ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT);
-            REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
+TEST_CASE("custom extended error transformer", "[error]") {
+    using namespace std::string_view_literals;
 
-            ec = static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(ETIMEDOUT);
-            REQUIRE(ec.category().name() == "ErrorTransformerEx"sv);
-            REQUIRE(ec.message() == "timeout");
-            REQUIRE(ec == ErrorConditionWrapper::ErrorCondition::TIMEOUT);
-            REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT);
-        }
+    SECTION("invalid argument") {
+        std::error_code ec{static_cast<ErrorTransformerEx>(EINVAL)};
+        REQUIRE(ec.category().name() == "ErrorTransformerEx"sv);
+        REQUIRE(ec.message() == "invalid argument");
+        REQUIRE(ec == ErrorCondition::INVALID_ARGUMENT);
+        REQUIRE(ec == ErrorConditionEx::INVALID_ARGUMENT);
+    }
 
-        SECTION("error condition") {
-            using namespace std::string_view_literals;
+    SECTION("timeout") {
+        std::error_code ec{static_cast<ErrorTransformerEx>(ETIMEDOUT)};
+        REQUIRE(ec.category().name() == "ErrorTransformerEx"sv);
+        REQUIRE(ec.message() == "timeout");
+        REQUIRE(ec == ErrorCondition::TIMEOUT);
+        REQUIRE(ec == ErrorConditionEx::TIMEOUT);
+    }
+}
 
-            std::error_condition condition{ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT};
-            REQUIRE(condition.category().name() == "ErrorCondition"sv);
-            REQUIRE(condition.message() == "invalid argument");
-            REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::INVALID_ARGUMENT);
-            REQUIRE(condition == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(EINVAL));
+TEST_CASE("custom error condition", "[error]") {
+    using namespace std::string_view_literals;
 
-            condition = ErrorConditionWrapper::ErrorCondition::TIMEOUT;
-            REQUIRE(condition.category().name() == "ErrorCondition"sv);
-            REQUIRE(condition.message() == "timeout");
-            REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::TIMEOUT);
-            REQUIRE(condition == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(ETIMEDOUT));
+    SECTION("invalid argument") {
+        std::error_condition condition{ErrorCondition::INVALID_ARGUMENT};
+        REQUIRE(condition.category().name() == "ErrorCondition"sv);
+        REQUIRE(condition.message() == "invalid argument");
+        REQUIRE(condition == ErrorCodeEx::INVALID_ARGUMENT);
+        REQUIRE(condition == static_cast<ErrorTransformerEx>(EINVAL));
+    }
 
-            condition = ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT;
-            REQUIRE(condition.category().name() == "ErrorConditionEx"sv);
-            REQUIRE(condition.message() == "invalid argument");
-            REQUIRE(condition == ErrorCodeWrapper::ErrorCode::INVALID_ARGUMENT);
-            REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::INVALID_ARGUMENT);
-            REQUIRE(condition == static_cast<ErrorTransformerWrapper::ErrorTransformer>(EINVAL));
-            REQUIRE(condition == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(EINVAL));
+    SECTION("timeout") {
+        std::error_condition condition{ErrorCondition::TIMEOUT};
+        REQUIRE(condition.category().name() == "ErrorCondition"sv);
+        REQUIRE(condition.message() == "timeout");
+        REQUIRE(condition == ErrorCodeEx::TIMEOUT);
+        REQUIRE(condition == static_cast<ErrorTransformerEx>(ETIMEDOUT));
+    }
+}
 
-            condition = ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT;
-            REQUIRE(condition.category().name() == "ErrorConditionEx"sv);
-            REQUIRE(condition.message() == "timeout");
-            REQUIRE(condition == ErrorCodeWrapper::ErrorCode::TIMEOUT);
-            REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::TIMEOUT);
-            REQUIRE(condition == static_cast<ErrorTransformerWrapper::ErrorTransformer>(ETIMEDOUT));
-            REQUIRE(condition == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(ETIMEDOUT));
-        }
+TEST_CASE("custom extended error condition", "[error]") {
+    using namespace std::string_view_literals;
+
+    SECTION("invalid argument") {
+        std::error_condition condition{ErrorConditionEx::INVALID_ARGUMENT};
+        REQUIRE(condition.category().name() == "ErrorConditionEx"sv);
+        REQUIRE(condition.message() == "invalid argument");
+        REQUIRE(condition == ErrorCode::INVALID_ARGUMENT);
+        REQUIRE(condition == ErrorCodeEx::INVALID_ARGUMENT);
+        REQUIRE(condition == static_cast<ErrorTransformer>(EINVAL));
+        REQUIRE(condition == static_cast<ErrorTransformerEx>(EINVAL));
+    }
+
+    SECTION("timeout") {
+        std::error_condition condition{ErrorConditionEx::TIMEOUT};
+        REQUIRE(condition.category().name() == "ErrorConditionEx"sv);
+        REQUIRE(condition.message() == "timeout");
+        REQUIRE(condition == ErrorCode::TIMEOUT);
+        REQUIRE(condition == ErrorCodeEx::TIMEOUT);
+        REQUIRE(condition == static_cast<ErrorTransformer>(ETIMEDOUT));
+        REQUIRE(condition == static_cast<ErrorTransformerEx>(ETIMEDOUT));
+    }
+}
+
+TEST_CASE("custom error code defined in class", "[error]") {
+    using namespace std::string_view_literals;
+
+    SECTION("invalid argument") {
+        std::error_code ec{ErrorCodeWrapper::ErrorCode::INVALID_ARGUMENT};
+        REQUIRE(ec.category().name() == "ErrorCode"sv);
+        REQUIRE(ec.message() == "invalid argument");
+        REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
+    }
+
+    SECTION("timeout") {
+        std::error_code ec{ErrorCodeWrapper::ErrorCode::TIMEOUT};
+        REQUIRE(ec.category().name() == "ErrorCode"sv);
+        REQUIRE(ec.message() == "timeout");
+        REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT);
+    }
+}
+
+TEST_CASE("custom extended error code defined in class", "[error]") {
+    using namespace std::string_view_literals;
+
+    SECTION("invalid argument") {
+        std::error_code ec{ErrorCodeExWrapper::ErrorCodeEx::INVALID_ARGUMENT};
+        REQUIRE(ec.category().name() == "ErrorCodeEx"sv);
+        REQUIRE(ec.message() == "invalid argument");
+        REQUIRE(ec == ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT);
+        REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
+    }
+
+    SECTION("timeout") {
+        std::error_code ec{ErrorCodeExWrapper::ErrorCodeEx::TIMEOUT};
+        REQUIRE(ec.category().name() == "ErrorCodeEx"sv);
+        REQUIRE(ec.message() == "timeout");
+        REQUIRE(ec == ErrorConditionWrapper::ErrorCondition::TIMEOUT);
+        REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT);
+    }
+}
+
+TEST_CASE("custom error transformer defined in class", "[error]") {
+    using namespace std::string_view_literals;
+
+    SECTION("invalid argument") {
+        std::error_code ec{static_cast<ErrorTransformerWrapper::ErrorTransformer>(EINVAL)};
+        REQUIRE(ec.category().name() == "ErrorTransformer"sv);
+        REQUIRE(ec.message() == "invalid argument");
+        REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
+    }
+
+    SECTION("timeout") {
+        std::error_code ec{static_cast<ErrorTransformerWrapper::ErrorTransformer>(ETIMEDOUT)};
+        REQUIRE(ec.category().name() == "ErrorTransformer"sv);
+        REQUIRE(ec.message() == "timeout");
+        REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT);
+    }
+}
+
+TEST_CASE("custom extended error transformer defined in class", "[error]") {
+    using namespace std::string_view_literals;
+
+    SECTION("invalid argument") {
+        std::error_code ec{static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(EINVAL)};
+        REQUIRE(ec.category().name() == "ErrorTransformerEx"sv);
+        REQUIRE(ec.message() == "invalid argument");
+        REQUIRE(ec == ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT);
+        REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT);
+    }
+
+    SECTION("timeout") {
+        std::error_code ec{static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(ETIMEDOUT)};
+        REQUIRE(ec.category().name() == "ErrorTransformerEx"sv);
+        REQUIRE(ec.message() == "timeout");
+        REQUIRE(ec == ErrorConditionWrapper::ErrorCondition::TIMEOUT);
+        REQUIRE(ec == ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT);
+    }
+}
+
+TEST_CASE("custom error condition defined in class", "[error]") {
+    using namespace std::string_view_literals;
+
+    SECTION("invalid argument") {
+        std::error_condition condition{ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT};
+        REQUIRE(condition.category().name() == "ErrorCondition"sv);
+        REQUIRE(condition.message() == "invalid argument");
+        REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::INVALID_ARGUMENT);
+        REQUIRE(condition == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(EINVAL));
+    }
+
+    SECTION("timeout") {
+        std::error_condition condition{ErrorConditionWrapper::ErrorCondition::TIMEOUT};
+        REQUIRE(condition.category().name() == "ErrorCondition"sv);
+        REQUIRE(condition.message() == "timeout");
+        REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::TIMEOUT);
+        REQUIRE(condition == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(ETIMEDOUT));
+    }
+}
+
+TEST_CASE("custom extended error condition defined in class", "[error]") {
+    using namespace std::string_view_literals;
+
+    SECTION("invalid argument") {
+        std::error_condition condition{ErrorConditionExWrapper::ErrorConditionEx::INVALID_ARGUMENT};
+        REQUIRE(condition.category().name() == "ErrorConditionEx"sv);
+        REQUIRE(condition.message() == "invalid argument");
+        REQUIRE(condition == ErrorCodeWrapper::ErrorCode::INVALID_ARGUMENT);
+        REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::INVALID_ARGUMENT);
+        REQUIRE(condition == static_cast<ErrorTransformerWrapper::ErrorTransformer>(EINVAL));
+        REQUIRE(condition == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(EINVAL));
+    }
+
+    SECTION("timeout") {
+        std::error_condition condition{ErrorConditionExWrapper::ErrorConditionEx::TIMEOUT};
+        REQUIRE(condition.category().name() == "ErrorConditionEx"sv);
+        REQUIRE(condition.message() == "timeout");
+        REQUIRE(condition == ErrorCodeWrapper::ErrorCode::TIMEOUT);
+        REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::TIMEOUT);
+        REQUIRE(condition == static_cast<ErrorTransformerWrapper::ErrorTransformer>(ETIMEDOUT));
+        REQUIRE(condition == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(ETIMEDOUT));
     }
 }

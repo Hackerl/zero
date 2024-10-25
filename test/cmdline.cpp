@@ -17,7 +17,7 @@ std::expected<Config, std::error_code> zero::scan(const std::string_view input) 
     return Config{strings::trim(tokens[0]), strings::trim(tokens[1])};
 }
 
-TEST_CASE("parse command line arguments", "[cmdline]") {
+TEST_CASE("argument parser", "[cmdline]") {
     constexpr std::array argv{
         "cmdline",
         "--output=/tmp/out",

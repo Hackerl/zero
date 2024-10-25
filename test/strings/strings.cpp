@@ -82,6 +82,7 @@ TEST_CASE("split string to vector", "[strings]") {
         zero::strings::split("a  B c  d", " ", -1),
         Catch::Matchers::RangeEquals(std::vector{"a", "", "B", "c", "", "d"})
     );
+
     REQUIRE_THAT(
         zero::strings::split("a  B c  d", " ", 2),
         Catch::Matchers::RangeEquals(std::vector{"a", "", "B c  d"})

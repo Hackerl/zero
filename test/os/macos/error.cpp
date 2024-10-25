@@ -2,7 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <mach/mach.h>
 
-TEST_CASE("macos error", "[macos]") {
+TEST_CASE("macos kernel error", "[macos]") {
     using namespace std::string_view_literals;
 
     std::error_code ec{static_cast<zero::os::macos::Error>(KERN_OPERATION_TIMED_OUT)};

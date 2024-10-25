@@ -666,7 +666,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
         if (!entry->isDirectory().value_or(false))
             continue;
 
-        const auto id = strings::toNumber<pid_t>(entry->path().string());
+        const auto id = strings::toNumber<pid_t>(entry->path().filename().string());
 
         if (!id)
             continue;

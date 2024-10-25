@@ -1,5 +1,4 @@
 #include <zero/filesystem/fs.h>
-#include <algorithm>
 #include <fstream>
 
 #ifdef _WIN32

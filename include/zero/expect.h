@@ -1,6 +1,8 @@
 #ifndef ZERO_EXPECT_H
 #define ZERO_EXPECT_H
 
+#include <expected>
+
 #define EXPECT(...)                                                 \
     if (auto &&_result = __VA_ARGS__; !_result)                     \
         return std::unexpected{std::move(_result).error()}
