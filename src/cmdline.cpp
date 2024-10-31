@@ -17,7 +17,7 @@ zero::Cmdline::Optional &zero::Cmdline::find(const char shortName) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error{fmt::format("optional argument not exists[-{}]", shortName)};
+        throw std::runtime_error{fmt::format("optional argument does not exist[-{}]", shortName)};
 
     return *it;
 }
@@ -32,7 +32,7 @@ zero::Cmdline::Optional &zero::Cmdline::find(const std::string_view name) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error{fmt::format("optional argument not exists[--{}]", name)};
+        throw std::runtime_error{fmt::format("optional argument does not exist[--{}]", name)};
 
     return *it;
 }
@@ -47,7 +47,7 @@ const zero::Cmdline::Optional &zero::Cmdline::find(const std::string_view name) 
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error{fmt::format("optional argument not exists[--{}]", name)};
+        throw std::runtime_error{fmt::format("optional argument does not exist[--{}]", name)};
 
     return *it;
 }

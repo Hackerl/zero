@@ -1,7 +1,6 @@
 #include <zero/os/linux/process.h>
 #include <zero/os/unix/error.h>
 #include <zero/filesystem/fs.h>
-#include <zero/filesystem/std.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <csignal>

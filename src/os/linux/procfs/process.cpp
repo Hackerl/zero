@@ -2,7 +2,7 @@
 #include <zero/os/linux/procfs/procfs.h>
 #include <zero/detail/type_traits.h>
 #include <zero/strings/strings.h>
-#include <zero/filesystem/std.h>
+#include <zero/filesystem/fs.h>
 #include <zero/os/unix/error.h>
 #include <zero/defer.h>
 #include <zero/expect.h>
