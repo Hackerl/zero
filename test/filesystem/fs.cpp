@@ -218,6 +218,7 @@ TEST_CASE("remove", "[filesystem]") {
 
         SECTION("not empty") {
             REQUIRE(zero::filesystem::createDirectories(path / "sub"));
+            DEFER(REQUIRE(zero::filesystem::removeAll(path)));
 
             const auto result = zero::filesystem::remove(path);
             REQUIRE_FALSE(result);
