@@ -148,7 +148,7 @@ TEST_CASE("convert a wide-character string to a multibyte string", "[strings]") 
 
     auto result = zero::strings::encode(L"");
     REQUIRE(result);
-    REQUIRE(result->empty());
+    REQUIRE_THAT(*result, Catch::Matchers::IsEmpty());
 
     result = zero::strings::encode(L"1234567890");
     REQUIRE(result);
@@ -168,7 +168,7 @@ TEST_CASE("convert a multibyte string to a wide-character string", "[strings]") 
 
     auto result = zero::strings::decode("");
     REQUIRE(result);
-    REQUIRE(result->empty());
+    REQUIRE_THAT(*result, Catch::Matchers::IsEmpty());
 
     result = zero::strings::decode("1234567890");
     REQUIRE(result);

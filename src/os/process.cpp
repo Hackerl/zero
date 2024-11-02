@@ -2,6 +2,7 @@
 #include <zero/strings/strings.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
+#include <zero/env.h>
 #include <fmt/ranges.h>
 #include <cassert>
 #include <ranges>
@@ -464,27 +465,9 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     std::map<std::string, std::string> envs;
 
     if (command.mInheritEnv) {
-        const auto ptr = GetEnvironmentStringsW();
-
-        if (!ptr)
-            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
-
-        DEFER(FreeEnvironmentStringsW(ptr));
-
-        for (const auto *env = ptr; *env != L'\0'; env += wcslen(env) + 1) {
-            const auto str = strings::encode(env);
-            EXPECT(str);
-
-            auto tokens = strings::split(*str, "=", 1);
-
-            if (tokens.size() != 2)
-                continue;
-
-            if (tokens[0].empty())
-                continue;
-
-            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
-        }
+        auto result = env::list();
+        EXPECT(result);
+        envs = *std::move(result);
     }
 
     for (const auto &[key, value]: command.mEnviron) {
@@ -631,14 +614,9 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     std::map<std::string, std::string> envs;
 
     if (command.mInheritEnv) {
-        for (const auto *ptr = environ; *ptr; ++ptr) {
-            auto tokens = strings::split(*ptr, "=", 1);
-
-            if (tokens.size() != 2)
-                continue;
-
-            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
-        }
+        auto result = env::list();
+        EXPECT(result);
+        envs = *std::move(result);
     }
 
     for (const auto &[key, value]: command.mEnviron) {
@@ -1048,27 +1026,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     std::map<std::string, std::string> envs;
 
     if (mInheritEnv) {
-        const auto ptr = GetEnvironmentStringsW();
-
-        if (!ptr)
-            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
-
-        DEFER(FreeEnvironmentStringsW(ptr));
-
-        for (const auto *env = ptr; *env != L'\0'; env += wcslen(env) + 1) {
-            const auto str = strings::encode(env);
-            EXPECT(str);
-
-            auto tokens = strings::split(*str, "=", 1);
-
-            if (tokens.size() != 2)
-                continue;
-
-            if (tokens[0].empty())
-                continue;
-
-            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
-        }
+        auto result = env::list();
+        EXPECT(result);
+        envs = *std::move(result);
     }
 
     for (const auto &[key, value]: mEnviron) {
@@ -1184,14 +1144,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     std::map<std::string, std::string> envs;
 
     if (mInheritEnv) {
-        for (const auto *ptr = environ; *ptr; ++ptr) {
-            auto tokens = strings::split(*ptr, "=", 1);
-
-            if (tokens.size() != 2)
-                continue;
-
-            envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
-        }
+        auto result = env::list();
+        EXPECT(result);
+        envs = *std::move(result);
     }
 
     for (const auto &[key, value]: mEnviron) {

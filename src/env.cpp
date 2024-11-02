@@ -1,14 +1,19 @@
 #include <zero/env.h>
 #include <zero/expect.h>
+#include <zero/strings/strings.h>
 
 #ifdef _WIN32
 #include <memory>
 #include <cassert>
 #include <zero/os/windows/error.h>
-#include <zero/strings/strings.h>
 #else
 #include <cstdlib>
 #include <zero/os/unix/error.h>
+#ifndef __APPLE__
+#include <unistd.h>
+#else
+extern char **environ;
+#endif
 #endif
 
 std::expected<std::optional<std::string>, std::error_code> zero::env::get(const std::string &name) {
@@ -77,5 +82,49 @@ std::expected<void, std::error_code> zero::env::unset(const std::string &name) {
         return unsetenv(name.c_str());
     }));
     return {};
+#endif
+}
+
+std::expected<std::map<std::string, std::string>, std::error_code> zero::env::list() {
+#ifdef _WIN32
+    const std::unique_ptr<WCHAR, decltype(&FreeEnvironmentStringsW)> ptr{
+        GetEnvironmentStringsW(),
+        FreeEnvironmentStringsW
+    };
+
+    if (!ptr)
+        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+
+    std::map<std::string, std::string> envs;
+
+    for (const auto *env = ptr.get(); *env != L'\0'; env += wcslen(env) + 1) {
+        const auto str = strings::encode(env);
+        EXPECT(str);
+
+        auto tokens = strings::split(*str, "=", 1);
+
+        if (tokens.size() != 2)
+            continue;
+
+        if (tokens[0].empty())
+            continue;
+
+        envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
+    }
+
+    return envs;
+#else
+    std::map<std::string, std::string> envs;
+
+    for (const auto *ptr = environ; *ptr; ++ptr) {
+        auto tokens = strings::split(*ptr, "=", 1);
+
+        if (tokens.size() != 2)
+            continue;
+
+        envs.emplace(std::move(tokens[0]), std::move(tokens[1]));
+    }
+
+    return envs;
 #endif
 }

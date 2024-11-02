@@ -1,6 +1,8 @@
 #include <zero/env.h>
 #include <zero/defer.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
+#include <ranges>
 
 TEST_CASE("get environment variable", "[env]") {
     SECTION("environment variable does not exist") {
@@ -62,4 +64,14 @@ TEST_CASE("unset environment variable", "[env]") {
         REQUIRE(value);
         REQUIRE_FALSE(*value);
     }
+}
+
+TEST_CASE("list environment variable", "[env]") {
+    REQUIRE(zero::env::set("ZERO_ENV_LIST", "1"));
+    DEFER(REQUIRE(zero::env::unset("ZERO_ENV_LIST")));
+
+    const auto envs = zero::env::list();
+    REQUIRE(envs);
+    REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_ENV_LIST"));
+    REQUIRE(envs->at("ZERO_ENV_LIST") == "1");
 }

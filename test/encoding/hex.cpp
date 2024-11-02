@@ -13,7 +13,7 @@ TEST_CASE("hex decoding", "[encoding]") {
     SECTION("empty") {
         const auto result = zero::encoding::hex::decode("");
         REQUIRE(result);
-        REQUIRE(result->empty());
+        REQUIRE_THAT(*result, Catch::Matchers::IsEmpty());
     }
 
     SECTION("invalid length") {

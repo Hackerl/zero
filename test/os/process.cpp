@@ -214,7 +214,7 @@ TEST_CASE("command", "[os]") {
 
                 const auto envs = child->envs();
                 REQUIRE(envs);
-                REQUIRE(envs->empty());
+                REQUIRE_THAT(*envs, Catch::Matchers::IsEmpty());
             }
 
             SECTION("not empty") {

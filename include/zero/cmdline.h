@@ -69,7 +69,7 @@ namespace zero {
 #elif defined(__GNUC__)
             int status{};
 
-            const std::unique_ptr<char, decltype(&free)> buffer(
+            const std::unique_ptr<char, decltype(&free)> buffer{
                 abi::__cxa_demangle(
                     typeid(T).name(),
                     nullptr,
@@ -77,7 +77,7 @@ namespace zero {
                     &status
                 ),
                 free
-            );
+            };
 
             if (status != 0 || !buffer)
                 return "unknown";
