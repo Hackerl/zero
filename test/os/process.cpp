@@ -1,11 +1,13 @@
 #include <zero/os/process.h>
 #include <zero/env.h>
+#include <zero/defer.h>
 #include <zero/os/os.h>
 #include <zero/strings/strings.h>
 #include <zero/filesystem/fs.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <fmt/format.h>
+#include <ranges>
 
 #ifdef _WIN32
 #include <future>
@@ -35,45 +37,62 @@ TEST_CASE("list process ids", "[os]") {
 }
 
 TEST_CASE("process", "[os]") {
-    using namespace std::chrono_literals;
-
     const auto process = zero::os::process::self();
     REQUIRE(process);
 
     const auto path = zero::filesystem::applicationPath();
     REQUIRE(path);
 
-    const auto name = process->name();
-    REQUIRE(name);
-    REQUIRE(*name == path->filename());
+    SECTION("name") {
+        const auto name = process->name();
+        REQUIRE(name);
+        REQUIRE(*name == path->filename());
+    }
 
-    const auto exe = process->exe();
-    REQUIRE(exe);
-    REQUIRE(*exe == *path);
+    SECTION("exe") {
+        const auto exe = process->exe();
+        REQUIRE(exe);
+        REQUIRE(*exe == *path);
+    }
 
-    const auto cmdline = process->cmdline();
-    REQUIRE(cmdline);
-    REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
+    SECTION("cmdline") {
+        const auto cmdline = process->cmdline();
+        REQUIRE(cmdline);
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
+    }
 
-    const auto cwd = process->cwd();
-    REQUIRE(cwd);
-    REQUIRE(*cwd == std::filesystem::current_path());
+    SECTION("cwd") {
+        const auto cwd = process->cwd();
+        REQUIRE(cwd);
+        REQUIRE(*cwd == std::filesystem::current_path());
+    }
 
-    const auto envs = process->envs();
-    REQUIRE(envs);
+    SECTION("envs") {
+        const auto envs = process->envs();
+        REQUIRE(envs);
+    }
 
-    const auto startTime = process->startTime();
-    REQUIRE(startTime);
-    REQUIRE(std::chrono::system_clock::now() - *startTime < 1min);
+    SECTION("start time") {
+        using namespace std::chrono_literals;
+        const auto startTime = process->startTime();
+        REQUIRE(startTime);
+        REQUIRE(std::chrono::system_clock::now() - *startTime < 1min);
+    }
 
-    const auto memory = process->memory();
-    REQUIRE(memory);
+    SECTION("memory") {
+        const auto memory = process->memory();
+        REQUIRE(memory);
+    }
 
-    const auto cpu = process->cpu();
-    REQUIRE(cpu);
+    SECTION("cpu") {
+        const auto cpu = process->cpu();
+        REQUIRE(cpu);
+    }
 
-    const auto io = process->io();
-    REQUIRE(io);
+    SECTION("io") {
+        const auto io = process->io();
+        REQUIRE(io);
+    }
 }
 
 TEST_CASE("command", "[os]") {
@@ -85,6 +104,7 @@ TEST_CASE("command", "[os]") {
                      .stdOutput(zero::os::process::Command::StdioType::NUL)
                      .spawn();
         REQUIRE(child);
+        DEFER(REQUIRE(child->wait()));
 
         const auto name = child->name();
         REQUIRE(name);
@@ -104,8 +124,6 @@ TEST_CASE("command", "[os]") {
             (std::ranges::subrange{cmdline->begin() + 1, cmdline->end()}),
             Catch::Matchers::RangeEquals(ARGUMENTS)
         );
-
-        REQUIRE(child->wait());
     }
 
     SECTION("add arg") {
@@ -116,6 +134,7 @@ TEST_CASE("command", "[os]") {
 
         auto child = cmd.spawn();
         REQUIRE(child);
+        DEFER(REQUIRE(child->wait()));
 
         const auto name = child->name();
         REQUIRE(name);
@@ -135,8 +154,6 @@ TEST_CASE("command", "[os]") {
             (std::ranges::subrange{cmdline->begin() + 1, cmdline->end()}),
             Catch::Matchers::RangeEquals(ARGUMENTS)
         );
-
-        REQUIRE(child->wait());
     }
 
     SECTION("set cwd") {
@@ -148,12 +165,11 @@ TEST_CASE("command", "[os]") {
                      .stdOutput(zero::os::process::Command::StdioType::NUL)
                      .spawn();
         REQUIRE(child);
+        DEFER(REQUIRE(child->wait()));
 
         const auto cwd = child->cwd();
         REQUIRE(cwd);
         REQUIRE(*cwd == *temp);
-
-        REQUIRE(child->wait());
     }
 
     SECTION("env") {
@@ -173,19 +189,18 @@ TEST_CASE("command", "[os]") {
 #else
         SECTION("inherit") {
             REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
+            DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
 
             auto child = command
                          .stdOutput(zero::os::process::Command::StdioType::NUL)
                          .spawn();
             REQUIRE(child);
+            DEFER(REQUIRE(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
-            REQUIRE(envs->contains("ZERO_PROCESS_TESTS"));
+            REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
             REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
-
-            REQUIRE(child->wait());
-            REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS"));
         }
 
         SECTION("without inherit") {
@@ -195,12 +210,11 @@ TEST_CASE("command", "[os]") {
                              .stdOutput(zero::os::process::Command::StdioType::NUL)
                              .spawn();
                 REQUIRE(child);
+                DEFER(REQUIRE(child->wait()));
 
                 const auto envs = child->envs();
                 REQUIRE(envs);
                 REQUIRE(envs->empty());
-
-                REQUIRE(child->wait());
             }
 
             SECTION("not empty") {
@@ -210,13 +224,13 @@ TEST_CASE("command", "[os]") {
                              .stdOutput(zero::os::process::Command::StdioType::NUL)
                              .spawn();
                 REQUIRE(child);
+                DEFER(REQUIRE(child->wait()));
 
                 const auto envs = child->envs();
                 REQUIRE(envs);
-                REQUIRE(envs->contains("ZERO_PROCESS_TESTS"));
+                REQUIRE_THAT(*envs, Catch::Matchers::SizeIs(1));
+                REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
                 REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
-
-                REQUIRE(child->wait());
             }
         }
 
@@ -226,30 +240,28 @@ TEST_CASE("command", "[os]") {
                          .stdOutput(zero::os::process::Command::StdioType::NUL)
                          .spawn();
             REQUIRE(child);
+            DEFER(REQUIRE(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
-            REQUIRE(envs->contains("ZERO_PROCESS_TESTS"));
+            REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
             REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
-
-            REQUIRE(child->wait());
         }
 
         SECTION("remove env") {
             REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
+            DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
 
             auto child = command
                          .removeEnv("ZERO_PROCESS_TESTS")
                          .stdOutput(zero::os::process::Command::StdioType::NUL)
                          .spawn();
             REQUIRE(child);
+            DEFER(REQUIRE(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
             REQUIRE_FALSE(envs->contains("ZERO_PROCESS_TESTS"));
-
-            REQUIRE(child->wait());
-            REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS"));
         }
 
         SECTION("set envs") {
@@ -258,13 +270,12 @@ TEST_CASE("command", "[os]") {
                          .stdOutput(zero::os::process::Command::StdioType::NUL)
                          .spawn();
             REQUIRE(child);
+            DEFER(REQUIRE(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
-            REQUIRE(envs->contains("ZERO_PROCESS_TESTS"));
+            REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
             REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
-
-            REQUIRE(child->wait());
         }
 #endif
     }
@@ -280,6 +291,7 @@ TEST_CASE("command", "[os]") {
                      .stdError(zero::os::process::Command::StdioType::NUL)
                      .spawn();
         REQUIRE(child);
+        DEFER(REQUIRE(child->wait()));
 
         const auto cmdline = child->cmdline();
         REQUIRE(cmdline);
@@ -288,8 +300,6 @@ TEST_CASE("command", "[os]") {
             (std::ranges::subrange{cmdline->begin() + 1, cmdline->end()}),
             Catch::Matchers::RangeEquals(args)
         );
-
-        REQUIRE(child->wait());
     }
 #endif
 
@@ -302,6 +312,7 @@ TEST_CASE("command", "[os]") {
                      .spawn();
 
         REQUIRE(child);
+        DEFER(REQUIRE(child->wait()));
         REQUIRE_FALSE(child->stdError());
 
         const auto input = std::exchange(child->stdInput(), std::nullopt);
@@ -315,21 +326,20 @@ TEST_CASE("command", "[os]") {
         DWORD n{};
         REQUIRE(WriteFile(*input, data.data(), data.size(), &n, nullptr));
         REQUIRE(n == data.size());
-        CloseHandle(*input);
+        REQUIRE(CloseHandle(*input));
 
         std::array<char, 64> buffer{};
         REQUIRE(ReadFile(*output, buffer.data(), buffer.size(), &n, nullptr));
         REQUIRE(n >= data.size());
         REQUIRE(data == zero::strings::trim(buffer.data()));
-        CloseHandle(*output);
-
-        REQUIRE(child->wait());
+        REQUIRE(CloseHandle(*output));
 #else
         auto child = zero::os::process::Command{"cat"}
                      .stdInput(zero::os::process::Command::StdioType::PIPED)
                      .stdOutput(zero::os::process::Command::StdioType::PIPED)
                      .spawn();
         REQUIRE(child);
+        DEFER(REQUIRE(child->wait()));
         REQUIRE_FALSE(child->stdError());
 
         const auto input = std::exchange(child->stdInput(), std::nullopt);
@@ -345,7 +355,7 @@ TEST_CASE("command", "[os]") {
         });
         REQUIRE(n);
         REQUIRE(*n == data.size());
-        close(*input);
+        REQUIRE(close(*input) == 0);
 
         std::array<char, 64> buffer{};
         n = zero::os::unix::ensure([&] {
@@ -354,9 +364,7 @@ TEST_CASE("command", "[os]") {
         REQUIRE(n);
         REQUIRE(*n == data.size());
         REQUIRE(data == buffer.data());
-        close(*output);
-
-        REQUIRE(child->wait());
+        REQUIRE(close(*output) == 0);
 #endif
     }
 
@@ -450,6 +458,7 @@ TEST_CASE("pseudo console", "[os]") {
 #else
     auto child = pc->spawn(zero::os::process::Command{"sh"});
     REQUIRE(child);
+    DEFER(REQUIRE(child->wait()));
 
     const auto fd = pc->file();
     REQUIRE(fd >= 0);
@@ -484,7 +493,5 @@ TEST_CASE("pseudo console", "[os]") {
     }
 
     REQUIRE_THAT((std::string{data.data(), data.size()}), Catch::Matchers::ContainsSubstring(keyword));
-
-    REQUIRE(child->wait());
 #endif
 }

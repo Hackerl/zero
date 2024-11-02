@@ -7,6 +7,7 @@ add_executable(
         defer.cpp
         error.cpp
         expect.cpp
+        utility.cpp
         cmdline.cpp
         formatter.cpp
         os/os.cpp

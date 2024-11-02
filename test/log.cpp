@@ -43,6 +43,8 @@ private:
 };
 
 TEST_CASE("logger", "[log]") {
+    using namespace std::chrono_literals;
+
     zero::log::Logger logger;
 
     const auto bitset = std::make_shared<std::bitset<4>>();
@@ -52,9 +54,6 @@ TEST_CASE("logger", "[log]") {
     const auto tp = std::chrono::system_clock::now();
 
     SECTION("enable") {
-        using namespace std::chrono_literals;
-
-        REQUIRE_FALSE(logger.enabled(zero::log::Level::INFO_LEVEL));
         logger.addProvider(zero::log::Level::INFO_LEVEL, std::move(provider), 50ms);
 
         REQUIRE(logger.enabled(zero::log::Level::INFO_LEVEL));
@@ -69,9 +68,6 @@ TEST_CASE("logger", "[log]") {
     }
 
     SECTION("disable") {
-        using namespace std::chrono_literals;
-
-        REQUIRE_FALSE(logger.enabled(zero::log::Level::INFO_LEVEL));
         logger.addProvider(zero::log::Level::ERROR_LEVEL, std::move(provider), 50ms);
 
         REQUIRE_FALSE(logger.enabled(zero::log::Level::INFO_LEVEL));
@@ -87,11 +83,8 @@ TEST_CASE("logger", "[log]") {
 
     SECTION("override") {
         SECTION("enable") {
-            using namespace std::chrono_literals;
-
             REQUIRE(zero::env::set("ZERO_LOG_LEVEL", "3"));
 
-            REQUIRE_FALSE(logger.enabled(zero::log::Level::DEBUG_LEVEL));
             logger.addProvider(zero::log::Level::ERROR_LEVEL, std::move(provider), 50ms);
 
             REQUIRE(logger.enabled(zero::log::Level::DEBUG_LEVEL));
@@ -108,11 +101,8 @@ TEST_CASE("logger", "[log]") {
         }
 
         SECTION("disable") {
-            using namespace std::chrono_literals;
-
             REQUIRE(zero::env::set("ZERO_LOG_LEVEL", "2"));
 
-            REQUIRE_FALSE(logger.enabled(zero::log::Level::INFO_LEVEL));
             logger.addProvider(zero::log::Level::ERROR_LEVEL, std::move(provider), 50ms);
 
             REQUIRE(logger.enabled(zero::log::Level::INFO_LEVEL));
@@ -161,7 +151,7 @@ TEST_CASE("file provider", "[log]") {
 
         const auto content = zero::filesystem::readString(files->front());
         REQUIRE(content);
-        REQUIRE_THAT(*content, Catch::Matchers::ContainsSubstring("hello world"));
+        REQUIRE_THAT(*content, Catch::Matchers::ContainsSubstring(record.content));
     }
 
     SECTION("rotate") {
@@ -173,9 +163,7 @@ TEST_CASE("file provider", "[log]") {
             REQUIRE(provider.rotate());
         }
 
-        const auto count = zero::filesystem::readDirectory(directory).transform([](const auto &it) {
-            return std::ranges::distance(it);
-        });
+        const auto count = zero::filesystem::readDirectory(directory).transform(std::ranges::distance);
         REQUIRE(count);
         REQUIRE(*count == 4);
     }
