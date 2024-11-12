@@ -144,11 +144,12 @@ namespace zero::filesystem {
     };
 
     template<typename T>
-        requires (
+    class NoExcept {
+        static_assert(
             std::is_same_v<T, std::filesystem::directory_iterator> ||
             std::is_same_v<T, std::filesystem::recursive_directory_iterator>
-        )
-    class NoExcept {
+        );
+
     public:
         using iterator_category = std::input_iterator_tag;
         using value_type = std::expected<DirectoryEntry, std::error_code>;

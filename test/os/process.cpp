@@ -261,7 +261,7 @@ TEST_CASE("command", "[os]") {
 
             const auto envs = child->envs();
             REQUIRE(envs);
-            REQUIRE_FALSE(envs->contains("ZERO_PROCESS_TESTS"));
+            REQUIRE_THAT(std::views::keys(*envs), !Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
         }
 
         SECTION("set envs") {

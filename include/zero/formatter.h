@@ -20,12 +20,10 @@ struct fmt::formatter<std::expected<T, E>, Char> {
         if (!expected)
             return fmt::format_to(ctx.out(), "unexpected({})", expected.error());
 
-        if constexpr (std::is_void_v<T>) {
+        if constexpr (std::is_void_v<T>)
             return std::ranges::copy("expected()"sv, ctx.out()).out;
-        }
-        else {
+        else
             return fmt::format_to(ctx.out(), "expected({})", *expected);
-        }
     }
 };
 

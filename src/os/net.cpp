@@ -97,7 +97,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
         for (const auto *addr = adapter->FirstUnicastAddress; addr; addr = addr->Next) {
             switch (addr->Address.lpSockaddr->sa_family) {
             case AF_INET: {
-                IfAddress4 address{};
+                IfAddress4 address;
 
                 std::memcpy(
                     address.ip.data(),
@@ -111,7 +111,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
             }
 
             case AF_INET6: {
-                IfAddress6 address{};
+                IfAddress6 address;
 
                 std::memcpy(
                     address.ip.data(),
@@ -175,7 +175,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
 
         switch (p->ifa_addr->sa_family) {
         case AF_INET: {
-            IfAddress4 address{};
+            IfAddress4 address;
 
             std::memcpy(address.ip.data(), &reinterpret_cast<const sockaddr_in *>(p->ifa_addr)->sin_addr, 4);
 
@@ -199,7 +199,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
         }
 
         case AF_INET6: {
-            IfAddress6 address{};
+            IfAddress6 address;
             std::memcpy(address.ip.data(), &reinterpret_cast<const sockaddr_in6 *>(p->ifa_addr)->sin6_addr, 16);
 
             IPv6 mask{};

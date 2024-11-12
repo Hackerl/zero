@@ -10,7 +10,7 @@ TEST_CASE("flatten", "[utility]") {
 
         SECTION("has error") {
             const auto result = zero::flatten(std::expected<std::expected<void, short>, int>{std::unexpected{-1}});
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == -1);
         }
     }
@@ -24,7 +24,7 @@ TEST_CASE("flatten", "[utility]") {
 
         SECTION("has error") {
             const auto result = zero::flatten(std::expected<std::expected<int, short>, int>{std::unexpected{-1}});
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == -1);
         }
     }
@@ -41,7 +41,7 @@ TEST_CASE("flatten with error type", "[utility]") {
             const auto result = zero::flattenWith<long>(std::expected<std::expected<void, short>, int>{
                 std::unexpected{-1}
             });
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == -1);
         }
     }
@@ -57,7 +57,7 @@ TEST_CASE("flatten with error type", "[utility]") {
             const auto result = zero::flattenWith<long>(std::expected<std::expected<int, short>, int>{
                 std::unexpected{-1}
             });
-            REQUIRE(!result);
+            REQUIRE_FALSE(result);
             REQUIRE(result.error() == -1);
         }
     }
