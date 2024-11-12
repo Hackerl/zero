@@ -1,17 +1,14 @@
 #include <zero/atomic/event.h>
+#include <zero/defer.h>
 #include <catch2/catch_test_macros.hpp>
 #include <thread>
 
-TEST_CASE("notify event", "[atomic]") {
-    SECTION("auto") {
-        using namespace std::chrono_literals;
+TEST_CASE("auto-reset event", "[atomic]") {
+    using namespace std::chrono_literals;
 
-        zero::atomic::Event event;
+    zero::atomic::Event event;
 
-        auto result = event.wait(10ms);
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == std::errc::timed_out);
-
+    SECTION("normal") {
         std::atomic<int> n{};
 
         std::thread thread{
@@ -24,24 +21,27 @@ TEST_CASE("notify event", "[atomic]") {
 
         REQUIRE(event.wait());
         REQUIRE(n == 1);
+        DEFER(thread.join());
 
-        thread.join();
-
-        result = event.wait(10ms);
+        const auto result = event.wait(10ms);
         REQUIRE_FALSE(result);
         REQUIRE(result.error() == std::errc::timed_out);
     }
 
-    SECTION("manual") {
-        SECTION("not set initially") {
-            using namespace std::chrono_literals;
+    SECTION("timeout") {
+        const auto result = event.wait(10ms);
+        REQUIRE_FALSE(result);
+        REQUIRE(result.error() == std::errc::timed_out);
+    }
+}
 
-            zero::atomic::Event event{true};
+TEST_CASE("manual-reset event", "[atomic]") {
+    SECTION("not set initially") {
+        using namespace std::chrono_literals;
 
-            auto result = event.wait(10ms);
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == std::errc::timed_out);
+        zero::atomic::Event event{true};
 
+        SECTION("normal") {
             std::atomic<int> n{};
 
             std::thread thread{
@@ -51,52 +51,37 @@ TEST_CASE("notify event", "[atomic]") {
                     event.set();
                 }
             };
+            DEFER(thread.join());
 
+            REQUIRE(event.wait());
             REQUIRE(event.wait());
             REQUIRE(n == 1);
 
-            thread.join();
-
-            REQUIRE(event.wait());
             event.reset();
 
-            result = event.wait(10ms);
+            const auto result = event.wait(10ms);
             REQUIRE_FALSE(result);
             REQUIRE(result.error() == std::errc::timed_out);
         }
 
-        SECTION("initial set") {
-            using namespace std::chrono_literals;
-
-            zero::atomic::Event event{true, true};
-            REQUIRE(event.wait());
-            event.reset();
-
-            auto result = event.wait(10ms);
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == std::errc::timed_out);
-
-            std::atomic<int> n{};
-
-            std::thread thread{
-                [&] {
-                    std::this_thread::sleep_for(10ms);
-                    n = 1;
-                    event.set();
-                }
-            };
-
-            REQUIRE(event.wait());
-            REQUIRE(n == 1);
-
-            thread.join();
-
-            REQUIRE(event.wait());
-            event.reset();
-
-            result = event.wait(10ms);
+        SECTION("timeout") {
+            const auto result = event.wait(10ms);
             REQUIRE_FALSE(result);
             REQUIRE(result.error() == std::errc::timed_out);
         }
+    }
+
+    SECTION("initial set") {
+        using namespace std::chrono_literals;
+
+        zero::atomic::Event event{true, true};
+
+        REQUIRE(event.wait());
+        REQUIRE(event.wait());
+        event.reset();
+
+        const auto result = event.wait(10ms);
+        REQUIRE_FALSE(result);
+        REQUIRE(result.error() == std::errc::timed_out);
     }
 }

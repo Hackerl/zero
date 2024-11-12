@@ -37,7 +37,7 @@ std::string zero::os::net::stringify(const nonstd::span<const std::byte, 4> ip) 
     std::array<char, INET_ADDRSTRLEN> address{};
 
     if (!inet_ntop(AF_INET, ip.data(), address.data(), address.size()))
-        throw std::runtime_error("unable to convert IPv4 address from binary to text form");
+        throw std::runtime_error{"unable to convert IPv4 address from binary to text form"};
 
     return address.data();
 }
@@ -46,7 +46,7 @@ std::string zero::os::net::stringify(const nonstd::span<const std::byte, 16> ip)
     std::array<char, INET6_ADDRSTRLEN> address{};
 
     if (!inet_ntop(AF_INET6, ip.data(), address.data(), address.size()))
-        throw std::runtime_error("unable to convert IPv6 address from binary to text form");
+        throw std::runtime_error{"unable to convert IPv6 address from binary to text form"};
 
     return address.data();
 }

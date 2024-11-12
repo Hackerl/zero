@@ -14,6 +14,7 @@
 #include <zero/atomic/event.h>
 #include <zero/detail/type_traits.h>
 #include <range/v3/algorithm.hpp>
+#include <range/v3/view.hpp>
 
 namespace zero::async::promise {
     enum class State {
@@ -79,7 +80,7 @@ namespace zero::async::promise {
             assert(!mRetrieved);
 
             if (mRetrieved)
-                throw std::logic_error("future already retrieved");
+                throw std::logic_error{"future already retrieved"};
 
             mRetrieved = true;
             return Future<T, E>{mCore};
@@ -109,7 +110,7 @@ namespace zero::async::promise {
             }
 
             if (state != State::ONLY_CALLBACK || !mCore->state.compare_exchange_strong(state, State::DONE))
-                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
+                throw std::logic_error{fmt::format("unexpected state: {}", static_cast<int>(state))};
 
             mCore->event.set();
             mCore->trigger();
@@ -132,7 +133,7 @@ namespace zero::async::promise {
             }
 
             if (state != State::ONLY_CALLBACK || !mCore->state.compare_exchange_strong(state, State::DONE))
-                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
+                throw std::logic_error{fmt::format("unexpected state: {}", static_cast<int>(state))};
 
             mCore->event.set();
             mCore->trigger();
@@ -212,7 +213,7 @@ namespace zero::async::promise {
 
         tl::expected<T, E> get() && {
             if (const auto result = wait(); !result)
-                throw std::system_error(result.error());
+                throw std::system_error{result.error()};
 
             return std::move(*mCore->result);
         }
@@ -231,7 +232,7 @@ namespace zero::async::promise {
                 return;
 
             if (state != State::ONLY_RESULT || !mCore->state.compare_exchange_strong(state, State::DONE))
-                throw std::logic_error(fmt::format("unexpected state: {}", static_cast<int>(state)));
+                throw std::logic_error{fmt::format("unexpected state: {}", static_cast<int>(state))};
 
             mCore->trigger();
         }
@@ -302,7 +303,7 @@ namespace zero::async::promise {
             >* = nullptr
         >
         auto then(F &&f) && {
-            using NextValue = std::remove_cv_t<std::remove_reference_t<callback_result_t<F, T>>>;
+            using NextValue = callback_result_t<F, T>;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -312,10 +313,7 @@ namespace zero::async::promise {
             const auto promise = std::make_shared<Promise<NextValue, E>>();
 
             setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
-                auto next = std::move(result).transform([&](auto &&... args) {
-                    // the result may be a reference type, so transform cannot be called directly.
-                    return std::invoke(f, std::forward<decltype(args)>(args)...);
-                });
+                auto next = std::move(result).transform(f);
 
                 if (!next) {
                     promise->reject(std::move(next).error());
@@ -528,6 +526,59 @@ namespace zero::async::promise {
         return promise.getFuture();
     }
 
+    template<typename T>
+    struct optional_wrapper;
+
+    template<typename T>
+    struct optional_wrapper<std::vector<T>> {
+        using type = std::vector<std::optional<T>>;
+    };
+
+    template<typename T, std::size_t N>
+    struct optional_wrapper<std::array<T, N>> {
+        using type = std::array<std::optional<T>, N>;
+    };
+
+    template<typename... Ts>
+    struct optional_wrapper<std::tuple<Ts...>> {
+        using type = std::tuple<std::optional<Ts>...>;
+    };
+
+    template<typename T>
+    using optional_wrapper_t = typename optional_wrapper<T>::type;
+
+    template<typename T>
+    std::vector<T> unwrap(std::vector<std::optional<T>> &&vector) {
+        return vector
+            | ranges::views::transform([](std::optional<T> &value) {
+                assert(value);
+                return *std::move(value);
+            })
+            | ranges::to<std::vector>();
+    }
+
+    template<std::size_t... Is, typename T, std::size_t N>
+    std::array<T, N> unwrap(std::index_sequence<Is...>, std::array<std::optional<T>, N> &&array) {
+        assert((std::get<Is>(array) && ...));
+        return {*std::move(std::get<Is>(array))...};
+    }
+
+    template<typename T, std::size_t N>
+    std::array<T, N> unwrap(std::array<std::optional<T>, N> &&array) {
+        return unwrap(std::make_index_sequence<N>{}, std::move(array));
+    }
+
+    template<std::size_t... Is, typename... Ts>
+    std::tuple<Ts...> unwrap(std::index_sequence<Is...>, std::tuple<std::optional<Ts>...> &&tuple) {
+        assert((std::get<Is>(tuple) && ...));
+        return {*std::move(std::get<Is>(tuple))...};
+    }
+
+    template<typename... Ts>
+    std::tuple<Ts...> unwrap(std::tuple<std::optional<Ts>...> &&tuple) {
+        return unwrap(std::index_sequence_for<Ts...>{}, std::move(tuple));
+    }
+
     template<
         typename I,
         typename S,
@@ -554,7 +605,7 @@ namespace zero::async::promise {
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
 
             while (first != last) {
-                (*first++).setCallback([=](tl::expected<T, E> result) {
+                (*first++).setCallback([=](tl::expected<T, E> &&result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -579,14 +630,14 @@ namespace zero::async::promise {
                 Promise<std::vector<T>, E> promise;
                 std::atomic<std::size_t> count;
                 std::atomic_flag flag = ATOMIC_FLAG_INIT;
-                std::vector<T> values;
+                optional_wrapper_t<std::vector<T>> values;
             };
 
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
 
             // waiting for libc++ to implement ranges::views::enumerate
             for (std::size_t i{0}; first != last; ++first, ++i) {
-                (*first).setCallback([=](tl::expected<T, E> result) {
+                (*first).setCallback([=](tl::expected<T, E> &&result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -599,7 +650,7 @@ namespace zero::async::promise {
                     if (--ctx->count > 0)
                         return;
 
-                    ctx->promise.resolve(std::move(ctx->values));
+                    ctx->promise.resolve(unwrap(std::move(ctx->values)));
                 });
             }
 
@@ -662,7 +713,7 @@ namespace zero::async::promise {
                 Promise<T, E> promise;
                 std::atomic<std::size_t> count{sizeof...(Ts)};
                 std::atomic_flag flag = ATOMIC_FLAG_INIT;
-                T values;
+                optional_wrapper_t<T> values;
             };
 
             const auto ctx = std::make_shared<Context>();
@@ -677,10 +728,12 @@ namespace zero::async::promise {
                     }
 
                     if constexpr (std::is_void_v<Ts>) {
+                        std::get<Is>(ctx->values).emplace();
+
                         if (--ctx->count > 0)
                             return;
 
-                        ctx->promise.resolve(std::move(ctx->values));
+                        ctx->promise.resolve(unwrap(std::move(ctx->values)));
                     }
                     else {
                         std::get<Is>(ctx->values) = *std::move(result);
@@ -688,7 +741,7 @@ namespace zero::async::promise {
                         if (--ctx->count > 0)
                             return;
 
-                        ctx->promise.resolve(std::move(ctx->values));
+                        ctx->promise.resolve(unwrap(std::move(ctx->values)));
                     }
                 });
             }(), ...);
@@ -721,28 +774,30 @@ namespace zero::async::promise {
 
             Promise<std::vector<tl::expected<T, E>>> promise;
             std::atomic<std::size_t> count;
-            std::vector<tl::expected<T, E>> results;
+            optional_wrapper_t<std::vector<tl::expected<T, E>>> results;
         };
 
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
 
         for (std::size_t i{0}; first != last; ++first, ++i) {
-            (*first).setCallback([=](tl::expected<T, E> result) {
+            (*first).setCallback([=](tl::expected<T, E> &&result) {
                 if (!result) {
                     ctx->results[i] = tl::unexpected{std::move(result).error()};
 
                     if (--ctx->count > 0)
                         return;
 
-                    ctx->promise.resolve(std::move(ctx->results));
+                    ctx->promise.resolve(unwrap(std::move(ctx->results)));
                     return;
                 }
 
                 if constexpr (std::is_void_v<T>) {
+                    ctx->results[i].emplace();
+
                     if (--ctx->count > 0)
                         return;
 
-                    ctx->promise.resolve(std::move(ctx->results));
+                    ctx->promise.resolve(unwrap(std::move(ctx->results)));
                 }
                 else {
                     ctx->results[i] = *std::move(result);
@@ -750,7 +805,7 @@ namespace zero::async::promise {
                     if (--ctx->count > 0)
                         return;
 
-                    ctx->promise.resolve(std::move(ctx->results));
+                    ctx->promise.resolve(unwrap(std::move(ctx->results)));
                 }
             });
         }
@@ -780,7 +835,7 @@ namespace zero::async::promise {
         struct Context {
             Promise<T> promise;
             std::atomic<std::size_t> count{sizeof...(Ts)};
-            T results{};
+            optional_wrapper_t<T> results;
         };
 
         const auto ctx = std::make_shared<Context>();
@@ -793,15 +848,17 @@ namespace zero::async::promise {
                     if (--ctx->count > 0)
                         return;
 
-                    ctx->promise.resolve(std::move(ctx->results));
+                    ctx->promise.resolve(unwrap(std::move(ctx->results)));
                     return;
                 }
 
                 if constexpr (std::is_void_v<Ts>) {
+                    std::get<Is>(ctx->results).emplace();
+
                     if (--ctx->count > 0)
                         return;
 
-                    ctx->promise.resolve(std::move(ctx->results));
+                    ctx->promise.resolve(unwrap(std::move(ctx->results)));
                 }
                 else {
                     std::get<Is>(ctx->results) = *std::move(result);
@@ -809,7 +866,7 @@ namespace zero::async::promise {
                     if (--ctx->count > 0)
                         return;
 
-                    ctx->promise.resolve(std::move(ctx->results));
+                    ctx->promise.resolve(unwrap(std::move(ctx->results)));
                 }
             });
         }(), ...);
@@ -842,20 +899,20 @@ namespace zero::async::promise {
             Promise<T, std::vector<E>> promise;
             std::atomic<std::size_t> count;
             std::atomic_flag flag = ATOMIC_FLAG_INIT;
-            std::vector<E> errors;
+            optional_wrapper_t<std::vector<E>> errors;
         };
 
         const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(ranges::distance(first, last)));
 
         for (std::size_t i{0}; first != last; ++first, ++i) {
-            (*first).setCallback([=](tl::expected<T, E> result) {
+            (*first).setCallback([=](tl::expected<T, E> &&result) {
                 if (!result) {
                     ctx->errors[i] = std::move(result).error();
 
                     if (--ctx->count > 0)
                         return;
 
-                    ctx->promise.reject(std::move(ctx->errors));
+                    ctx->promise.reject(unwrap(std::move(ctx->errors)));
                     return;
                 }
 
@@ -898,7 +955,7 @@ namespace zero::async::promise {
             promise;
             std::atomic<std::size_t> count{sizeof...(Ts)};
             std::atomic_flag flag = ATOMIC_FLAG_INIT;
-            std::array<E, sizeof...(Ts)> errors;
+            optional_wrapper_t<std::array<E, sizeof...(Ts)>> errors;
         };
 
         const auto ctx = std::make_shared<Context>();
@@ -911,7 +968,7 @@ namespace zero::async::promise {
                     if (--ctx->count > 0)
                         return;
 
-                    ctx->promise.reject(std::move(ctx->errors));
+                    ctx->promise.reject(unwrap(std::move(ctx->errors)));
                     return;
                 }
 
@@ -958,7 +1015,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>();
 
         while (first != last) {
-            (*first++).setCallback([=](tl::expected<T, E> result) {
+            (*first++).setCallback([=](tl::expected<T, E> &&result) {
                 if (!result) {
                     if (!ctx->flag.test_and_set())
                         ctx->promise.reject(std::move(result).error());

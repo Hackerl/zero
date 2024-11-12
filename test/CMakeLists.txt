@@ -7,6 +7,7 @@ add_executable(
         defer.cpp
         error.cpp
         expect.cpp
+        utility.cpp
         cmdline.cpp
         formatter.cpp
         os/os.cpp
@@ -22,7 +23,6 @@ add_executable(
         encoding/base64.cpp
         strings/strings.cpp
         filesystem/fs.cpp
-        filesystem/std.cpp
         detail/type_traits.cpp
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>
         $<$<PLATFORM_ID:Windows>:os/windows/error.cpp os/windows/process.cpp>

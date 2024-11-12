@@ -1,7 +1,7 @@
 #include <zero/log.h>
 #include <zero/env.h>
 #include <zero/expect.h>
-#include <zero/filesystem/std.h>
+#include <zero/filesystem/fs.h>
 #include <zero/strings/strings.h>
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
@@ -225,7 +225,7 @@ void zero::log::Logger::addProvider(
             const auto value = env::get(name);
 
             if (!value)
-                throw std::system_error(value.error());
+                throw std::system_error{value.error()};
 
             if (!*value)
                 return std::nullopt;

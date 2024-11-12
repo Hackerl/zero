@@ -2,7 +2,7 @@
 #include <zero/os/linux/procfs/procfs.h>
 #include <zero/detail/type_traits.h>
 #include <zero/strings/strings.h>
-#include <zero/filesystem/std.h>
+#include <zero/filesystem/fs.h>
 #include <zero/os/unix/error.h>
 #include <zero/defer.h>
 #include <zero/expect.h>
@@ -686,7 +686,7 @@ tl::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::process
         if (!entry->isDirectory().value_or(false))
             continue;
 
-        const auto id = strings::toNumber<pid_t>(entry->path().string());
+        const auto id = strings::toNumber<pid_t>(entry->path().filename().string());
 
         if (!id)
             continue;
