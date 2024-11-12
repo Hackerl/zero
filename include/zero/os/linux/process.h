@@ -7,13 +7,13 @@
 
 namespace zero::os::linux::process {
     struct CPUTime {
-        double user;
-        double system;
+        double user{};
+        double system{};
     };
 
     struct MemoryStat {
-        std::uint64_t rss;
-        std::uint64_t vms;
+        std::uint64_t rss{};
+        std::uint64_t vms{};
     };
 
     using IOStat = procfs::process::IOStat;

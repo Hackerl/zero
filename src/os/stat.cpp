@@ -95,7 +95,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
     const auto memory = linux::procfs::memory();
     EXPECT(memory);
 
-    MemoryStat stat{};
+    MemoryStat stat;
 
     stat.total = memory->memoryTotal * 1024;
     stat.free = memory->memoryFree * 1024;
@@ -133,7 +133,7 @@ tl::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory
         return sysctl(mib.data(), mib.size(), &total, &size, nullptr, 0);
     }));
 
-    MemoryStat stat{};
+    MemoryStat stat;
 
     stat.total = total;
     stat.available = (data.inactive_count + data.free_count) * vm_kernel_page_size;

@@ -148,7 +148,7 @@ zero::os::linux::procfs::process::Process::stat() const {
     if (start == std::string::npos || end == std::string::npos)
         return tl::unexpected{procfs::Error::UNEXPECTED_DATA};
 
-    Stat stat{};
+    Stat stat;
 
     const auto pid = strings::toNumber<std::int32_t>(std::string{content->begin(), content->begin() + start - 1});
     EXPECT(pid);
@@ -407,7 +407,7 @@ zero::os::linux::procfs::process::Process::status() const {
         );
     };
 
-    Status status{};
+    Status status;
 
     EXPECT(set(status.name, take("Name")));
     EXPECT(setNumber(status.umask, "Umask", 8));
@@ -575,7 +575,7 @@ zero::os::linux::procfs::process::Process::maps() const {
         const auto inode = strings::toNumber<std::uint64_t>(fields[4]);
         EXPECT(inode);
 
-        MemoryMapping memoryMapping{};
+        MemoryMapping memoryMapping;
 
         memoryMapping.start = *start;
         memoryMapping.end = *end;
@@ -642,7 +642,7 @@ zero::os::linux::procfs::process::Process::io() const {
         return {};
     };
 
-    IOStat stat{};
+    IOStat stat;
 
     EXPECT(set(stat.readCharacters, "rchar"));
     EXPECT(set(stat.writeCharacters, "wchar"));

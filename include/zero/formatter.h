@@ -15,13 +15,11 @@ struct fmt::formatter<tl::expected<T, E>, Char> {
 
     template<typename FmtContext>
     static auto format(const tl::expected<T, E> &expected, FmtContext &ctx) {
-        using namespace std::string_view_literals;
-
         if (!expected)
             return fmt::format_to(ctx.out(), "unexpected({})", expected.error());
 
         if constexpr (std::is_void_v<T>) {
-            constexpr auto result = "expected()"sv;
+            constexpr std::string_view result{"expected()"};
             return std::copy(result.begin(), result.end(), ctx.out());
         }
         else {
@@ -39,10 +37,8 @@ struct fmt::formatter<std::exception_ptr, Char> {
 
     template<typename FmtContext>
     static auto format(const std::exception_ptr &ptr, FmtContext &ctx) {
-        using namespace std::string_view_literals;
-
         if (!ptr) {
-            constexpr auto result = "nullptr"sv;
+            constexpr std::string_view result{"nullptr"};
             return std::copy(result.begin(), result.end(), ctx.out());
         }
 

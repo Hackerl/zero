@@ -691,7 +691,7 @@ namespace zero::async::promise {
             const auto ctx = std::make_shared<Context>();
 
             ([&] {
-                futures.setCallback([=](tl::expected<Ts, E> result) {
+                futures.setCallback([=](tl::expected<Ts, E> &&result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -719,7 +719,7 @@ namespace zero::async::promise {
             const auto ctx = std::make_shared<Context>();
 
             ([&] {
-                futures.setCallback([=](tl::expected<Ts, E> result) {
+                futures.setCallback([=](tl::expected<Ts, E> &&result) {
                     if (!result) {
                         if (!ctx->flag.test_and_set())
                             ctx->promise.reject(std::move(result).error());
@@ -841,7 +841,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>();
 
         ([&] {
-            futures.setCallback([=](tl::expected<Ts, Es> result) {
+            futures.setCallback([=](tl::expected<Ts, Es> &&result) {
                 if (!result) {
                     std::get<Is>(ctx->results) = tl::unexpected{std::move(result).error()};
 
@@ -961,7 +961,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>();
 
         ([&] {
-            futures.setCallback([=](tl::expected<Ts, E> result) {
+            futures.setCallback([=](tl::expected<Ts, E> &&result) {
                 if (!result) {
                     std::get<Is>(ctx->errors) = std::move(result).error();
 
@@ -1058,7 +1058,7 @@ namespace zero::async::promise {
         const auto ctx = std::make_shared<Context>();
 
         ([&] {
-            futures.setCallback([=](tl::expected<Ts, E> result) {
+            futures.setCallback([=](tl::expected<Ts, E> &&result) {
                 if (!result) {
                     if (!ctx->flag.test_and_set())
                         ctx->promise.reject(std::move(result).error());

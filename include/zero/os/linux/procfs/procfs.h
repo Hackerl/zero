@@ -17,10 +17,10 @@ namespace zero::os::linux::procfs {
     )
 
     struct CPUTime {
-        std::uint64_t user;
-        std::uint64_t nice;
-        std::uint64_t system;
-        std::uint64_t idle;
+        std::uint64_t user{};
+        std::uint64_t nice{};
+        std::uint64_t system{};
+        std::uint64_t idle{};
         std::optional<std::uint64_t> ioWait;
         std::optional<std::uint64_t> irq;
         std::optional<std::uint64_t> softIRQ;
@@ -32,9 +32,9 @@ namespace zero::os::linux::procfs {
     struct Stat {
         CPUTime total;
         std::vector<CPUTime> cpuTimes;
-        std::uint64_t contextSwitches;
-        std::uint64_t bootTime;
-        std::uint64_t processesCreated;
+        std::uint64_t contextSwitches{};
+        std::uint64_t bootTime{};
+        std::uint64_t processesCreated{};
         std::optional<std::uint32_t> processesRunning;
         std::optional<std::uint32_t> processesBlocked;
     };
@@ -42,14 +42,14 @@ namespace zero::os::linux::procfs {
     tl::expected<Stat, std::error_code> stat();
 
     struct MemoryStat {
-        std::uint64_t memoryTotal;
-        std::uint64_t memoryFree;
+        std::uint64_t memoryTotal{};
+        std::uint64_t memoryFree{};
         std::optional<std::uint64_t> memoryAvailable;
-        std::uint64_t buffers;
-        std::uint64_t cached;
-        std::uint64_t swapCached;
-        std::uint64_t active;
-        std::uint64_t inactive;
+        std::uint64_t buffers{};
+        std::uint64_t cached{};
+        std::uint64_t swapCached{};
+        std::uint64_t active{};
+        std::uint64_t inactive{};
         std::optional<std::uint64_t> activeAnonymous;
         std::optional<std::uint64_t> inactiveAnonymous;
         std::optional<std::uint64_t> activeFile;
@@ -61,14 +61,14 @@ namespace zero::os::linux::procfs {
         std::optional<std::uint64_t> lowTotal;
         std::optional<std::uint64_t> lowFree;
         std::optional<std::uint64_t> mmapCopy;
-        std::uint64_t swapTotal;
-        std::uint64_t swapFree;
-        std::uint64_t dirty;
-        std::uint64_t writeBack;
+        std::uint64_t swapTotal{};
+        std::uint64_t swapFree{};
+        std::uint64_t dirty{};
+        std::uint64_t writeBack{};
         std::optional<std::uint64_t> anonymousPages;
-        std::uint64_t mapped;
+        std::uint64_t mapped{};
         std::optional<std::uint64_t> sharedMemory;
-        std::uint64_t slab;
+        std::uint64_t slab{};
         std::optional<std::uint64_t> reclaimableSlab;
         std::optional<std::uint64_t> unreclaimableSlab;
         std::optional<std::uint64_t> kernelStack;
@@ -79,10 +79,10 @@ namespace zero::os::linux::procfs {
         std::optional<std::uint64_t> bounceBuffers;
         std::optional<std::uint64_t> writeBackTemporary;
         std::optional<std::uint64_t> commitLimit;
-        std::uint64_t committedAs;
-        std::uint64_t vmallocTotal;
-        std::uint64_t vmallocUsed;
-        std::uint64_t vmallocChunk;
+        std::uint64_t committedAs{};
+        std::uint64_t vmallocTotal{};
+        std::uint64_t vmallocUsed{};
+        std::uint64_t vmallocChunk{};
         std::optional<std::uint64_t> hardwareCorrupted;
         std::optional<std::uint64_t> anonymousHugePages;
         std::optional<std::uint64_t> sharedMemoryHugePages;

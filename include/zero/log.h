@@ -71,9 +71,9 @@ namespace zero::log {
 
     class Logger {
         struct Config {
-            Level level;
+            Level level{};
             std::unique_ptr<IProvider> provider;
-            std::chrono::milliseconds flushInterval;
+            std::chrono::milliseconds flushInterval{};
             std::chrono::system_clock::time_point flushDeadline;
         };
 

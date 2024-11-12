@@ -13,20 +13,20 @@
 
 namespace zero::os::windows::process {
     struct CPUTime {
-        double user;
-        double system;
+        double user{};
+        double system{};
     };
 
     struct MemoryStat {
-        std::uint64_t rss;
-        std::uint64_t vms;
+        std::uint64_t rss{};
+        std::uint64_t vms{};
     };
 
     struct IOStat {
-        std::uint64_t readCount;
-        std::uint64_t readBytes;
-        std::uint64_t writeCount;
-        std::uint64_t writeBytes;
+        std::uint64_t readCount{};
+        std::uint64_t readBytes{};
+        std::uint64_t writeCount{};
+        std::uint64_t writeBytes{};
     };
 
     class Process {

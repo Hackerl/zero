@@ -98,7 +98,7 @@ namespace zero {
 
         struct Optional {
             std::string name;
-            char shortName;
+            char shortName{};
             std::string desc;
             std::any value;
             std::optional<TypeInfo> typeInfo;

@@ -33,13 +33,13 @@ namespace zero::os::net {
     inline constexpr IPv6 UNSPECIFIED_IPV6 = {};
 
     struct IfAddress4 {
-        IPv4 ip;
-        int prefix;
+        IPv4 ip{};
+        int prefix{};
     };
 
     struct IfAddress6 {
-        IPv6 ip;
-        int prefix;
+        IPv6 ip{};
+        int prefix{};
     };
 
     using Address = std::variant<IfAddress4, IfAddress6>;

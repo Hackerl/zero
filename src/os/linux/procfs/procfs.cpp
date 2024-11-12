@@ -34,7 +34,7 @@ tl::expected<zero::os::linux::procfs::CPUTime, std::error_code> parseCPUTime(con
         return {};
     };
 
-    zero::os::linux::procfs::CPUTime cpuTime{};
+    zero::os::linux::procfs::CPUTime cpuTime;
 
     EXPECT(set(cpuTime.user));
     EXPECT(set(cpuTime.nice));
@@ -54,7 +54,7 @@ tl::expected<zero::os::linux::procfs::Stat, std::error_code> zero::os::linux::pr
     const auto content = filesystem::readString("/proc/stat");
     EXPECT(content);
 
-    Stat stat{};
+    Stat stat;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
         if (strings::startsWith(line, "cpu ")) {
@@ -137,7 +137,7 @@ tl::expected<zero::os::linux::procfs::MemoryStat, std::error_code> zero::os::lin
         return {};
     };
 
-    MemoryStat stat{};
+    MemoryStat stat;
 
     EXPECT(set(stat.memoryTotal, "MemTotal"));
     EXPECT(set(stat.memoryFree, "MemFree"));
