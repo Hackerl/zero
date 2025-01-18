@@ -1,7 +1,7 @@
+#include <catch_extensions.h>
 #include <zero/os/linux/procfs/process.h>
 #include <zero/filesystem/fs.h>
 #include <zero/os/unix/error.h>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
 #include <thread>
@@ -27,9 +27,7 @@ TEST_CASE("self process", "[procfs]") {
     const auto path = zero::filesystem::applicationPath();
     REQUIRE(path);
 
-    const auto comm = process->comm();
-    REQUIRE(comm);
-    REQUIRE(*comm == "zero_test");
+    REQUIRE(process->comm() == "zero_test");
 
     const auto cmdline = process->cmdline();
     REQUIRE(cmdline);
@@ -63,13 +61,8 @@ TEST_CASE("self process", "[procfs]") {
     REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::WRITE));
     REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::PRIVATE));
 
-    const auto exe = process->exe();
-    REQUIRE(exe);
-    REQUIRE(*exe == *path);
-
-    const auto cwd = process->cwd();
-    REQUIRE(cwd);
-    REQUIRE(*cwd == std::filesystem::current_path());
+    REQUIRE(process->exe() == *path);
+    REQUIRE(process->cwd() == zero::filesystem::currentPath());
 
     const auto stat = process->stat();
     REQUIRE(stat);
@@ -120,9 +113,7 @@ TEST_CASE("child process", "[procfs]") {
     const auto path = zero::filesystem::applicationPath();
     REQUIRE(path);
 
-    const auto comm = process->comm();
-    REQUIRE(comm);
-    REQUIRE(*comm == "zero_test");
+    REQUIRE(process->comm() == "zero_test");
 
     const auto cmdline = process->cmdline();
     REQUIRE(cmdline);
@@ -156,13 +147,8 @@ TEST_CASE("child process", "[procfs]") {
     REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::WRITE));
     REQUIRE(it->permissions.test(zero::os::linux::procfs::process::MemoryPermission::PRIVATE));
 
-    const auto exe = process->exe();
-    REQUIRE(exe);
-    REQUIRE(*exe == *path);
-
-    const auto cwd = process->cwd();
-    REQUIRE(cwd);
-    REQUIRE(*cwd == std::filesystem::current_path());
+    REQUIRE(process->exe() == *path);
+    REQUIRE(process->cwd() == zero::filesystem::currentPath());
 
     const auto stat = process->stat();
     REQUIRE(stat);
@@ -193,11 +179,11 @@ TEST_CASE("child process", "[procfs]") {
         return kill(pid, SIGKILL);
     }));
 
-    const auto id = zero::os::unix::ensure([&] {
-        return waitpid(pid, nullptr, 0);
-    });
-    REQUIRE(id);
-    REQUIRE(*id == pid);
+    REQUIRE(
+        zero::os::unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        }) == pid
+    );
 }
 
 TEST_CASE("zombie process", "[procfs]") {
@@ -221,9 +207,7 @@ TEST_CASE("zombie process", "[procfs]") {
     REQUIRE(process);
     REQUIRE(process->pid() == pid);
 
-    const auto comm = process->comm();
-    REQUIRE(comm);
-    REQUIRE(*comm == "zero_test");
+    REQUIRE(process->comm() == "zero_test");
 
     const auto cmdline = process->cmdline();
     REQUIRE_FALSE(cmdline);
@@ -252,7 +236,7 @@ TEST_CASE("zombie process", "[procfs]") {
     REQUIRE(stat->ppid == getpid());
     REQUIRE(stat->processGroupID == getpgrp());
     REQUIRE(stat->sessionID == getsid(pid));
-    REQUIRE(*stat->exitCode == SIGKILL);
+    REQUIRE(stat->exitCode == SIGKILL);
 
     const auto status = process->status();
     REQUIRE(status);
@@ -267,11 +251,11 @@ TEST_CASE("zombie process", "[procfs]") {
     REQUIRE_THAT(*tasks, Catch::Matchers::SizeIs(1));
     REQUIRE_THAT(*tasks, Catch::Matchers::Contains(pid));
 
-    const auto id = zero::os::unix::ensure([&] {
-        return waitpid(pid, nullptr, 0);
-    });
-    REQUIRE(id);
-    REQUIRE(*id == pid);
+    REQUIRE(
+        zero::os::unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        }) == pid
+    );
 }
 
 TEST_CASE("open process failed", "[linux]") {

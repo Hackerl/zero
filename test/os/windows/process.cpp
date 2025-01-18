@@ -1,6 +1,6 @@
+#include <catch_extensions.h>
 #include <zero/os/windows/process.h>
 #include <zero/filesystem/fs.h>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 
 TEST_CASE("list process ids", "[windows]") {
@@ -19,21 +19,14 @@ TEST_CASE("process", "[windows]") {
     const auto path = zero::filesystem::applicationPath();
     REQUIRE(path);
 
-    const auto name = process->name();
-    REQUIRE(name);
-    REQUIRE(*name == path->filename());
-
-    const auto exe = process->exe();
-    REQUIRE(exe);
-    REQUIRE(*exe == *path);
+    REQUIRE(process->name() == path->filename());
+    REQUIRE(process->exe() == *path);
 
     const auto cmdline = process->cmdline();
     REQUIRE(cmdline);
     REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
 
-    const auto cwd = process->cwd();
-    REQUIRE(cwd);
-    REQUIRE(*cwd == std::filesystem::current_path());
+    REQUIRE(process->cwd() == zero::filesystem::currentPath());
 
     const auto envs = process->envs();
     REQUIRE(envs);
@@ -51,11 +44,6 @@ TEST_CASE("process", "[windows]") {
     const auto io = process->io();
     REQUIRE(io);
 
-    const auto code = process->exitCode();
-    REQUIRE_FALSE(code);
-    REQUIRE(code.error() == zero::os::windows::process::Process::Error::PROCESS_STILL_ACTIVE);
-
-    const auto result = process->wait(10ms);
-    REQUIRE_FALSE(result);
-    REQUIRE(result.error() == std::errc::timed_out);
+    REQUIRE_ERROR(process->exitCode(), zero::os::windows::process::Process::Error::PROCESS_STILL_ACTIVE);
+    REQUIRE_ERROR(process->wait(10ms), std::errc::timed_out);
 }

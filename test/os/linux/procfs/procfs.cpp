@@ -1,5 +1,5 @@
+#include <catch_extensions.h>
 #include <zero/os/linux/procfs/procfs.h>
-#include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("stat", "[procfs]") {
     const auto stat = zero::os::linux::procfs::stat();

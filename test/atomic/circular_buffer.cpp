@@ -1,5 +1,5 @@
+#include <catch_extensions.h>
 #include <zero/atomic/circular_buffer.h>
-#include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("lock-free circular buffer", "[atomic]") {
     zero::atomic::CircularBuffer<int> buffer{10};
@@ -10,7 +10,6 @@ TEST_CASE("lock-free circular buffer", "[atomic]") {
 
     SECTION("producer/consumer") {
         auto index = buffer.reserve();
-
         REQUIRE(index);
         REQUIRE_FALSE(buffer.empty());
         REQUIRE(buffer.size() == 1);
@@ -20,13 +19,11 @@ TEST_CASE("lock-free circular buffer", "[atomic]") {
         buffer.commit(*index);
 
         index = buffer.acquire();
-
         REQUIRE(index);
         REQUIRE(buffer.empty());
         REQUIRE_FALSE(buffer.full());
 
         REQUIRE(buffer[*index] == 1);
-
         buffer.release(*index);
     }
 

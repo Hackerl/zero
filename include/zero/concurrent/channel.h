@@ -180,14 +180,14 @@ namespace zero::concurrent {
 
     DEFINE_ERROR_CODE_EX(
         TryReceiveError,
-        "zero::concurrent::Sender::tryReceive",
+        "zero::concurrent::Receiver::tryReceive",
         DISCONNECTED, "receiving on an empty and disconnected channel", DEFAULT_ERROR_CONDITION,
         EMPTY, "receiving on an empty channel", std::errc::operation_would_block
     )
 
     DEFINE_ERROR_CODE_EX(
         ReceiveError,
-        "zero::concurrent::Sender::receive",
+        "zero::concurrent::Receiver::receive",
         DISCONNECTED, "channel is empty and disconnected", DEFAULT_ERROR_CONDITION,
         TIMEOUT, "timed out waiting on receive operation", std::errc::timed_out
     )

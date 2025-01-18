@@ -1,5 +1,5 @@
+#include "catch_extensions.h"
 #include <zero/expect.h>
-#include <catch2/catch_test_macros.hpp>
 
 std::expected<int, std::error_code> twice(const int value) {
     if (value % 2)
@@ -20,15 +20,11 @@ TEST_CASE("expect macro", "[expect]") {
     };
 
     SECTION("valid") {
-        const auto result = calculate(2);
-        REQUIRE(result);
-        REQUIRE(*result == 8);
+        REQUIRE(calculate(2) == 8);
     }
 
     SECTION("invalid") {
-        const auto result = calculate(1);
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == std::errc::invalid_argument);
+        REQUIRE_ERROR(calculate(1), std::errc::invalid_argument);
     }
 }
 
@@ -41,15 +37,11 @@ TEST_CASE("try macro", "[expect]") {
     };
 
     SECTION("valid") {
-        const auto result = calculate(2);
-        REQUIRE(result);
-        REQUIRE(*result == 8);
+        REQUIRE(calculate(2) == 8);
     }
 
     SECTION("invalid") {
-        const auto result = calculate(1);
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == std::errc::invalid_argument);
+        REQUIRE_ERROR(calculate(1), std::errc::invalid_argument);
     }
 }
 #endif

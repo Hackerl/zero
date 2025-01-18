@@ -1,5 +1,5 @@
+#include <catch_extensions.h>
 #include <zero/encoding/base64.h>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 
 constexpr std::string_view DATA = "hello";
@@ -17,15 +17,12 @@ TEST_CASE("base64 decoding", "[encoding]") {
     }
 
     SECTION("invalid length") {
-        const auto result = zero::encoding::base64::decode("aGVsbG8");
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == zero::encoding::base64::DecodeError::INVALID_LENGTH);
+        REQUIRE_ERROR(zero::encoding::base64::decode("aGVsbG8"), zero::encoding::base64::DecodeError::INVALID_LENGTH);
     }
 
     SECTION("valid") {
         const auto result = zero::encoding::base64::decode("aGVsbG8=");
         REQUIRE(result);
-        REQUIRE_THAT(*result, Catch::Matchers::SizeIs(DATA.size()));
         REQUIRE_THAT(*result, Catch::Matchers::RangeEquals(std::as_bytes(std::span{DATA})));
     }
 }

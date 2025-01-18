@@ -1,10 +1,10 @@
+#include <catch_extensions.h>
 #include <zero/os/process.h>
 #include <zero/env.h>
 #include <zero/defer.h>
 #include <zero/os/os.h>
 #include <zero/strings/strings.h>
 #include <zero/filesystem/fs.h>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <fmt/format.h>
 #include <ranges>
@@ -44,15 +44,11 @@ TEST_CASE("process", "[os]") {
     REQUIRE(path);
 
     SECTION("name") {
-        const auto name = process->name();
-        REQUIRE(name);
-        REQUIRE(*name == path->filename());
+        REQUIRE(process->name() == path->filename());
     }
 
     SECTION("exe") {
-        const auto exe = process->exe();
-        REQUIRE(exe);
-        REQUIRE(*exe == *path);
+        REQUIRE(process->exe() == *path);
     }
 
     SECTION("cmdline") {
@@ -62,9 +58,7 @@ TEST_CASE("process", "[os]") {
     }
 
     SECTION("cwd") {
-        const auto cwd = process->cwd();
-        REQUIRE(cwd);
-        REQUIRE(*cwd == std::filesystem::current_path());
+        REQUIRE(process->cwd() == zero::filesystem::currentPath());
     }
 
     SECTION("envs") {
@@ -119,7 +113,6 @@ TEST_CASE("command", "[os]") {
 
         const auto cmdline = child->cmdline();
         REQUIRE(cmdline);
-        REQUIRE_THAT(*cmdline, Catch::Matchers::SizeIs(ARGUMENTS.size() + 1));
         REQUIRE_THAT(
             (std::ranges::subrange{cmdline->begin() + 1, cmdline->end()}),
             Catch::Matchers::RangeEquals(ARGUMENTS)
@@ -149,7 +142,6 @@ TEST_CASE("command", "[os]") {
 
         const auto cmdline = child->cmdline();
         REQUIRE(cmdline);
-        REQUIRE_THAT(*cmdline, Catch::Matchers::SizeIs(ARGUMENTS.size() + 1));
         REQUIRE_THAT(
             (std::ranges::subrange{cmdline->begin() + 1, cmdline->end()}),
             Catch::Matchers::RangeEquals(ARGUMENTS)
@@ -166,10 +158,7 @@ TEST_CASE("command", "[os]") {
                      .spawn();
         REQUIRE(child);
         DEFER(REQUIRE(child->wait()));
-
-        const auto cwd = child->cwd();
-        REQUIRE(cwd);
-        REQUIRE(*cwd == *temp);
+        REQUIRE(child->cwd() == *temp);
     }
 
     SECTION("env") {
@@ -295,7 +284,6 @@ TEST_CASE("command", "[os]") {
 
         const auto cmdline = child->cmdline();
         REQUIRE(cmdline);
-        REQUIRE_THAT(*cmdline, Catch::Matchers::SizeIs(args.size() + 1));
         REQUIRE_THAT(
             (std::ranges::subrange{cmdline->begin() + 1, cmdline->end()}),
             Catch::Matchers::RangeEquals(args)
@@ -353,16 +341,14 @@ TEST_CASE("command", "[os]") {
         auto n = zero::os::unix::ensure([&] {
             return write(*input, data.data(), data.size());
         });
-        REQUIRE(n);
-        REQUIRE(*n == data.size());
+        REQUIRE(n == data.size());
         REQUIRE(close(*input) == 0);
 
         std::array<char, 64> buffer{};
         n = zero::os::unix::ensure([&] {
             return read(*output, buffer.data(), buffer.size());
         });
-        REQUIRE(n);
-        REQUIRE(*n == data.size());
+        REQUIRE(n == data.size());
         REQUIRE(data == buffer.data());
         REQUIRE(close(*output) == 0);
 #endif
@@ -466,8 +452,7 @@ TEST_CASE("pseudo console", "[os]") {
     auto n = zero::os::unix::ensure([&] {
         return write(fd, input.data(), input.size());
     });
-    REQUIRE(n);
-    REQUIRE(*n == input.size());
+    REQUIRE(n == input.size());
 
     std::vector<char> data;
 

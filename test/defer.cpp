@@ -1,5 +1,5 @@
+#include "catch_extensions.h"
 #include <zero/defer.h>
-#include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("defer expression", "[defer]") {
     int i{0};

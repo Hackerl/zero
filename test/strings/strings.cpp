@@ -1,5 +1,5 @@
+#include <catch_extensions.h>
 #include <zero/strings/strings.h>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
@@ -120,22 +120,11 @@ TEST_CASE("convert string to integer", "[strings]") {
     REQUIRE_FALSE(zero::strings::toNumber<int>(""));
     REQUIRE_FALSE(zero::strings::toNumber<int>("", 16));
     REQUIRE_FALSE(zero::strings::toNumber<int>("ABC"));
-
-    auto result = zero::strings::toNumber<int>("3");
-    REQUIRE(result);
-    REQUIRE(*result == 3);
-
+    REQUIRE(zero::strings::toNumber<int>("3") == 3);
     REQUIRE_FALSE(zero::strings::toNumber<int>("QQQ3"));
     REQUIRE_FALSE(zero::strings::toNumber<int>("ABC3", 2));
-
-    result = zero::strings::toNumber<int>("ABC", 16);
-    REQUIRE(result);
-    REQUIRE(*result == 0xabc);
-
-    result = zero::strings::toNumber<int>("ABC3QQQ", 16);
-    REQUIRE(result);
-    REQUIRE(*result == 0xabc3);
-
+    REQUIRE(zero::strings::toNumber<int>("ABC", 16) == 0xabc);
+    REQUIRE(zero::strings::toNumber<int>("ABC3QQQ", 16) == 0xabc3);
     REQUIRE_FALSE(zero::strings::toNumber<int>("QQQ0ABC", 16));
 
     BENCHMARK("zero::strings::toNumber") {
@@ -146,17 +135,12 @@ TEST_CASE("convert string to integer", "[strings]") {
 TEST_CASE("convert a wide-character string to a multibyte string", "[strings]") {
     std::setlocale(LC_ALL, "en_US.UTF-8");
 
-    auto result = zero::strings::encode(L"");
+    const auto result = zero::strings::encode(L"");
     REQUIRE(result);
     REQUIRE_THAT(*result, Catch::Matchers::IsEmpty());
 
-    result = zero::strings::encode(L"1234567890");
-    REQUIRE(result);
-    REQUIRE(*result == "1234567890");
-
-    result = zero::strings::encode(L"你好");
-    REQUIRE(result);
-    REQUIRE(*result == "你好");
+    REQUIRE(zero::strings::encode(L"1234567890") == "1234567890");
+    REQUIRE(zero::strings::encode(L"你好") == "你好");
 
     BENCHMARK("zero::strings::encode") {
         return zero::strings::encode(L"1234567890");
@@ -166,17 +150,12 @@ TEST_CASE("convert a wide-character string to a multibyte string", "[strings]") 
 TEST_CASE("convert a multibyte string to a wide-character string", "[strings]") {
     std::setlocale(LC_ALL, "en_US.UTF-8");
 
-    auto result = zero::strings::decode("");
+    const auto result = zero::strings::decode("");
     REQUIRE(result);
     REQUIRE_THAT(*result, Catch::Matchers::IsEmpty());
 
-    result = zero::strings::decode("1234567890");
-    REQUIRE(result);
-    REQUIRE(*result == L"1234567890");
-
-    result = zero::strings::decode("你好");
-    REQUIRE(result);
-    REQUIRE(*result == L"你好");
+    REQUIRE(zero::strings::decode("1234567890") == L"1234567890");
+    REQUIRE(zero::strings::decode("你好") == L"你好");
 
     BENCHMARK("zero::strings::decode") {
         return zero::strings::decode("1234567890");

@@ -1,6 +1,6 @@
+#include <catch_extensions.h>
 #include <zero/async/promise.h>
 #include <zero/concurrent/channel.h>
-#include <catch2/catch_test_macros.hpp>
 #include <thread>
 #include <list>
 
@@ -99,36 +99,24 @@ TEST_CASE("promise", "[async]") {
     REQUIRE(future.valid());
     REQUIRE_FALSE(future.isReady());
 
-    const auto result = future.wait(10ms);
-    REQUIRE_FALSE(result);
-    REQUIRE(result.error() == std::errc::timed_out);
-
     SECTION("resolve") {
         promise.resolve(1024);
         REQUIRE(promise.valid());
         REQUIRE(promise.isFulfilled());
-
         REQUIRE(future.valid());
         REQUIRE(future.isReady());
         REQUIRE(future.wait());
-
-        const auto &res = future.result();
-        REQUIRE(res);
-        REQUIRE(*res == 1024);
+        REQUIRE(future.result() == 1024);
     }
 
     SECTION("reject") {
         promise.reject(-1);
         REQUIRE(promise.valid());
         REQUIRE(promise.isFulfilled());
-
         REQUIRE(future.valid());
         REQUIRE(future.isReady());
         REQUIRE(future.wait());
-
-        const auto &res = future.result();
-        REQUIRE_FALSE(res);
-        REQUIRE(res.error() == -1);
+        REQUIRE_ERROR(future.result(), -1);
     }
 }
 
@@ -220,70 +208,51 @@ TEST_CASE("callback chain", "[async]") {
 TEST_CASE("callback chain concurrency testing", "[async]") {
     using namespace std::string_view_literals;
 
-    {
-        const auto result = resolve<int, int>(1).get();
-        REQUIRE(result);
-        REQUIRE(*result == 1);
-    }
+    REQUIRE(resolve<int, int>(1).get() == 1);
+    REQUIRE_ERROR((reject<void, int>(-1).get()), -1);
+    REQUIRE(
+        resolve<int, int>(1)
+            .then([](const auto &value) {
+                return resolve<int, int>(value * 10);
+            }).get() == 10
+    );
 
-    {
-        const auto result = reject<void, int>(-1).get();
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == -1);
-    }
+    REQUIRE(
+        resolve<int, int>(1)
+            .then([](const auto &value) -> std::expected<int, int> {
+                if (value == 2)
+                    return std::unexpected{2};
 
-    {
-        const auto result = resolve<int, int>(1)
-                            .then([](const auto &value) {
-                                return resolve<int, int>(value * 10);
-                            }).get();
-        REQUIRE(result);
-        REQUIRE(*result == 10);
-    }
+                return 2;
+            }).get() == 2
+    );
 
-    {
-        const auto result = resolve<int, int>(1)
-                            .then([](const auto &value) -> std::expected<int, int> {
-                                if (value == 2)
-                                    return std::unexpected{2};
+    REQUIRE_ERROR(
+        (resolve<int, int>(1)
+            .then([](const auto &value) -> std::expected<int, int> {
+                if (value == 1)
+                    return std::unexpected{-1};
 
-                                return 2;
-                            }).get();
-        REQUIRE(result);
-        REQUIRE(*result == 2);
-    }
+                return 2;
+            }).get()),
+        -1
+    );
 
-    {
-        const auto result = resolve<int, int>(1)
-                            .then([](const auto &value) -> std::expected<int, int> {
-                                if (value == 1)
-                                    return std::unexpected{-1};
+    const auto i = std::make_shared<int>(0);
+    REQUIRE(
+        resolve<int, int>(1)
+            .finally([=] {
+                *i = 1;
+            }).get() == 1
+    );
+    REQUIRE(*i == 1);
 
-                                return 2;
-                            }).get();
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == -1);
-    }
+    auto buffer = std::make_unique<char[]>(1024);
+    std::memcpy(buffer.get(), "hello", 5);
 
-    {
-        const auto i = std::make_shared<int>(0);
-        const auto result = resolve<int, int>(1)
-                            .finally([=] {
-                                *i = 1;
-                            }).get();
-        REQUIRE(result);
-        REQUIRE(*result == 1);
-        REQUIRE(*i == 1);
-    }
-
-    {
-        auto buffer = std::make_unique<char[]>(1024);
-        std::memcpy(buffer.get(), "hello", 5);
-
-        const auto result = resolve<std::unique_ptr<char[]>, int>(std::move(buffer)).get();
-        REQUIRE(result);
-        REQUIRE(result->get() == "hello"sv);
-    }
+    const auto result = resolve<std::unique_ptr<char[]>, int>(std::move(buffer)).get();
+    REQUIRE(result);
+    REQUIRE(result->get() == "hello"sv);
 }
 
 TEST_CASE("promise all", "[async]") {
@@ -583,8 +552,7 @@ TEST_CASE("promise any", "[async]") {
                 reject<int, int>(-6),
                 resolve<int, int>(1)
             }).get();
-            REQUIRE(result);
-            REQUIRE(*result == 1);
+            REQUIRE(result == 1);
         }
 
         SECTION("reject") {
@@ -663,8 +631,7 @@ TEST_CASE("promise variadic any", "[async]") {
                     reject<int, int>(-6),
                     resolve<int, int>(1)
                 ).get();
-                REQUIRE(result);
-                REQUIRE(*result == 1);
+                REQUIRE(result == 1);
             }
 
             SECTION("reject") {

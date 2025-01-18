@@ -1,6 +1,6 @@
+#include <catch_extensions.h>
 #include <zero/filesystem/fs.h>
 #include <zero/defer.h>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
 #include <list>
@@ -14,9 +14,7 @@ TEST_CASE("read bytes from file", "[filesystem]") {
     const auto path = *temp / "zero-filesystem-read-bytes";
 
     SECTION("file does not exist") {
-        const auto content = zero::filesystem::read(path);
-        REQUIRE_FALSE(content);
-        REQUIRE(content.error() == std::errc::no_such_file_or_directory);
+        REQUIRE_ERROR(zero::filesystem::read(path), std::errc::no_such_file_or_directory);
     }
 
     SECTION("file exists") {
@@ -37,18 +35,12 @@ TEST_CASE("read string from file", "[filesystem]") {
     const auto path = *temp / "zero-filesystem-read-string";
 
     SECTION("file does not exist") {
-        const auto content = zero::filesystem::readString(path);
-        REQUIRE_FALSE(content);
-        REQUIRE(content.error() == std::errc::no_such_file_or_directory);
+        REQUIRE_ERROR(zero::filesystem::readString(path), std::errc::no_such_file_or_directory);
     }
 
     SECTION("file exists") {
         REQUIRE(zero::filesystem::write(path, std::as_bytes(std::span{CONTENT})));
-
-        const auto content = zero::filesystem::readString(path);
-        REQUIRE(content);
-        REQUIRE(*content == CONTENT);
-
+        REQUIRE(zero::filesystem::readString(path) == CONTENT);
         REQUIRE(zero::filesystem::remove(path));
     }
 }
@@ -75,10 +67,7 @@ TEST_CASE("write string to file", "[filesystem]") {
 
     REQUIRE(zero::filesystem::write(path, CONTENT));
     DEFER(REQUIRE(zero::filesystem::remove(path)));
-
-    const auto content = zero::filesystem::readString(path);
-    REQUIRE(content);
-    REQUIRE(*content == CONTENT);
+    REQUIRE(zero::filesystem::readString(path) == CONTENT);
 }
 
 TEST_CASE("copy file", "[filesystem]") {
@@ -89,9 +78,7 @@ TEST_CASE("copy file", "[filesystem]") {
     const auto to = *temp / "zero-filesystem-copy-file-to";
 
     SECTION("source file does not exist") {
-        const auto result = zero::filesystem::copyFile(from, to);
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == std::errc::no_such_file_or_directory);
+        REQUIRE_ERROR(zero::filesystem::copyFile(from, to), std::errc::no_such_file_or_directory);
     }
 
     SECTION("destination file does not exist") {
@@ -101,9 +88,7 @@ TEST_CASE("copy file", "[filesystem]") {
         REQUIRE(zero::filesystem::copyFile(from, to));
         DEFER(REQUIRE(zero::filesystem::remove(to)));
 
-        const auto content = zero::filesystem::readString(to);
-        REQUIRE(content);
-        REQUIRE(*content == CONTENT);
+        REQUIRE(zero::filesystem::readString(to) == CONTENT);
     }
 
     SECTION("destination file exists") {
@@ -114,17 +99,12 @@ TEST_CASE("copy file", "[filesystem]") {
         DEFER(REQUIRE(zero::filesystem::remove(to)));
 
         SECTION("default") {
-            const auto result = zero::filesystem::copyFile(from, to);
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == std::errc::file_exists);
+            REQUIRE_ERROR(zero::filesystem::copyFile(from, to), std::errc::file_exists);
         }
 
         SECTION("overwrite") {
             REQUIRE(zero::filesystem::copyFile(from, to, std::filesystem::copy_options::overwrite_existing));
-
-            const auto content = zero::filesystem::readString(to);
-            REQUIRE(content);
-            REQUIRE(*content == CONTENT);
+            REQUIRE(zero::filesystem::readString(to) == CONTENT);
         }
     }
 }
@@ -144,10 +124,7 @@ TEST_CASE("create directory", "[filesystem]") {
     SECTION("directory exists") {
         REQUIRE(zero::filesystem::createDirectory(directory));
         DEFER(REQUIRE(zero::filesystem::remove(directory)));
-
-        const auto result = zero::filesystem::createDirectory(directory);
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == std::errc::file_exists);
+        REQUIRE_ERROR(zero::filesystem::createDirectory(directory), std::errc::file_exists);
     }
 }
 
@@ -191,38 +168,31 @@ TEST_CASE("remove", "[filesystem]") {
 
     SECTION("file") {
         SECTION("does not exist") {
-            const auto result = zero::filesystem::remove(path);
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == std::errc::no_such_file_or_directory);
+            REQUIRE_ERROR(zero::filesystem::remove(path), std::errc::no_such_file_or_directory);
         }
 
         SECTION("exists") {
             REQUIRE(zero::filesystem::write(path, ""));
             REQUIRE(zero::filesystem::remove(path));
-            REQUIRE_FALSE(zero::filesystem::exists(path).value_or(false));
+            REQUIRE(zero::filesystem::exists(path) == false);
         }
     }
 
     SECTION("directory") {
         SECTION("does not exist") {
-            const auto result = zero::filesystem::remove(path);
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == std::errc::no_such_file_or_directory);
+            REQUIRE_ERROR(zero::filesystem::remove(path), std::errc::no_such_file_or_directory);
         }
 
         SECTION("exists") {
             REQUIRE(zero::filesystem::createDirectory(path));
             REQUIRE(zero::filesystem::remove(path));
-            REQUIRE_FALSE(zero::filesystem::exists(path).value_or(false));
+            REQUIRE(zero::filesystem::exists(path) == false);
         }
 
         SECTION("not empty") {
             REQUIRE(zero::filesystem::createDirectories(path / "sub"));
             DEFER(REQUIRE(zero::filesystem::removeAll(path)));
-
-            const auto result = zero::filesystem::remove(path);
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == std::errc::directory_not_empty);
+            REQUIRE_ERROR(zero::filesystem::remove(path), std::errc::directory_not_empty);
         }
     }
 }
@@ -235,35 +205,25 @@ TEST_CASE("remove all", "[filesystem]") {
 
     SECTION("file") {
         SECTION("does not exist") {
-            const auto result = zero::filesystem::removeAll(path);
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == std::errc::no_such_file_or_directory);
+            REQUIRE_ERROR(zero::filesystem::removeAll(path), std::errc::no_such_file_or_directory);
         }
 
         SECTION("exists") {
             REQUIRE(zero::filesystem::write(path, ""));
-
-            const auto result = zero::filesystem::removeAll(path);
-            REQUIRE(result);
-            REQUIRE(*result == 1);
-            REQUIRE_FALSE(zero::filesystem::exists(path).value_or(false));
+            REQUIRE(zero::filesystem::removeAll(path) == 1);
+            REQUIRE(zero::filesystem::exists(path) == false);
         }
     }
 
     SECTION("directory") {
         SECTION("does not exist") {
-            const auto result = zero::filesystem::removeAll(path);
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == std::errc::no_such_file_or_directory);
+            REQUIRE_ERROR(zero::filesystem::removeAll(path), std::errc::no_such_file_or_directory);
         }
 
         SECTION("exists") {
             REQUIRE(zero::filesystem::createDirectories(path / "sub"));
-
-            const auto result = zero::filesystem::removeAll(path);
-            REQUIRE(result);
-            REQUIRE(*result == 2);
-            REQUIRE_FALSE(zero::filesystem::exists(path).value_or(false));
+            REQUIRE(zero::filesystem::removeAll(path) == 2);
+            REQUIRE(zero::filesystem::exists(path) == false);
         }
     }
 }
@@ -275,9 +235,7 @@ TEST_CASE("read directory", "[filesystem]") {
     const auto directory = *temp / "zero-filesystem-read-directory";
 
     SECTION("directory does not exist") {
-        const auto it = zero::filesystem::readDirectory(directory / "z");
-        REQUIRE_FALSE(it);
-        REQUIRE(it.error() == std::errc::no_such_file_or_directory);
+        REQUIRE_ERROR(zero::filesystem::readDirectory(directory / "z"), std::errc::no_such_file_or_directory);
     }
 
     SECTION("directory exists") {
@@ -344,9 +302,7 @@ TEST_CASE("walk directory", "[filesystem]") {
     const auto directory = *temp / "zero-filesystem-walk-directory";
 
     SECTION("directory does not exist") {
-        const auto it = zero::filesystem::walkDirectory(directory / "z");
-        REQUIRE_FALSE(it);
-        REQUIRE(it.error() == std::errc::no_such_file_or_directory);
+        REQUIRE_ERROR(zero::filesystem::walkDirectory(directory / "z"), std::errc::no_such_file_or_directory);
     }
 
     SECTION("directory exists") {

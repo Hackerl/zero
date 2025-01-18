@@ -1,9 +1,9 @@
+#include "catch_extensions.h"
 #include <zero/log.h>
 #include <zero/env.h>
 #include <zero/defer.h>
 #include <zero/atomic/event.h>
 #include <zero/filesystem/fs.h>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
 #include <bitset>
@@ -163,8 +163,6 @@ TEST_CASE("file provider", "[log]") {
             REQUIRE(provider.rotate());
         }
 
-        const auto count = zero::filesystem::readDirectory(directory).transform(std::ranges::distance);
-        REQUIRE(count);
-        REQUIRE(*count == 4);
+        REQUIRE(zero::filesystem::readDirectory(directory).transform(std::ranges::distance) == 4);
     }
 }

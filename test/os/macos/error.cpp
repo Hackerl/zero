@@ -1,5 +1,5 @@
+#include <catch_extensions.h>
 #include <zero/os/macos/error.h>
-#include <catch2/catch_test_macros.hpp>
 #include <mach/mach.h>
 
 TEST_CASE("macos kernel error", "[macos]") {
