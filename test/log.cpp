@@ -132,7 +132,7 @@ TEST_CASE("file provider", "[log]") {
     zero::log::FileProvider provider{"zero-test", directory, 10, 3};
     REQUIRE(provider.init());
 
-    zero::log::Record record{.content = "hello world"};
+    const zero::log::Record record{.content = "hello world"};
 
     SECTION("normal") {
         REQUIRE(provider.write(record));

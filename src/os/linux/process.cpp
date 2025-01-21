@@ -5,10 +5,10 @@
 #include <unistd.h>
 #include <csignal>
 
-zero::os::linux::process::Process::Process(procfs::process::Process process) : mProcess(std::move(process)) {
+zero::os::linux::process::Process::Process(procfs::process::Process process) : mProcess{std::move(process)} {
 }
 
-zero::os::linux::process::Process::Process(Process &&rhs) noexcept : mProcess(std::move(rhs.mProcess)) {
+zero::os::linux::process::Process::Process(Process &&rhs) noexcept : mProcess{std::move(rhs.mProcess)} {
 }
 
 zero::os::linux::process::Process &zero::os::linux::process::Process::operator=(Process &&rhs) noexcept {
