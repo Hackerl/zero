@@ -143,6 +143,37 @@ namespace zero::async::promise {
         std::shared_ptr<Core<T, E>> mCore;
     };
 
+    template<typename T, typename E, typename F>
+    Future<T, E> chain(F &&f) {
+        Promise<T, E> promise;
+        auto future = promise.getFuture();
+        f(std::move(promise));
+        return future;
+    }
+
+    template<typename T, typename E, typename... Ts>
+    Future<T, E> reject(Ts &&... args) {
+        Promise<T, E> promise;
+        promise.reject(std::forward<Ts>(args)...);
+        return promise.getFuture();
+    }
+
+    template<typename T, typename E>
+        requires std::is_void_v<T>
+    Future<T, E> resolve() {
+        Promise<T, E> promise;
+        promise.resolve();
+        return promise.getFuture();
+    }
+
+    template<typename T, typename E, typename... Ts>
+        requires (!std::is_void_v<T> && sizeof...(Ts) > 0)
+    Future<T, E> resolve(Ts &&... args) {
+        Promise<T, E> promise;
+        promise.resolve(std::forward<Ts>(args)...);
+        return promise.getFuture();
+    }
+
     template<typename F, typename T>
     using callback_result_t = typename std::conditional_t<
         std::is_void_v<T>,
@@ -325,6 +356,29 @@ namespace zero::async::promise {
             return promise->getFuture();
         }
 
+        template<typename F1, typename F2>
+        auto then(F1 &&f1, F2 &&f2) && {
+            static_assert(std::is_same_v<decltype(std::move(*this).then(f1)), decltype(std::move(*this).fail(f2))>);
+
+            const auto fallthrough = std::make_shared<bool>();
+
+            auto future = std::move(*this).then([=, f = std::forward<F1>(f1)]<typename... Ts>(Ts &&... args) {
+                *fallthrough = true;
+                return f(std::forward<Ts>(args)...);
+            });
+
+            using NextValue = typename decltype(future)::value_type;
+
+            return std::move(future).fail(
+                [=, f = std::make_shared<std::decay_t<F2>>(std::forward<F2>(f2))](E &&error) -> Future<NextValue, E> {
+                    if (*fallthrough)
+                        return reject<NextValue, E>(std::move(error));
+
+                    return reject<NextValue, E>(std::move(error)).fail(std::move(*f));
+                }
+            );
+        }
+
         template<typename F>
             requires detail::is_specialization_v<callback_result_t<F, E>, Future>
         auto fail(F &&f) && {
@@ -479,37 +533,6 @@ namespace zero::async::promise {
     private:
         std::shared_ptr<Core<T, E>> mCore;
     };
-
-    template<typename T, typename E, typename F>
-    Future<T, E> chain(F &&f) {
-        Promise<T, E> promise;
-        auto future = promise.getFuture();
-        f(std::move(promise));
-        return future;
-    }
-
-    template<typename T, typename E, typename... Ts>
-    Future<T, E> reject(Ts &&... args) {
-        Promise<T, E> promise;
-        promise.reject(std::forward<Ts>(args)...);
-        return promise.getFuture();
-    }
-
-    template<typename T, typename E>
-        requires std::is_void_v<T>
-    Future<T, E> resolve() {
-        Promise<T, E> promise;
-        promise.resolve();
-        return promise.getFuture();
-    }
-
-    template<typename T, typename E, typename... Ts>
-        requires (!std::is_void_v<T> && sizeof...(Ts) > 0)
-    Future<T, E> resolve(Ts &&... args) {
-        Promise<T, E> promise;
-        promise.resolve(std::forward<Ts>(args)...);
-        return promise.getFuture();
-    }
 
     template<typename T>
     struct optional_wrapper;

@@ -167,6 +167,54 @@ TEST_CASE("callback chain", "[async]") {
             return std::unexpected{error};
         });
 
+    zero::async::promise::resolve<int, int>(1)
+        .then(
+            [](const auto &value) -> std::expected<int, int> {
+                if (value == 2)
+                    return std::unexpected{-1};
+
+                return 2;
+            },
+            [](const auto &error) {
+                FAIL();
+                return std::unexpected{error};
+            }
+        ).fail([](const auto &error) {
+            REQUIRE(error == -1);
+            return std::unexpected{error};
+        });
+
+    zero::async::promise::resolve<int, int>(1)
+        .then(
+            [](const auto &value) -> std::expected<int, int> {
+                if (value == 1)
+                    return std::unexpected{-1};
+
+                return 2;
+            },
+            [](const auto &error) {
+                FAIL();
+                return std::unexpected{error};
+            }
+        ).then([](const auto &value) {
+            REQUIRE(value == 2);
+        });
+
+    zero::async::promise::reject<int, int>(-1)
+        .then(
+            [](const auto &value) -> std::expected<int, int> {
+                FAIL();
+                return {};
+            },
+            [](const auto &error) {
+                REQUIRE(error == -1);
+                return std::unexpected{error};
+            }
+        ).fail([](const auto &error) {
+            REQUIRE(error == -1);
+            return std::unexpected{error};
+        });
+
     const auto i = std::make_shared<int>(0);
 
     zero::async::promise::resolve<int, int>(1)
