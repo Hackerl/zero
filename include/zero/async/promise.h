@@ -276,8 +276,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<typename callback_result_t<F, T>::value_type, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
                 auto next = std::move(result).transform(f);
 
                 if (!next) {
@@ -292,7 +293,7 @@ namespace zero::async::promise {
                 });
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<typename F>
@@ -306,8 +307,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<NextValue, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
                 auto next = std::move(result).and_then(f);
 
                 if (!next) {
@@ -321,7 +323,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(next));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<typename F>
@@ -338,8 +340,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<NextValue, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
                 auto next = std::move(result).transform(f);
 
                 if (!next) {
@@ -353,7 +356,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(next));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<typename F1, typename F2>
@@ -362,21 +365,19 @@ namespace zero::async::promise {
 
             const auto fallthrough = std::make_shared<bool>();
 
-            auto future = std::move(*this).then([=, f = std::forward<F1>(f1)]<typename... Ts>(Ts &&... args) {
+            auto future = std::move(*this).then([=, f = std::forward<F1>(f1)]<typename... Ts>(Ts &&... args) mutable {
                 *fallthrough = true;
                 return f(std::forward<Ts>(args)...);
             });
 
             using NextValue = typename decltype(future)::value_type;
 
-            return std::move(future).fail(
-                [=, f = std::make_shared<std::decay_t<F2>>(std::forward<F2>(f2))](E &&error) -> Future<NextValue, E> {
-                    if (*fallthrough)
-                        return reject<NextValue, E>(std::move(error));
+            return std::move(future).fail([=, f = std::forward<F2>(f2)](E &&error) mutable {
+                if (*fallthrough)
+                    return reject<NextValue, E>(std::move(error));
 
-                    return reject<NextValue, E>(std::move(error)).fail(std::move(*f));
-                }
-            );
+                return reject<NextValue, E>(std::move(error)).fail(std::move(f));
+            });
         }
 
         template<typename F>
@@ -390,8 +391,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<T, NextError>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
                 if (!result) {
                     std::invoke(f, std::move(result).error()).then([=]<typename... Ts>(Ts &&... args) {
                         promise->resolve(std::forward<Ts>(args)...);
@@ -408,7 +410,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(result));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<typename F>
@@ -420,8 +422,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<T, typename callback_result_t<F, E>::error_type>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
                 auto next = std::move(result).or_else(f);
 
                 if (!next) {
@@ -435,7 +438,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(next));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<typename F>
@@ -450,7 +453,9 @@ namespace zero::async::promise {
                 Promise<T, std::remove_cvref_t<decltype(std::declval<callback_result_t<F, E>>().error())>>
             >();
 
-            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
+            auto future = promise->getFuture();
+
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
                 if (!result) {
                     promise->reject(std::invoke(f, std::move(result).error()).error());
                     return;
@@ -462,7 +467,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(result));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<typename F>
@@ -478,8 +483,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<T, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
                 if (!result) {
                     if constexpr (std::is_void_v<T>) {
                         std::invoke(f, std::move(result).error());
@@ -498,7 +504,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(result));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<typename F>
@@ -509,8 +515,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<T, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](std::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
                 if (!result) {
                     f();
                     promise->reject(std::move(result).error());
@@ -527,7 +534,7 @@ namespace zero::async::promise {
                 }
             });
 
-            return promise->getFuture();
+            return future;
         }
 
     private:
