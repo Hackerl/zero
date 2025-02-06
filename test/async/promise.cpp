@@ -4,46 +4,48 @@
 #include <thread>
 #include <list>
 
-constexpr auto THREAD_NUMBER = 16;
-constexpr auto CHANNEL_CAPACITY = 32;
+namespace {
+    constexpr auto THREAD_NUMBER = 16;
+    constexpr auto CHANNEL_CAPACITY = 32;
 
-class ThreadPool {
-public:
-    ThreadPool(const std::size_t number, const std::size_t capacity)
-        : mChannel{zero::concurrent::channel<std::function<void()>>(capacity)} {
-        for (int i{0}; i < number; i++)
-            mThreads.emplace_back(&ThreadPool::dispatch, this);
-    }
-
-    ~ThreadPool() {
-        mChannel.first.close();
-
-        for (auto &thread: mThreads)
-            thread.join();
-    }
-
-    void dispatch() {
-        while (true) {
-            const auto task = mChannel.second.receive();
-
-            if (!task)
-                break;
-
-            (*task)();
+    class ThreadPool {
+    public:
+        ThreadPool(const std::size_t number, const std::size_t capacity)
+            : mChannel{zero::concurrent::channel<std::function<void()>>(capacity)} {
+            for (int i{0}; i < number; i++)
+                mThreads.emplace_back(&ThreadPool::dispatch, this);
         }
-    }
 
-    template<typename F>
-    void post(F &&f) {
-        mChannel.first.send(std::forward<F>(f));
-    }
+        ~ThreadPool() {
+            mChannel.first.close();
 
-private:
-    zero::concurrent::Channel<std::function<void()>> mChannel;
-    std::list<std::thread> mThreads;
-};
+            for (auto &thread: mThreads)
+                thread.join();
+        }
 
-static ThreadPool pool(THREAD_NUMBER, CHANNEL_CAPACITY);
+        void dispatch() {
+            while (true) {
+                const auto task = mChannel.second.receive();
+
+                if (!task)
+                    break;
+
+                (*task)();
+            }
+        }
+
+        template<typename F>
+        void post(F &&f) {
+            mChannel.first.send(std::forward<F>(f));
+        }
+
+    private:
+        zero::concurrent::Channel<std::function<void()>> mChannel;
+        std::list<std::thread> mThreads;
+    };
+
+    ThreadPool pool(THREAD_NUMBER, CHANNEL_CAPACITY);
+}
 
 template<typename T, typename E, typename U>
 zero::async::promise::Future<T, E> reject(U &&error) {

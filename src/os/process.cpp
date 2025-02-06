@@ -39,100 +39,102 @@ constexpr auto STDOUT_W = 3;
 constexpr auto STDERR_R = 4;
 constexpr auto STDERR_W = 5;
 
-#ifdef _WIN32
-static const auto createPseudoConsole = reinterpret_cast<decltype(&CreatePseudoConsole)>(
-    GetProcAddress(GetModuleHandleA("kernel32"), "CreatePseudoConsole")
-);
-
-static const auto closePseudoConsole = reinterpret_cast<decltype(&ClosePseudoConsole)>(
-    GetProcAddress(GetModuleHandleA("kernel32"), "ClosePseudoConsole")
-);
-
-static const auto resizePseudoConsole = reinterpret_cast<decltype(&ResizePseudoConsole)>(
-    GetProcAddress(GetModuleHandleA("kernel32"), "ResizePseudoConsole")
-);
-#else
+#ifndef _WIN32
 constexpr auto NOTIFY_R = 6;
 constexpr auto NOTIFY_W = 7;
 #endif
 
 #ifdef _WIN32
-static std::string quote(const std::string &arg) {
-    std::string result;
+namespace {
+    const auto createPseudoConsole = reinterpret_cast<decltype(&CreatePseudoConsole)>(
+        GetProcAddress(GetModuleHandleA("kernel32"), "CreatePseudoConsole")
+    );
 
-    const auto str = arg.c_str();
-    const auto quote = std::strchr(str, ' ') || std::strchr(str, '\t') || *str == '\0';
+    const auto closePseudoConsole = reinterpret_cast<decltype(&ClosePseudoConsole)>(
+        GetProcAddress(GetModuleHandleA("kernel32"), "ClosePseudoConsole")
+    );
 
-    if (quote)
-        result.push_back('\"');
+    const auto resizePseudoConsole = reinterpret_cast<decltype(&ResizePseudoConsole)>(
+        GetProcAddress(GetModuleHandleA("kernel32"), "ResizePseudoConsole")
+    );
 
-    int bsCount{0};
+    std::string quote(const std::string &arg) {
+        std::string result;
 
-    for (const auto *p = str; *p != '\0'; ++p) {
-        if (*p == '\\') {
-            ++bsCount;
-        }
-        else if (*p == '\"') {
-            result.append(bsCount * 2 + 1, '\\');
+        const auto str = arg.c_str();
+        const auto quote = std::strchr(str, ' ') || std::strchr(str, '\t') || *str == '\0';
+
+        if (quote)
             result.push_back('\"');
-            bsCount = 0;
+
+        int bsCount{0};
+
+        for (const auto *p = str; *p != '\0'; ++p) {
+            if (*p == '\\') {
+                ++bsCount;
+            }
+            else if (*p == '\"') {
+                result.append(bsCount * 2 + 1, '\\');
+                result.push_back('\"');
+                bsCount = 0;
+            }
+            else {
+                result.append(bsCount, '\\');
+                bsCount = 0;
+                result.push_back(*p);
+            }
+        }
+
+        if (quote) {
+            result.append(bsCount * 2, '\\');
+            result.push_back('\"');
         }
         else {
             result.append(bsCount, '\\');
-            bsCount = 0;
-            result.push_back(*p);
         }
+
+        return result;
     }
 
-    if (quote) {
-        result.append(bsCount * 2, '\\');
-        result.push_back('\"');
+    std::expected<std::array<HANDLE, 2>, std::error_code>
+    createPipe(const bool duplex, SECURITY_ATTRIBUTES *attributes = nullptr) {
+        static std::atomic<std::size_t> number;
+        const auto name = fmt::format(R"(\\?\pipe\zero\{}-{})", GetCurrentProcessId(), number++);
+
+        auto first = CreateNamedPipeA(
+            name.c_str(),
+            (duplex ? PIPE_ACCESS_DUPLEX : PIPE_ACCESS_INBOUND) | FILE_FLAG_OVERLAPPED,
+            PIPE_TYPE_BYTE | PIPE_WAIT,
+            1,
+            65536,
+            65536,
+            0,
+            attributes
+        );
+
+        if (first == INVALID_HANDLE_VALUE)
+            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+
+        DEFER(
+            if (first)
+                CloseHandle(first);
+        );
+
+        const auto second = CreateFileA(
+            name.c_str(),
+            (duplex ? GENERIC_READ : 0) | GENERIC_WRITE,
+            0,
+            attributes,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+            nullptr
+        );
+
+        if (second == INVALID_HANDLE_VALUE)
+            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+
+        return std::array{std::exchange(first, nullptr), second};
     }
-    else {
-        result.append(bsCount, '\\');
-    }
-
-    return result;
-}
-
-static std::expected<std::array<HANDLE, 2>, std::error_code>
-createPipe(const bool duplex, SECURITY_ATTRIBUTES *attributes = nullptr) {
-    static std::atomic<std::size_t> number;
-    const auto name = fmt::format(R"(\\?\pipe\zero\{}-{})", GetCurrentProcessId(), number++);
-
-    auto first = CreateNamedPipeA(
-        name.c_str(),
-        (duplex ? PIPE_ACCESS_DUPLEX : PIPE_ACCESS_INBOUND) | FILE_FLAG_OVERLAPPED,
-        PIPE_TYPE_BYTE | PIPE_WAIT,
-        1,
-        65536,
-        65536,
-        0,
-        attributes
-    );
-
-    if (first == INVALID_HANDLE_VALUE)
-        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
-
-    DEFER(
-        if (first)
-            CloseHandle(first);
-    );
-
-    const auto second = CreateFileA(
-        name.c_str(),
-        (duplex ? GENERIC_READ : 0) | GENERIC_WRITE,
-        0,
-        attributes,
-        OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
-        nullptr
-    );
-
-    if (second == INVALID_HANDLE_VALUE)
-        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
-
-    return std::array{std::exchange(first, nullptr), second};
 }
 #endif
 
