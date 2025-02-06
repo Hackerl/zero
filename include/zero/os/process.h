@@ -11,10 +11,6 @@
 #include "linux/process.h"
 #endif
 
-#if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
-#include <zero/error.h>
-#endif
-
 namespace zero::os::process {
 #ifdef _WIN32
     using ProcessImpl = windows::process::Process;
@@ -151,13 +147,6 @@ namespace zero::os::process {
 #else
     class PseudoConsole {
     public:
-#if defined(__ANDROID__) && __ANDROID_API__ < 23
-        DEFINE_ERROR_CODE_INNER_EX(
-            Error,
-            "zero::os::process::PseudoConsole",
-            API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
-        )
-#endif
         PseudoConsole(int master, int slave);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
@@ -184,6 +173,13 @@ namespace zero::os::process {
 
     class Command {
     public:
+#if defined(__ANDROID__) && __ANDROID_API__ < 34
+        DEFINE_ERROR_CODE_INNER_EX(
+            Error,
+            "zero::os::process::Command",
+            API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
+        )
+#endif
         enum class StdioType {
             NUL,
             INHERIT,
@@ -227,8 +223,12 @@ namespace zero::os::process {
     };
 }
 
-#if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
+#if defined(_WIN32)
 DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
+#endif
+
+#if defined(__ANDROID__) && __ANDROID_API__ < 34
+DECLARE_ERROR_CODE(zero::os::process::Command::Error)
 #endif
 
 template<typename Char>

@@ -1,5 +1,4 @@
 #include <zero/os/process.h>
-#include <zero/strings/strings.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
 #include <zero/env.h>
@@ -9,11 +8,13 @@
 #include <future>
 
 #ifdef _WIN32
+#include <zero/strings/strings.h>
 #include <zero/os/windows/error.h>
 #else
 #include <csignal>
 #include <algorithm>
 #include <fcntl.h>
+#include <spawn.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
@@ -22,9 +23,9 @@
 #include <util.h>
 #else
 #include <pty.h>
-#if defined(__ANDROID__) && __ANDROID_API__ < 23
-#include <dlfcn.h>
 #endif
+#if defined(__ANDROID__) && __ANDROID_API__ < 34
+#include <dlfcn.h>
 #endif
 #endif
 
@@ -38,11 +39,6 @@ constexpr auto STDOUT_R = 2;
 constexpr auto STDOUT_W = 3;
 constexpr auto STDERR_R = 4;
 constexpr auto STDERR_W = 5;
-
-#ifndef _WIN32
-constexpr auto NOTIFY_R = 6;
-constexpr auto NOTIFY_W = 7;
-#endif
 
 #ifdef _WIN32
 namespace {
@@ -550,14 +546,6 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
 
 std::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::PseudoConsole::make(const short rows, const short columns) {
-#if defined(__ANDROID__) && __ANDROID_API__ < 23
-    static const auto openpty = reinterpret_cast<int (*)(int *, int *, char *, const termios *, const winsize *)>(
-        dlsym(RTLD_DEFAULT, "openpty")
-    );
-
-    if (!openpty)
-        return std::unexpected{Error::API_NOT_AVAILABLE};
-#endif
     int master{}, slave{};
 
     EXPECT(unix::expected([&] {
@@ -656,43 +644,55 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     EXPECT(pid);
 
     if (*pid == 0) {
-        if (setsid() == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(error));
+        const auto guard = [fd = fds[1]]<typename F>(F &&f) {
+            static_assert(std::is_integral_v<std::invoke_result_t<F>>);
+
+            const auto result = f();
+
+            if (result == -1) {
+                const auto error = errno;
+                const auto n = unix::ensure([&] {
+                    return write(fd, &error, sizeof(error));
+                });
+                assert(n);
+                std::abort();
+            }
+
+            return result;
+        };
+
+        for (int n{1}; n < 32; ++n) {
+            if (n == SIGKILL || n == SIGSTOP)
+                continue;
+
+            guard([&] {
+                return static_cast<int>(reinterpret_cast<std::intptr_t>(signal(n, SIG_DFL)));
             });
-            assert(n);
-            std::abort();
         }
 
-        if (ioctl(mSlave, TIOCSCTTY, nullptr) == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
-        }
+        guard([] {
+            return setsid();
+        });
 
-        if (dup2(mSlave, STDIN_FILENO) == -1 || dup2(mSlave, STDOUT_FILENO) == -1 || dup2(mSlave, STDERR_FILENO) == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
-        }
+        guard([this] {
+            return ioctl(mSlave, TIOCSCTTY, nullptr);
+        });
 
-        const auto max = static_cast<int>(sysconf(_SC_OPEN_MAX));
+        guard([this] {
+            return dup2(mSlave, STDIN_FILENO);
+        });
 
-        if (max == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
-        }
+        guard([this] {
+            return dup2(mSlave, STDOUT_FILENO);
+        });
+
+        guard([this] {
+            return dup2(mSlave, STDERR_FILENO);
+        });
+
+        const auto max = guard([] {
+            return static_cast<int>(sysconf(_SC_OPEN_MAX));
+        });
 
         for (int i{STDERR_FILENO + 1}; i < max; ++i) {
             if (i == fds[1])
@@ -701,35 +701,27 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
             close(i);
         }
 
-        if (command.mCurrentDirectory && chdir(command.mCurrentDirectory->string().c_str()) == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(error));
+        if (const auto &directory = command.mCurrentDirectory) {
+            guard([&] {
+                return chdir(directory->string().c_str());
             });
-            assert(n);
-            std::abort();
         }
+
+        guard([] {
+            sigset_t set{};
+            sigemptyset(&set);
+            return sigprocmask(SIG_SETMASK, &set, nullptr);
+        });
 
 #ifdef __linux__
-        if (execvpe(program.data(), argv.get(), envp.get()) == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
-        }
+        guard([&] {
+            return execvpe(program.c_str(), argv.get(), envp.get());
+        });
 #else
         environ = envp.get();
-
-        if (execvp(program.data(), argv.get()) == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
-        }
+        guard([&] {
+            return execvp(program.c_str(), argv.get());
+        });
 #endif
     }
 
@@ -1092,7 +1084,18 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     return ChildProcess{Process{windows::process::Process{info.hProcess, info.dwProcessId}}, stdio};
 #else
-    std::array<int, 8> fds{};
+#if defined(__ANDROID__) && __ANDROID_API__ < 34
+    static const auto posix_spawn_file_actions_addchdir_np = reinterpret_cast<
+        int (*)(posix_spawn_file_actions_t *, const char *)
+    >(
+        dlsym(RTLD_DEFAULT, "posix_spawn_file_actions_addchdir_np")
+    );
+
+    if (!posix_spawn_file_actions_addchdir_np)
+        return std::unexpected{Error::API_NOT_AVAILABLE};
+#endif
+
+    std::array<int, 6> fds{};
     std::ranges::fill(fds, -1);
 
     DEFER(
@@ -1104,15 +1107,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         }
     );
 
-    EXPECT(unix::expected([&] {
-        return pipe(fds.data() + NOTIFY_R);
-    }));
-
-    EXPECT(unix::expected([&] {
-        return fcntl(fds[NOTIFY_W], F_SETFD, FD_CLOEXEC);
-    }));
-
-    constexpr std::array indexMapping{0, 3, 5};
+    constexpr std::array indexMapping{STDIN_R, STDOUT_W, STDERR_W};
     constexpr std::array flagMapping{O_RDONLY, O_WRONLY, O_WRONLY};
 
     for (int i{0}; i < 3; ++i) {
@@ -1180,98 +1175,91 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         return str.data();
     });
 
-    const auto pid = unix::expected([] {
-        return fork();
-    });
-    EXPECT(pid);
+    const auto expected = []<typename F>(F &&f) -> std::expected<void, std::error_code> {
+        static_assert(std::is_same_v<std::invoke_result_t<F>, int>);
+        const auto result = f();
 
-    if (*pid == 0) {
-        if ((fds[STDIN_R] > 0 && dup2(fds[STDIN_R], STDIN_FILENO) == -1)
-            || (fds[STDOUT_W] > 0 && dup2(fds[STDOUT_W], STDOUT_FILENO) == -1)
-            || (fds[STDERR_W] > 0 && dup2(fds[STDERR_W], STDERR_FILENO) == -1)) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[NOTIFY_W], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
+        if (result != 0)
+            return std::unexpected{std::error_code{result, std::generic_category()}};
+
+        return {};
+    };
+
+    posix_spawn_file_actions_t actions{};
+
+    EXPECT(expected([&] {
+        return posix_spawn_file_actions_init(&actions);
+    }));
+
+    DEFER(posix_spawn_file_actions_destroy(&actions));
+
+    for (int i{0}; i < 3; ++i) {
+        if (fds[indexMapping[i]] >= 0) {
+            EXPECT(expected([&] {
+                return posix_spawn_file_actions_adddup2(&actions, fds[indexMapping[i]], i);
+            }));
         }
-
-        const auto max = static_cast<int>(sysconf(_SC_OPEN_MAX));
-
-        if (max == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[1], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
-        }
-
-        for (int i{STDERR_FILENO + 1}; i < max; ++i) {
-            if (i == fds[NOTIFY_W])
-                continue;
-
-            close(i);
-        }
-
-        if (mCurrentDirectory && chdir(mCurrentDirectory->string().c_str()) == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[NOTIFY_W], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
-        }
-
-#ifdef __linux__
-        if (execvpe(program.data(), argv.get(), envp.get()) == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[NOTIFY_W], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
-        }
-#else
-        environ = envp.get();
-
-        if (execvp(program.data(), argv.get()) == -1) {
-            const auto error = errno;
-            const auto n = unix::ensure([&] {
-                return write(fds[NOTIFY_W], &error, sizeof(error));
-            });
-            assert(n);
-            std::abort();
+#ifdef __APPLE__
+        else {
+            EXPECT(expected([&] {
+                return posix_spawn_file_actions_addinherit_np(&actions, i);
+            }));
         }
 #endif
     }
 
-    close(std::exchange(fds[NOTIFY_W], -1));
-
-    int error{};
-
-    const auto n = unix::ensure([&] {
-        return read(fds[NOTIFY_R], &error, sizeof(error));
-    });
-    assert(n);
-
-    if (*n != 0) {
-        assert(n == sizeof(int));
-        const auto id = unix::ensure([&] {
-            return waitpid(*pid, nullptr, 0);
-        });
-        assert(id);
-        assert(*id == pid);
-        return std::unexpected{std::error_code{error, std::system_category()}};
+    if (mCurrentDirectory) {
+        EXPECT(expected([&] {
+            return posix_spawn_file_actions_addchdir_np(&actions, mCurrentDirectory->c_str());
+        }));
     }
 
-    auto process = open(*pid);
+    posix_spawnattr_t attr{};
+
+    EXPECT(expected([&] {
+        return posix_spawnattr_init(&attr);
+    }));
+
+    DEFER(posix_spawnattr_destroy(&attr));
+
+#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
+    EXPECT(expected([&] {
+        return posix_spawnattr_setflags(
+            &attr,
+            POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK
+        );
+    }));
+#else
+    EXPECT(expected([&] {
+        return posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
+    }));
+
+    const auto max = unix::expected([&] {
+        return sysconf(_SC_OPEN_MAX);
+    }).transform([](const auto &value) {
+        return static_cast<int>(value);
+    });
+    EXPECT(max);
+
+    for (int i{STDERR_FILENO + 1}; i < *max; ++i) {
+        EXPECT(expected([&] {
+            return posix_spawn_file_actions_addclose(&actions, i);
+        }));
+    }
+#endif
+
+    pid_t pid{};
+
+    EXPECT(expected([&] {
+        return posix_spawnp(&pid, program.c_str(), &actions, &attr, argv.get(), envp.get());
+    }));
+
+    auto process = open(pid);
 
     if (!process) {
-        kill(*pid, SIGKILL);
+        kill(pid, SIGKILL);
         const auto id = unix::ensure([&] {
-            return waitpid(*pid, nullptr, 0);
+            return waitpid(pid, nullptr, 0);
         });
         assert(id);
         assert(*id == pid);
@@ -1383,6 +1371,10 @@ zero::os::process::Command::output() const {
     };
 }
 
-#if defined(_WIN32) || (defined(__ANDROID__) && __ANDROID_API__ < 23)
+#if defined(_WIN32)
 DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::PseudoConsole::Error)
+#endif
+
+#if defined(__ANDROID__) && __ANDROID_API__ < 34
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::Command::Error)
 #endif

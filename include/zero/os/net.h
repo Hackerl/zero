@@ -6,13 +6,8 @@
 #include <array>
 #include <ranges>
 #include <expected>
-#include <system_error>
 #include <fmt/std.h>
 #include <fmt/ranges.h>
-
-#if defined(__ANDROID__) && __ANDROID_API__ < 24
-#include <zero/error.h>
-#endif
 
 namespace zero::os::net {
     using IPv4 = std::array<std::byte, 4>;
@@ -52,14 +47,6 @@ namespace zero::os::net {
 
     std::string stringify(std::span<const std::byte, 4> ip);
     std::string stringify(std::span<const std::byte, 16> ip);
-
-#if defined(__ANDROID__) && __ANDROID_API__ < 24
-    DEFINE_ERROR_CODE_EX(
-        GetInterfacesError,
-        "zero::os::net::interfaces",
-        API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
-    )
-#endif
 
     std::expected<std::map<std::string, Interface>, std::error_code> interfaces();
 }
@@ -118,9 +105,5 @@ struct fmt::formatter<zero::os::net::Interface, Char> {
         );
     }
 };
-
-#if defined(__ANDROID__) && __ANDROID_API__ < 24
-DECLARE_ERROR_CODE(zero::os::net::GetInterfacesError)
-#endif
 
 #endif //ZERO_NET_H

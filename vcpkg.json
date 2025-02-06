@@ -6,7 +6,7 @@
     "fmt",
     {
       "name": "libiconv",
-      "platform": "windows | android"
+      "platform": "windows"
     }
   ],
   "default-features": [
