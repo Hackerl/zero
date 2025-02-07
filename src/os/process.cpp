@@ -1084,17 +1084,6 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     return ChildProcess{Process{windows::process::Process{info.hProcess, info.dwProcessId}}, stdio};
 #else
-#if defined(__ANDROID__) && __ANDROID_API__ < 34
-    static const auto posix_spawn_file_actions_addchdir_np = reinterpret_cast<
-        int (*)(posix_spawn_file_actions_t *, const char *)
-    >(
-        dlsym(RTLD_DEFAULT, "posix_spawn_file_actions_addchdir_np")
-    );
-
-    if (!posix_spawn_file_actions_addchdir_np)
-        return std::unexpected{Error::API_NOT_AVAILABLE};
-#endif
-
     std::array<int, 6> fds{};
     std::ranges::fill(fds, -1);
 
@@ -1194,9 +1183,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     DEFER(posix_spawn_file_actions_destroy(&actions));
 
     for (int i{0}; i < 3; ++i) {
-        if (fds[indexMapping[i]] >= 0) {
+        if (const auto fd = fds[indexMapping[i]]; fd >= 0) {
             EXPECT(expected([&] {
-                return posix_spawn_file_actions_adddup2(&actions, fds[indexMapping[i]], i);
+                return posix_spawn_file_actions_adddup2(&actions, fd, i);
             }));
         }
 #ifdef __APPLE__
@@ -1209,6 +1198,16 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     }
 
     if (mCurrentDirectory) {
+#if defined(__ANDROID__) && __ANDROID_API__ < 34
+        static const auto posix_spawn_file_actions_addchdir_np = reinterpret_cast<
+            int (*)(posix_spawn_file_actions_t *, const char *)
+        >(
+            dlsym(RTLD_DEFAULT, "posix_spawn_file_actions_addchdir_np")
+        );
+
+        if (!posix_spawn_file_actions_addchdir_np)
+            return std::unexpected{Error::API_NOT_AVAILABLE};
+#endif
         EXPECT(expected([&] {
             return posix_spawn_file_actions_addchdir_np(&actions, mCurrentDirectory->c_str());
         }));
