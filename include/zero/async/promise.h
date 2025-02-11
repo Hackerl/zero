@@ -144,6 +144,40 @@ namespace zero::async::promise {
         std::shared_ptr<Core<T, E>> mCore;
     };
 
+    template<typename T, typename E, typename F>
+    Future<T, E> chain(F &&f) {
+        Promise<T, E> promise;
+        auto future = promise.getFuture();
+        f(std::move(promise));
+        return future;
+    }
+
+    template<typename T, typename E, typename... Ts>
+    Future<T, E> reject(Ts &&... args) {
+        Promise<T, E> promise;
+        promise.reject(std::forward<Ts>(args)...);
+        return promise.getFuture();
+    }
+
+    template<typename T, typename E, std::enable_if_t<std::is_void_v<T>>* = nullptr>
+    Future<T, E> resolve() {
+        Promise<T, E> promise;
+        promise.resolve();
+        return promise.getFuture();
+    }
+
+    template<
+        typename T,
+        typename E,
+        typename... Ts,
+        std::enable_if_t<!std::is_void_v<T> && (sizeof...(Ts) > 0)>* = nullptr
+    >
+    Future<T, E> resolve(Ts &&... args) {
+        Promise<T, E> promise;
+        promise.resolve(std::forward<Ts>(args)...);
+        return promise.getFuture();
+    }
+
     template<typename F, typename T>
     using callback_result_t = typename std::conditional_t<
         std::is_void_v<T>,
@@ -245,8 +279,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<typename callback_result_t<F, T>::value_type, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](tl::expected<T, E> &&result) mutable {
                 auto next = std::move(result).transform(f);
 
                 if (!next) {
@@ -261,7 +296,7 @@ namespace zero::async::promise {
                 });
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<
@@ -277,10 +312,37 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<NextValue, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](tl::expected<T, E> &&result) mutable {
+#ifdef _MSC_VER
+                /*
+                 * Well, MSVC has some weird bugs where it can’t match the correct template
+                 * when passing a variadic lambda to tl::expected::and_then:
+                 *
+                 * tl::expected<int, int> test(int) {
+                 *     return {};
+                 * }
+                 *
+                 * tl::expected<int, int> result{};
+                 * result.and_then([](auto &&... args) {
+                 *     return test(std::forward<decltype(args)>(args)...);
+                 * });
+                 *
+                 * The next version of `tl-expected` will make MSVC compile in C++14 mode,
+                 * indirectly solving this problem:
+                 * - https://github.com/TartanLlama/expected/issues/105
+                 * - https://godbolt.org/z/KTG119E3n
+                 */
+                if (!result) {
+                    promise->reject(std::move(result).error());
+                    return;
+                }
+
+                auto next = f(*std::move(result));
+#else
                 auto next = std::move(result).and_then(f);
-
+#endif
                 if (!next) {
                     promise->reject(std::move(next).error());
                     return;
@@ -292,7 +354,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(next));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<
@@ -311,8 +373,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<NextValue, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](tl::expected<T, E> &&result) mutable {
                 auto next = std::move(result).transform(f);
 
                 if (!next) {
@@ -326,7 +389,28 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(next));
             });
 
-            return promise->getFuture();
+            return future;
+        }
+
+        template<typename F1, typename F2>
+        auto then(F1 &&f1, F2 &&f2) && {
+            static_assert(std::is_same_v<decltype(std::move(*this).then(f1)), decltype(std::move(*this).fail(f2))>);
+
+            const auto fallthrough = std::make_shared<bool>();
+
+            auto future = std::move(*this).then([=, f = std::forward<F1>(f1)](auto &&... args) mutable {
+                *fallthrough = true;
+                return f(std::forward<decltype(args)>(args)...);
+            });
+
+            using NextValue = typename decltype(future)::value_type;
+
+            return std::move(future).fail([=, f = std::forward<F2>(f2)](E &&error) mutable {
+                if (*fallthrough)
+                    return reject<NextValue, E>(std::move(error));
+
+                return reject<NextValue, E>(std::move(error)).fail(std::move(f));
+            });
         }
 
         template<typename F, std::enable_if_t<detail::is_specialization_v<callback_result_t<F, E>, Future>>* = nullptr>
@@ -339,8 +423,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<T, NextError>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](tl::expected<T, E> &&result) mutable {
                 if (!result) {
                     std::invoke(f, std::move(result).error()).then([=](auto &&... args) {
                         promise->resolve(std::forward<decltype(args)>(args)...);
@@ -357,7 +442,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(result));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<
@@ -371,8 +456,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<T, typename callback_result_t<F, E>::error_type>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](tl::expected<T, E> &&result) mutable {
                 auto next = std::move(result).or_else(f);
 
                 if (!next) {
@@ -386,7 +472,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(next));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<
@@ -406,7 +492,9 @@ namespace zero::async::promise {
                 >
             >();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+            auto future = promise->getFuture();
+
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](tl::expected<T, E> &&result) mutable {
                 if (!result) {
                     promise->reject(std::invoke(f, std::move(result).error()).value());
                     return;
@@ -418,7 +506,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(result));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<
@@ -436,8 +524,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<T, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](tl::expected<T, E> &&result) mutable {
                 if (!result) {
                     if constexpr (std::is_void_v<T>) {
                         std::invoke(f, std::move(result).error());
@@ -456,7 +545,7 @@ namespace zero::async::promise {
                     promise->resolve(*std::move(result));
             });
 
-            return promise->getFuture();
+            return future;
         }
 
         template<typename F>
@@ -467,8 +556,9 @@ namespace zero::async::promise {
             assert(mCore->state != State::DONE);
 
             const auto promise = std::make_shared<Promise<T, E>>();
+            auto future = promise->getFuture();
 
-            setCallback([=, f = std::forward<F>(f)](tl::expected<T, E> &&result) {
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](tl::expected<T, E> &&result) mutable {
                 if (!result) {
                     f();
                     promise->reject(std::move(result).error());
@@ -485,46 +575,12 @@ namespace zero::async::promise {
                 }
             });
 
-            return promise->getFuture();
+            return future;
         }
 
     private:
         std::shared_ptr<Core<T, E>> mCore;
     };
-
-    template<typename T, typename E, typename F>
-    Future<T, E> chain(F &&f) {
-        Promise<T, E> promise;
-        auto future = promise.getFuture();
-        f(std::move(promise));
-        return future;
-    }
-
-    template<typename T, typename E, typename... Ts>
-    Future<T, E> reject(Ts &&... args) {
-        Promise<T, E> promise;
-        promise.reject(std::forward<Ts>(args)...);
-        return promise.getFuture();
-    }
-
-    template<typename T, typename E, std::enable_if_t<std::is_void_v<T>>* = nullptr>
-    Future<T, E> resolve() {
-        Promise<T, E> promise;
-        promise.resolve();
-        return promise.getFuture();
-    }
-
-    template<
-        typename T,
-        typename E,
-        typename... Ts,
-        std::enable_if_t<!std::is_void_v<T> && (sizeof...(Ts) > 0)>* = nullptr
-    >
-    Future<T, E> resolve(Ts &&... args) {
-        Promise<T, E> promise;
-        promise.resolve(std::forward<Ts>(args)...);
-        return promise.getFuture();
-    }
 
     template<typename T>
     struct optional_wrapper;

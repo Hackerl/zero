@@ -38,8 +38,8 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 
     const auto ticks = unix::expected([] {
         return sysconf(_SC_CLK_TCK);
-    }).transform([](const auto &result) {
-        return static_cast<double>(result);
+    }).transform([](const auto &value) {
+        return static_cast<double>(value);
     });
     EXPECT(ticks);
 
@@ -62,8 +62,8 @@ tl::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 
     const auto ticks = unix::expected([] {
         return sysconf(_SC_CLK_TCK);
-    }).transform([](const auto &result) {
-        return static_cast<double>(result);
+    }).transform([](const auto &value) {
+        return static_cast<double>(value);
     });
     EXPECT(ticks);
 

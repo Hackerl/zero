@@ -1,5 +1,5 @@
+#include <catch_extensions.h>
 #include <zero/os/unix/error.h>
-#include <catch2/catch_test_macros.hpp>
 #include <unistd.h>
 
 TEST_CASE("unix syscall wrapper", "[unix]") {

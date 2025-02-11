@@ -66,8 +66,8 @@ tl::expected<std::string, std::error_code> zero::os::username() {
     const auto uid = geteuid();
     const auto max = unix::expected([] {
         return sysconf(_SC_GETPW_R_SIZE_MAX);
-    }).transform([](const auto &result) {
-        return static_cast<std::size_t>(result);
+    }).transform([](const auto &value) {
+        return static_cast<std::size_t>(value);
     });
 
     auto size = max.value_or(1024);

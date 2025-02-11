@@ -6,48 +6,50 @@
 #include <unistd.h>
 #include <map>
 
-tl::expected<zero::os::linux::procfs::CPUTime, std::error_code> parseCPUTime(const std::string_view str) {
-    const auto tokens = zero::strings::split(str);
+namespace {
+    tl::expected<zero::os::linux::procfs::CPUTime, std::error_code> parseCPUTime(const std::string_view str) {
+        const auto tokens = zero::strings::split(str);
 
-    if (tokens.size() < 5)
-        return tl::unexpected{zero::os::linux::procfs::Error::UNEXPECTED_DATA};
+        if (tokens.size() < 5)
+            return tl::unexpected{zero::os::linux::procfs::Error::UNEXPECTED_DATA};
 
-    auto it = tokens.begin() + 1;
+        auto it = tokens.begin() + 1;
 
-    const auto set = [&](auto &var) -> tl::expected<void, std::error_code> {
-        using T = std::remove_reference_t<decltype(var)>;
+        const auto set = [&](auto &var) -> tl::expected<void, std::error_code> {
+            using T = std::remove_reference_t<decltype(var)>;
 
-        if constexpr (zero::detail::is_specialization_v<T, std::optional>) {
-            if (it == tokens.end())
-                return {};
+            if constexpr (zero::detail::is_specialization_v<T, std::optional>) {
+                if (it == tokens.end())
+                    return {};
 
-            const auto value = zero::strings::toNumber<typename T::value_type>(*it++);
-            EXPECT(value);
-            var = *value;
-        }
-        else {
-            const auto value = zero::strings::toNumber<T>(*it++);
-            EXPECT(value);
-            var = *value;
-        }
+                const auto value = zero::strings::toNumber<typename T::value_type>(*it++);
+                EXPECT(value);
+                var = *value;
+            }
+            else {
+                const auto value = zero::strings::toNumber<T>(*it++);
+                EXPECT(value);
+                var = *value;
+            }
 
-        return {};
-    };
+            return {};
+        };
 
-    zero::os::linux::procfs::CPUTime cpuTime;
+        zero::os::linux::procfs::CPUTime cpuTime;
 
-    EXPECT(set(cpuTime.user));
-    EXPECT(set(cpuTime.nice));
-    EXPECT(set(cpuTime.system));
-    EXPECT(set(cpuTime.idle));
-    EXPECT(set(cpuTime.ioWait));
-    EXPECT(set(cpuTime.irq));
-    EXPECT(set(cpuTime.softIRQ));
-    EXPECT(set(cpuTime.steal));
-    EXPECT(set(cpuTime.guest));
-    EXPECT(set(cpuTime.guestNice));
+        EXPECT(set(cpuTime.user));
+        EXPECT(set(cpuTime.nice));
+        EXPECT(set(cpuTime.system));
+        EXPECT(set(cpuTime.idle));
+        EXPECT(set(cpuTime.ioWait));
+        EXPECT(set(cpuTime.irq));
+        EXPECT(set(cpuTime.softIRQ));
+        EXPECT(set(cpuTime.steal));
+        EXPECT(set(cpuTime.guest));
+        EXPECT(set(cpuTime.guestNice));
 
-    return cpuTime;
+        return cpuTime;
+    }
 }
 
 tl::expected<zero::os::linux::procfs::Stat, std::error_code> zero::os::linux::procfs::stat() {

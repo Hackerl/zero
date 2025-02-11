@@ -34,6 +34,8 @@ if (MSVC)
     target_compile_options(zero_test PRIVATE /utf-8)
 endif ()
 
+target_include_directories(zero_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
 target_link_libraries(
         zero_test
         PRIVATE

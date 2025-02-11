@@ -1,10 +1,18 @@
+#include "catch_extensions.h"
 #include <zero/cmdline.h>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 
 struct Config {
     std::string username;
     std::string password;
+
+    friend bool operator==(const Config &lhs, const Config &rhs) {
+        return lhs.username == rhs.username && lhs.password == rhs.password;
+    }
+
+    friend bool operator!=(const Config &lhs, const Config &rhs) {
+        return !(lhs == rhs);
+    }
 };
 
 template<>
@@ -48,18 +56,8 @@ TEST_CASE("argument parser", "[cmdline]") {
 
     REQUIRE_THAT(cmdline.get<std::vector<short>>("ports"), Catch::Matchers::RangeEquals(std::vector{8080, 8090, 9090}));
 
-    const auto output = cmdline.getOptional<std::filesystem::path>("output");
-    REQUIRE(output);
-    REQUIRE(*output == "/tmp/out");
-
+    REQUIRE(cmdline.getOptional<std::filesystem::path>("output") == "/tmp/out");
     REQUIRE_FALSE(cmdline.getOptional<std::string>("decompress"));
-
-    const auto count = cmdline.getOptional<int>("count");
-    REQUIRE(count);
-    REQUIRE(*count == 6);
-
-    const auto config = cmdline.getOptional<Config>("config");
-    REQUIRE(config);
-    REQUIRE(config->username == "root");
-    REQUIRE(config->password == "123456");
+    REQUIRE(cmdline.getOptional<int>("count") == 6);
+    REQUIRE(cmdline.getOptional<Config>("config") == Config{"root", "123456"});
 }

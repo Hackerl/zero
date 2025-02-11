@@ -73,8 +73,8 @@ tl::expected<void, std::error_code> zero::atomic::Event::wait(const std::optiona
 
         if (timeout)
             ts = {
-                timeout->count() / 1000,
-                timeout->count() % 1000 * 1000000
+                static_cast<decltype(timespec::tv_sec)>(timeout->count() / 1000),
+                static_cast<decltype(timespec::tv_nsec)>(timeout->count() % 1000 * 1000000)
             };
 
         if (const auto result = os::unix::ensure([&] {

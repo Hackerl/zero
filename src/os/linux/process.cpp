@@ -5,10 +5,10 @@
 #include <unistd.h>
 #include <csignal>
 
-zero::os::linux::process::Process::Process(procfs::process::Process process) : mProcess(std::move(process)) {
+zero::os::linux::process::Process::Process(procfs::process::Process process) : mProcess{std::move(process)} {
 }
 
-zero::os::linux::process::Process::Process(Process &&rhs) noexcept : mProcess(std::move(rhs.mProcess)) {
+zero::os::linux::process::Process::Process(Process &&rhs) noexcept : mProcess{std::move(rhs.mProcess)} {
 }
 
 zero::os::linux::process::Process &zero::os::linux::process::Process::operator=(Process &&rhs) noexcept {
@@ -52,8 +52,8 @@ tl::expected<std::chrono::system_clock::time_point, std::error_code>
 zero::os::linux::process::Process::startTime() const {
     const auto ticks = unix::expected([] {
         return sysconf(_SC_CLK_TCK);
-    }).transform([](const auto &result) {
-        return static_cast<double>(result);
+    }).transform([](const auto &value) {
+        return static_cast<double>(value);
     });
     EXPECT(ticks);
 
@@ -71,8 +71,8 @@ zero::os::linux::process::Process::startTime() const {
 tl::expected<zero::os::linux::process::CPUTime, std::error_code> zero::os::linux::process::Process::cpu() const {
     const auto ticks = unix::expected([] {
         return sysconf(_SC_CLK_TCK);
-    }).transform([](const auto &result) {
-        return static_cast<double>(result);
+    }).transform([](const auto &value) {
+        return static_cast<double>(value);
     });
     EXPECT(ticks);
 
@@ -88,8 +88,8 @@ tl::expected<zero::os::linux::process::CPUTime, std::error_code> zero::os::linux
 tl::expected<zero::os::linux::process::MemoryStat, std::error_code> zero::os::linux::process::Process::memory() const {
     const auto pageSize = unix::expected([&] {
         return sysconf(_SC_PAGE_SIZE);
-    }).transform([](const auto &result) {
-        return static_cast<std::uint64_t>(result);
+    }).transform([](const auto &value) {
+        return static_cast<std::uint64_t>(value);
     });
     EXPECT(pageSize);
 

@@ -17,9 +17,11 @@ constexpr auto ENVIRONMENT_OFFSET = 0x48;
 constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x0290;
 #endif
 
-static const auto queryInformationProcess = reinterpret_cast<decltype(&NtQueryInformationProcess)>(
-    GetProcAddress(GetModuleHandleA("ntdll"), "NtQueryInformationProcess")
-);
+namespace {
+    const auto queryInformationProcess = reinterpret_cast<decltype(&NtQueryInformationProcess)>(
+        GetProcAddress(GetModuleHandleA("ntdll"), "NtQueryInformationProcess")
+    );
+}
 
 zero::os::windows::process::Process::Process(const HANDLE handle, const DWORD pid) : mPID{pid}, mHandle{handle} {
 }
@@ -366,7 +368,7 @@ tl::expected<zero::os::windows::process::Process, std::error_code> zero::os::win
 
 tl::expected<zero::os::windows::process::Process, std::error_code> zero::os::windows::process::open(const DWORD pid) {
     const auto handle = OpenProcess(
-        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | SYNCHRONIZE,
         false,
         pid
     );

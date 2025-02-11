@@ -1,5 +1,5 @@
+#include "catch_extensions.h"
 #include <zero/formatter.h>
-#include <catch2/catch_test_macros.hpp>
 #include <fmt/std.h>
 
 TEST_CASE("format expected", "[formatter]") {

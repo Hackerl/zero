@@ -18,9 +18,6 @@
 #include <zero/os/unix/error.h>
 #ifdef __ANDROID__
 #include <unistd.h>
-#if __ANDROID_API__ < 24
-#include <dlfcn.h>
-#endif
 #endif
 #elif defined(__APPLE__)
 #include <cstring>
@@ -144,13 +141,6 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
 
     return interfaces;
 #elif defined(__linux__) || __APPLE__
-#if defined(__ANDROID__) && __ANDROID_API__ < 24
-    static const auto getifaddrs = reinterpret_cast<int (*)(ifaddrs **)>(dlsym(RTLD_DEFAULT, "getifaddrs"));
-    static const auto freeifaddrs = reinterpret_cast<void (*)(ifaddrs *)>(dlsym(RTLD_DEFAULT, "freeifaddrs"));
-
-    if (!getifaddrs || !freeifaddrs)
-        return tl::unexpected{GetInterfacesError::API_NOT_AVAILABLE};
-#endif
     ifaddrs *addr{};
 
     EXPECT(unix::expected([&] {
@@ -279,7 +269,3 @@ tl::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> z
 #error "unsupported platform"
 #endif
 }
-
-#if defined(__ANDROID__) && __ANDROID_API__ < 24
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::net::GetInterfacesError)
-#endif

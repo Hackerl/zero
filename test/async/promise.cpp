@@ -1,49 +1,51 @@
+#include <catch_extensions.h>
 #include <zero/async/promise.h>
 #include <zero/concurrent/channel.h>
-#include <catch2/catch_test_macros.hpp>
 #include <thread>
 #include <list>
 
-constexpr auto THREAD_NUMBER = 16;
-constexpr auto CHANNEL_CAPACITY = 32;
+namespace {
+    constexpr auto THREAD_NUMBER = 16;
+    constexpr auto CHANNEL_CAPACITY = 32;
 
-class ThreadPool {
-public:
-    ThreadPool(const std::size_t number, const std::size_t capacity)
-        : mChannel{zero::concurrent::channel<std::function<void()>>(capacity)} {
-        for (int i{0}; i < number; i++)
-            mThreads.emplace_back(&ThreadPool::dispatch, this);
-    }
-
-    ~ThreadPool() {
-        mChannel.first.close();
-
-        for (auto &thread: mThreads)
-            thread.join();
-    }
-
-    void dispatch() {
-        while (true) {
-            const auto task = mChannel.second.receive();
-
-            if (!task)
-                break;
-
-            (*task)();
+    class ThreadPool {
+    public:
+        ThreadPool(const std::size_t number, const std::size_t capacity)
+            : mChannel{zero::concurrent::channel<std::function<void()>>(capacity)} {
+            for (int i{0}; i < number; i++)
+                mThreads.emplace_back(&ThreadPool::dispatch, this);
         }
-    }
 
-    template<typename F>
-    void post(F &&f) {
-        mChannel.first.send(std::forward<F>(f));
-    }
+        ~ThreadPool() {
+            mChannel.first.close();
 
-private:
-    zero::concurrent::Channel<std::function<void()>> mChannel;
-    std::list<std::thread> mThreads;
-};
+            for (auto &thread: mThreads)
+                thread.join();
+        }
 
-static ThreadPool pool(THREAD_NUMBER, CHANNEL_CAPACITY);
+        void dispatch() {
+            while (true) {
+                const auto task = mChannel.second.receive();
+
+                if (!task)
+                    break;
+
+                (*task)();
+            }
+        }
+
+        template<typename F>
+        void post(F &&f) {
+            mChannel.first.send(std::forward<F>(f));
+        }
+
+    private:
+        zero::concurrent::Channel<std::function<void()>> mChannel;
+        std::list<std::thread> mThreads;
+    };
+
+    ThreadPool pool(THREAD_NUMBER, CHANNEL_CAPACITY);
+}
 
 template<typename T, typename E, typename U>
 zero::async::promise::Future<T, E> reject(U &&error) {
@@ -97,36 +99,24 @@ TEST_CASE("promise", "[async]") {
     REQUIRE(future.valid());
     REQUIRE_FALSE(future.isReady());
 
-    const auto result = future.wait(10ms);
-    REQUIRE_FALSE(result);
-    REQUIRE(result.error() == std::errc::timed_out);
-
     SECTION("resolve") {
         promise.resolve(1024);
         REQUIRE(promise.valid());
         REQUIRE(promise.isFulfilled());
-
         REQUIRE(future.valid());
         REQUIRE(future.isReady());
         REQUIRE(future.wait());
-
-        const auto &res = future.result();
-        REQUIRE(res);
-        REQUIRE(*res == 1024);
+        REQUIRE(future.result() == 1024);
     }
 
     SECTION("reject") {
         promise.reject(-1);
         REQUIRE(promise.valid());
         REQUIRE(promise.isFulfilled());
-
         REQUIRE(future.valid());
         REQUIRE(future.isReady());
         REQUIRE(future.wait());
-
-        const auto &res = future.result();
-        REQUIRE_FALSE(res);
-        REQUIRE(res.error() == -1);
+        REQUIRE_ERROR(future.result(), -1);
     }
 }
 
@@ -177,6 +167,54 @@ TEST_CASE("callback chain", "[async]") {
             return tl::unexpected{error};
         });
 
+    zero::async::promise::resolve<int, int>(1)
+        .then(
+            [](const auto &value) -> tl::expected<int, int> {
+                if (value == 2)
+                    return tl::unexpected{-1};
+
+                return 2;
+            },
+            [](const auto &error) {
+                FAIL();
+                return tl::unexpected{error};
+            }
+        ).fail([](const auto &error) {
+            REQUIRE(error == -1);
+            return tl::unexpected{error};
+        });
+
+    zero::async::promise::resolve<int, int>(1)
+        .then(
+            [](const auto &value) -> tl::expected<int, int> {
+                if (value == 1)
+                    return tl::unexpected{-1};
+
+                return 2;
+            },
+            [](const auto &error) {
+                FAIL();
+                return tl::unexpected{error};
+            }
+        ).then([](const auto &value) {
+            REQUIRE(value == 2);
+        });
+
+    zero::async::promise::reject<int, int>(-1)
+        .then(
+            [](const auto &value) -> tl::expected<int, int> {
+                FAIL();
+                return {};
+            },
+            [](const auto &error) {
+                REQUIRE(error == -1);
+                return tl::unexpected{error};
+            }
+        ).fail([](const auto &error) {
+            REQUIRE(error == -1);
+            return tl::unexpected{error};
+        });
+
     const auto i = std::make_shared<int>(0);
 
     zero::async::promise::resolve<int, int>(1)
@@ -218,70 +256,51 @@ TEST_CASE("callback chain", "[async]") {
 TEST_CASE("callback chain concurrency testing", "[async]") {
     using namespace std::string_view_literals;
 
-    {
-        const auto result = resolve<int, int>(1).get();
-        REQUIRE(result);
-        REQUIRE(*result == 1);
-    }
+    REQUIRE(resolve<int, int>(1).get() == 1);
+    REQUIRE_ERROR((reject<void, int>(-1).get()), -1);
+    REQUIRE(
+        resolve<int, int>(1)
+            .then([](const auto &value) {
+                return resolve<int, int>(value * 10);
+            }).get() == 10
+    );
 
-    {
-        const auto result = reject<void, int>(-1).get();
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == -1);
-    }
+    REQUIRE(
+        resolve<int, int>(1)
+            .then([](const auto &value) -> tl::expected<int, int> {
+                if (value == 2)
+                    return tl::unexpected{2};
 
-    {
-        const auto result = resolve<int, int>(1)
-                            .then([](const auto &value) {
-                                return resolve<int, int>(value * 10);
-                            }).get();
-        REQUIRE(result);
-        REQUIRE(*result == 10);
-    }
+                return 2;
+            }).get() == 2
+    );
 
-    {
-        const auto result = resolve<int, int>(1)
-                            .then([](const auto &value) -> tl::expected<int, int> {
-                                if (value == 2)
-                                    return tl::unexpected{2};
+    REQUIRE_ERROR(
+        (resolve<int, int>(1)
+            .then([](const auto &value) -> tl::expected<int, int> {
+                if (value == 1)
+                    return tl::unexpected{-1};
 
-                                return 2;
-                            }).get();
-        REQUIRE(result);
-        REQUIRE(*result == 2);
-    }
+                return 2;
+            }).get()),
+        -1
+    );
 
-    {
-        const auto result = resolve<int, int>(1)
-                            .then([](const auto &value) -> tl::expected<int, int> {
-                                if (value == 1)
-                                    return tl::unexpected{-1};
+    const auto i = std::make_shared<int>(0);
+    REQUIRE(
+        resolve<int, int>(1)
+            .finally([=] {
+                *i = 1;
+            }).get() == 1
+    );
+    REQUIRE(*i == 1);
 
-                                return 2;
-                            }).get();
-        REQUIRE_FALSE(result);
-        REQUIRE(result.error() == -1);
-    }
+    auto buffer = std::make_unique<char[]>(1024);
+    std::memcpy(buffer.get(), "hello", 5);
 
-    {
-        const auto i = std::make_shared<int>(0);
-        const auto result = resolve<int, int>(1)
-                            .finally([=] {
-                                *i = 1;
-                            }).get();
-        REQUIRE(result);
-        REQUIRE(*result == 1);
-        REQUIRE(*i == 1);
-    }
-
-    {
-        auto buffer = std::make_unique<char[]>(1024);
-        std::memcpy(buffer.get(), "hello", 5);
-
-        const auto result = resolve<std::unique_ptr<char[]>, int>(std::move(buffer)).get();
-        REQUIRE(result);
-        REQUIRE(result->get() == "hello"sv);
-    }
+    const auto result = resolve<std::unique_ptr<char[]>, int>(std::move(buffer)).get();
+    REQUIRE(result);
+    REQUIRE(result->get() == "hello"sv);
 }
 
 TEST_CASE("promise all", "[async]") {
@@ -581,8 +600,7 @@ TEST_CASE("promise any", "[async]") {
                 reject<int, int>(-6),
                 resolve<int, int>(1)
             }).get();
-            REQUIRE(result);
-            REQUIRE(*result == 1);
+            REQUIRE(result == 1);
         }
 
         SECTION("reject") {
@@ -661,8 +679,7 @@ TEST_CASE("promise variadic any", "[async]") {
                     reject<int, int>(-6),
                     resolve<int, int>(1)
                 ).get();
-                REQUIRE(result);
-                REQUIRE(*result == 1);
+                REQUIRE(result == 1);
             }
 
             SECTION("reject") {

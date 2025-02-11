@@ -1,6 +1,5 @@
+#include "catch_extensions.h"
 #include <zero/error.h>
-#include <catch2/catch_test_macros.hpp>
-#include <optional>
 
 std::string stringify(const int value) {
     switch (value) {

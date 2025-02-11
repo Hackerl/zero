@@ -17,7 +17,7 @@ zero::Cmdline::Optional &zero::Cmdline::find(const char shortName) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error{fmt::format("optional argument does not exist[-{}]", shortName)};
+        throw std::runtime_error{fmt::format("unknown optional argument '-{}'", shortName)};
 
     return *it;
 }
@@ -32,7 +32,7 @@ zero::Cmdline::Optional &zero::Cmdline::find(const std::string_view name) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error{fmt::format("optional argument does not exist[--{}]", name)};
+        throw std::runtime_error{fmt::format("unknown optional argument '--{}'", name)};
 
     return *it;
 }
@@ -47,7 +47,7 @@ const zero::Cmdline::Optional &zero::Cmdline::find(const std::string_view name) 
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error{fmt::format("optional argument does not exist[--{}]", name)};
+        throw std::runtime_error{fmt::format("unknown optional argument '--{}'", name)};
 
     return *it;
 }
@@ -116,23 +116,36 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
     auto it = mPositionals.begin();
 
     for (int i{1}; i < argc; ++i) {
+        // positional argument
         if (*argv[i] != '-') {
             if (it == mPositionals.end()) {
                 mRest.emplace_back(argv[i]);
                 continue;
             }
 
-            auto value = it->typeInfo.parse(argv[i]);
+            auto result = it->typeInfo.parse(argv[i]);
 
-            if (!value)
-                throw std::runtime_error{fmt::format("invalid positional argument[{}]", argv[i])};
+            if (!result)
+                throw std::runtime_error{
+                    fmt::format(
+                        "invalid value '{}' for positional argument '{}'[{} ({})]",
+                        argv[i],
+                        it->name,
+                        result.error().message(),
+                        result.error()
+                    )
+                };
 
-            it++->value = *std::move(value);
+            it++->value = *std::move(result);
             continue;
         }
 
-        if (argv[i][1] != '-') {
-            auto &[name, shortName, desc, value, typeInfo] = find(argv[i][1]);
+        // short optional argument
+        if (const auto c = argv[i][1]; c != '-') {
+            if (c == '\0')
+                throw std::runtime_error{fmt::format("invalid argument '{}'", argv[i])};
+
+            auto &[name, shortName, desc, value, typeInfo] = find(c);
 
             if (!typeInfo) {
                 value = true;
@@ -140,17 +153,28 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             }
 
             if (!argv[i + 1])
-                throw std::runtime_error{fmt::format("invalid optional argument[{}]", argv[i])};
+                throw std::runtime_error{
+                    fmt::format("optional argument '{}' requires a value but none was provided", argv[i])
+                };
 
-            auto v = typeInfo->parse(argv[++i]);
+            auto result = typeInfo->parse(argv[++i]);
 
-            if (!v)
-                throw std::runtime_error{fmt::format("invalid optional argument[{}]", argv[i])};
+            if (!result)
+                throw std::runtime_error{
+                    fmt::format(
+                        "invalid value '{}' for optional argument '{}'[{} ({})]",
+                        argv[i],
+                        argv[i - 1],
+                        result.error().message(),
+                        result.error()
+                    )
+                };
 
-            value = *std::move(v);
+            value = *std::move(result);
             continue;
         }
 
+        // long optional argument
         const auto ptr = std::strchr(argv[i], '=');
         const auto n = ptr ? ptr - argv[i] : std::strlen(argv[i]);
 
@@ -166,15 +190,28 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             continue;
         }
 
-        if (!ptr)
-            throw std::runtime_error{fmt::format("optional argument requires value[{}]", argv[i])};
+        if (!ptr || ptr[1] == '\0')
+            throw std::runtime_error{
+                fmt::format(
+                    "optional argument '{}' requires a value but none was provided",
+                    std::string_view{argv[i], n}
+                )
+            };
 
-        auto v = typeInfo->parse(ptr + 1);
+        auto result = typeInfo->parse(ptr + 1);
 
-        if (!v)
-            throw std::runtime_error{fmt::format("invalid optional argument[{}]", argv[i])};
+        if (!result)
+            throw std::runtime_error{
+                fmt::format(
+                    "invalid value '{}' for optional argument '{}'[{} ({})]",
+                    ptr + 1,
+                    std::string_view{argv[i], n},
+                    result.error().message(),
+                    result.error()
+                )
+            };
 
-        value = *std::move(v);
+        value = *std::move(result);
     }
 
     if (exist("help")) {
@@ -183,7 +220,17 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
     }
 
     if (it != mPositionals.end())
-        throw std::runtime_error{fmt::format("positional arguments not enough[{}]", it->name)};
+        throw std::runtime_error{
+            format(
+                "missing required positional arguments: {}",
+                fmt::join(
+                    ranges::subrange{it, mPositionals.end()} | ranges::views::transform([](const auto &positional) {
+                        return fmt::format("'{}'", positional.name);
+                    }),
+                    ", "
+                )
+            )
+        };
 }
 
 void zero::Cmdline::parse(const int argc, const char *const *argv) {

@@ -293,16 +293,18 @@ tl::expected<std::vector<T>, std::error_code> parseNumbers(const std::string_vie
     return result;
 }
 
-tl::expected<std::vector<std::uint32_t>, std::error_code> parseAllowed(const std::string_view str) {
-    std::vector<std::uint32_t> result;
+namespace {
+    tl::expected<std::vector<std::uint32_t>, std::error_code> parseAllowed(const std::string_view str) {
+        std::vector<std::uint32_t> result;
 
-    for (const auto &token: zero::strings::split(str, ",")) {
-        const auto n = zero::strings::toNumber<std::uint32_t>(token, 16);
-        EXPECT(n);
-        result.emplace_back(*n);
+        for (const auto &token: zero::strings::split(str, ",")) {
+            const auto n = zero::strings::toNumber<std::uint32_t>(token, 16);
+            EXPECT(n);
+            result.emplace_back(*n);
+        }
+
+        return result;
     }
-
-    return result;
 }
 
 tl::expected<std::vector<std::pair<std::uint32_t, std::uint32_t>>, std::error_code>
