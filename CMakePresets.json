@@ -76,6 +76,7 @@
     {
       "name": "debug",
       "configurePreset": "debug",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -87,17 +88,20 @@
     {
       "name": "debug-asan",
       "inherits": "debug",
-      "configurePreset": "debug-asan"
+      "configurePreset": "debug-asan",
+      "configuration": "Debug"
     },
     {
       "name": "relwithdebinfo",
       "inherits": "debug",
-      "configurePreset": "relwithdebinfo"
+      "configurePreset": "relwithdebinfo",
+      "configuration": "RelWithDebInfo"
     },
     {
       "name": "release",
       "inherits": "debug",
-      "configurePreset": "release"
+      "configurePreset": "release",
+      "configuration": "Release"
     }
   ],
   "workflowPresets": [
@@ -132,6 +136,40 @@
         {
           "type": "test",
           "name": "debug-asan"
+        }
+      ]
+    },
+    {
+      "name": "relwithdebinfo",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "relwithdebinfo"
+        },
+        {
+          "type": "build",
+          "name": "relwithdebinfo"
+        },
+        {
+          "type": "test",
+          "name": "relwithdebinfo"
+        }
+      ]
+    },
+    {
+      "name": "release",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "release"
+        },
+        {
+          "type": "build",
+          "name": "release"
+        },
+        {
+          "type": "test",
+          "name": "release"
         }
       ]
     }
