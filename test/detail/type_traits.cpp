@@ -2,13 +2,15 @@
 #include <vector>
 #include <list>
 
-void func1(short, int, long) {
-}
+namespace {
+    void func1(short, int, long) {
+    }
 
-void func2(int, int, int) {
-}
+    void func2(int, int, int) {
+    }
 
-void func3(short, int) {
+    void func3(short, int) {
+    }
 }
 
 static_assert(zero::detail::is_specialization_v<std::vector<int>, std::vector>);

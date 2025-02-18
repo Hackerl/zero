@@ -8,39 +8,41 @@
 #include <ranges>
 #include <bitset>
 
-class Provider final : public zero::log::IProvider {
-public:
-    Provider(std::shared_ptr<std::bitset<4>> bitset, std::shared_ptr<zero::atomic::Event> event)
-        : mBitset{std::move(bitset)}, mEvent{std::move(event)} {
-    }
+namespace {
+    class Provider final : public zero::log::IProvider {
+    public:
+        Provider(std::shared_ptr<std::bitset<4>> bitset, std::shared_ptr<zero::atomic::Event> event)
+            : mBitset{std::move(bitset)}, mEvent{std::move(event)} {
+        }
 
-    std::expected<void, std::error_code> init() override {
-        mBitset->set(0);
-        return {};
-    }
+        std::expected<void, std::error_code> init() override {
+            mBitset->set(0);
+            return {};
+        }
 
-    std::expected<void, std::error_code> rotate() override {
-        mBitset->set(2);
-        return {};
-    }
+        std::expected<void, std::error_code> rotate() override {
+            mBitset->set(2);
+            return {};
+        }
 
-    std::expected<void, std::error_code> flush() override {
-        mBitset->set(3);
-        mEvent->set();
-        return {};
-    }
+        std::expected<void, std::error_code> flush() override {
+            mBitset->set(3);
+            mEvent->set();
+            return {};
+        }
 
-    std::expected<void, std::error_code> write(const zero::log::Record &record) override {
-        if (record.content == "hello world")
-            mBitset->set(1);
+        std::expected<void, std::error_code> write(const zero::log::Record &record) override {
+            if (record.content == "hello world")
+                mBitset->set(1);
 
-        return {};
-    }
+            return {};
+        }
 
-private:
-    std::shared_ptr<std::bitset<4>> mBitset;
-    std::shared_ptr<zero::atomic::Event> mEvent;
-};
+    private:
+        std::shared_ptr<std::bitset<4>> mBitset;
+        std::shared_ptr<zero::atomic::Event> mEvent;
+    };
+}
 
 TEST_CASE("logger", "[log]") {
     using namespace std::chrono_literals;

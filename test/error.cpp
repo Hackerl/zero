@@ -1,16 +1,18 @@
 #include "catch_extensions.h"
 #include <zero/error.h>
 
-std::string stringify(const int value) {
-    switch (value) {
-    case EINVAL:
-        return "invalid argument";
+namespace {
+    std::string stringify(const int value) {
+        switch (value) {
+        case EINVAL:
+            return "invalid argument";
 
-    case ETIMEDOUT:
-        return "timeout";
+        case ETIMEDOUT:
+            return "timeout";
 
-    default:
-        return "unknown";
+        default:
+            return "unknown";
+        }
     }
 }
 

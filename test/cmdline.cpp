@@ -2,12 +2,14 @@
 #include <zero/cmdline.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 
-struct Config {
-    std::string username;
-    std::string password;
+namespace {
+    struct Config {
+        std::string username;
+        std::string password;
 
-    auto operator<=>(const Config &) const = default;
-};
+        auto operator<=>(const Config &) const = default;
+    };
+}
 
 template<>
 std::expected<Config, std::error_code> zero::scan(const std::string_view input) {

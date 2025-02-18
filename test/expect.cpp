@@ -1,11 +1,13 @@
 #include "catch_extensions.h"
 #include <zero/expect.h>
 
-std::expected<int, std::error_code> twice(const int value) {
-    if (value % 2)
-        return std::unexpected{make_error_code(std::errc::invalid_argument)};
+namespace {
+    std::expected<int, std::error_code> twice(const int value) {
+        if (value % 2)
+            return std::unexpected{make_error_code(std::errc::invalid_argument)};
 
-    return value * 2;
+        return value * 2;
+    }
 }
 
 TEST_CASE("expect macro", "[expect]") {
