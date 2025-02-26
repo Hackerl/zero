@@ -180,6 +180,11 @@ namespace zero::os::process {
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
         )
 #endif
+#ifdef _WIN32
+        using Resource = HANDLE;
+#else
+        using Resource = int;
+#endif
         enum class StdioType {
             NUL,
             INHERIT,
@@ -192,6 +197,7 @@ namespace zero::os::process {
         [[nodiscard]] const std::vector<std::string> &args() const;
         [[nodiscard]] const std::optional<std::filesystem::path> &currentDirectory() const;
         [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
+        [[nodiscard]] const std::vector<Resource> &inheritedResources() const;
 
         Command &arg(std::string arg);
         Command &args(std::vector<std::string> args);
@@ -200,6 +206,8 @@ namespace zero::os::process {
         Command &envs(std::map<std::string, std::string> envs);
         Command &clearEnv();
         Command &removeEnv(const std::string &key);
+        Command &inheritedResource(Resource resource);
+        Command &inheritedResources(std::vector<Resource> resource);
         Command &stdInput(StdioType type);
         Command &stdOutput(StdioType type);
         Command &stdError(StdioType type);
@@ -218,6 +226,7 @@ namespace zero::os::process {
         std::map<std::string, std::optional<std::string>> mEnviron;
         std::optional<std::filesystem::path> mCurrentDirectory;
         std::array<std::optional<StdioType>, 3> mStdioTypes;
+        std::vector<Resource> mInheritedResources;
 
         friend class PseudoConsole;
     };

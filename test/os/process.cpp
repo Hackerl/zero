@@ -269,6 +269,92 @@ TEST_CASE("command", "[os]") {
 #endif
     }
 
+    SECTION("resource") {
+        using namespace std::chrono_literals;
+
+#ifdef _WIN32
+        SECURITY_ATTRIBUTES saAttr{};
+
+        saAttr.nLength = sizeof(saAttr);
+        saAttr.bInheritHandle = true;
+        saAttr.lpSecurityDescriptor = nullptr;
+
+        std::array<HANDLE, 2> handles{};
+        REQUIRE(CreatePipe(handles.data(), handles.data() + 1, &saAttr, 0));
+        DEFER(REQUIRE(CloseHandle(handles[0])));
+
+        const auto tp = std::chrono::system_clock::now();
+
+        SECTION("inherit") {
+            auto child = command
+                         .inheritedResource(handles[1])
+                         .spawn();
+            REQUIRE(child);
+            DEFER(REQUIRE(child->wait()));
+            REQUIRE(CloseHandle(handles[1]));
+
+            const auto result = zero::os::windows::expected([&] {
+                DWORD n{};
+                std::array<char, 64> buffer{};
+                return ReadFile(handles[0], buffer.data(), buffer.size(), &n, nullptr);
+            });
+            REQUIRE_ERROR(result, std::errc::broken_pipe);
+            REQUIRE(std::chrono::system_clock::now() - tp > 0.9s);
+        }
+
+        SECTION("without inherit") {
+            auto child = command.spawn();
+            REQUIRE(child);
+            DEFER(REQUIRE(child->wait()));
+            REQUIRE(CloseHandle(handles[1]));
+
+            const auto result = zero::os::windows::expected([&] {
+                DWORD n{};
+                std::array<char, 64> buffer{};
+                return ReadFile(handles[0], buffer.data(), buffer.size(), &n, nullptr);
+            });
+            REQUIRE_ERROR(result, std::errc::broken_pipe);
+            REQUIRE(std::chrono::system_clock::now() - tp < 0.9s);
+        }
+#else
+        std::array<int, 2> fds{};
+        REQUIRE(pipe(fds.data()) == 0);
+        DEFER(REQUIRE(close(fds[0]) == 0));
+
+        const auto tp = std::chrono::system_clock::now();
+
+        SECTION("inherit") {
+            auto child = command
+                         .inheritedResource(fds[1])
+                         .spawn();
+            REQUIRE(child);
+            DEFER(REQUIRE(child->wait()));
+            REQUIRE(close(fds[1]) == 0);
+
+            const auto n = zero::os::unix::expected([&] {
+                std::array<char, 64> buffer{};
+                return read(fds[0], buffer.data(), buffer.size());
+            });
+            REQUIRE(n == 0);
+            REQUIRE(std::chrono::system_clock::now() - tp > 0.9s);
+        }
+
+        SECTION("without inherit") {
+            auto child = command.spawn();
+            REQUIRE(child);
+            DEFER(REQUIRE(child->wait()));
+            REQUIRE(close(fds[1]) == 0);
+
+            const auto n = zero::os::unix::expected([&] {
+                std::array<char, 64> buffer{};
+                return read(fds[0], buffer.data(), buffer.size());
+            });
+            REQUIRE(n == 0);
+            REQUIRE(std::chrono::system_clock::now() - tp < 0.9s);
+        }
+#endif
+    }
+
 #ifdef _WIN32
     SECTION("quote") {
         constexpr std::array args{"\t", "\"", " ", "\\", "\t\", \\", "a", "b", "c"};

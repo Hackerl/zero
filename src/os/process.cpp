@@ -433,6 +433,7 @@ std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::PseudoConsole::spawn(const Command &command) {
     assert(mHandles[1]);
     assert(mHandles[2]);
+    assert(command.mInheritedResources.empty());
 
     STARTUPINFOEXW siEx{};
     siEx.StartupInfo.cb = sizeof(siEx);
@@ -574,6 +575,8 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::PseudoConsole::spawn(const Command &command) {
+    assert(command.mInheritedResources.empty());
+
     std::array<int, 2> fds{};
 
     EXPECT(unix::expected([&] {
@@ -694,11 +697,11 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
             return static_cast<int>(sysconf(_SC_OPEN_MAX));
         });
 
-        for (int i{STDERR_FILENO + 1}; i < max; ++i) {
-            if (i == fds[1])
+        for (int fd{STDERR_FILENO + 1}; fd < max; ++fd) {
+            if (fd == fds[1])
                 continue;
 
-            close(i);
+            close(fd);
         }
 
         if (const auto &directory = command.mCurrentDirectory) {
@@ -842,6 +845,10 @@ const std::map<std::string, std::optional<std::string>> &zero::os::process::Comm
     return mEnviron;
 }
 
+const std::vector<zero::os::process::Command::Resource> &zero::os::process::Command::inheritedResources() const {
+    return mInheritedResources;
+}
+
 zero::os::process::Command &zero::os::process::Command::arg(std::string arg) {
     mArguments.push_back(std::move(arg));
     return *this;
@@ -882,6 +889,16 @@ zero::os::process::Command &zero::os::process::Command::removeEnv(const std::str
     }
 
     mEnviron[key] = std::nullopt;
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::inheritedResource(const Resource resource) {
+    mInheritedResources.push_back(resource);
+    return *this;
+}
+
+zero::os::process::Command &zero::os::process::Command::inheritedResources(std::vector<Resource> resource) {
+    mInheritedResources = std::move(resource);
     return *this;
 }
 
@@ -981,7 +998,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         &STARTUPINFOW::hStdError
     };
 
-    std::vector<HANDLE> inheritedHandles;
+    std::vector inheritedHandles{mInheritedResources};
 
     for (int i{0}; i < 3; ++i) {
         const auto handle = handles[indexMapping[i]];
@@ -1221,13 +1238,19 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     DEFER(posix_spawnattr_destroy(&attr));
 
-#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
+#ifdef __APPLE__
     EXPECT(expected([&] {
         return posix_spawnattr_setflags(
             &attr,
             POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK
         );
     }));
+
+    for (const auto &fd : mInheritedResources) {
+        EXPECT(expected([&] {
+            return posix_spawn_file_actions_addinherit_np(&actions, fd);
+        }));
+    }
 #else
     EXPECT(expected([&] {
         return posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
@@ -1240,9 +1263,13 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     });
     EXPECT(max);
 
-    for (int i{STDERR_FILENO + 1}; i < *max; ++i) {
+    // The program assumes that the file descriptor to be inherited is not set FD_CLOEXEC.
+    for (int fd{STDERR_FILENO + 1}; fd < *max; ++fd) {
+        if (std::ranges::find(mInheritedResources, fd) != mInheritedResources.end())
+            continue;
+
         EXPECT(expected([&] {
-            return posix_spawn_file_actions_addclose(&actions, i);
+            return posix_spawn_file_actions_addclose(&actions, fd);
         }));
     }
 #endif
