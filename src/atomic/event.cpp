@@ -1,6 +1,9 @@
 #include <zero/atomic/event.h>
 
-#ifdef __linux__
+#ifdef _WIN32
+#include <zero/expect.h>
+#include <zero/os/windows/error.h>
+#elif defined(__linux__)
 #include <climits>
 #include <unistd.h>
 #include <syscall.h>
@@ -17,44 +20,6 @@ extern "C" int __ulock_wait(uint32_t operation, void *addr, uint64_t value, uint
 extern "C" int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value);
 #endif
 
-#ifdef _WIN32
-zero::atomic::Event::Event(const bool manual, const bool initialState) {
-    mEvent = CreateEventA(nullptr, manual, initialState, nullptr);
-
-    if (!mEvent)
-        throw std::system_error{static_cast<int>(GetLastError()), std::system_category()};
-}
-
-zero::atomic::Event::~Event() {
-    CloseHandle(mEvent);
-}
-
-// ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
-    if (const auto result = WaitForSingleObject(mEvent, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
-        result != WAIT_OBJECT_0) {
-        return std::unexpected{
-            result == WAIT_TIMEOUT
-                ? make_error_code(Error::WAIT_EVENT_TIMEOUT)
-                : std::error_code{static_cast<int>(GetLastError()), std::system_category()}
-        };
-    }
-
-    return {};
-}
-
-// ReSharper disable once CppMemberFunctionMayBeConst
-void zero::atomic::Event::set() {
-    SetEvent(mEvent);
-}
-
-// ReSharper disable once CppMemberFunctionMayBeConst
-void zero::atomic::Event::reset() {
-    ResetEvent(mEvent);
-}
-
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::atomic::Event::Error)
-#else
 zero::atomic::Event::Event(const bool manual, const bool initialState) : mManual{manual}, mState(initialState ? 1 : 0) {
 }
 
@@ -68,7 +33,17 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
             if (Value expected{1}; mState.compare_exchange_strong(expected, 0))
                 return {};
         }
-#ifdef __linux__
+#ifdef _WIN32
+        EXPECT(os::windows::expected([&] {
+            Value expected{0};
+            return WaitOnAddress(
+                &mState,
+                &expected,
+                sizeof(Value),
+                timeout ? static_cast<DWORD>(timeout->count()) : INFINITE
+            );
+        }));
+#elif defined(__linux__)
         std::optional<timespec> ts;
 
         if (timeout)
@@ -98,7 +73,9 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
 
 void zero::atomic::Event::set() {
     if (Value expected{0}; mState.compare_exchange_strong(expected, 1)) {
-#ifdef __linux__
+#ifdef _WIN32
+        WakeByAddressSingle(&mState);
+#elif defined(__linux__)
         syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
 #elif defined(__APPLE__)
         __ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, &mState, 0);
@@ -111,4 +88,3 @@ void zero::atomic::Event::set() {
 void zero::atomic::Event::reset() {
     mState = 0;
 }
-#endif

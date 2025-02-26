@@ -53,6 +53,7 @@ target_link_libraries(
         Threads::Threads
         $<$<PLATFORM_ID:Windows>:Ws2_32>
         $<$<PLATFORM_ID:Windows>:Iphlpapi>
+        $<$<PLATFORM_ID:Windows>:Synchronization>
         PUBLIC
         fmt::fmt
 )
