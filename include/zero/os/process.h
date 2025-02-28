@@ -249,10 +249,15 @@ struct fmt::formatter<zero::os::process::ExitStatus, Char> {
 
     template<typename FmtContext>
     auto format(const zero::os::process::ExitStatus &status, FmtContext &ctx) const {
+#ifdef _WIN32
+        if (const auto raw = status.raw(); raw & 0x80000000)
+            return fmt::format_to(ctx.out(), "exit code({:#x})", raw);
+        else
+            return fmt::format_to(ctx.out(), "exit code({})", raw);
+#else
         if (const auto code = status.code())
             return fmt::format_to(ctx.out(), "exit code({})", *code);
 
-#ifndef _WIN32
         if (const auto signal = status.signal()) {
             if (status.coreDumped())
                 return fmt::format_to(ctx.out(), "core dumped({})", strsignal(*signal));
@@ -267,9 +272,9 @@ struct fmt::formatter<zero::os::process::ExitStatus, Char> {
 
         if (status.continued())
             return std::ranges::copy("continued(WIFCONTINUED)"sv, ctx.out()).out;
-#endif
 
         return fmt::format_to(ctx.out(), "unrecognised wait status()", status.raw());
+#endif
     }
 };
 
