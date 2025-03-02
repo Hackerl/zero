@@ -283,14 +283,14 @@ TEST_CASE("command", "[os]") {
         REQUIRE(CreatePipe(handles.data(), handles.data() + 1, &saAttr, 0));
         DEFER(REQUIRE(CloseHandle(handles[0])));
 
-        const auto tp = std::chrono::system_clock::now();
-
         SECTION("inherit") {
             auto child = command
                          .inheritedResource(handles[1])
                          .spawn();
             REQUIRE(child);
             DEFER(REQUIRE(child->wait()));
+
+            const auto tp = std::chrono::system_clock::now();
             REQUIRE(CloseHandle(handles[1]));
 
             const auto result = zero::os::windows::expected([&] {
@@ -306,6 +306,8 @@ TEST_CASE("command", "[os]") {
             auto child = command.spawn();
             REQUIRE(child);
             DEFER(REQUIRE(child->wait()));
+
+            const auto tp = std::chrono::system_clock::now();
             REQUIRE(CloseHandle(handles[1]));
 
             const auto result = zero::os::windows::expected([&] {
@@ -321,14 +323,14 @@ TEST_CASE("command", "[os]") {
         REQUIRE(pipe(fds.data()) == 0);
         DEFER(REQUIRE(close(fds[0]) == 0));
 
-        const auto tp = std::chrono::system_clock::now();
-
         SECTION("inherit") {
             auto child = command
                          .inheritedResource(fds[1])
                          .spawn();
             REQUIRE(child);
             DEFER(REQUIRE(child->wait()));
+
+            const auto tp = std::chrono::system_clock::now();
             REQUIRE(close(fds[1]) == 0);
 
             const auto n = zero::os::unix::expected([&] {
@@ -343,6 +345,8 @@ TEST_CASE("command", "[os]") {
             auto child = command.spawn();
             REQUIRE(child);
             DEFER(REQUIRE(child->wait()));
+
+            const auto tp = std::chrono::system_clock::now();
             REQUIRE(close(fds[1]) == 0);
 
             const auto n = zero::os::unix::expected([&] {

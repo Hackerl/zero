@@ -1,7 +1,7 @@
 {
   "name": "zero",
   "version": "1.0.10",
-  "builtin-baseline": "9224b3bbd8df24999d85720b1d005dd6f969ade0",
+  "builtin-baseline": "d5ec528843d29e3a52d745a64b469f810b2cedbf",
   "dependencies": [
     "fmt",
     {
@@ -16,8 +16,15 @@
     "tests": {
       "description": "Build Tests",
       "dependencies": [
-        "catch2"
+        "catch2",
+        "fakeit"
       ]
     }
-  }
+  },
+  "overrides": [
+    {
+      "name": "fmt",
+      "version": "10.2.1"
+    }
+  ]
 }

@@ -1,4 +1,5 @@
 find_package(Catch2 CONFIG REQUIRED)
+find_package(FakeIt CONFIG REQUIRED)
 
 add_executable(
         zero_test
@@ -42,14 +43,9 @@ target_link_libraries(
         zero
         Threads::Threads
         Catch2::Catch2WithMain
+        FakeIt::FakeIt-catch
         $<$<PLATFORM_ID:Windows>:Iphlpapi>
 )
 
 include(Catch)
-
-# Catch2 v3.7.0 will inherit the PATH environment variable, so we don't need to set it manually.
-catch_discover_tests(
-        zero_test
-        DL_PATHS
-        $<$<AND:$<PLATFORM_ID:Windows>,$<BOOL:${BUILD_SHARED_LIBS}>>:$ENV{PATH};$<TARGET_FILE_DIR:zero>>
-)
+catch_discover_tests(zero_test)

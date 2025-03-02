@@ -5,138 +5,173 @@
 #include <zero/atomic/event.h>
 #include <zero/filesystem/fs.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
+#include <fakeit.hpp>
 #include <ranges>
-#include <bitset>
-
-namespace {
-    class Provider final : public zero::log::IProvider {
-    public:
-        Provider(std::shared_ptr<std::bitset<4>> bitset, std::shared_ptr<zero::atomic::Event> event)
-            : mBitset{std::move(bitset)}, mEvent{std::move(event)} {
-        }
-
-        std::expected<void, std::error_code> init() override {
-            mBitset->set(0);
-            return {};
-        }
-
-        std::expected<void, std::error_code> rotate() override {
-            mBitset->set(2);
-            return {};
-        }
-
-        std::expected<void, std::error_code> flush() override {
-            mBitset->set(3);
-            mEvent->set();
-            return {};
-        }
-
-        std::expected<void, std::error_code> write(const zero::log::Record &record) override {
-            if (record.content == "hello world")
-                mBitset->set(1);
-
-            return {};
-        }
-
-    private:
-        std::shared_ptr<std::bitset<4>> mBitset;
-        std::shared_ptr<zero::atomic::Event> mEvent;
-    };
-}
 
 TEST_CASE("logger", "[log]") {
-    using namespace std::chrono_literals;
+    constexpr std::array levels{
+        zero::log::Level::DEBUG_LEVEL,
+        zero::log::Level::INFO_LEVEL,
+        zero::log::Level::WARNING_LEVEL,
+        zero::log::Level::ERROR_LEVEL
+    };
+
+    const auto level = GENERATE_REF(from_range(levels));
+    const auto line = GENERATE(take(1, random(0, 10240)));
+    const auto filename = GENERATE("a", "b", "c", "d");
+    const auto content = GENERATE(take(1, randomString(1, 10240)));
+
+    zero::atomic::Event event;
+    fakeit::Mock<zero::log::IProvider> mock;
+
+    fakeit::Fake(Dtor(mock));
+    fakeit::When(Method(mock, init)).Return();
+    fakeit::When(Method(mock, rotate)).AlwaysReturn();
+    fakeit::When(
+        Method(mock, write)
+        .Matching([&](const auto &record) {
+            return record.level <= level &&
+                record.line == line &&
+                record.filename == filename &&
+                record.content == content;
+        })
+    ).AlwaysReturn();
+
+    fakeit::When(Method(mock, flush))
+        .Do([&]() -> std::expected<void, std::error_code> {
+            event.set();
+            return {};
+        })
+        .AlwaysReturn();
 
     zero::log::Logger logger;
 
-    const auto bitset = std::make_shared<std::bitset<4>>();
-    const auto event = std::make_shared<zero::atomic::Event>();
-    auto provider = std::make_unique<Provider>(bitset, event);
+    SECTION("add provider") {
+        using namespace std::chrono_literals;
 
-    const auto tp = std::chrono::system_clock::now();
+        const auto interval = GENERATE(50ms, 100ms, 150ms, 200ms, 250ms);
+        const auto tp = std::chrono::system_clock::now();
 
-    SECTION("enable") {
-        logger.addProvider(zero::log::Level::INFO_LEVEL, std::move(provider), 50ms);
+        logger.addProvider(level, std::unique_ptr<zero::log::IProvider>{&mock.get()}, interval);
+        logger.log(level, filename, line, content);
 
-        REQUIRE(logger.enabled(zero::log::Level::INFO_LEVEL));
-        logger.log(zero::log::Level::INFO_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, "hello world");
+        REQUIRE(event.wait());
+        REQUIRE(std::chrono::system_clock::now() - tp > interval - 5ms);
 
-        REQUIRE(event->wait());
-        REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
-        REQUIRE(bitset->test(0));
-        REQUIRE(bitset->test(1));
-        REQUIRE(bitset->test(2));
-        REQUIRE(bitset->test(3));
+        fakeit::Verify(Method(mock, init)).Once();
+        fakeit::Verify(Method(mock, rotate)).Once();
+        fakeit::Verify(Method(mock, write)).Once();
+        fakeit::Verify(Method(mock, flush)).AtLeastOnce();
     }
 
-    SECTION("disable") {
-        logger.addProvider(zero::log::Level::ERROR_LEVEL, std::move(provider), 50ms);
+    SECTION("enabled") {
+        for (const auto &lv: levels) {
+            REQUIRE_FALSE(logger.enabled(lv));
+        }
 
-        REQUIRE_FALSE(logger.enabled(zero::log::Level::INFO_LEVEL));
-        logger.log(zero::log::Level::INFO_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, "hello world");
+        logger.addProvider(level, std::unique_ptr<zero::log::IProvider>{&mock.get()});
 
-        REQUIRE(event->wait());
-        REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
-        REQUIRE(bitset->test(0));
-        REQUIRE_FALSE(bitset->test(1));
-        REQUIRE_FALSE(bitset->test(2));
-        REQUIRE(bitset->test(3));
+        for (const auto &lv: levels) {
+            if (lv > level) {
+                REQUIRE_FALSE(logger.enabled(lv));
+            }
+            else {
+                REQUIRE(logger.enabled(lv));
+            }
+        }
+
+        fakeit::Verify(Method(mock, init)).Once();
+        fakeit::Verify(Method(mock, rotate)).Never();
+        fakeit::Verify(Method(mock, write)).Never();
+        fakeit::Verify(Method(mock, flush)).Any();
     }
 
-    SECTION("override") {
-        SECTION("enable") {
-            REQUIRE(zero::env::set("ZERO_LOG_LEVEL", "3"));
+    SECTION("log") {
+        logger.addProvider(level, std::unique_ptr<zero::log::IProvider>{&mock.get()});
 
-            logger.addProvider(zero::log::Level::ERROR_LEVEL, std::move(provider), 50ms);
+        for (const auto &lv: levels)
+            logger.log(lv, filename, line, content);
 
-            REQUIRE(logger.enabled(zero::log::Level::DEBUG_LEVEL));
-            logger.log(zero::log::Level::DEBUG_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, "hello world");
+        REQUIRE(event.wait());
 
-            REQUIRE(event->wait());
-            REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
-            REQUIRE(bitset->test(0));
-            REQUIRE(bitset->test(1));
-            REQUIRE(bitset->test(2));
-            REQUIRE(bitset->test(3));
+        const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::ERROR_LEVEL) + 1;
 
-            REQUIRE(zero::env::unset("ZERO_LOG_LEVEL"));
-        }
-
-        SECTION("disable") {
-            REQUIRE(zero::env::set("ZERO_LOG_LEVEL", "2"));
-
-            logger.addProvider(zero::log::Level::ERROR_LEVEL, std::move(provider), 50ms);
-
-            REQUIRE(logger.enabled(zero::log::Level::INFO_LEVEL));
-            REQUIRE_FALSE(logger.enabled(zero::log::Level::DEBUG_LEVEL));
-            logger.log(zero::log::Level::DEBUG_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, "hello world");
-
-            REQUIRE(event->wait());
-            REQUIRE(std::chrono::system_clock::now() - tp > 45ms);
-            REQUIRE(bitset->test(0));
-            REQUIRE_FALSE(bitset->test(1));
-            REQUIRE_FALSE(bitset->test(2));
-            REQUIRE(bitset->test(3));
-
-            REQUIRE(zero::env::unset("ZERO_LOG_LEVEL"));
-        }
+        fakeit::Verify(Method(mock, init)).Once();
+        fakeit::Verify(Method(mock, rotate)).Exactly(times);
+        fakeit::Verify(Method(mock, write)).Exactly(times);
+        fakeit::Verify(Method(mock, flush)).AtLeastOnce();
     }
 }
 
-TEST_CASE("file provider", "[log]") {
+TEST_CASE("override log level from environment variable", "[log]") {
+    constexpr std::array levels{
+        zero::log::Level::DEBUG_LEVEL,
+        zero::log::Level::INFO_LEVEL,
+        zero::log::Level::WARNING_LEVEL,
+        zero::log::Level::ERROR_LEVEL
+    };
+
+    const auto level = GENERATE_REF(from_range(levels));
+
+    REQUIRE(zero::env::set("ZERO_LOG_LEVEL", std::to_string(std::to_underlying(level))));
+    DEFER(REQUIRE(zero::env::unset("ZERO_LOG_LEVEL")));
+
+    zero::atomic::Event event;
+    fakeit::Mock<zero::log::IProvider> mock;
+
+    fakeit::Fake(Dtor(mock));
+    fakeit::When(Method(mock, init)).Return();
+    fakeit::When(Method(mock, rotate)).AlwaysReturn();
+    fakeit::When(Method(mock, write)).AlwaysReturn();
+    fakeit::When(Method(mock, flush))
+        .Do([&]() -> std::expected<void, std::error_code> {
+            event.set();
+            return {};
+        })
+        .AlwaysReturn();
+
+    zero::log::Logger logger;
+
+    logger.addProvider(zero::log::Level::ERROR_LEVEL, std::unique_ptr<zero::log::IProvider>{&mock.get()});
+
+    for (const auto &lv: levels)
+        logger.log(lv, "", 0, "");
+
+    REQUIRE(event.wait());
+
+    const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::ERROR_LEVEL) + 1;
+
+    fakeit::Verify(Method(mock, init)).Once();
+    fakeit::Verify(Method(mock, rotate)).Exactly(times);
+    fakeit::Verify(Method(mock, write)).Exactly(times);
+    fakeit::Verify(Method(mock, flush)).AtLeastOnce();
+}
+
+TEST_CASE("file log provider", "[log]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
     const auto directory = *temp / "zero-log-file-provider";
-    REQUIRE(zero::filesystem::createDirectory(directory));
-    DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+    const auto name = GENERATE(take(1, randomAlphanumericString(1, 64)));
 
-    zero::log::FileProvider provider{"zero-test", directory, 10, 3};
-    REQUIRE(provider.init());
+    SECTION("init") {
+        REQUIRE(zero::filesystem::createDirectory(directory));
+        DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
 
-    const zero::log::Record record{.content = "hello world"};
+        zero::log::FileProvider provider{name, directory};
+        REQUIRE(provider.init());
+        REQUIRE(zero::filesystem::readDirectory(directory).transform(std::ranges::distance) == 1);
+    }
 
-    SECTION("normal") {
+    SECTION("write and flush") {
+        REQUIRE(zero::filesystem::createDirectory(directory));
+        DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+
+        zero::log::FileProvider provider{name, directory};
+        REQUIRE(provider.init());
+
+        zero::log::Record record;
+
         REQUIRE(provider.write(record));
         REQUIRE(provider.flush());
 
@@ -153,18 +188,32 @@ TEST_CASE("file provider", "[log]") {
 
         const auto content = zero::filesystem::readString(files->front());
         REQUIRE(content);
-        REQUIRE_THAT(*content, Catch::Matchers::ContainsSubstring(record.content));
+        REQUIRE_THAT(*content, Catch::Matchers::StartsWith(fmt::to_string(record)));
     }
 
     SECTION("rotate") {
         using namespace std::chrono_literals;
 
-        for (int i{0}; i < 10; ++i) {
+        REQUIRE(zero::filesystem::createDirectory(directory));
+        DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+
+        const auto limit = GENERATE(take(1, random<std::size_t>(64, 1024)));
+        const auto remain = GENERATE(take(1, random(5, 10)));
+
+        zero::log::FileProvider provider{name, directory, limit, remain};
+        REQUIRE(provider.init());
+
+        zero::log::Record record{
+            .content = GENERATE_REF(take(1, randomAlphanumericString(limit, limit)))
+        };
+
+        for (int i{0}; i < remain * 2; ++i) {
+            // The log file name is generated based on the timestamp.
             std::this_thread::sleep_for(10ms);
             REQUIRE(provider.write(record));
             REQUIRE(provider.rotate());
         }
 
-        REQUIRE(zero::filesystem::readDirectory(directory).transform(std::ranges::distance) == 4);
+        REQUIRE(zero::filesystem::readDirectory(directory).transform(std::ranges::distance) == remain + 1);
     }
 }
