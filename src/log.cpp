@@ -87,7 +87,10 @@ std::expected<void, std::error_code> zero::log::FileProvider::rotate() {
     for (const auto &entry: *iterator) {
         EXPECT(entry);
 
-        if (!entry->isRegularFile().value_or(false))
+        const auto result = entry->isRegularFile();
+        EXPECT(result);
+
+        if (!*result)
             continue;
 
         const auto &path = entry->path();

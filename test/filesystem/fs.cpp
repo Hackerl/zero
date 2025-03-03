@@ -118,7 +118,7 @@ TEST_CASE("create directory", "[filesystem]") {
     SECTION("directory does not exist") {
         REQUIRE(zero::filesystem::createDirectory(directory));
         DEFER(REQUIRE(zero::filesystem::remove(directory)));
-        REQUIRE(zero::filesystem::exists(directory).value_or(false));
+        REQUIRE(zero::filesystem::exists(directory) == true);
     }
 
     SECTION("directory exists") {
@@ -137,8 +137,8 @@ TEST_CASE("create directories", "[filesystem]") {
     SECTION("directory does not exist") {
         REQUIRE(zero::filesystem::createDirectories(directory / "sub"));
         DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
-        REQUIRE(zero::filesystem::exists(directory).value_or(false));
-        REQUIRE(zero::filesystem::exists(directory / "sub").value_or(false));
+        REQUIRE(zero::filesystem::exists(directory) == true);
+        REQUIRE(zero::filesystem::exists(directory / "sub") == true);
     }
 
     SECTION("directory exists") {
@@ -146,8 +146,8 @@ TEST_CASE("create directories", "[filesystem]") {
         DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
 
         REQUIRE(zero::filesystem::createDirectories(directory / "sub"));
-        REQUIRE(zero::filesystem::exists(directory).value_or(false));
-        REQUIRE(zero::filesystem::exists(directory / "sub").value_or(false));
+        REQUIRE(zero::filesystem::exists(directory) == true);
+        REQUIRE(zero::filesystem::exists(directory / "sub") == true);
     }
 
     SECTION("parent directory exists") {
@@ -155,8 +155,8 @@ TEST_CASE("create directories", "[filesystem]") {
         DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
 
         REQUIRE(zero::filesystem::createDirectories(directory / "sub"));
-        REQUIRE(zero::filesystem::exists(directory).value_or(false));
-        REQUIRE(zero::filesystem::exists(directory / "sub").value_or(false));
+        REQUIRE(zero::filesystem::exists(directory) == true);
+        REQUIRE(zero::filesystem::exists(directory / "sub") == true);
     }
 }
 
@@ -339,7 +339,9 @@ TEST_CASE("walk directory", "[filesystem]") {
                     return entry->path();
                 })
                 | std::views::filter([](const auto &path) {
-                    return zero::filesystem::isRegularFile(path).value_or(false);
+                    const auto result = zero::filesystem::isRegularFile(path);
+                    REQUIRE(result);
+                    return *result;
                 })
                 | std::ranges::to<std::list>(),
                 Catch::Matchers::UnorderedRangeEquals(files)

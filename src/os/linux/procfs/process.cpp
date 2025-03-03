@@ -665,7 +665,10 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
     for (const auto &entry: *iterator) {
         EXPECT(entry);
 
-        if (!entry->isDirectory().value_or(false))
+        const auto result = entry->isDirectory();
+        EXPECT(result);
+
+        if (!*result)
             continue;
 
         const auto id = strings::toNumber<pid_t>(entry->path().filename().string());
