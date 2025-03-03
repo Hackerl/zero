@@ -151,7 +151,7 @@ TEST_CASE("file log provider", "[log]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto directory = *temp / "zero-log-file-provider";
+    const auto directory = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
     const auto name = GENERATE(take(1, randomAlphanumericString(1, 64)));
 
     SECTION("init") {
@@ -186,6 +186,7 @@ TEST_CASE("file log provider", "[log]") {
         REQUIRE(files);
         REQUIRE_THAT(*files, Catch::Matchers::SizeIs(1));
 
+        // On Windows, the file content ends with `/r/n`.
         const auto content = zero::filesystem::readString(files->front());
         REQUIRE(content);
         REQUIRE_THAT(*content, Catch::Matchers::StartsWith(fmt::to_string(record)));

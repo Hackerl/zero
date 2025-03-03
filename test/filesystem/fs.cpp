@@ -11,7 +11,7 @@ TEST_CASE("read bytes from file", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto path = *temp / "zero-filesystem-read-bytes";
+    const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("file does not exist") {
         REQUIRE_ERROR(zero::filesystem::read(path), std::errc::no_such_file_or_directory);
@@ -32,7 +32,7 @@ TEST_CASE("read string from file", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto path = *temp / "zero-filesystem-read-string";
+    const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("file does not exist") {
         REQUIRE_ERROR(zero::filesystem::readString(path), std::errc::no_such_file_or_directory);
@@ -49,7 +49,7 @@ TEST_CASE("write bytes to file", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto path = *temp / "zero-filesystem-write-bytes";
+    const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     REQUIRE(zero::filesystem::write(path, std::as_bytes(std::span{CONTENT})));
     DEFER(REQUIRE(zero::filesystem::remove(path)));
@@ -63,7 +63,7 @@ TEST_CASE("write string to file", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto path = *temp / "zero-filesystem-write-string";
+    const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     REQUIRE(zero::filesystem::write(path, CONTENT));
     DEFER(REQUIRE(zero::filesystem::remove(path)));
@@ -74,8 +74,8 @@ TEST_CASE("copy file", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto from = *temp / "zero-filesystem-copy-file-from";
-    const auto to = *temp / "zero-filesystem-copy-file-to";
+    const auto from = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
+    const auto to = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("source file does not exist") {
         REQUIRE_ERROR(zero::filesystem::copyFile(from, to), std::errc::no_such_file_or_directory);
@@ -113,7 +113,7 @@ TEST_CASE("create directory", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto directory = *temp / "zero-filesystem-create-directory";
+    const auto directory = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("directory does not exist") {
         REQUIRE(zero::filesystem::createDirectory(directory));
@@ -132,7 +132,7 @@ TEST_CASE("create directories", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto directory = *temp / "zero-filesystem-create-directories";
+    const auto directory = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("directory does not exist") {
         REQUIRE(zero::filesystem::createDirectories(directory / "sub"));
@@ -164,7 +164,7 @@ TEST_CASE("remove", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto path = *temp / "zero-filesystem-remove";
+    const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("file") {
         SECTION("does not exist") {
@@ -201,7 +201,7 @@ TEST_CASE("remove all", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto path = *temp / "zero-filesystem-remove-all";
+    const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("file") {
         SECTION("does not exist") {
@@ -232,7 +232,7 @@ TEST_CASE("read directory", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto directory = *temp / "zero-filesystem-read-directory";
+    const auto directory = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("directory does not exist") {
         REQUIRE_ERROR(zero::filesystem::readDirectory(directory / "z"), std::errc::no_such_file_or_directory);
@@ -299,7 +299,7 @@ TEST_CASE("walk directory", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
 
-    const auto directory = *temp / "zero-filesystem-walk-directory";
+    const auto directory = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("directory does not exist") {
         REQUIRE_ERROR(zero::filesystem::walkDirectory(directory / "z"), std::errc::no_such_file_or_directory);
