@@ -1,6 +1,6 @@
 #include <zero/cmdline.h>
 #include <zero/filesystem/fs.h>
-#include <cstring>
+#include <cassert>
 #include <ranges>
 #include <fmt/std.h>
 
@@ -101,7 +101,9 @@ void zero::Cmdline::addOptional(std::string name, const char shortName, std::str
 }
 
 bool zero::Cmdline::exist(const std::string_view name) const {
-    return std::any_cast<bool>(find(name).value);
+    const auto &optional = find(name);
+    assert(!optional.typeInfo);
+    return std::any_cast<bool>(optional.value);
 }
 
 std::vector<std::string> zero::Cmdline::rest() const {
@@ -112,24 +114,26 @@ void zero::Cmdline::footer(std::string message) {
     mFooter = std::move(message);
 }
 
-void zero::Cmdline::from(const int argc, const char *const *argv) {
+void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
     auto it = mPositionals.begin();
 
-    for (int i{1}; i < argc; ++i) {
-        // positional argument
-        if (*argv[i] != '-') {
+    for (std::size_t i{0}; i < arguments.size(); ++i) {
+        const auto &argument = arguments[i];
+
+        // positional argument, may be negative
+        if (argument.size() <= 1 || argument[0] != '-' || std::isdigit(static_cast<unsigned char>(argument[1]))) {
             if (it == mPositionals.end()) {
-                mRest.emplace_back(argv[i]);
+                mRest.emplace_back(argument);
                 continue;
             }
 
-            auto result = it->typeInfo.parse(argv[i]);
+            auto result = it->typeInfo.parse(argument);
 
             if (!result)
                 throw std::runtime_error{
                     fmt::format(
                         "invalid value '{}' for positional argument '{}'[{} ({})]",
-                        argv[i],
+                        argument,
                         it->name,
                         result.error().message(),
                         result.error()
@@ -141,10 +145,7 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
         }
 
         // short optional argument
-        if (const auto c = argv[i][1]; c != '-') {
-            if (c == '\0')
-                throw std::runtime_error{fmt::format("invalid argument '{}'", argv[i])};
-
+        if (const auto c = argument[1]; c != '-') {
             auto &[name, shortName, desc, value, typeInfo] = find(c);
 
             if (!typeInfo) {
@@ -152,19 +153,19 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
                 continue;
             }
 
-            if (!argv[i + 1])
+            if (i + 1 >= arguments.size())
                 throw std::runtime_error{
-                    fmt::format("optional argument '{}' requires a value but none was provided", argv[i])
+                    fmt::format("optional argument '{}' requires a value but none was provided", argument)
                 };
 
-            auto result = typeInfo->parse(argv[++i]);
+            auto result = typeInfo->parse(arguments[++i]);
 
             if (!result)
                 throw std::runtime_error{
                     fmt::format(
                         "invalid value '{}' for optional argument '{}'[{} ({})]",
-                        argv[i],
-                        argv[i - 1],
+                        arguments[i],
+                        argument,
                         result.error().message(),
                         result.error()
                     )
@@ -174,38 +175,51 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
             continue;
         }
 
-        // long optional argument
-        const auto ptr = std::strchr(argv[i], '=');
-        const auto n = ptr ? ptr - argv[i] : std::strlen(argv[i]);
-
-        if (n == 2) {
-            mRest.insert(mRest.end(), argv + i + 1, argv + argc);
+        if (argument.size() == 2) {
+            std::ranges::transform(
+                arguments.subspan(i + 1),
+                std::back_inserter(mRest),
+                [](const auto &arg) {
+                    return std::string{arg};
+                }
+            );
             break;
         }
 
-        auto &[name, shortName, desc, value, typeInfo] = find({argv[i] + 2, n - 2});
+        // long optional argument
+        const auto pos = argument.find('=');
+        auto &[name, shortName, desc, value, typeInfo] = find(argument.substr(0, pos).substr(2));
 
         if (!typeInfo) {
+            if (pos != std::string_view::npos)
+                throw std::runtime_error{
+                    fmt::format(
+                        "unexpected value '{}' for flag '{}'",
+                        argument.substr(pos + 1),
+                        name
+                    )
+                };
+
             value = true;
             continue;
         }
 
-        if (!ptr || ptr[1] == '\0')
+        if (pos == std::string_view::npos || pos + 1 == argument.size())
             throw std::runtime_error{
                 fmt::format(
                     "optional argument '{}' requires a value but none was provided",
-                    std::string_view{argv[i], n}
+                    argument.substr(0, pos)
                 )
             };
 
-        auto result = typeInfo->parse(ptr + 1);
+        auto result = typeInfo->parse(argument.substr(pos + 1));
 
         if (!result)
             throw std::runtime_error{
                 fmt::format(
                     "invalid value '{}' for optional argument '{}'[{} ({})]",
-                    ptr + 1,
-                    std::string_view{argv[i], n},
+                    argument.substr(pos + 1),
+                    argument.substr(0, pos),
                     result.error().message(),
                     result.error()
                 )
@@ -235,7 +249,7 @@ void zero::Cmdline::from(const int argc, const char *const *argv) {
 
 void zero::Cmdline::parse(const int argc, const char *const *argv) {
     try {
-        from(argc, argv);
+        parse(std::vector<std::string_view>{argv + 1, argv + argc});
     }
     catch (const std::runtime_error &e) {
         fmt::print(stderr, "error:\n\t{}\n", e.what());

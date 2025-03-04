@@ -2,7 +2,7 @@
 #include <zero/formatter.h>
 #include <fmt/std.h>
 
-TEST_CASE("format expected", "[formatter]") {
+TEST_CASE("std::expected formatter", "[formatter]") {
     SECTION("void") {
         SECTION("has value") {
             REQUIRE(fmt::to_string(std::expected<void, std::error_code>{}) == "expected()");
@@ -34,7 +34,7 @@ TEST_CASE("format expected", "[formatter]") {
     }
 }
 
-TEST_CASE("format exception pointer", "[formatter]") {
+TEST_CASE("std::exception_ptr formatter", "[formatter]") {
     SECTION("null") {
         REQUIRE(fmt::to_string(std::exception_ptr{}) == "nullptr");
     }

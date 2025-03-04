@@ -5,6 +5,7 @@
 #include "strings/strings.h"
 #include "detail/type_traits.h"
 #include <any>
+#include <span>
 #include <list>
 #include <optional>
 #include <algorithm>
@@ -182,7 +183,7 @@ namespace zero {
         [[nodiscard]] std::vector<std::string> rest() const;
 
         void footer(std::string message);
-        void from(int argc, const char *const argv[]);
+        void parse(std::span<const std::string_view> arguments);
         void parse(int argc, const char *const argv[]);
 
     private:
