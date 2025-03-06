@@ -97,6 +97,53 @@ std::expected<std::string, std::error_code> zero::os::username() {
 #endif
 }
 
+std::expected<std::pair<zero::os::Resource, zero::os::Resource>, std::error_code>
+zero::os::pipe() {
+#ifdef _WIN32
+    static std::atomic<std::size_t> number;
+    const auto name = fmt::format(R"(\\?\pipe\zero\anonymous\{}-{})", GetCurrentProcessId(), number++);
+
+    auto handle = CreateNamedPipeA(
+        name.c_str(),
+        PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+        PIPE_TYPE_BYTE | PIPE_WAIT,
+        1,
+        0,
+        0,
+        0,
+        nullptr
+    );
+
+    if (handle == INVALID_HANDLE_VALUE)
+        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+
+    Resource first{handle};
+
+    handle = CreateFileA(
+        name.c_str(),
+        GENERIC_WRITE,
+        0,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+        nullptr
+    );
+
+    if (handle == INVALID_HANDLE_VALUE)
+        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+
+    return std::pair{std::move(first), Resource{handle}};
+#else
+    std::array<int, 2> fds{};
+
+    EXPECT(unix::expected([&] {
+        return ::pipe(fds.data());
+    }));
+
+    return std::pair{Resource{fds[0]}, Resource{fds[1]}};
+#endif
+}
+
 #ifndef _WIN32
 DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::GetUsernameError)
 #endif

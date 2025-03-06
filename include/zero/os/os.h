@@ -1,7 +1,7 @@
 #ifndef ZERO_OS_H
 #define ZERO_OS_H
 
-#include <expected>
+#include "resource.h"
 #include <zero/error.h>
 
 namespace zero::os {
@@ -16,6 +16,9 @@ namespace zero::os {
 #endif
 
     std::expected<std::string, std::error_code> username();
+
+    // Anonymous pipes on Windows do not support overlapped, so named pipes are used to simulate it.
+    std::expected<std::pair<Resource, Resource>, std::error_code> pipe();
 }
 
 #ifndef _WIN32
