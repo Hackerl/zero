@@ -28,6 +28,7 @@ add_library(
         src/os/net.cpp
         src/os/stat.cpp
         src/os/process.cpp
+        src/os/resource.cpp
         src/atomic/event.cpp
         src/concurrent/channel.cpp
         src/encoding/hex.cpp

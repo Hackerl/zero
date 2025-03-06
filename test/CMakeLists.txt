@@ -15,6 +15,7 @@ add_executable(
         os/net.cpp
         os/stat.cpp
         os/process.cpp
+        os/resource.cpp
         cache/lru.cpp
         async/promise.cpp
         atomic/event.cpp

@@ -120,7 +120,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
     for (std::size_t i{0}; i < arguments.size(); ++i) {
         const auto &argument = arguments[i];
 
-        // positional argument, may be negative
+        // positional argument, may be a negative number
         if (argument.size() <= 1 || argument[0] != '-' || std::isdigit(static_cast<unsigned char>(argument[1]))) {
             if (it == mPositionals.end()) {
                 mRest.emplace_back(argument);

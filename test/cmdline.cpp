@@ -289,8 +289,6 @@ TEST_CASE("parsing custom type from command line arguments", "[cmdline]") {
         cmdline.addOptional<Config>("config", '\0', "");
 
         SECTION("invalid") {
-            constexpr std::array<std::string_view, 2> arguments{"program", "--config=root"};
-
             REQUIRE_THROWS_MATCHES(
                 cmdline.parse(std::array{"--config=root"sv}),
                 std::runtime_error,
