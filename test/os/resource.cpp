@@ -58,8 +58,15 @@ TEST_CASE("operating system resource", "[os::resource]") {
         REQUIRE(resource);
     }
 
-    SECTION("isInherited") {
-        REQUIRE(resource.isInherited() == false);
+    SECTION("is inherited") {
+        SECTION("inherited") {
+            REQUIRE(resource.setInherited(true));
+            REQUIRE(resource.isInherited() == true);
+        }
+
+        SECTION("not inherited") {
+            REQUIRE(resource.isInherited() == false);
+        }
     }
 
     SECTION("duplicate") {

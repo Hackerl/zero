@@ -18,6 +18,7 @@
 #include <zero/os/unix/error.h>
 #ifdef __ANDROID__
 #include <unistd.h>
+#include <zero/os/resource.h>
 #endif
 #elif defined(__APPLE__)
 #include <cstring>
@@ -241,11 +242,12 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
     }
 
 #ifdef __ANDROID__
-    const auto fd = unix::expected([&] {
+    const auto resource = unix::expected([&] {
         return socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    }).transform([](const auto &fd) {
+        return Resource{fd};
     });
-    EXPECT(fd);
-    DEFER(close(*fd));
+    EXPECT(resource);
 
     for (auto &[name, mac, addresses]: std::views::values(interfaces)) {
         ifreq request{};
@@ -254,7 +256,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
         std::strncpy(request.ifr_name, name.c_str(), IFNAMSIZ);
 
         EXPECT(unix::expected([&] {
-            return ioctl(*fd, SIOCGIFHWADDR, &request);
+            return ioctl(resource->get(), SIOCGIFHWADDR, &request);
         }));
 
         mac.assign(

@@ -7,9 +7,9 @@
 #include <vector>
 #include <bitset>
 #include <optional>
-#include <expected>
 #include <filesystem>
 #include <zero/error.h>
+#include <zero/os/resource.h>
 
 #undef linux
 
@@ -173,10 +173,7 @@ namespace zero::os::linux::procfs::process {
             MAYBE_ZOMBIE_PROCESS, "maybe zombie process"
         )
 
-        Process(int fd, pid_t pid);
-        Process(Process &&rhs) noexcept;
-        Process &operator=(Process &&rhs) noexcept;
-        ~Process();
+        Process(Resource resource, pid_t pid);
 
     private:
         [[nodiscard]] std::expected<std::string, std::error_code> readFile(const char *filename) const;
@@ -198,7 +195,7 @@ namespace zero::os::linux::procfs::process {
         [[nodiscard]] std::expected<IOStat, std::error_code> io() const;
 
     private:
-        int mFD;
+        Resource mResource;
         pid_t mPID;
     };
 

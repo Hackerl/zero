@@ -6,10 +6,10 @@
 #include <vector>
 #include <chrono>
 #include <optional>
-#include <expected>
 #include <windows.h>
 #include <filesystem>
 #include <zero/error.h>
+#include <zero/os/resource.h>
 
 namespace zero::os::windows::process {
     struct CPUTime {
@@ -40,10 +40,7 @@ namespace zero::os::windows::process {
             WAIT_PROCESS_TIMEOUT, "wait process timeout", std::errc::timed_out
         )
 
-        Process(HANDLE handle, DWORD pid);
-        Process(Process &&rhs) noexcept;
-        Process &operator=(Process &&rhs) noexcept;
-        ~Process();
+        Process(Resource resource, DWORD pid);
 
         static std::expected<Process, std::error_code> from(HANDLE handle);
 
@@ -51,7 +48,7 @@ namespace zero::os::windows::process {
         [[nodiscard]] std::expected<std::uintptr_t, std::error_code> parameters() const;
 
     public:
-        [[nodiscard]] HANDLE handle() const;
+        [[nodiscard]] const Resource &handle() const;
 
         [[nodiscard]] DWORD pid() const;
         [[nodiscard]] std::expected<DWORD, std::error_code> ppid() const;
@@ -73,8 +70,8 @@ namespace zero::os::windows::process {
         std::expected<void, std::error_code> terminate(DWORD code);
 
     private:
+        Resource mResource;
         DWORD mPID;
-        HANDLE mHandle;
     };
 
     std::expected<Process, std::error_code> self();

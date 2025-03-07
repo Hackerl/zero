@@ -1,4 +1,5 @@
 #include <zero/os/process.h>
+#include <zero/os/os.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
 #include <zero/env.h>
@@ -92,44 +93,41 @@ namespace {
         return result;
     }
 
-    std::expected<std::array<HANDLE, 2>, std::error_code>
-    createPipe(const bool duplex, SECURITY_ATTRIBUTES *attributes = nullptr) {
+    std::expected<std::pair<zero::os::Resource, zero::os::Resource>, std::error_code>
+    createNamedPipe() {
         static std::atomic<std::size_t> number;
-        const auto name = fmt::format(R"(\\?\pipe\zero\{}-{})", GetCurrentProcessId(), number++);
+        const auto name = fmt::format(R"(\\?\pipe\zero\named\{}-{})", GetCurrentProcessId(), number++);
 
-        auto first = CreateNamedPipeA(
+        auto handle = CreateNamedPipeA(
             name.c_str(),
-            (duplex ? PIPE_ACCESS_DUPLEX : PIPE_ACCESS_INBOUND) | FILE_FLAG_OVERLAPPED,
+            PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
             PIPE_TYPE_BYTE | PIPE_WAIT,
             1,
-            65536,
-            65536,
             0,
-            attributes
+            0,
+            0,
+            nullptr
         );
 
-        if (first == INVALID_HANDLE_VALUE)
+        if (handle == INVALID_HANDLE_VALUE)
             return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-        DEFER(
-            if (first)
-                CloseHandle(first);
-        );
+        zero::os::Resource first{handle};
 
-        const auto second = CreateFileA(
+        handle = CreateFileA(
             name.c_str(),
-            (duplex ? GENERIC_READ : 0) | GENERIC_WRITE,
+            GENERIC_READ | GENERIC_WRITE,
             0,
-            attributes,
+            nullptr,
             OPEN_EXISTING,
             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
             nullptr
         );
 
-        if (second == INVALID_HANDLE_VALUE)
+        if (handle == INVALID_HANDLE_VALUE)
             return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-        return std::array{std::exchange(first, nullptr), second};
+        return std::pair{std::move(first), zero::os::Resource{handle}};
     }
 }
 #endif
@@ -253,10 +251,10 @@ std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::proce
         });
 }
 
-zero::os::process::ExitStatus::ExitStatus(const Status status) : mStatus{status} {
+zero::os::process::ExitStatus::ExitStatus(const Native status) : mStatus{status} {
 }
 
-zero::os::process::ExitStatus::Status zero::os::process::ExitStatus::raw() const {
+zero::os::process::ExitStatus::Native zero::os::process::ExitStatus::raw() const {
     return mStatus;
 }
 
@@ -303,57 +301,35 @@ bool zero::os::process::ExitStatus::continued() const {
 }
 #endif
 
-zero::os::process::ChildProcess::ChildProcess(Process process, const std::array<std::optional<StdioFile>, 3> &stdio)
-    : Process{std::move(process)}, mStdio{stdio} {
+zero::os::process::ChildProcess::ChildProcess(Process process, std::array<std::optional<Resource>, 3> stdio)
+    : Process{std::move(process)}, mStdio{std::move(stdio)} {
 }
 
-zero::os::process::ChildProcess::ChildProcess(ChildProcess &&rhs) noexcept
-    : Process{std::move(rhs)}, mStdio{std::exchange(rhs.mStdio, {})} {
-}
-
-zero::os::process::ChildProcess &zero::os::process::ChildProcess::operator=(ChildProcess &&rhs) noexcept {
-    Process::operator=(std::move(rhs));
-    mStdio = std::exchange(rhs.mStdio, {});
-    return *this;
-}
-
-zero::os::process::ChildProcess::~ChildProcess() {
-    for (const auto &fd: mStdio) {
-        if (!fd)
-            continue;
-
-#ifdef _WIN32
-        CloseHandle(*fd);
-#else
-        close(*fd);
-#endif
-    }
-}
-
-std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::ChildProcess::stdInput() {
+std::optional<zero::os::Resource> &zero::os::process::ChildProcess::stdInput() {
     return mStdio[0];
 }
 
-std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::ChildProcess::stdOutput() {
+std::optional<zero::os::Resource> &zero::os::process::ChildProcess::stdOutput() {
     return mStdio[1];
 }
 
-std::optional<zero::os::process::ChildProcess::StdioFile> &zero::os::process::ChildProcess::stdError() {
+std::optional<zero::os::Resource> &zero::os::process::ChildProcess::stdError() {
     return mStdio[2];
 }
 
 #ifdef _WIN32
-zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, const std::array<HANDLE, 3> &handles)
-    : mPC{pc}, mHandles{handles} {
+zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, Resource master, Resource slave)
+    : mPC{pc}, mMaster{std::move(master)}, mSlave{std::move(slave)} {
 }
 
 zero::os::process::PseudoConsole::PseudoConsole(PseudoConsole &&rhs) noexcept
-    : mPC{std::exchange(rhs.mPC, nullptr)}, mHandles{std::exchange(rhs.mHandles, {})} {
+    : mPC{std::exchange(rhs.mPC, nullptr)}, mMaster{std::move(rhs.mMaster)}, mSlave{std::move(rhs.mSlave)} {
 }
 
 zero::os::process::PseudoConsole &zero::os::process::PseudoConsole::operator=(PseudoConsole &&rhs) noexcept {
     mPC = std::exchange(rhs.mPC, nullptr);
-    mHandles = std::exchange(rhs.mHandles, {});
+    mMaster = std::move(rhs.mMaster);
+    mSlave = std::move(rhs.mSlave);
     return *this;
 }
 
@@ -362,13 +338,6 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
         return;
 
     closePseudoConsole(mPC);
-
-    for (const auto handle: mHandles) {
-        if (!handle)
-            continue;
-
-        CloseHandle(handle);
-    }
 }
 
 std::expected<zero::os::process::PseudoConsole, std::error_code>
@@ -376,44 +345,21 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
         return std::unexpected{Error::API_NOT_AVAILABLE};
 
-    const auto pipes = createPipe(true);
-    EXPECT(pipes);
-
-    std::array<HANDLE, 3> handles{pipes->at(0), pipes->at(1)};
-
-    DEFER(
-        for (const auto &handle: handles) {
-            if (!handle)
-                continue;
-
-            CloseHandle(handle);
-        }
-    );
-
-    EXPECT(windows::expected([&] {
-        return DuplicateHandle(
-            GetCurrentProcess(),
-            handles[1],
-            GetCurrentProcess(),
-            handles.data() + 2,
-            0,
-            false,
-            DUPLICATE_SAME_ACCESS
-        );
-    }));
+    auto pipe = createNamedPipe();
+    EXPECT(pipe);
 
     HPCON hPC{};
 
     if (const auto result = createPseudoConsole(
         {columns, rows},
-        handles[1],
-        handles[2],
+        *pipe->second,
+        *pipe->second,
         0,
         &hPC
     ); result != S_OK)
         return std::unexpected{static_cast<windows::ResultHandle>(result)};
 
-    return PseudoConsole{hPC, std::exchange(handles, {})};
+    return PseudoConsole{hPC, std::move(pipe->first), std::move(pipe->second)};
 }
 
 void zero::os::process::PseudoConsole::close() {
@@ -431,8 +377,7 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::PseudoConsole::spawn(const Command &command) {
-    assert(mHandles[1]);
-    assert(mHandles[2]);
+    assert(mSlave);
     assert(command.mInheritedResources.empty());
 
     STARTUPINFOEXW siEx{};
@@ -479,8 +424,8 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     }
 
     auto environment = strings::decode(to_string(fmt::join(
-        envs | std::views::transform([](const auto &it) {
-            auto env = it.first + "=" + it.second;
+        envs | std::views::transform([](const auto &pair) {
+            auto env = pair.first + "=" + pair.second;
             env.push_back('\0');
             return env;
         }),
@@ -514,35 +459,17 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     }));
 
     CloseHandle(info.hThread);
-    CloseHandle(std::exchange(mHandles[1], nullptr));
-    CloseHandle(std::exchange(mHandles[2], nullptr));
+    std::ignore = mSlave.close();
 
-    return ChildProcess{Process{windows::process::Process{info.hProcess, info.dwProcessId}}, {}};
+    return ChildProcess{Process{windows::process::Process{Resource{info.hProcess}, info.dwProcessId}}, {}};
 }
 
-HANDLE &zero::os::process::PseudoConsole::file() {
-    return mHandles[0];
+zero::os::Resource &zero::os::process::PseudoConsole::master() {
+    return mMaster;
 }
 #else
-zero::os::process::PseudoConsole::PseudoConsole(const int master, const int slave): mMaster{master}, mSlave{slave} {
-}
-
-zero::os::process::PseudoConsole::PseudoConsole(PseudoConsole &&rhs) noexcept
-    : mMaster{std::exchange(rhs.mMaster, -1)}, mSlave{std::exchange(rhs.mSlave, -1)} {
-}
-
-zero::os::process::PseudoConsole &zero::os::process::PseudoConsole::operator=(PseudoConsole &&rhs) noexcept {
-    mMaster = std::exchange(rhs.mMaster, -1);
-    mSlave = std::exchange(rhs.mSlave, -1);
-    return *this;
-}
-
-zero::os::process::PseudoConsole::~PseudoConsole() {
-    if (mMaster >= 0)
-        close(mMaster);
-
-    if (mSlave >= 0)
-        close(mSlave);
+zero::os::process::PseudoConsole::PseudoConsole(Resource master, Resource slave)
+    : mMaster{std::move(master)}, mSlave{std::move(slave)} {
 }
 
 std::expected<zero::os::process::PseudoConsole, std::error_code>
@@ -553,7 +480,7 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
         return openpty(&master, &slave, nullptr, nullptr, nullptr);
     }));
 
-    PseudoConsole pc{master, slave};
+    PseudoConsole pc{Resource{master}, Resource{slave}};
     EXPECT(pc.resize(rows, columns));
 
     return pc;
@@ -567,7 +494,7 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
     ws.ws_col = columns;
 
     EXPECT(unix::expected([&] {
-        return ioctl(mMaster, TIOCSWINSZ, &ws);
+        return ioctl(*mMaster, TIOCSWINSZ, &ws);
     }));
 
     return {};
@@ -576,28 +503,11 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
 std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::PseudoConsole::spawn(const Command &command) {
     assert(command.mInheritedResources.empty());
+    assert(*mSlave > STDERR_FILENO);
 
-    std::array<int, 2> fds{};
-
-    EXPECT(unix::expected([&] {
-        return pipe(fds.data());
-    }));
-
-    DEFER(
-        for (const auto &fd: fds) {
-            if (fd < 0)
-                continue;
-
-            close(fd);
-        }
-    );
-
-    assert(mSlave > STDERR_FILENO);
-    assert(std::ranges::all_of(fds, [](const auto &fd) {return fd > STDERR_FILENO;}));
-
-    EXPECT(unix::expected([&] {
-        return fcntl(fds[1], F_SETFD, FD_CLOEXEC);
-    }));
+    auto pipe = os::pipe();
+    EXPECT(pipe);
+    EXPECT(pipe->second.setInherited(false));
 
     const auto program = command.mPath.string();
 
@@ -625,8 +535,8 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     std::ranges::transform(
         envs,
         std::back_inserter(environment),
-        [](const auto &it) {
-            return fmt::format("{}={}", it.first, it.second);
+        [](const auto &pair) {
+            return fmt::format("{}={}", pair.first, pair.second);
         }
     );
 
@@ -647,7 +557,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     EXPECT(pid);
 
     if (*pid == 0) {
-        const auto guard = [fd = fds[1]]<typename F>(F &&f) {
+        const auto guard = [fd = *pipe->second]<typename F>(F &&f) {
             static_assert(std::is_integral_v<std::invoke_result_t<F>>);
 
             const auto result = f();
@@ -678,19 +588,19 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         });
 
         guard([this] {
-            return ioctl(mSlave, TIOCSCTTY, nullptr);
+            return ioctl(*mSlave, TIOCSCTTY, nullptr);
         });
 
         guard([this] {
-            return dup2(mSlave, STDIN_FILENO);
+            return dup2(*mSlave, STDIN_FILENO);
         });
 
         guard([this] {
-            return dup2(mSlave, STDOUT_FILENO);
+            return dup2(*mSlave, STDOUT_FILENO);
         });
 
         guard([this] {
-            return dup2(mSlave, STDERR_FILENO);
+            return dup2(*mSlave, STDERR_FILENO);
         });
 
         const auto max = guard([] {
@@ -698,7 +608,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         });
 
         for (int fd{STDERR_FILENO + 1}; fd < max; ++fd) {
-            if (fd == fds[1])
+            if (fd == *pipe->second)
                 continue;
 
             close(fd);
@@ -728,12 +638,12 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
 #endif
     }
 
-    close(std::exchange(fds[1], -1));
+    std::ignore = pipe->second.close();
 
     int error{};
 
     const auto n = unix::ensure([&] {
-        return read(fds[0], &error, sizeof(error));
+        return read(*pipe->first, &error, sizeof(error));
     });
     assert(n);
 
@@ -747,7 +657,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         return std::unexpected{std::error_code{error, std::system_category()}};
     }
 
-    close(std::exchange(mSlave, -1));
+    std::ignore = mSlave.close();
 
     auto process = open(*pid);
 
@@ -764,7 +674,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     return ChildProcess{*std::move(process), {}};
 }
 
-int &zero::os::process::PseudoConsole::file() {
+zero::os::Resource &zero::os::process::PseudoConsole::master() {
     return mMaster;
 }
 #endif
@@ -845,97 +755,22 @@ const std::map<std::string, std::optional<std::string>> &zero::os::process::Comm
     return mEnviron;
 }
 
-const std::vector<zero::os::process::Command::Resource> &zero::os::process::Command::inheritedResources() const {
+const std::vector<zero::os::Resource> &zero::os::process::Command::inheritedResources() const {
     return mInheritedResources;
-}
-
-zero::os::process::Command &zero::os::process::Command::arg(std::string arg) {
-    mArguments.push_back(std::move(arg));
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::args(std::vector<std::string> args) {
-    mArguments = std::move(args);
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::currentDirectory(std::filesystem::path path) {
-    mCurrentDirectory = std::move(path);
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::env(std::string key, std::string value) {
-    mEnviron[std::move(key)] = std::move(value);
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::envs(std::map<std::string, std::string> envs) {
-    for (auto &[key, value]: envs)
-        mEnviron[key] = std::move(value);
-
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::clearEnv() {
-    mInheritEnv = false;
-    mEnviron.clear();
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::removeEnv(const std::string &key) {
-    if (!mInheritEnv) {
-        mEnviron.erase(key);
-        return *this;
-    }
-
-    mEnviron[key] = std::nullopt;
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::inheritedResource(const Resource resource) {
-    mInheritedResources.push_back(resource);
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::inheritedResources(std::vector<Resource> resource) {
-    mInheritedResources = std::move(resource);
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::stdInput(const StdioType type) {
-    mStdioTypes[0] = type;
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::stdOutput(const StdioType type) {
-    mStdioTypes[1] = type;
-    return *this;
-}
-
-zero::os::process::Command &zero::os::process::Command::stdError(const StdioType type) {
-    mStdioTypes[2] = type;
-    return *this;
 }
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) const {
-#ifdef _WIN32
-    SECURITY_ATTRIBUTES saAttr{};
-
-    saAttr.nLength = sizeof(saAttr);
-    saAttr.bInheritHandle = true;
-    saAttr.lpSecurityDescriptor = nullptr;
-
-    std::array<HANDLE, 6> handles{};
-
-    DEFER(
-        for (const auto &handle: handles) {
-            if (!handle)
-                continue;
-
-            CloseHandle(handle);
-        }
+    assert(
+        std::ranges::all_of(
+            mInheritedResources,
+            [](const auto &resource) {
+                return resource.isInherited() == true;
+            }
+        )
     );
+#ifdef _WIN32
+    std::array<std::optional<Resource>, 6> resources;
 
     constexpr std::array indexMapping{STDIN_R, STDOUT_W, STDERR_W};
     constexpr std::array typeMapping{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE};
@@ -950,28 +785,40 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             if (!handle)
                 continue;
 
+            HANDLE duplicate{};
+
             EXPECT(windows::expected([&] {
                 return DuplicateHandle(
                     GetCurrentProcess(),
                     handle,
                     GetCurrentProcess(),
-                    handles.data() + indexMapping[i],
+                    &duplicate,
                     0,
                     true,
                     DUPLICATE_SAME_ACCESS
                 );
             }));
+
+            resources[indexMapping[i]].emplace(duplicate);
             continue;
         }
 
         if (type == StdioType::PIPED) {
-            const auto pipes = createPipe(false, &saAttr);
-            EXPECT(pipes);
+            auto pipe = os::pipe();
+            EXPECT(pipe);
+            EXPECT(pipe->first.setInherited(true));
+            EXPECT(pipe->second.setInherited(true));
 
-            handles[i * 2] = pipes->at(0);
-            handles[i * 2 + 1] = pipes->at(1);
+            resources[i * 2] = std::move(pipe->first);
+            resources[i * 2 + 1] = std::move(pipe->second);
             continue;
         }
+
+        SECURITY_ATTRIBUTES saAttr{};
+
+        saAttr.nLength = sizeof(saAttr);
+        saAttr.bInheritHandle = true;
+        saAttr.lpSecurityDescriptor = nullptr;
 
         const auto handle = CreateFileA(
             R"(\\.\NUL)",
@@ -986,7 +833,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         if (handle == INVALID_HANDLE_VALUE)
             return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-        handles[indexMapping[i]] = handle;
+        resources[indexMapping[i]].emplace(handle);
     }
 
     STARTUPINFOEXW siEx{};
@@ -998,16 +845,18 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         &STARTUPINFOW::hStdError
     };
 
-    std::vector inheritedHandles{mInheritedResources};
+    auto inheritedHandles = mInheritedResources
+        | std::views::transform(&Resource::get)
+        | std::ranges::to<std::vector>();
 
     for (int i{0}; i < 3; ++i) {
-        const auto handle = handles[indexMapping[i]];
+        const auto &resource = resources[indexMapping[i]];
 
-        if (!handle)
+        if (!resource)
             continue;
 
-        siEx.StartupInfo.*memberPointers[i] = handle;
-        inheritedHandles.push_back(handle);
+        siEx.StartupInfo.*memberPointers[i] = resource->get();
+        inheritedHandles.push_back(resource->get());
     }
 
     siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
@@ -1052,8 +901,8 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     }
 
     auto environment = strings::decode(to_string(fmt::join(
-        envs | std::views::transform([](const auto &it) {
-            auto env = it.first + "=" + it.second;
+        envs | std::views::transform([](const auto &pair) {
+            auto env = pair.first + "=" + pair.second;
             env.push_back('\0');
             return env;
         }),
@@ -1088,30 +937,23 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     CloseHandle(info.hThread);
 
-    std::array<std::optional<ChildProcess::StdioFile>, 3> stdio;
+    std::array<std::optional<Resource>, 3> stdio;
 
-    if (handles[STDIN_W])
-        stdio[0] = std::exchange(handles[STDIN_W], nullptr);
+    if (auto &resource = resources[STDIN_W])
+        stdio[0] = *std::move(resource);
 
-    if (handles[STDOUT_R])
-        stdio[1] = std::exchange(handles[STDOUT_R], nullptr);
+    if (auto &resource = resources[STDOUT_R])
+        stdio[1] = *std::move(resource);
 
-    if (handles[STDERR_R])
-        stdio[2] = std::exchange(handles[STDERR_R], nullptr);
+    if (auto &resource = resources[STDERR_R])
+        stdio[2] = *std::move(resource);
 
-    return ChildProcess{Process{windows::process::Process{info.hProcess, info.dwProcessId}}, stdio};
+    return ChildProcess{
+        Process{windows::process::Process{Resource{info.hProcess}, info.dwProcessId}},
+        std::move(stdio)
+    };
 #else
-    std::array<int, 6> fds{};
-    std::ranges::fill(fds, -1);
-
-    DEFER(
-        for (const auto &fd: fds) {
-            if (fd < 0)
-                continue;
-
-            close(fd);
-        }
-    );
+    std::array<std::optional<Resource>, 6> resources{};
 
     constexpr std::array indexMapping{STDIN_R, STDOUT_W, STDERR_W};
     constexpr std::array flagMapping{O_RDONLY, O_WRONLY, O_WRONLY};
@@ -1123,21 +965,32 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             continue;
 
         if (type == StdioType::PIPED) {
-            EXPECT(unix::expected([&] {
-                return pipe(fds.data() + i * 2);
-            }));
+            auto pipe = os::pipe();
+            EXPECT(pipe);
+
+            resources[i * 2] = std::move(pipe->first);
+            resources[i * 2 + 1] = std::move(pipe->second);
             continue;
         }
 
-        const auto fd = unix::expected([&] {
+        auto resource = unix::expected([&] {
             return ::open("/dev/null", flagMapping[i]);
+        }).transform([](const auto &fd) {
+            return Resource{fd};
         });
-        EXPECT(fd);
+        EXPECT(resource);
 
-        fds[indexMapping[i]] = *fd;
+        resources[indexMapping[i]] = *std::move(resource);
     }
 
-    assert(std::ranges::all_of(fds, [](const auto &fd) {return fd == -1 || fd > STDERR_FILENO;}));
+    assert(
+        std::ranges::all_of(
+            resources,
+            [](const auto &resource) {
+                return !resource || resource->get() > STDERR_FILENO;
+            }
+        )
+    );
 
     const auto program = mPath.string();
 
@@ -1165,8 +1018,8 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     std::ranges::transform(
         envs,
         std::back_inserter(environment),
-        [](const auto &it) {
-            return fmt::format("{}={}", it.first, it.second);
+        [](const auto &pair) {
+            return fmt::format("{}={}", pair.first, pair.second);
         }
     );
 
@@ -1200,9 +1053,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     DEFER(posix_spawn_file_actions_destroy(&actions));
 
     for (int i{0}; i < 3; ++i) {
-        if (const auto fd = fds[indexMapping[i]]; fd >= 0) {
+        if (const auto &resource = resources[indexMapping[i]]) {
             EXPECT(expected([&] {
-                return posix_spawn_file_actions_adddup2(&actions, fd, i);
+                return posix_spawn_file_actions_adddup2(&actions, resource->get(), i);
             }));
         }
 #ifdef __APPLE__
@@ -1246,9 +1099,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         );
     }));
 
-    for (const auto &fd : mInheritedResources) {
+    for (const auto &resource : mInheritedResources) {
         EXPECT(expected([&] {
-            return posix_spawn_file_actions_addinherit_np(&actions, fd);
+            return posix_spawn_file_actions_addinherit_np(&actions, *resource);
         }));
     }
 #else
@@ -1265,7 +1118,12 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     // The program assumes that the file descriptor to be inherited is not set FD_CLOEXEC.
     for (int fd{STDERR_FILENO + 1}; fd < *max; ++fd) {
-        if (std::ranges::find(mInheritedResources, fd) != mInheritedResources.end())
+        if (std::ranges::find_if(
+            mInheritedResources,
+            [=](const auto &resource) {
+                return *resource == fd;
+            }
+        ) != mInheritedResources.end())
             continue;
 
         EXPECT(expected([&] {
@@ -1292,18 +1150,18 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         return std::unexpected{process.error()};
     }
 
-    std::array<std::optional<ChildProcess::StdioFile>, 3> stdio;
+    std::array<std::optional<Resource>, 3> stdio;
 
-    if (fds[STDIN_W] >= 0)
-        stdio[0] = std::exchange(fds[STDIN_W], -1);
+    if (auto &resource = resources[STDIN_W])
+        stdio[0] = *std::move(resource);
 
-    if (fds[STDOUT_R] >= 0)
-        stdio[1] = std::exchange(fds[STDOUT_R], -1);
+    if (auto &resource = resources[STDOUT_R])
+        stdio[1] = *std::move(resource);
 
-    if (fds[STDERR_R] >= 0)
-        stdio[2] = std::exchange(fds[STDERR_R], -1);
+    if (auto &resource = resources[STDERR_R])
+        stdio[2] = *std::move(resource);;
 
-    return ChildProcess{*std::move(process), stdio};
+    return ChildProcess{*std::move(process), std::move(stdio)};
 #endif
 }
 
@@ -1320,16 +1178,14 @@ zero::os::process::Command::output() const {
     auto child = spawn({StdioType::NUL, StdioType::PIPED, StdioType::PIPED});
     EXPECT(child);
 
-    if (const auto input = std::exchange(child->stdInput(), std::nullopt)) {
-#ifdef _WIN32
-        CloseHandle(*input);
-#else
-        close(*input);
-#endif
+    if (auto input = std::exchange(child->stdInput(), std::nullopt)) {
+        EXPECT(input->close());
     }
 
-    const auto readAll = [](const auto &fd) -> std::expected<std::vector<std::byte>, std::error_code> {
-        if (!fd)
+    const auto readAll = [](
+        const std::optional<Resource> &resource
+    ) -> std::expected<std::vector<std::byte>, std::error_code> {
+        if (!resource)
             return {};
 
         std::vector<std::byte> data;
@@ -1340,7 +1196,7 @@ zero::os::process::Command::output() const {
             std::array<std::byte, 1024> buffer; // NOLINT(*-pro-type-member-init)
 
             if (const auto result = windows::expected([&] {
-                return ReadFile(*fd, buffer.data(), buffer.size(), &n, nullptr);
+                return ReadFile(resource->get(), buffer.data(), buffer.size(), &n, nullptr);
             }); !result) {
                 if (result.error() != std::errc::broken_pipe)
                     return std::unexpected{result.error()};
@@ -1356,7 +1212,7 @@ zero::os::process::Command::output() const {
             std::array<std::byte, 1024> buffer; // NOLINT(*-pro-type-member-init)
 
             const auto n = unix::ensure([&] {
-                return read(*fd, buffer.data(), buffer.size());
+                return read(resource->get(), buffer.data(), buffer.size());
             });
             EXPECT(n);
 
@@ -1370,7 +1226,7 @@ zero::os::process::Command::output() const {
         return data;
     };
 
-    auto future = std::async(readAll, child->stdError());
+    auto future = std::async(readAll, std::cref(child->stdError()));
     auto out = readAll(child->stdOutput());
 
     if (!out) {

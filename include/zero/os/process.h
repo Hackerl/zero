@@ -6,6 +6,7 @@
 #ifdef _WIN32
 #include "windows/process.h"
 #elif defined(__APPLE__)
+#include "resource.h"
 #include "macos/process.h"
 #elif defined(__linux__)
 #include "linux/process.h"
@@ -70,14 +71,14 @@ namespace zero::os::process {
     class ExitStatus {
     public:
 #ifdef _WIN32
-        using Status = DWORD;
+        using Native = DWORD;
 #else
-        using Status = int;
+        using Native = int;
 #endif
 
-        explicit ExitStatus(Status status);
+        explicit ExitStatus(Native status);
 
-        [[nodiscard]] Status raw() const;
+        [[nodiscard]] Native raw() const;
         [[nodiscard]] bool success() const;
         [[nodiscard]] std::optional<int> code() const;
 
@@ -90,30 +91,22 @@ namespace zero::os::process {
 #endif
 
     private:
-        Status mStatus;
+        Native mStatus;
     };
 
     class ChildProcess final : public Process {
     public:
-#ifdef _WIN32
-        using StdioFile = HANDLE;
-#else
-        using StdioFile = int;
-#endif
-        ChildProcess(Process process, const std::array<std::optional<StdioFile>, 3> &stdio);
-        ChildProcess(ChildProcess &&rhs) noexcept;
-        ChildProcess &operator=(ChildProcess &&rhs) noexcept;
-        ~ChildProcess();
+        ChildProcess(Process process, std::array<std::optional<Resource>, 3> stdio);
 
-        std::optional<StdioFile> &stdInput();
-        std::optional<StdioFile> &stdOutput();
-        std::optional<StdioFile> &stdError();
+        std::optional<Resource> &stdInput();
+        std::optional<Resource> &stdOutput();
+        std::optional<Resource> &stdError();
 
         std::expected<ExitStatus, std::error_code> wait();
         std::expected<std::optional<ExitStatus>, std::error_code> tryWait();
 
     private:
-        std::array<std::optional<StdioFile>, 3> mStdio;
+        std::array<std::optional<Resource>, 3> mStdio;
     };
 
     class Command;
@@ -127,7 +120,7 @@ namespace zero::os::process {
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
         )
 
-        PseudoConsole(HPCON pc, const std::array<HANDLE, 3> &handles);
+        PseudoConsole(HPCON pc, Resource master, Resource slave);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
         ~PseudoConsole();
@@ -138,30 +131,27 @@ namespace zero::os::process {
         std::expected<void, std::error_code> resize(short rows, short columns);
         std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
-        HANDLE &file();
+        Resource &master();
 
     private:
         HPCON mPC;
-        std::array<HANDLE, 3> mHandles;
+        Resource mMaster;
+        Resource mSlave;
     };
 #else
     class PseudoConsole {
     public:
-        PseudoConsole(int master, int slave);
-        PseudoConsole(PseudoConsole &&rhs) noexcept;
-        PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
-        ~PseudoConsole();
-
+        PseudoConsole(Resource master, Resource slave);
         static std::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
         std::expected<void, std::error_code> resize(short rows, short columns);
         std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
-        int &file();
+        Resource &master();
 
     private:
-        int mMaster;
-        int mSlave;
+        Resource mMaster;
+        Resource mSlave;
     };
 #endif
 
@@ -180,11 +170,6 @@ namespace zero::os::process {
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
         )
 #endif
-#ifdef _WIN32
-        using Resource = HANDLE;
-#else
-        using Resource = int;
-#endif
         enum class StdioType {
             NUL,
             INHERIT,
@@ -199,18 +184,85 @@ namespace zero::os::process {
         [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
         [[nodiscard]] const std::vector<Resource> &inheritedResources() const;
 
-        Command &arg(std::string arg);
-        Command &args(std::vector<std::string> args);
-        Command &currentDirectory(std::filesystem::path path);
-        Command &env(std::string key, std::string value);
-        Command &envs(std::map<std::string, std::string> envs);
-        Command &clearEnv();
-        Command &removeEnv(const std::string &key);
-        Command &inheritedResource(Resource resource);
-        Command &inheritedResources(std::vector<Resource> resource);
-        Command &stdInput(StdioType type);
-        Command &stdOutput(StdioType type);
-        Command &stdError(StdioType type);
+        template<typename Self>
+        Self &&arg(this Self &&self, std::string arg) {
+            self.mArguments.push_back(std::move(arg));
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&args(this Self &&self, std::vector<std::string> args) {
+            self.mArguments = std::move(args);
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&currentDirectory(this Self &&self, std::filesystem::path path) {
+            self.mCurrentDirectory = std::move(path);
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&env(this Self &&self, std::string key, std::string value) {
+            self.mEnviron[std::move(key)] = std::move(value);
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&envs(this Self &&self, std::map<std::string, std::string> envs) {
+            for (auto &[key, value]: envs)
+                self.mEnviron[key] = std::move(value);
+
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&clearEnv(this Self &&self) {
+            self.mInheritEnv = false;
+            self.mEnviron.clear();
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&removeEnv(this Self &&self, const std::string &key) {
+            if (!self.mInheritEnv) {
+                self.mEnviron.erase(key);
+                return std::forward<Self>(self);
+            }
+
+            self.mEnviron[key] = std::nullopt;
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&inheritedResource(this Self &&self, Resource resource) {
+            self.mInheritedResources.push_back(std::move(resource));
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&inheritedResources(this Self &&self, std::vector<Resource> resource) {
+            self.mInheritedResources = std::move(resource);
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&stdInput(this Self &&self, const StdioType type) {
+            self.mStdioTypes[0] = type;
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&stdOutput(this Self &&self, const StdioType type) {
+            self.mStdioTypes[1] = type;
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+        Self &&stdError(this Self &&self, const StdioType type) {
+            self.mStdioTypes[2] = type;
+            return std::forward<Self>(self);
+        }
 
         [[nodiscard]] std::expected<ChildProcess, std::error_code>
         spawn(const std::array<StdioType, 3> &defaultTypes) const;

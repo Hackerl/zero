@@ -23,24 +23,8 @@ namespace {
     );
 }
 
-zero::os::windows::process::Process::Process(const HANDLE handle, const DWORD pid) : mPID{pid}, mHandle{handle} {
-}
-
-zero::os::windows::process::Process::Process(Process &&rhs) noexcept
-    : mPID{std::exchange(rhs.mPID, -1)}, mHandle{std::exchange(rhs.mHandle, nullptr)} {
-}
-
-zero::os::windows::process::Process &zero::os::windows::process::Process::operator=(Process &&rhs) noexcept {
-    mPID = std::exchange(rhs.mPID, -1);
-    mHandle = std::exchange(rhs.mHandle, nullptr);
-    return *this;
-}
-
-zero::os::windows::process::Process::~Process() {
-    if (!mHandle)
-        return;
-
-    CloseHandle(mHandle);
+zero::os::windows::process::Process::Process(Resource resource, const DWORD pid)
+    : mResource{std::move(resource)}, mPID{pid} {
 }
 
 std::expected<zero::os::windows::process::Process, std::error_code>
@@ -50,7 +34,7 @@ zero::os::windows::process::Process::from(const HANDLE handle) {
     if (pid == 0)
         return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-    return Process{handle, pid};
+    return Process{Resource{handle}, pid};
 }
 
 std::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Process::parameters() const {
@@ -61,7 +45,7 @@ std::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Proce
 
     EXPECT(expected([&] {
         return NT_SUCCESS(queryInformationProcess(
-            mHandle,
+            *mResource,
             ProcessBasicInformation,
             &info,
             sizeof(info),
@@ -73,7 +57,7 @@ std::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Proce
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
-            mHandle,
+            *mResource,
             &info.PebBaseAddress->ProcessParameters,
             &ptr,
             sizeof(ptr),
@@ -84,8 +68,8 @@ std::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Proce
     return ptr;
 }
 
-HANDLE zero::os::windows::process::Process::handle() const {
-    return mHandle;
+const zero::os::Resource &zero::os::windows::process::Process::handle() const {
+    return mResource;
 }
 
 DWORD zero::os::windows::process::Process::pid() const {
@@ -100,7 +84,7 @@ std::expected<DWORD, std::error_code> zero::os::windows::process::Process::ppid(
 
     EXPECT(expected([&] {
         return NT_SUCCESS(queryInformationProcess(
-            mHandle,
+            *mResource,
             ProcessBasicInformation,
             &info,
             sizeof(info),
@@ -125,7 +109,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::windows::process
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
-            mHandle,
+            *mResource,
             reinterpret_cast<LPCVOID>(*ptr + CURRENT_DIRECTORY_OFFSET),
             &str,
             sizeof(str),
@@ -140,7 +124,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::windows::process
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
-            mHandle,
+            *mResource,
             str.Buffer,
             buffer.get(),
             str.Length,
@@ -156,7 +140,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::windows::process
     auto size = static_cast<DWORD>(buffer.size());
 
     EXPECT(expected([&] {
-        return QueryFullProcessImageNameW(mHandle, 0, buffer.data(), &size);
+        return QueryFullProcessImageNameW(*mResource, 0, buffer.data(), &size);
     }));
 
     return buffer.data();
@@ -170,7 +154,7 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
-            mHandle,
+            *mResource,
             reinterpret_cast<LPCVOID>(*ptr + offsetof(RTL_USER_PROCESS_PARAMETERS, CommandLine)),
             &str,
             sizeof(str),
@@ -185,7 +169,7 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
-            mHandle,
+            *mResource,
             str.Buffer,
             buffer.get(),
             str.Length,
@@ -219,7 +203,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
-            mHandle,
+            *mResource,
             reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_OFFSET),
             &env,
             sizeof(env),
@@ -231,7 +215,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
-            mHandle,
+            *mResource,
             reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_SIZE_OFFSET),
             &size,
             sizeof(size),
@@ -243,7 +227,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
 
     EXPECT(expected([&] {
         return ReadProcessMemory(
-            mHandle,
+            *mResource,
             env,
             buffer.get(),
             size,
@@ -279,7 +263,7 @@ zero::os::windows::process::Process::startTime() const {
     FILETIME create{}, exit{}, kernel{}, user{};
 
     EXPECT(expected([&] {
-        return GetProcessTimes(mHandle, &create, &exit, &kernel, &user);
+        return GetProcessTimes(*mResource, &create, &exit, &kernel, &user);
     }));
 
     return std::chrono::system_clock::from_time_t(
@@ -291,7 +275,7 @@ std::expected<zero::os::windows::process::CPUTime, std::error_code> zero::os::wi
     FILETIME create{}, exit{}, kernel{}, user{};
 
     EXPECT(expected([&] {
-        return GetProcessTimes(mHandle, &create, &exit, &kernel, &user);
+        return GetProcessTimes(*mResource, &create, &exit, &kernel, &user);
     }));
 
     return CPUTime{
@@ -305,7 +289,7 @@ zero::os::windows::process::Process::memory() const {
     PROCESS_MEMORY_COUNTERS counters{};
 
     EXPECT(expected([&] {
-        return GetProcessMemoryInfo(mHandle, &counters, sizeof(counters));
+        return GetProcessMemoryInfo(*mResource, &counters, sizeof(counters));
     }));
 
     return MemoryStat{
@@ -318,7 +302,7 @@ std::expected<zero::os::windows::process::IOStat, std::error_code> zero::os::win
     IO_COUNTERS counters{};
 
     EXPECT(expected([&] {
-        return GetProcessIoCounters(mHandle, &counters);
+        return GetProcessIoCounters(*mResource, &counters);
     }));
 
     return IOStat{
@@ -333,7 +317,7 @@ std::expected<DWORD, std::error_code> zero::os::windows::process::Process::exitC
     DWORD code{};
 
     EXPECT(expected([&] {
-        return GetExitCodeProcess(mHandle, &code);
+        return GetExitCodeProcess(*mResource, &code);
     }));
 
     if (code == STILL_ACTIVE)
@@ -344,7 +328,7 @@ std::expected<DWORD, std::error_code> zero::os::windows::process::Process::exitC
 
 std::expected<void, std::error_code>
 zero::os::windows::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
-    if (const auto result = WaitForSingleObject(mHandle, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
+    if (const auto result = WaitForSingleObject(*mResource, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         if (result == WAIT_TIMEOUT)
             return std::unexpected{Error::WAIT_PROCESS_TIMEOUT};
@@ -358,12 +342,12 @@ zero::os::windows::process::Process::wait(const std::optional<std::chrono::milli
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::os::windows::process::Process::terminate(const DWORD code) {
     return expected([&] {
-        return TerminateProcess(mHandle, code);
+        return TerminateProcess(*mResource, code);
     });
 }
 
 std::expected<zero::os::windows::process::Process, std::error_code> zero::os::windows::process::self() {
-    return Process{GetCurrentProcess(), GetCurrentProcessId()};
+    return Process{Resource{GetCurrentProcess()}, GetCurrentProcessId()};
 }
 
 std::expected<zero::os::windows::process::Process, std::error_code> zero::os::windows::process::open(const DWORD pid) {
@@ -376,7 +360,7 @@ std::expected<zero::os::windows::process::Process, std::error_code> zero::os::wi
     if (!handle)
         return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-    return Process{handle, pid};
+    return Process{Resource{handle}, pid};
 }
 
 std::expected<std::list<DWORD>, std::error_code> zero::os::windows::process::all() {

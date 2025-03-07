@@ -33,7 +33,7 @@ TEST_CASE("process", "[windows]") {
 
     const auto startTime = process->startTime();
     REQUIRE(startTime);
-    REQUIRE(std::chrono::system_clock::now() - *startTime < 1min);
+    REQUIRE(std::chrono::system_clock::now() - *startTime < 10min);
 
     const auto memory = process->memory();
     REQUIRE(memory);

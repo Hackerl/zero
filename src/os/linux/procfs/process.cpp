@@ -15,34 +15,18 @@ constexpr auto STAT_BASIC_FIELDS = 37;
 constexpr auto MAPPING_BASIC_FIELDS = 5;
 constexpr auto MAPPING_PERMISSIONS_LENGTH = 4;
 
-zero::os::linux::procfs::process::Process::Process(const int fd, const pid_t pid) : mFD{fd}, mPID{pid} {
-}
-
-zero::os::linux::procfs::process::Process::Process(Process &&rhs) noexcept
-    : mFD{std::exchange(rhs.mFD, -1)}, mPID{std::exchange(rhs.mPID, -1)} {
-}
-
-zero::os::linux::procfs::process::Process &
-zero::os::linux::procfs::process::Process::operator=(Process &&rhs) noexcept {
-    mFD = std::exchange(rhs.mFD, -1);
-    mPID = std::exchange(rhs.mPID, -1);
-    return *this;
-}
-
-zero::os::linux::procfs::process::Process::~Process() {
-    if (mFD < 0)
-        return;
-
-    close(mFD);
+zero::os::linux::procfs::process::Process::Process(Resource resource, const pid_t pid)
+    : mResource{std::move(resource)}, mPID{pid} {
 }
 
 std::expected<std::string, std::error_code>
 zero::os::linux::procfs::process::Process::readFile(const char *filename) const {
-    const auto fd = unix::expected([&] {
-        return openat(mFD, filename, O_RDONLY);
+    const auto resource = unix::expected([&] {
+        return openat(*mResource, filename, O_RDONLY);
+    }).transform([](const auto &fd) {
+        return Resource{fd};
     });
-    EXPECT(fd);
-    DEFER(close(*fd));
+    EXPECT(resource);
 
     std::string content;
 
@@ -50,7 +34,7 @@ zero::os::linux::procfs::process::Process::readFile(const char *filename) const 
         std::array<char, 1024> buffer; // NOLINT(*-pro-type-member-init)
 
         const auto n = unix::ensure([&] {
-            return read(*fd, buffer.data(), buffer.size());
+            return read(resource->get(), buffer.data(), buffer.size());
         });
         EXPECT(n);
 
@@ -71,7 +55,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::linux::procfs::p
     std::array<char, PATH_MAX + 1> buffer{};
 
     EXPECT(unix::expected([&] {
-        return readlinkat(mFD, "exe", buffer.data(), PATH_MAX);
+        return readlinkat(*mResource, "exe", buffer.data(), PATH_MAX);
     }));
 
     return buffer.data();
@@ -81,7 +65,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::linux::procfs::p
     std::array<char, PATH_MAX + 1> buffer{};
 
     EXPECT(unix::expected([&] {
-        return readlinkat(mFD, "cwd", buffer.data(), PATH_MAX);
+        return readlinkat(*mResource, "cwd", buffer.data(), PATH_MAX);
     }));
 
     return buffer.data();
@@ -494,7 +478,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
     using namespace std::string_view_literals;
 
     const auto fd = unix::expected([&] {
-        return openat(mFD, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+        return openat(*mResource, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     });
     EXPECT(fd);
 
@@ -653,7 +637,7 @@ zero::os::linux::procfs::process::open(const pid_t pid) {
     });
     EXPECT(fd);
 
-    return Process{*fd, pid};
+    return Process{Resource{*fd}, pid};
 }
 
 std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::process::all() {
