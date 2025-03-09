@@ -24,6 +24,7 @@ add_library(
         src/log.cpp
         src/env.cpp
         src/cmdline.cpp
+        src/io/io.cpp
         src/os/os.cpp
         src/os/net.cpp
         src/os/stat.cpp

@@ -1,4 +1,5 @@
 #include <zero/detail/type_traits.h>
+#include <zero/interface.h>
 #include <vector>
 #include <list>
 
@@ -11,6 +12,15 @@ namespace {
 
     void func3(short, int) {
     }
+
+    class Interface : public zero::Interface {
+        virtual void test() = 0;
+    };
+
+    class Implement final : public Interface {
+        void test() override {
+        }
+    };
 }
 
 static_assert(zero::detail::is_specialization_v<std::vector<int>, std::vector>);
@@ -33,3 +43,15 @@ static_assert(
         std::tuple<short, int, long>
     >
 );
+
+static_assert(zero::detail::Trait<Implement, Interface>);
+static_assert(zero::detail::Trait<std::shared_ptr<Interface>, Interface>);
+static_assert(zero::detail::Trait<std::unique_ptr<Interface>, Interface>);
+static_assert(zero::detail::Trait<std::shared_ptr<Implement>, Interface>);
+static_assert(zero::detail::Trait<std::unique_ptr<Implement>, Interface>);
+
+static_assert(zero::detail::Trait<const Implement, const Interface>);
+static_assert(zero::detail::Trait<std::shared_ptr<const Interface>, const Interface>);
+static_assert(zero::detail::Trait<std::unique_ptr<const Interface>, const Interface>);
+static_assert(zero::detail::Trait<std::shared_ptr<const Implement>, const Interface>);
+static_assert(zero::detail::Trait<std::unique_ptr<const Implement>, const Interface>);
