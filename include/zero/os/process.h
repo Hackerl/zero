@@ -96,17 +96,17 @@ namespace zero::os::process {
 
     class ChildProcess final : public Process {
     public:
-        ChildProcess(Process process, std::array<std::optional<Resource>, 3> stdio);
+        ChildProcess(Process process, std::array<std::optional<IOResource>, 3> stdio);
 
-        std::optional<Resource> &stdInput();
-        std::optional<Resource> &stdOutput();
-        std::optional<Resource> &stdError();
+        std::optional<IOResource> &stdInput();
+        std::optional<IOResource> &stdOutput();
+        std::optional<IOResource> &stdError();
 
         std::expected<ExitStatus, std::error_code> wait();
         std::expected<std::optional<ExitStatus>, std::error_code> tryWait();
 
     private:
-        std::array<std::optional<Resource>, 3> mStdio;
+        std::array<std::optional<IOResource>, 3> mStdio;
     };
 
     class Command;
@@ -114,13 +114,15 @@ namespace zero::os::process {
 #ifdef _WIN32
     class PseudoConsole {
     public:
+        using IOResource = IOResource;
+
         DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::PseudoConsole",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
         )
 
-        PseudoConsole(HPCON pc, Resource master, Resource slave);
+        PseudoConsole(HPCON pc, IOResource master, IOResource slave);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
         ~PseudoConsole();
@@ -131,27 +133,33 @@ namespace zero::os::process {
         std::expected<void, std::error_code> resize(short rows, short columns);
         std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
-        Resource &master();
+        IOResource &master();
 
     private:
         HPCON mPC;
-        Resource mMaster;
-        Resource mSlave;
+        IOResource mMaster;
+        IOResource mSlave;
     };
 #else
     class PseudoConsole {
     public:
-        PseudoConsole(Resource master, Resource slave);
+        class IOResource final : public os::IOResource {
+        public:
+            using os::IOResource::IOResource;
+            std::expected<std::size_t, std::error_code> read(std::span<std::byte> data) override;
+        };
+
+        PseudoConsole(IOResource master, IOResource slave);
         static std::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
         std::expected<void, std::error_code> resize(short rows, short columns);
         std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
-        Resource &master();
+        IOResource &master();
 
     private:
-        Resource mMaster;
-        Resource mSlave;
+        IOResource mMaster;
+        IOResource mSlave;
     };
 #endif
 

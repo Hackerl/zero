@@ -17,16 +17,6 @@
 constexpr auto INVALID_RESOURCE = -1;
 #endif
 
-namespace {
-    bool valid(const zero::os::Resource::Native native) {
-#ifdef _WIN32
-        return !native || native == INVALID_RESOURCE;
-#else
-        return native < 0;
-#endif
-    }
-}
-
 zero::os::Resource::Resource(const Native native) : mNative{native} {
 }
 
@@ -66,7 +56,7 @@ zero::os::Resource::operator bool() const {
     return valid();
 }
 
-std::expected<bool, std::error_code> zero::os::Resource::isInherited() const {
+std::expected<bool, std::error_code> zero::os::Resource::isInheritable() const {
 #ifdef _WIN32
     DWORD flags{};
 
@@ -84,7 +74,7 @@ std::expected<bool, std::error_code> zero::os::Resource::isInherited() const {
 #endif
 }
 
-std::expected<zero::os::Resource, std::error_code> zero::os::Resource::duplicate(const bool inherited) const {
+std::expected<zero::os::Resource, std::error_code> zero::os::Resource::duplicate(const bool inheritable) const {
 #ifdef _WIN32
     HANDLE handle{};
 
@@ -95,7 +85,7 @@ std::expected<zero::os::Resource, std::error_code> zero::os::Resource::duplicate
             GetCurrentProcess(),
             &handle,
             0,
-            inherited,
+            inheritable,
             DUPLICATE_SAME_ACCESS
         );
     }));
@@ -108,8 +98,8 @@ std::expected<zero::os::Resource, std::error_code> zero::os::Resource::duplicate
         return Resource{fd};
     });
 
-    if (!inherited) {
-        EXPECT(resource->setInherited(false));
+    if (!inheritable) {
+        EXPECT(resource->setInheritable(false));
     }
 
     return *std::move(resource);
@@ -117,10 +107,10 @@ std::expected<zero::os::Resource, std::error_code> zero::os::Resource::duplicate
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<void, std::error_code> zero::os::Resource::setInherited(const bool inherited) {
+std::expected<void, std::error_code> zero::os::Resource::setInheritable(const bool inheritable) {
 #ifdef _WIN32
     return windows::expected([&] {
-        return SetHandleInformation(mNative, HANDLE_FLAG_INHERIT, inherited ? HANDLE_FLAG_INHERIT : 0);
+        return SetHandleInformation(mNative, HANDLE_FLAG_INHERIT, inheritable ? HANDLE_FLAG_INHERIT : 0);
     });
 #else
     auto flags = unix::expected([this] {
@@ -128,7 +118,7 @@ std::expected<void, std::error_code> zero::os::Resource::setInherited(const bool
     });
     EXPECT(flags);
 
-    if (inherited)
+    if (inheritable)
         *flags &= ~FD_CLOEXEC;
     else
         *flags |= FD_CLOEXEC;
@@ -157,4 +147,111 @@ std::expected<void, std::error_code> zero::os::Resource::close() {
     }));
     return {};
 #endif
+}
+
+zero::os::IOResource::IOResource(Resource::Native native) : mResource{native} {
+}
+
+zero::os::IOResource::IOResource(Resource resource) : mResource{std::move(resource)} {
+}
+
+zero::io::FileDescriptor zero::os::IOResource::fd() const {
+    return *mResource;
+}
+
+bool zero::os::IOResource::valid() const {
+    return mResource.valid();
+}
+
+zero::os::IOResource::operator bool() const {
+    return valid();
+}
+
+std::expected<bool, std::error_code> zero::os::IOResource::isInheritable() const {
+    return mResource.isInheritable();
+}
+
+std::expected<zero::os::IOResource, std::error_code> zero::os::IOResource::duplicate(const bool inheritable) const {
+    return mResource.duplicate(inheritable).transform([](Resource resource) {
+        return IOResource{std::move(resource)};
+    });
+}
+
+std::expected<std::size_t, std::error_code> zero::os::IOResource::read(const std::span<std::byte> data) {
+#ifdef _WIN32
+    DWORD n{};
+
+    EXPECT(windows::expected([&] {
+        return ReadFile(*mResource, data.data(), static_cast<DWORD>(data.size()), &n, nullptr);
+    }).or_else([](const auto &ec) -> std::expected<void, std::error_code> {
+        if (ec != std::errc::broken_pipe)
+            return std::unexpected{ec};
+
+        return {};
+    }));
+
+    return n;
+#else
+    return unix::ensure([&] {
+        return ::read(*mResource, data.data(), data.size());
+    });
+#endif
+}
+
+std::expected<std::size_t, std::error_code> zero::os::IOResource::write(const std::span<const std::byte> data) {
+#ifdef _WIN32
+    DWORD n{};
+    EXPECT(windows::expected([&] {
+        return WriteFile(*mResource, data.data(), static_cast<DWORD>(data.size()), &n, nullptr);
+    }));
+    return n;
+#else
+    return unix::ensure([&] {
+        return ::write(*mResource, data.data(), data.size());
+    });
+#endif
+}
+
+std::expected<std::uint64_t, std::error_code> zero::os::IOResource::seek(const std::int64_t offset, const Whence whence) {
+#ifdef _WIN32
+    LARGE_INTEGER pos{};
+
+    EXPECT(windows::expected([&] {
+        return SetFilePointerEx(
+            *mResource,
+            LARGE_INTEGER{.QuadPart = offset},
+            &pos,
+            whence == Whence::BEGIN ? FILE_BEGIN : whence == Whence::CURRENT ? FILE_CURRENT : FILE_END
+        );
+    }));
+
+    return pos.QuadPart;
+#else
+    const auto pos = unix::expected([&] {
+#ifdef _LARGEFILE64_SOURCE
+        return lseek64(
+#else
+        return lseek(
+#endif
+            *mResource,
+            offset,
+            whence == Whence::BEGIN ? SEEK_SET : whence == Whence::CURRENT ? SEEK_CUR : SEEK_END
+        );
+    });
+    EXPECT(pos);
+
+    return *pos;
+#endif
+}
+
+std::expected<void, std::error_code> zero::os::IOResource::close() {
+    return mResource.close();
+}
+
+std::expected<void, std::error_code> zero::os::IOResource::setInheritable(const bool inheritable) {
+    return mResource.setInheritable(inheritable);
+}
+
+zero::io::FileDescriptor zero::os::IOResource::release() {
+    return mResource.release();
 }

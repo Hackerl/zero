@@ -93,7 +93,7 @@ namespace {
         return result;
     }
 
-    std::expected<std::pair<zero::os::Resource, zero::os::Resource>, std::error_code>
+    std::expected<std::pair<zero::os::IOResource, zero::os::IOResource>, std::error_code>
     createNamedPipe() {
         static std::atomic<std::size_t> number;
         const auto name = fmt::format(R"(\\?\pipe\zero\named\{}-{})", GetCurrentProcessId(), number++);
@@ -112,7 +112,7 @@ namespace {
         if (handle == INVALID_HANDLE_VALUE)
             return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-        zero::os::Resource first{handle};
+        zero::os::IOResource first{handle};
 
         handle = CreateFileA(
             name.c_str(),
@@ -127,7 +127,7 @@ namespace {
         if (handle == INVALID_HANDLE_VALUE)
             return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-        return std::pair{std::move(first), zero::os::Resource{handle}};
+        return std::pair{std::move(first), zero::os::IOResource{handle}};
     }
 }
 #endif
@@ -301,24 +301,24 @@ bool zero::os::process::ExitStatus::continued() const {
 }
 #endif
 
-zero::os::process::ChildProcess::ChildProcess(Process process, std::array<std::optional<Resource>, 3> stdio)
+zero::os::process::ChildProcess::ChildProcess(Process process, std::array<std::optional<IOResource>, 3> stdio)
     : Process{std::move(process)}, mStdio{std::move(stdio)} {
 }
 
-std::optional<zero::os::Resource> &zero::os::process::ChildProcess::stdInput() {
+std::optional<zero::os::IOResource> &zero::os::process::ChildProcess::stdInput() {
     return mStdio[0];
 }
 
-std::optional<zero::os::Resource> &zero::os::process::ChildProcess::stdOutput() {
+std::optional<zero::os::IOResource> &zero::os::process::ChildProcess::stdOutput() {
     return mStdio[1];
 }
 
-std::optional<zero::os::Resource> &zero::os::process::ChildProcess::stdError() {
+std::optional<zero::os::IOResource> &zero::os::process::ChildProcess::stdError() {
     return mStdio[2];
 }
 
 #ifdef _WIN32
-zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, Resource master, Resource slave)
+zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, IOResource master, IOResource slave)
     : mPC{pc}, mMaster{std::move(master)}, mSlave{std::move(slave)} {
 }
 
@@ -352,8 +352,8 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
 
     if (const auto result = createPseudoConsole(
         {columns, rows},
-        *pipe->second,
-        *pipe->second,
+        pipe->second.fd(),
+        pipe->second.fd(),
         0,
         &hPC
     ); result != S_OK)
@@ -464,11 +464,22 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     return ChildProcess{Process{windows::process::Process{Resource{info.hProcess}, info.dwProcessId}}, {}};
 }
 
-zero::os::Resource &zero::os::process::PseudoConsole::master() {
+zero::os::process::PseudoConsole::IOResource &zero::os::process::PseudoConsole::master() {
     return mMaster;
 }
 #else
-zero::os::process::PseudoConsole::PseudoConsole(Resource master, Resource slave)
+std::expected<std::size_t, std::error_code>
+zero::os::process::PseudoConsole::IOResource::read(const std::span<std::byte> data) {
+    return os::IOResource::read(data)
+        .or_else([](const auto &ec) -> std::expected<std::size_t, std::error_code> {
+            if (ec != std::errc::io_error)
+                return std::unexpected{ec};
+
+            return 0;
+        });
+}
+
+zero::os::process::PseudoConsole::PseudoConsole(IOResource master, IOResource slave)
     : mMaster{std::move(master)}, mSlave{std::move(slave)} {
 }
 
@@ -480,7 +491,7 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
         return openpty(&master, &slave, nullptr, nullptr, nullptr);
     }));
 
-    PseudoConsole pc{Resource{master}, Resource{slave}};
+    PseudoConsole pc{IOResource{master}, IOResource{slave}};
     EXPECT(pc.resize(rows, columns));
 
     return pc;
@@ -494,7 +505,7 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
     ws.ws_col = columns;
 
     EXPECT(unix::expected([&] {
-        return ioctl(*mMaster, TIOCSWINSZ, &ws);
+        return ioctl(mMaster.fd(), TIOCSWINSZ, &ws);
     }));
 
     return {};
@@ -503,11 +514,11 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
 std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::PseudoConsole::spawn(const Command &command) {
     assert(command.mInheritedResources.empty());
-    assert(*mSlave > STDERR_FILENO);
+    assert(mSlave.fd() > STDERR_FILENO);
 
     auto pipe = os::pipe();
     EXPECT(pipe);
-    EXPECT(pipe->second.setInherited(false));
+    EXPECT(pipe->second.setInheritable(false));
 
     const auto program = command.mPath.string();
 
@@ -557,7 +568,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     EXPECT(pid);
 
     if (*pid == 0) {
-        const auto guard = [fd = *pipe->second]<typename F>(F &&f) {
+        const auto guard = [fd = pipe->second.fd()]<typename F>(F &&f) {
             static_assert(std::is_integral_v<std::invoke_result_t<F>>);
 
             const auto result = f();
@@ -588,19 +599,19 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         });
 
         guard([this] {
-            return ioctl(*mSlave, TIOCSCTTY, nullptr);
+            return ioctl(mSlave.fd(), TIOCSCTTY, nullptr);
         });
 
         guard([this] {
-            return dup2(*mSlave, STDIN_FILENO);
+            return dup2(mSlave.fd(), STDIN_FILENO);
         });
 
         guard([this] {
-            return dup2(*mSlave, STDOUT_FILENO);
+            return dup2(mSlave.fd(), STDOUT_FILENO);
         });
 
         guard([this] {
-            return dup2(*mSlave, STDERR_FILENO);
+            return dup2(mSlave.fd(), STDERR_FILENO);
         });
 
         const auto max = guard([] {
@@ -608,7 +619,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         });
 
         for (int fd{STDERR_FILENO + 1}; fd < max; ++fd) {
-            if (fd == *pipe->second)
+            if (fd == pipe->second.fd())
                 continue;
 
             close(fd);
@@ -641,10 +652,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     std::ignore = pipe->second.close();
 
     int error{};
-
-    const auto n = unix::ensure([&] {
-        return read(*pipe->first, &error, sizeof(error));
-    });
+    const auto n = pipe->first.read({reinterpret_cast<std::byte *>(&error), sizeof(error)});
     assert(n);
 
     if (*n != 0) {
@@ -674,7 +682,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     return ChildProcess{*std::move(process), {}};
 }
 
-zero::os::Resource &zero::os::process::PseudoConsole::master() {
+zero::os::process::PseudoConsole::IOResource &zero::os::process::PseudoConsole::master() {
     return mMaster;
 }
 #endif
@@ -765,12 +773,12 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         std::ranges::all_of(
             mInheritedResources,
             [](const auto &resource) {
-                return resource.isInherited() == true;
+                return resource.isInheritable() == true;
             }
         )
     );
 #ifdef _WIN32
-    std::array<std::optional<Resource>, 6> resources;
+    std::array<std::optional<IOResource>, 6> resources;
 
     constexpr std::array indexMapping{STDIN_R, STDOUT_W, STDERR_W};
     constexpr std::array typeMapping{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE};
@@ -806,8 +814,8 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         if (type == StdioType::PIPED) {
             auto pipe = os::pipe();
             EXPECT(pipe);
-            EXPECT(pipe->first.setInherited(true));
-            EXPECT(pipe->second.setInherited(true));
+            EXPECT(pipe->first.setInheritable(true));
+            EXPECT(pipe->second.setInheritable(true));
 
             resources[i * 2] = std::move(pipe->first);
             resources[i * 2 + 1] = std::move(pipe->second);
@@ -855,8 +863,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         if (!resource)
             continue;
 
-        siEx.StartupInfo.*memberPointers[i] = resource->get();
-        inheritedHandles.push_back(resource->get());
+        const auto fd = resource->fd();
+        siEx.StartupInfo.*memberPointers[i] = fd;
+        inheritedHandles.push_back(fd);
     }
 
     siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
@@ -937,7 +946,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     CloseHandle(info.hThread);
 
-    std::array<std::optional<Resource>, 3> stdio;
+    std::array<std::optional<IOResource>, 3> stdio;
 
     if (auto &resource = resources[STDIN_W])
         stdio[0] = *std::move(resource);
@@ -953,7 +962,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         std::move(stdio)
     };
 #else
-    std::array<std::optional<Resource>, 6> resources{};
+    std::array<std::optional<IOResource>, 6> resources{};
 
     constexpr std::array indexMapping{STDIN_R, STDOUT_W, STDERR_W};
     constexpr std::array flagMapping{O_RDONLY, O_WRONLY, O_WRONLY};
@@ -976,7 +985,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         auto resource = unix::expected([&] {
             return ::open("/dev/null", flagMapping[i]);
         }).transform([](const auto &fd) {
-            return Resource{fd};
+            return IOResource{fd};
         });
         EXPECT(resource);
 
@@ -987,7 +996,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         std::ranges::all_of(
             resources,
             [](const auto &resource) {
-                return !resource || resource->get() > STDERR_FILENO;
+                return !resource || resource->fd() > STDERR_FILENO;
             }
         )
     );
@@ -1055,7 +1064,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     for (int i{0}; i < 3; ++i) {
         if (const auto &resource = resources[indexMapping[i]]) {
             EXPECT(expected([&] {
-                return posix_spawn_file_actions_adddup2(&actions, resource->get(), i);
+                return posix_spawn_file_actions_adddup2(&actions, resource->fd(), i);
             }));
         }
 #ifdef __APPLE__
@@ -1150,7 +1159,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         return std::unexpected{process.error()};
     }
 
-    std::array<std::optional<Resource>, 3> stdio;
+    std::array<std::optional<IOResource>, 3> stdio;
 
     if (auto &resource = resources[STDIN_W])
         stdio[0] = *std::move(resource);
@@ -1159,7 +1168,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         stdio[1] = *std::move(resource);
 
     if (auto &resource = resources[STDERR_R])
-        stdio[2] = *std::move(resource);;
+        stdio[2] = *std::move(resource);
 
     return ChildProcess{*std::move(process), std::move(stdio)};
 #endif
@@ -1182,52 +1191,15 @@ zero::os::process::Command::output() const {
         EXPECT(input->close());
     }
 
-    const auto readAll = [](
-        const std::optional<Resource> &resource
-    ) -> std::expected<std::vector<std::byte>, std::error_code> {
-        if (!resource)
-            return {};
+    auto future = std::async([&] {
+        return child->stdError()
+                    .transform(&io::IReader::readAll)
+                    .value_or(std::vector<std::byte>{});
+    });
 
-        std::vector<std::byte> data;
-
-#ifdef _WIN32
-        while (true) {
-            DWORD n{};
-            std::array<std::byte, 1024> buffer; // NOLINT(*-pro-type-member-init)
-
-            if (const auto result = windows::expected([&] {
-                return ReadFile(resource->get(), buffer.data(), buffer.size(), &n, nullptr);
-            }); !result) {
-                if (result.error() != std::errc::broken_pipe)
-                    return std::unexpected{result.error()};
-
-                break;
-            }
-
-            assert(n > 0);
-            data.insert(data.end(), buffer.begin(), buffer.begin() + n);
-        }
-#else
-        while (true) {
-            std::array<std::byte, 1024> buffer; // NOLINT(*-pro-type-member-init)
-
-            const auto n = unix::ensure([&] {
-                return read(resource->get(), buffer.data(), buffer.size());
-            });
-            EXPECT(n);
-
-            if (*n == 0)
-                break;
-
-            data.insert(data.end(), buffer.begin(), buffer.begin() + *n);
-        }
-#endif
-
-        return data;
-    };
-
-    auto future = std::async(readAll, std::cref(child->stdError()));
-    auto out = readAll(child->stdOutput());
+    auto out = child->stdOutput()
+                    .transform(&io::IReader::readAll)
+                    .value_or(std::vector<std::byte>{});
 
     if (!out) {
         std::ignore = child->kill();

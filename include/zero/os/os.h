@@ -18,7 +18,7 @@ namespace zero::os {
     std::expected<std::string, std::error_code> username();
 
     // Anonymous pipes on Windows do not support overlapped, so named pipes are used to simulate it.
-    std::expected<std::pair<Resource, Resource>, std::error_code> pipe();
+    std::expected<std::pair<IOResource, IOResource>, std::error_code> pipe();
 }
 
 #ifndef _WIN32

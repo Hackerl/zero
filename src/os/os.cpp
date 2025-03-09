@@ -97,7 +97,7 @@ std::expected<std::string, std::error_code> zero::os::username() {
 #endif
 }
 
-std::expected<std::pair<zero::os::Resource, zero::os::Resource>, std::error_code>
+std::expected<std::pair<zero::os::IOResource, zero::os::IOResource>, std::error_code>
 zero::os::pipe() {
 #ifdef _WIN32
     static std::atomic<std::size_t> number;
@@ -117,7 +117,7 @@ zero::os::pipe() {
     if (handle == INVALID_HANDLE_VALUE)
         return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-    Resource first{handle};
+    IOResource first{handle};
 
     handle = CreateFileA(
         name.c_str(),
@@ -132,7 +132,7 @@ zero::os::pipe() {
     if (handle == INVALID_HANDLE_VALUE)
         return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-    return std::pair{std::move(first), Resource{handle}};
+    return std::pair{std::move(first), IOResource{handle}};
 #else
     std::array<int, 2> fds{};
 
@@ -140,7 +140,7 @@ zero::os::pipe() {
         return ::pipe(fds.data());
     }));
 
-    return std::pair{Resource{fds[0]}, Resource{fds[1]}};
+    return std::pair{IOResource{fds[0]}, IOResource{fds[1]}};
 #endif
 }
 

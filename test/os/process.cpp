@@ -450,7 +450,7 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
 
         auto child = zero::os::process::Command{PROGRAM}
                      .args({ARGUMENTS.begin(), ARGUMENTS.end()})
-                     .inheritedResource(*std::move(duplicate))
+                     .inheritedResource(zero::os::Resource{duplicate->release()})
                      .stdOutput(zero::os::process::Command::StdioType::NUL)
                      .spawn();
         REQUIRE(child);
@@ -459,20 +459,8 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
 
-#ifdef _WIN32
-        const auto result = zero::os::windows::expected([&] {
-            DWORD n{};
-            std::array<char, 64> buffer{};
-            return ReadFile(*reader, buffer.data(), buffer.size(), &n, nullptr);
-        });
-        REQUIRE_ERROR(result, std::errc::broken_pipe);
-#else
-            const auto n = zero::os::unix::expected([&] {
-                std::array<char, 64> buffer{};
-                return read(*reader, buffer.data(), buffer.size());
-            });
-            REQUIRE(n == 0);
-#endif
+        std::array<std::byte, 64> data{};
+        REQUIRE(reader.read(data) == 0);
         REQUIRE(std::chrono::system_clock::now() - tp > 0.9s);
     }
 
@@ -487,20 +475,8 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
 
-#ifdef _WIN32
-        const auto result = zero::os::windows::expected([&] {
-            DWORD n{};
-            std::array<char, 64> buffer{};
-            return ReadFile(*reader, buffer.data(), buffer.size(), &n, nullptr);
-        });
-        REQUIRE_ERROR(result, std::errc::broken_pipe);
-#else
-        const auto n = zero::os::unix::expected([&] {
-            std::array<char, 64> buffer{};
-            return read(*reader, buffer.data(), buffer.size());
-        });
-        REQUIRE(n == 0);
-#endif
+        std::array<std::byte, 64> data{};
+        REQUIRE(reader.read(data) == 0);
         REQUIRE(std::chrono::system_clock::now() - tp < 0.9s);
     }
 }
@@ -512,58 +488,30 @@ TEST_CASE("spawn child process with piped stdio", "[os::process]") {
                  .stdInput(zero::os::process::Command::StdioType::PIPED)
                  .stdOutput(zero::os::process::Command::StdioType::PIPED)
                  .spawn();
-
-    REQUIRE(child);
-    DEFER(REQUIRE(child->wait()));
-    REQUIRE_FALSE(child->stdError());
-
-    auto input = std::exchange(child->stdInput(), std::nullopt);
-    REQUIRE(input);
-
-    const auto output = std::exchange(child->stdOutput(), std::nullopt);
-    REQUIRE(output);
-
-    constexpr std::string_view data{"hello world"};
-
-    DWORD n{};
-    REQUIRE(WriteFile(input->get(), data.data(), data.size(), &n, nullptr));
-    REQUIRE(n == data.size());
-    REQUIRE(input->close());
-
-    std::array<char, 64> buffer{};
-    REQUIRE(ReadFile(output->get(), buffer.data(), buffer.size(), &n, nullptr));
-    REQUIRE(n >= data.size());
-    REQUIRE(data == zero::strings::trim(buffer.data()));
 #else
     auto child = zero::os::process::Command{"cat"}
                     .stdInput(zero::os::process::Command::StdioType::PIPED)
                     .stdOutput(zero::os::process::Command::StdioType::PIPED)
                     .spawn();
+#endif
     REQUIRE(child);
     DEFER(REQUIRE(child->wait()));
     REQUIRE_FALSE(child->stdError());
 
-    auto input = std::exchange(child->stdInput(), std::nullopt);
-    REQUIRE(input);
+    auto stdInput = std::exchange(child->stdInput(), std::nullopt);
+    REQUIRE(stdInput);
 
-    const auto output = std::exchange(child->stdOutput(), std::nullopt);
+    auto stdOutput = std::exchange(child->stdOutput(), std::nullopt);
+    REQUIRE(stdOutput);
+
+    constexpr std::string_view input{"hello world"};
+
+    REQUIRE(stdInput->writeAll(std::as_bytes(std::span{input})));
+    REQUIRE(stdInput->close());
+
+    const auto output = stdOutput->readAll();
     REQUIRE(output);
-
-    constexpr std::string_view data{"hello world"};
-
-    auto n = zero::os::unix::ensure([&] {
-        return write(input->get(), data.data(), data.size());
-    });
-    REQUIRE(n == data.size());
-    REQUIRE(input->close());
-
-    std::array<char, 64> buffer{};
-    n = zero::os::unix::ensure([&] {
-        return read(output->get(), buffer.data(), buffer.size());
-    });
-    REQUIRE(n == data.size());
-    REQUIRE(data == buffer.data());
-#endif
+    REQUIRE(zero::strings::trim({reinterpret_cast<const char *>(output->data()), output->size()}) == input);
 }
 
 TEST_CASE("spawn child process and collect status", "[os::process]") {
@@ -590,89 +538,36 @@ TEST_CASE("spawn child process and collect output", "[os::process]") {
 }
 
 TEST_CASE("spawn child process with pseudo console", "[os::process]") {
-    auto pc = zero::os::process::PseudoConsole::make(80, 32);
-    REQUIRE(pc);
-
     const std::string keyword{"hello"};
     constexpr std::string_view input{"echo hello\rexit\r"};
+
+    auto pc = zero::os::process::PseudoConsole::make(80, 32);
+    REQUIRE(pc);
 
 #ifdef _WIN32
     auto child = pc->spawn(zero::os::process::Command{"cmd"});
     REQUIRE(child);
-
-    const auto &master = pc->master();
-    REQUIRE(master);
-
-    DWORD num{};
-    REQUIRE(WriteFile(*master, input.data(), input.size(), &num, nullptr));
-    REQUIRE(num == input.size());
-
-    auto future = std::async([&]() -> std::expected<std::vector<char>, std::error_code> {
-        std::vector<char> data;
-
-        while (true) {
-            DWORD n{};
-            std::array<char, 1024> buffer; // NOLINT(*-pro-type-member-init)
-
-            if (const auto result = zero::os::windows::expected([&] {
-                return ReadFile(*master, buffer.data(), buffer.size(), &n, nullptr);
-            }); !result) {
-                if (result.error() != std::errc::broken_pipe)
-                    return std::unexpected{result.error()};
-
-                break;
-            }
-
-            assert(n > 0);
-            data.insert(data.end(), buffer.begin(), buffer.begin() + n);
-        }
-
-        return data;
-    });
-
-    REQUIRE(child->wait());
-
-    pc->close();
-
-    const auto data = future.get();
-    REQUIRE(data);
-    REQUIRE_THAT((std::string{data->data(), data->size()}), Catch::Matchers::ContainsSubstring(keyword));
 #else
     auto child = pc->spawn(zero::os::process::Command{"sh"});
     REQUIRE(child);
     DEFER(REQUIRE(child->wait()));
-
-    const auto &master = pc->master();
+#endif
+    auto &master = pc->master();
     REQUIRE(master);
 
-    auto n = zero::os::unix::ensure([&] {
-        return write(*master, input.data(), input.size());
-    });
-    REQUIRE(n == input.size());
+    REQUIRE(master.writeAll(std::as_bytes(std::span{input})));
+#ifdef _WIN32
+    auto future = std::async([&] { return master.readAll(); });
+    REQUIRE(child->wait());
+    pc->close();
 
-    std::vector<char> data;
-
-    while (true) {
-        std::array<char, 1024> buffer; // NOLINT(*-pro-type-member-init)
-
-        n = zero::os::unix::ensure([&] {
-            return read(*master, buffer.data(), buffer.size());
-        });
-
-        if (!n) {
-            if (n.error() != std::errc::io_error) {
-                FAIL();
-            }
-
-            break;
-        }
-
-        if (*n == 0)
-            break;
-
-        data.insert(data.end(), buffer.begin(), buffer.begin() + *n);
-    }
-
-    REQUIRE_THAT((std::string{data.data(), data.size()}), Catch::Matchers::ContainsSubstring(keyword));
+    const auto data = future.get();
+#else
+    const auto data = master.readAll();
 #endif
+    REQUIRE(data);
+    REQUIRE_THAT(
+        (std::string{reinterpret_cast<const char *>(data->data()), data->size()}),
+        Catch::Matchers::ContainsSubstring(keyword)
+    );
 }

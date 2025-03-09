@@ -55,3 +55,9 @@ static_assert(zero::detail::Trait<std::shared_ptr<const Interface>, const Interf
 static_assert(zero::detail::Trait<std::unique_ptr<const Interface>, const Interface>);
 static_assert(zero::detail::Trait<std::shared_ptr<const Implement>, const Interface>);
 static_assert(zero::detail::Trait<std::unique_ptr<const Implement>, const Interface>);
+
+static_assert(!zero::detail::Trait<const Implement, Interface>);
+static_assert(!zero::detail::Trait<std::shared_ptr<const Interface>, Interface>);
+static_assert(!zero::detail::Trait<std::unique_ptr<const Interface>, Interface>);
+static_assert(!zero::detail::Trait<std::shared_ptr<const Implement>, Interface>);
+static_assert(!zero::detail::Trait<std::unique_ptr<const Implement>, Interface>);
