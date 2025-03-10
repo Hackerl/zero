@@ -12,6 +12,7 @@ add_executable(
         cmdline.cpp
         formatter.cpp
         io/io.cpp
+        io/binary.cpp
         os/os.cpp
         os/net.cpp
         os/stat.cpp

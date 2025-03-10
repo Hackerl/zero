@@ -276,7 +276,6 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
 
         const auto content = resource.readAll();
         REQUIRE(content);
-        REQUIRE_THAT(*content, Catch::Matchers::SizeIs(input.size() - offset));
         REQUIRE_THAT(
             *content,
             Catch::Matchers::RangeEquals(std::span{input.begin() + offset, input.end()})
