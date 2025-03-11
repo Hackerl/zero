@@ -3,7 +3,7 @@
 #include <zero/defer.h>
 #include <thread>
 
-TEST_CASE("auto-reset event", "[atomic]") {
+TEST_CASE("auto-reset event", "[atomic::event]") {
     using namespace std::chrono_literals;
 
     zero::atomic::Event event;
@@ -30,7 +30,7 @@ TEST_CASE("auto-reset event", "[atomic]") {
     }
 }
 
-TEST_CASE("manual-reset event", "[atomic]") {
+TEST_CASE("manual-reset event", "[atomic::event]") {
     using namespace std::chrono_literals;
 
     SECTION("not set initially") {

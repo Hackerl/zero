@@ -3,7 +3,7 @@
 #include <zero/concurrent/channel.h>
 #include <future>
 
-TEST_CASE("channel error condition", "[concurrent]") {
+TEST_CASE("channel error condition", "[concurrent::channel]") {
     const std::error_condition condition = zero::concurrent::ChannelError::DISCONNECTED;
     REQUIRE(condition == zero::concurrent::TrySendError::DISCONNECTED);
     REQUIRE(condition == zero::concurrent::SendError::DISCONNECTED);
@@ -11,7 +11,7 @@ TEST_CASE("channel error condition", "[concurrent]") {
     REQUIRE(condition == zero::concurrent::ReceiveError::DISCONNECTED);
 }
 
-TEST_CASE("channel errors", "[concurrent]") {
+TEST_CASE("channel errors", "[concurrent::channel]") {
     auto [sender, receiver] = zero::concurrent::channel<int>(5);
     REQUIRE(sender.capacity() == 5);
     REQUIRE(sender.empty());
@@ -84,7 +84,7 @@ TEST_CASE("channel errors", "[concurrent]") {
     }
 }
 
-TEST_CASE("receiver disconnect", "[concurrent]") {
+TEST_CASE("receiver disconnect", "[concurrent::channel]") {
     auto [sender, receiver] = zero::concurrent::channel<int>(5);
     REQUIRE_FALSE(sender.closed());
 
@@ -101,7 +101,7 @@ TEST_CASE("receiver disconnect", "[concurrent]") {
     REQUIRE_ERROR(sender.send(2), zero::concurrent::SendError::DISCONNECTED);
 }
 
-TEST_CASE("sender disconnect", "[concurrent]") {
+TEST_CASE("sender disconnect", "[concurrent::channel]") {
     auto [sender, receiver] = zero::concurrent::channel<int>(5);
     REQUIRE_FALSE(receiver.closed());
 
@@ -118,7 +118,7 @@ TEST_CASE("sender disconnect", "[concurrent]") {
     REQUIRE_ERROR(receiver.receive(), zero::concurrent::ReceiveError::DISCONNECTED);
 }
 
-TEST_CASE("channel concurrency testing", "[concurrent]") {
+TEST_CASE("channel concurrency testing", "[concurrent::channel]") {
     std::array<std::atomic<int>, 2> counters;
     auto [sender, receiver] = zero::concurrent::channel<int>(5);
 

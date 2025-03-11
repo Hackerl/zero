@@ -4,12 +4,12 @@
 
 constexpr std::string_view DATA = "hello";
 
-TEST_CASE("base64 encoding", "[encoding]") {
+TEST_CASE("base64 encoding", "[encoding::base64]") {
     REQUIRE_THAT(zero::encoding::base64::encode(std::span<const std::byte>{}), Catch::Matchers::IsEmpty());
     REQUIRE(zero::encoding::base64::encode(std::as_bytes(std::span{DATA})) == "aGVsbG8=");
 }
 
-TEST_CASE("base64 decoding", "[encoding]") {
+TEST_CASE("base64 decoding", "[encoding::base64]") {
     SECTION("empty") {
         const auto result = zero::encoding::base64::decode("");
         REQUIRE(result);

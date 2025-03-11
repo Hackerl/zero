@@ -1,7 +1,7 @@
 #include <catch_extensions.h>
 #include <zero/cache/lru.h>
 
-TEST_CASE("LRU cache", "[cache]") {
+TEST_CASE("LRU cache", "[cache::lru]") {
     zero::cache::LRUCache<int, std::string> cache{5};
 
     REQUIRE(cache.capacity() == 5);

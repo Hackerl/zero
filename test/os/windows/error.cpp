@@ -2,7 +2,7 @@
 #include <zero/os/windows/error.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 
-TEST_CASE("result handle", "[windows]") {
+TEST_CASE("result handle", "[os::windows::error]") {
     std::error_code ec{static_cast<zero::os::windows::ResultHandle>(E_ACCESSDENIED)};
     REQUIRE_THAT(ec.message(), !Catch::Matchers::StartsWith("unknown HRESULT"));
     REQUIRE(ec == std::errc::permission_denied);

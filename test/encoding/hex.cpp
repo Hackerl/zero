@@ -4,12 +4,12 @@
 
 constexpr std::string_view DATA = "hello";
 
-TEST_CASE("hex encoding", "[encoding]") {
+TEST_CASE("hex encoding", "[encoding::hex]") {
     REQUIRE_THAT(zero::encoding::hex::encode(std::span<const std::byte>{}), Catch::Matchers::IsEmpty());
     REQUIRE(zero::encoding::hex::encode(std::as_bytes(std::span{DATA})) == "68656c6c6f");
 }
 
-TEST_CASE("hex decoding", "[encoding]") {
+TEST_CASE("hex decoding", "[encoding::hex]") {
     SECTION("empty") {
         const auto result = zero::encoding::hex::decode("");
         REQUIRE(result);

@@ -90,7 +90,7 @@ zero::async::promise::Future<T, E> resolve(U &&result) {
     return future;
 }
 
-TEST_CASE("promise", "[async]") {
+TEST_CASE("promise", "[async::promise]") {
     using namespace std::chrono_literals;
 
     zero::async::promise::Promise<int, int> promise;
@@ -122,7 +122,7 @@ TEST_CASE("promise", "[async]") {
     }
 }
 
-TEST_CASE("callback chain", "[async]") {
+TEST_CASE("callback chain", "[async::promise]") {
     using namespace std::string_view_literals;
 
     zero::async::promise::chain<int, int>([](auto p) {
@@ -255,7 +255,7 @@ TEST_CASE("callback chain", "[async]") {
     });
 }
 
-TEST_CASE("callback chain concurrency testing", "[async]") {
+TEST_CASE("callback chain concurrency testing", "[async::promise]") {
     using namespace std::string_view_literals;
 
     REQUIRE(resolve<int, int>(1).get() == 1);
@@ -305,7 +305,7 @@ TEST_CASE("callback chain concurrency testing", "[async]") {
     REQUIRE(result->get() == "hello"sv);
 }
 
-TEST_CASE("promise all", "[async]") {
+TEST_CASE("promise all", "[async::promise]") {
     SECTION("void") {
         SECTION("resolve") {
             const auto result = all(std::array{
@@ -363,7 +363,7 @@ TEST_CASE("promise all", "[async]") {
     }
 }
 
-TEST_CASE("promise variadic all", "[async]") {
+TEST_CASE("promise variadic all", "[async::promise]") {
     SECTION("same types") {
         SECTION("void") {
             SECTION("resolve") {
@@ -457,7 +457,7 @@ TEST_CASE("promise variadic all", "[async]") {
     }
 }
 
-TEST_CASE("promise allSettled", "[async]") {
+TEST_CASE("promise allSettled", "[async::promise]") {
     SECTION("void") {
         const auto result = allSettled(std::array{
             resolve<void, int>(),
@@ -493,7 +493,7 @@ TEST_CASE("promise allSettled", "[async]") {
     }
 }
 
-TEST_CASE("promise variadic allSettled", "[async]") {
+TEST_CASE("promise variadic allSettled", "[async::promise]") {
     SECTION("same types") {
         SECTION("void") {
             const auto result = allSettled(
@@ -553,7 +553,7 @@ TEST_CASE("promise variadic allSettled", "[async]") {
     }
 }
 
-TEST_CASE("promise any", "[async]") {
+TEST_CASE("promise any", "[async::promise]") {
     SECTION("void") {
         SECTION("resolve") {
             const auto result = any(std::array{
@@ -629,7 +629,7 @@ TEST_CASE("promise any", "[async]") {
     }
 }
 
-TEST_CASE("promise variadic any", "[async]") {
+TEST_CASE("promise variadic any", "[async::promise]") {
     SECTION("same types") {
         SECTION("void") {
             SECTION("resolve") {
@@ -796,7 +796,7 @@ TEST_CASE("promise variadic any", "[async]") {
 #endif
 }
 
-TEST_CASE("promise race", "[async]") {
+TEST_CASE("promise race", "[async::promise]") {
     SECTION("void") {
         if (const auto result = race(std::array{
             resolve<void, int>(),
@@ -830,7 +830,7 @@ TEST_CASE("promise race", "[async]") {
     }
 }
 
-TEST_CASE("promise variadic race", "[async]") {
+TEST_CASE("promise variadic race", "[async::promise]") {
     SECTION("same types") {
         SECTION("void") {
             if (const auto result = race(

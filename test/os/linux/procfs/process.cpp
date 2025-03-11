@@ -9,13 +9,13 @@
 #include <sys/wait.h>
 #include <sys/prctl.h>
 
-TEST_CASE("list process ids", "[procfs]") {
+TEST_CASE("list process ids", "[os::linux::procfs::process]") {
     const auto ids = zero::os::linux::procfs::process::all();
     REQUIRE(ids);
     REQUIRE_THAT(*ids, Catch::Matchers::Contains(getpid()));
 }
 
-TEST_CASE("self process", "[procfs]") {
+TEST_CASE("self process", "[os::linux::procfs::process]") {
     const auto variable = reinterpret_cast<std::uintptr_t>(stdout);
     const auto function = reinterpret_cast<std::uintptr_t>(zero::filesystem::applicationPath);
 
@@ -90,7 +90,7 @@ TEST_CASE("self process", "[procfs]") {
     REQUIRE(io);
 }
 
-TEST_CASE("child process", "[procfs]") {
+TEST_CASE("child process", "[os::linux::procfs::process]") {
     using namespace std::chrono_literals;
 
     const auto variable = reinterpret_cast<std::uintptr_t>(stdout);
@@ -186,7 +186,7 @@ TEST_CASE("child process", "[procfs]") {
     );
 }
 
-TEST_CASE("zombie process", "[procfs]") {
+TEST_CASE("zombie process", "[os::linux::procfs::process]") {
     using namespace std::chrono_literals;
 
     const auto pid = fork();
@@ -258,7 +258,7 @@ TEST_CASE("zombie process", "[procfs]") {
     );
 }
 
-TEST_CASE("open process failed", "[linux]") {
+TEST_CASE("open process failed", "[os::linux::procfs::process]") {
     const auto process = zero::os::linux::procfs::process::open(99999);
     REQUIRE_FALSE(process);
     REQUIRE(process.error() == std::errc::no_such_file_or_directory);

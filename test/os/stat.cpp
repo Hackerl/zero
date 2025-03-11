@@ -1,12 +1,12 @@
 #include <catch_extensions.h>
 #include <zero/os/stat.h>
 
-TEST_CASE("system cpu stat", "[os]") {
+TEST_CASE("system cpu stat", "[os::stat]") {
     const auto cpu = zero::os::stat::cpu();
     REQUIRE(cpu);
 }
 
-TEST_CASE("system memory stat", "[os]") {
+TEST_CASE("system memory stat", "[os::stat]") {
     const auto memory = zero::os::stat::memory();
     REQUIRE(memory);
 }

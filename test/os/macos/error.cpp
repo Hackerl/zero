@@ -2,7 +2,7 @@
 #include <zero/os/macos/error.h>
 #include <mach/mach.h>
 
-TEST_CASE("macos kernel error", "[macos]") {
+TEST_CASE("macos kernel error", "[os::macos::error]") {
     using namespace std::string_view_literals;
 
     std::error_code ec{static_cast<zero::os::macos::Error>(KERN_OPERATION_TIMED_OUT)};

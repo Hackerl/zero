@@ -8,13 +8,13 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-TEST_CASE("list process ids", "[linux]") {
+TEST_CASE("list process ids", "[os::linux::process]") {
     const auto ids = zero::os::linux::process::all();
     REQUIRE(ids);
     REQUIRE_THAT(*ids, Catch::Matchers::Contains(getpid()));
 }
 
-TEST_CASE("self process", "[linux]") {
+TEST_CASE("self process", "[os::linux::process]") {
     using namespace std::chrono_literals;
 
     const auto pid = getpid();
@@ -52,7 +52,7 @@ TEST_CASE("self process", "[linux]") {
     REQUIRE(io);
 }
 
-TEST_CASE("child process", "[linux]") {
+TEST_CASE("child process", "[os::linux::process]") {
     using namespace std::chrono_literals;
 
     const auto pid = fork();
@@ -102,7 +102,7 @@ TEST_CASE("child process", "[linux]") {
     );
 }
 
-TEST_CASE("zombie process", "[linux]") {
+TEST_CASE("zombie process", "[os::linux::process]") {
     using namespace std::chrono_literals;
 
     const auto pid = fork();
@@ -139,6 +139,6 @@ TEST_CASE("zombie process", "[linux]") {
     );
 }
 
-TEST_CASE("open process failed", "[procfs]") {
+TEST_CASE("open process failed", "[os::linux::process]") {
     REQUIRE_ERROR(zero::os::linux::process::open(99999), std::errc::no_such_file_or_directory);
 }

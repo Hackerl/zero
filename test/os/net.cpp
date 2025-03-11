@@ -10,7 +10,7 @@
 
 #include <zero/os/process.h>
 
-TEST_CASE("network components", "[os]") {
+TEST_CASE("network components", "[os::net]") {
     REQUIRE(zero::os::net::stringify(zero::os::net::UNSPECIFIED_IPV4) == "0.0.0.0");
     REQUIRE(zero::os::net::stringify(zero::os::net::LOCALHOST_IPV4) == "127.0.0.1");
     REQUIRE(zero::os::net::stringify(zero::os::net::BROADCAST_IPV4) == "255.255.255.255");
@@ -34,7 +34,7 @@ TEST_CASE("network components", "[os]") {
     );
 }
 
-TEST_CASE("network interfaces", "[os]") {
+TEST_CASE("network interfaces", "[os::net]") {
     const auto interfaces = zero::os::net::interfaces();
     REQUIRE(interfaces);
 

@@ -8,13 +8,13 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-TEST_CASE("list process ids", "[macos]") {
+TEST_CASE("list process ids", "[os::macos::process]") {
     const auto ids = zero::os::macos::process::all();
     REQUIRE(ids);
     REQUIRE_THAT(*ids, Catch::Matchers::Contains(getpid()));
 }
 
-TEST_CASE("self process", "[macos]") {
+TEST_CASE("self process", "[os::macos::process]") {
     using namespace std::chrono_literals;
 
     const auto pid = getpid();
@@ -53,7 +53,7 @@ TEST_CASE("self process", "[macos]") {
     REQUIRE(io);
 }
 
-TEST_CASE("child process", "[macos]") {
+TEST_CASE("child process", "[os::macos::process]") {
     using namespace std::chrono_literals;
 
     const auto pid = fork();
@@ -104,7 +104,7 @@ TEST_CASE("child process", "[macos]") {
     );
 }
 
-TEST_CASE("zombie process", "[macos]") {
+TEST_CASE("zombie process", "[os::macos::process]") {
     using namespace std::chrono_literals;
 
     const auto pid = fork();
@@ -139,6 +139,6 @@ TEST_CASE("zombie process", "[macos]") {
     );
 }
 
-TEST_CASE("open process failed", "macos") {
+TEST_CASE("open process failed", "[os::macos::process]") {
     REQUIRE_ERROR(zero::os::macos::process::open(99999), std::errc::no_such_process);
 }
