@@ -1,5 +1,5 @@
-#ifndef ZERO_RESOURCE_H
-#define ZERO_RESOURCE_H
+#ifndef ZERO_OS_RESOURCE_H
+#define ZERO_OS_RESOURCE_H
 
 #include <expected>
 #include <system_error>
@@ -65,4 +65,4 @@ namespace zero::os {
     };
 }
 
-#endif //ZERO_RESOURCE_H
+#endif //ZERO_OS_RESOURCE_H

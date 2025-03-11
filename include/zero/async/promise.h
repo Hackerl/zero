@@ -1,5 +1,5 @@
-#ifndef ZERO_PROMISE_H
-#define ZERO_PROMISE_H
+#ifndef ZERO_ASYNC_PROMISE_H
+#define ZERO_ASYNC_PROMISE_H
 
 #include <any>
 #include <mutex>
@@ -1052,4 +1052,4 @@ namespace zero::async::promise {
     }
 }
 
-#endif //ZERO_PROMISE_H
+#endif //ZERO_ASYNC_PROMISE_H

@@ -1,5 +1,5 @@
-#ifndef ZERO_LINUX_PROCESS_H
-#define ZERO_LINUX_PROCESS_H
+#ifndef ZERO_OS_LINUX_PROCESS_H
+#define ZERO_OS_LINUX_PROCESS_H
 
 #include "procfs/process.h"
 
@@ -49,4 +49,4 @@ namespace zero::os::linux::process {
     std::expected<std::list<pid_t>, std::error_code> all();
 }
 
-#endif //ZERO_LINUX_PROCESS_H
+#endif //ZERO_OS_LINUX_PROCESS_H

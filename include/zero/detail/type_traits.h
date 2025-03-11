@@ -1,5 +1,5 @@
-#ifndef ZERO_TYPE_TRAITS_H
-#define ZERO_TYPE_TRAITS_H
+#ifndef ZERO_DETAIL_TYPE_TRAITS_H
+#define ZERO_DETAIL_TYPE_TRAITS_H
 
 #include <array>
 #include <tuple>
@@ -129,4 +129,4 @@ namespace zero::detail {
     );
 }
 
-#endif //ZERO_TYPE_TRAITS_H
+#endif //ZERO_DETAIL_TYPE_TRAITS_H

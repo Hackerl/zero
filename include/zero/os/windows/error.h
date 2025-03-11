@@ -1,5 +1,5 @@
-#ifndef ZERO_WINDOWS_ERROR_H
-#define ZERO_WINDOWS_ERROR_H
+#ifndef ZERO_OS_WINDOWS_ERROR_H
+#define ZERO_OS_WINDOWS_ERROR_H
 
 #include <optional>
 #include <expected>
@@ -39,4 +39,4 @@ namespace zero::os::windows {
 
 DECLARE_ERROR_CODE(zero::os::windows::ResultHandle)
 
-#endif //ZERO_WINDOWS_ERROR_H
+#endif //ZERO_OS_WINDOWS_ERROR_H

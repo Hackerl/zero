@@ -1,5 +1,5 @@
-#ifndef ZERO_EVENT_H
-#define ZERO_EVENT_H
+#ifndef ZERO_ATOMIC_EVENT_H
+#define ZERO_ATOMIC_EVENT_H
 
 #include <atomic>
 #include <chrono>
@@ -29,4 +29,4 @@ namespace zero::atomic {
     };
 }
 
-#endif //ZERO_EVENT_H
+#endif //ZERO_ATOMIC_EVENT_H

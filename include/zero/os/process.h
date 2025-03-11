@@ -1,5 +1,5 @@
-#ifndef ZERO_PROCESS_H
-#define ZERO_PROCESS_H
+#ifndef ZERO_OS_PROCESS_H
+#define ZERO_OS_PROCESS_H
 
 #include <fmt/core.h>
 
@@ -338,4 +338,4 @@ struct fmt::formatter<zero::os::process::ExitStatus, Char> {
     }
 };
 
-#endif //ZERO_PROCESS_H
+#endif //ZERO_OS_PROCESS_H

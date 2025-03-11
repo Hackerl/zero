@@ -1,5 +1,5 @@
-#ifndef ZERO_BASE64_H
-#define ZERO_BASE64_H
+#ifndef ZERO_ENCODING_BASE64_H
+#define ZERO_ENCODING_BASE64_H
 
 #include <span>
 #include <string>
@@ -21,4 +21,4 @@ namespace zero::encoding::base64 {
 
 DECLARE_ERROR_CODE(zero::encoding::base64::DecodeError)
 
-#endif //ZERO_BASE64_H
+#endif //ZERO_ENCODING_BASE64_H

@@ -1,5 +1,5 @@
-#ifndef ZERO_FS_H
-#define ZERO_FS_H
+#ifndef ZERO_FILESYSTEM_FS_H
+#define ZERO_FILESYSTEM_FS_H
 
 #include <span>
 #include <vector>
@@ -223,4 +223,4 @@ namespace zero::filesystem {
     walkDirectory(const std::filesystem::path &path);
 }
 
-#endif //ZERO_FS_H
+#endif //ZERO_FILESYSTEM_FS_H

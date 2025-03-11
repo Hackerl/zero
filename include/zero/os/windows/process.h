@@ -1,5 +1,5 @@
-#ifndef ZERO_WINDOWS_PROCESS_H
-#define ZERO_WINDOWS_PROCESS_H
+#ifndef ZERO_OS_WINDOWS_PROCESS_H
+#define ZERO_OS_WINDOWS_PROCESS_H
 
 #include <map>
 #include <list>
@@ -81,4 +81,4 @@ namespace zero::os::windows::process {
 
 DECLARE_ERROR_CODE(zero::os::windows::process::Process::Error)
 
-#endif //ZERO_WINDOWS_PROCESS_H
+#endif //ZERO_OS_WINDOWS_PROCESS_H

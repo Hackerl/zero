@@ -1,5 +1,5 @@
-#ifndef ZERO_CHANNEL_H
-#define ZERO_CHANNEL_H
+#ifndef ZERO_CONCURRENT_CHANNEL_H
+#define ZERO_CONCURRENT_CHANNEL_H
 
 #include <chrono>
 #include <optional>
@@ -338,4 +338,4 @@ DECLARE_ERROR_CODES(
 
 DECLARE_ERROR_CONDITION(zero::concurrent::ChannelError)
 
-#endif //ZERO_CHANNEL_H
+#endif //ZERO_CONCURRENT_CHANNEL_H

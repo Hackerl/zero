@@ -1,5 +1,5 @@
-#ifndef ZERO_UNIX_ERROR_H
-#define ZERO_UNIX_ERROR_H
+#ifndef ZERO_OS_UNIX_ERROR_H
+#define ZERO_OS_UNIX_ERROR_H
 
 #include <cstdint>
 #include <expected>
@@ -45,4 +45,4 @@ namespace zero::os::unix {
     }
 }
 
-#endif //ZERO_UNIX_ERROR_H
+#endif //ZERO_OS_UNIX_ERROR_H

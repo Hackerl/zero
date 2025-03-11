@@ -1,5 +1,5 @@
-#ifndef ZERO_NET_H
-#define ZERO_NET_H
+#ifndef ZERO_OS_NET_H
+#define ZERO_OS_NET_H
 
 #include <map>
 #include <span>
@@ -106,4 +106,4 @@ struct fmt::formatter<zero::os::net::Interface, Char> {
     }
 };
 
-#endif //ZERO_NET_H
+#endif //ZERO_OS_NET_H

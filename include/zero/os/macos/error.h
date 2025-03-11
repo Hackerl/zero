@@ -1,5 +1,5 @@
-#ifndef ZERO_MACOS_ERROR_H
-#define ZERO_MACOS_ERROR_H
+#ifndef ZERO_OS_MACOS_ERROR_H
+#define ZERO_OS_MACOS_ERROR_H
 
 #include <optional>
 #include <zero/error.h>
@@ -27,4 +27,4 @@ namespace zero::os::macos {
 
 DECLARE_ERROR_CODE(zero::os::macos::Error)
 
-#endif //ZERO_MACOS_ERROR_H
+#endif //ZERO_OS_MACOS_ERROR_H

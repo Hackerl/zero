@@ -1,5 +1,5 @@
-#ifndef ZERO_CIRCULAR_BUFFER_H
-#define ZERO_CIRCULAR_BUFFER_H
+#ifndef ZERO_ATOMIC_CIRCULAR_BUFFER_H
+#define ZERO_ATOMIC_CIRCULAR_BUFFER_H
 
 #include <limits>
 #include <cstddef>
@@ -101,4 +101,4 @@ namespace zero::atomic {
     };
 }
 
-#endif //ZERO_CIRCULAR_BUFFER_H
+#endif //ZERO_ATOMIC_CIRCULAR_BUFFER_H

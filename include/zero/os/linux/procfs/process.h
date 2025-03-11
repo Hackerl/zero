@@ -1,5 +1,5 @@
-#ifndef ZERO_PROCFS_PROCESS_H
-#define ZERO_PROCFS_PROCESS_H
+#ifndef ZERO_OS_LINUX_PROCFS_PROCESS_H
+#define ZERO_OS_LINUX_PROCFS_PROCESS_H
 
 #include <map>
 #include <list>
@@ -206,4 +206,4 @@ namespace zero::os::linux::procfs::process {
 
 DECLARE_ERROR_CODE(zero::os::linux::procfs::process::Process::Error)
 
-#endif //ZERO_PROCFS_PROCESS_H
+#endif //ZERO_OS_LINUX_PROCFS_PROCESS_H

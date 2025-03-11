@@ -1,5 +1,5 @@
-#ifndef ZERO_HEX_H
-#define ZERO_HEX_H
+#ifndef ZERO_ENCODING_HEX_H
+#define ZERO_ENCODING_HEX_H
 
 #include <span>
 #include <string>
@@ -22,4 +22,4 @@ namespace zero::encoding::hex {
 
 DECLARE_ERROR_CODE(zero::encoding::hex::DecodeError)
 
-#endif //ZERO_HEX_H
+#endif //ZERO_ENCODING_HEX_H

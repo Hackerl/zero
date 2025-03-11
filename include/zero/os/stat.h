@@ -1,5 +1,5 @@
-#ifndef ZERO_STAT_H
-#define ZERO_STAT_H
+#ifndef ZERO_OS_STAT_H
+#define ZERO_OS_STAT_H
 
 #include <cstdint>
 #include <expected>
@@ -24,4 +24,4 @@ namespace zero::os::stat {
     std::expected<MemoryStat, std::error_code> memory();
 }
 
-#endif //ZERO_STAT_H
+#endif //ZERO_OS_STAT_H

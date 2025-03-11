@@ -1,5 +1,5 @@
-#ifndef ZERO_LRU_H
-#define ZERO_LRU_H
+#ifndef ZERO_CACHE_LRU_H
+#define ZERO_CACHE_LRU_H
 
 #include <list>
 #include <optional>
@@ -80,4 +80,4 @@ namespace zero::cache {
     };
 }
 
-#endif //ZERO_LRU_H
+#endif //ZERO_CACHE_LRU_H

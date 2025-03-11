@@ -1,5 +1,5 @@
- #ifndef ZERO_MACOS_PROCESS_H
-#define ZERO_MACOS_PROCESS_H
+#ifndef ZERO_OS_MACOS_PROCESS_H
+#define ZERO_OS_MACOS_PROCESS_H
 
 #include <map>
 #include <list>
@@ -69,4 +69,4 @@ namespace zero::os::macos::process {
 
 DECLARE_ERROR_CODE(zero::os::macos::process::Process::Error)
 
-#endif //ZERO_MACOS_PROCESS_H
+#endif //ZERO_OS_MACOS_PROCESS_H

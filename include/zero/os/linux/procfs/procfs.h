@@ -1,5 +1,5 @@
-#ifndef ZERO_PROCFS_H
-#define ZERO_PROCFS_H
+#ifndef ZERO_OS_LINUX_PROCFS_H
+#define ZERO_OS_LINUX_PROCFS_H
 
 #include <vector>
 #include <cstdint>
@@ -112,4 +112,4 @@ namespace zero::os::linux::procfs {
 
 DECLARE_ERROR_CODE(zero::os::linux::procfs::Error)
 
-#endif //ZERO_PROCFS_H
+#endif //ZERO_OS_LINUX_PROCFS_H
