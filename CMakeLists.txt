@@ -25,6 +25,7 @@ add_library(
         src/env.cpp
         src/cmdline.cpp
         src/io/io.cpp
+        src/io/buffer.cpp
         src/os/os.cpp
         src/os/net.cpp
         src/os/stat.cpp

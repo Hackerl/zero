@@ -110,6 +110,6 @@ std::expected<std::size_t, std::error_code> zero::io::BytesWriter::write(const s
 }
 
 DEFINE_ERROR_CATEGORY_INSTANCES(
-    zero::io::IOError,
+    zero::io::Error,
     zero::io::IReader::ReadExactlyError
 )

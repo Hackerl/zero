@@ -144,7 +144,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     const auto raw = handle;
 #else
     const auto fd = zero::os::unix::expected([&] {
-        return open(path.c_str(), O_RDWR | O_CLOEXEC, S_IRUSR | S_IWUSR);
+        return open(path.c_str(), O_RDWR | O_CLOEXEC);
     });
     REQUIRE(fd);
     const auto raw = *fd;
@@ -223,11 +223,20 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     }
 
     SECTION("read") {
-        std::vector<std::byte> content;
-        content.resize(input.size());
+        SECTION("normal") {
+            std::vector<std::byte> content;
+            content.resize(input.size());
 
-        REQUIRE(resource.read(content) == input.size());
-        REQUIRE_THAT(content, Catch::Matchers::RangeEquals(input));
+            REQUIRE(resource.read(content) == input.size());
+            REQUIRE_THAT(content, Catch::Matchers::RangeEquals(input));
+        }
+
+        SECTION("eof") {
+            REQUIRE(resource.readAll());
+
+            std::array<std::byte, 64> data;
+            REQUIRE(resource.read(data) == 0);
+        }
     }
 
     SECTION("write") {

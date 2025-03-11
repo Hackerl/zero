@@ -13,6 +13,7 @@ add_executable(
         formatter.cpp
         io/io.cpp
         io/binary.cpp
+        io/buffer.cpp
         os/os.cpp
         os/net.cpp
         os/stat.cpp
