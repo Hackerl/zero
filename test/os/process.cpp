@@ -11,10 +11,9 @@
 
 #ifdef _WIN32
 #include <future>
-#include <zero/os/windows/error.h>
 #else
 #include <unistd.h>
-#include <zero/os/unix/error.h>
+#include <csignal>
 #endif
 
 #ifdef _WIN32
@@ -224,7 +223,10 @@ TEST_CASE("exit status", "[os::process]") {
         }
 
         SECTION("no") {
-            const auto sig = GENERATE(take(5, random(1, 32)));
+            const auto sig = GENERATE(
+                SIGHUP, SIGINT, SIGTERM, SIGQUIT, SIGKILL,
+                SIGABRT, SIGSEGV, SIGILL, SIGFPE, SIGBUS
+            );
             REQUIRE(zero::os::process::ExitStatus{sig & 0x7f}.code() == std::nullopt);
         }
 #endif
@@ -232,7 +234,7 @@ TEST_CASE("exit status", "[os::process]") {
 
 #ifndef _WIN32
     SECTION("signal") {
-        const auto sig = GENERATE(take(5, random(1, 32)));
+        const auto sig = GENERATE(SIGHUP, SIGINT, SIGTERM, SIGQUIT, SIGKILL, SIGABRT, SIGSEGV, SIGILL, SIGFPE, SIGBUS);
 
         SECTION("has") {
             REQUIRE(zero::os::process::ExitStatus{sig & 0x7f}.signal() == sig);
@@ -244,10 +246,8 @@ TEST_CASE("exit status", "[os::process]") {
     }
 
     SECTION("stopped signal") {
-        const auto sig = GENERATE(take(5, random(1, 32)));
-
         SECTION("has") {
-            REQUIRE(zero::os::process::ExitStatus{(sig << 8) | 0x7f}.stoppedSignal() == sig);
+            REQUIRE(zero::os::process::ExitStatus{(SIGSTOP << 8) | 0x7f}.stoppedSignal() == SIGSTOP);
         }
 
         SECTION("no") {
@@ -256,7 +256,7 @@ TEST_CASE("exit status", "[os::process]") {
     }
 
     SECTION("core dumped") {
-        const auto sig = GENERATE(take(5, random(1, 32)));
+        const auto sig = GENERATE(SIGABRT, SIGSEGV, SIGILL, SIGFPE, SIGBUS);
 
         SECTION("yes") {
             REQUIRE(zero::os::process::ExitStatus{(sig & 0x7f) | (1 << 7)}.coreDumped());
