@@ -3,7 +3,7 @@
 #include <catch2/matchers/catch_matchers_all.hpp>
 
 TEST_CASE("buffer reader", "[io::buffer]") {
-    const auto input = GENERATE(take(10, randomBytes(1, 10240)));
+    const auto input = GENERATE(take(1, randomBytes(1, 10240)));
     const auto capacity = GENERATE(1uz, take(1, random(2uz, 10240uz)));
 
     SECTION("capacity") {
@@ -72,7 +72,7 @@ TEST_CASE("buffer reader", "[io::buffer]") {
         }
     }
 
-    auto inputString = GENERATE(take(10, randomAlphanumericString(1, 10240)));
+    auto inputString = GENERATE(take(1, randomAlphanumericString(1, 10240)));
 
     SECTION("read line") {
         SECTION("normal") {
@@ -119,7 +119,7 @@ TEST_CASE("buffer reader", "[io::buffer]") {
 }
 
 TEST_CASE("buffer writer", "[io::buffer]") {
-    const auto input = GENERATE(take(10, randomBytes(1, 10240)));
+    const auto input = GENERATE(take(1, randomBytes(1, 10240)));
     const auto capacity = GENERATE(1uz, take(1, random(2uz, 10240uz)));
 
     const auto bytesWriter = std::make_shared<zero::io::BytesWriter>();

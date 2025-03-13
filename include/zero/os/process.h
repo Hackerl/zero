@@ -198,30 +198,35 @@ namespace zero::os::process {
         [[nodiscard]] const std::vector<Resource> &inheritedResources() const;
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&arg(this Self &&self, std::string arg) {
             self.mArguments.push_back(std::move(arg));
             return std::forward<Self>(self);
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&args(this Self &&self, std::vector<std::string> args) {
             self.mArguments = std::move(args);
             return std::forward<Self>(self);
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&currentDirectory(this Self &&self, std::filesystem::path path) {
             self.mCurrentDirectory = std::move(path);
             return std::forward<Self>(self);
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&env(this Self &&self, std::string key, std::string value) {
             self.mEnviron[std::move(key)] = std::move(value);
             return std::forward<Self>(self);
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&envs(this Self &&self, std::map<std::string, std::string> envs) {
             for (auto &[key, value]: envs)
                 self.mEnviron[key] = std::move(value);
@@ -230,6 +235,7 @@ namespace zero::os::process {
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&clearEnv(this Self &&self) {
             self.mInheritEnv = false;
             self.mEnviron.clear();
@@ -237,6 +243,7 @@ namespace zero::os::process {
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&removeEnv(this Self &&self, const std::string &key) {
             if (!self.mInheritEnv) {
                 self.mEnviron.erase(key);
@@ -248,30 +255,35 @@ namespace zero::os::process {
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&inheritedResource(this Self &&self, Resource resource) {
             self.mInheritedResources.push_back(std::move(resource));
             return std::forward<Self>(self);
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&inheritedResources(this Self &&self, std::vector<Resource> resource) {
             self.mInheritedResources = std::move(resource);
             return std::forward<Self>(self);
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&stdInput(this Self &&self, const StdioType type) {
             self.mStdioTypes[0] = type;
             return std::forward<Self>(self);
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&stdOutput(this Self &&self, const StdioType type) {
             self.mStdioTypes[1] = type;
             return std::forward<Self>(self);
         }
 
         template<typename Self>
+            requires (!std::is_const_v<Self>)
         Self &&stdError(this Self &&self, const StdioType type) {
             self.mStdioTypes[2] = type;
             return std::forward<Self>(self);
