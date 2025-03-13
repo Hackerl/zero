@@ -122,7 +122,12 @@ namespace zero::os::process {
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
         )
 
-        PseudoConsole(HPCON pc, IOResource master, IOResource slave);
+        struct Endpoint {
+            IOResource reader;
+            IOResource writer;
+        };
+
+        PseudoConsole(HPCON pc, Endpoint master, Endpoint slave);
         PseudoConsole(PseudoConsole &&rhs) noexcept;
         PseudoConsole &operator=(PseudoConsole &&rhs) noexcept;
         ~PseudoConsole();
@@ -133,12 +138,12 @@ namespace zero::os::process {
         std::expected<void, std::error_code> resize(short rows, short columns);
         std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
-        IOResource &master();
+        Endpoint &master();
 
     private:
         HPCON mPC;
-        IOResource mMaster;
-        IOResource mSlave;
+        Endpoint mMaster;
+        Endpoint mSlave;
     };
 #else
     class PseudoConsole {

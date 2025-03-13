@@ -8,10 +8,9 @@
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <fmt/format.h>
 #include <ranges>
-
-#ifdef _WIN32
 #include <future>
-#else
+
+#ifndef _WIN32
 #include <unistd.h>
 #include <csignal>
 #endif
@@ -538,8 +537,7 @@ TEST_CASE("spawn child process and collect output", "[os::process]") {
 }
 
 TEST_CASE("spawn child process with pseudo console", "[os::process]") {
-    const std::string keyword{"hello"};
-    constexpr std::string_view input{"echo hello\rexit\r"};
+    using namespace std::string_view_literals;
 
     auto pc = zero::os::process::PseudoConsole::make(80, 32);
     REQUIRE(pc);
@@ -547,27 +545,32 @@ TEST_CASE("spawn child process with pseudo console", "[os::process]") {
 #ifdef _WIN32
     auto child = pc->spawn(zero::os::process::Command{"cmd"});
     REQUIRE(child);
+
+    auto &[reader, writer] = pc->master();
+    REQUIRE(reader);
+    REQUIRE(writer);
+
+    auto future = std::async([&] { return reader.readAll(); });
+    REQUIRE(writer.writeAll(std::as_bytes(std::span{"echo hello\rexit\r"sv})));
+
+    REQUIRE(child->wait());
+    pc->close();
 #else
     auto child = pc->spawn(zero::os::process::Command{"sh"});
     REQUIRE(child);
     DEFER(REQUIRE(child->wait()));
-#endif
+
     auto &master = pc->master();
     REQUIRE(master);
 
-    REQUIRE(master.writeAll(std::as_bytes(std::span{input})));
-#ifdef _WIN32
     auto future = std::async([&] { return master.readAll(); });
-    REQUIRE(child->wait());
-    pc->close();
+    REQUIRE(master.writeAll(std::as_bytes(std::span{"echo hello\rexit\r"sv})));
+#endif
 
     const auto data = future.get();
-#else
-    const auto data = master.readAll();
-#endif
     REQUIRE(data);
     REQUIRE_THAT(
         (std::string{reinterpret_cast<const char *>(data->data()), data->size()}),
-        Catch::Matchers::ContainsSubstring(keyword)
+        Catch::Matchers::ContainsSubstring("hello")
     );
 }

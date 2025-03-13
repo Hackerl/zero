@@ -92,43 +92,6 @@ namespace {
 
         return result;
     }
-
-    std::expected<std::pair<zero::os::IOResource, zero::os::IOResource>, std::error_code>
-    createNamedPipe() {
-        static std::atomic<std::size_t> number;
-        const auto name = fmt::format(R"(\\?\pipe\zero\named\{}-{})", GetCurrentProcessId(), number++);
-
-        auto handle = CreateNamedPipeA(
-            name.c_str(),
-            PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
-            PIPE_TYPE_BYTE | PIPE_WAIT,
-            1,
-            0,
-            0,
-            0,
-            nullptr
-        );
-
-        if (handle == INVALID_HANDLE_VALUE)
-            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
-
-        zero::os::IOResource first{handle};
-
-        handle = CreateFileA(
-            name.c_str(),
-            GENERIC_READ | GENERIC_WRITE,
-            0,
-            nullptr,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
-            nullptr
-        );
-
-        if (handle == INVALID_HANDLE_VALUE)
-            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
-
-        return std::pair{std::move(first), zero::os::IOResource{handle}};
-    }
 }
 #endif
 
@@ -318,7 +281,7 @@ std::optional<zero::os::IOResource> &zero::os::process::ChildProcess::stdError()
 }
 
 #ifdef _WIN32
-zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, IOResource master, IOResource slave)
+zero::os::process::PseudoConsole::PseudoConsole(const HPCON pc, Endpoint master, Endpoint slave)
     : mPC{pc}, mMaster{std::move(master)}, mSlave{std::move(slave)} {
 }
 
@@ -345,21 +308,28 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
         return std::unexpected{Error::API_NOT_AVAILABLE};
 
-    auto pipe = createNamedPipe();
-    EXPECT(pipe);
+    auto first = pipe();
+    EXPECT(first);
+
+    auto second = pipe();
+    EXPECT(second);
 
     HPCON hPC{};
 
     if (const auto result = createPseudoConsole(
         {columns, rows},
-        pipe->second.fd(),
-        pipe->second.fd(),
+        first->first.fd(),
+        second->second.fd(),
         0,
         &hPC
     ); result != S_OK)
         return std::unexpected{static_cast<windows::ResultHandle>(result)};
 
-    return PseudoConsole{hPC, std::move(pipe->first), std::move(pipe->second)};
+    return PseudoConsole{
+        hPC,
+        {std::move(second->first), std::move(first->second)},
+        {std::move(first->first), std::move(second->second)}
+    };
 }
 
 void zero::os::process::PseudoConsole::close() {
@@ -377,7 +347,8 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::PseudoConsole::spawn(const Command &command) {
-    assert(mSlave);
+    assert(mSlave.reader);
+    assert(mSlave.writer);
     assert(command.mInheritedResources.empty());
 
     STARTUPINFOEXW siEx{};
@@ -459,12 +430,13 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     }));
 
     CloseHandle(info.hThread);
-    std::ignore = mSlave.close();
+    std::ignore = mSlave.reader.close();
+    std::ignore = mSlave.writer.close();
 
     return ChildProcess{Process{windows::process::Process{Resource{info.hProcess}, info.dwProcessId}}, {}};
 }
 
-zero::os::process::PseudoConsole::IOResource &zero::os::process::PseudoConsole::master() {
+zero::os::process::PseudoConsole::Endpoint &zero::os::process::PseudoConsole::master() {
     return mMaster;
 }
 #else
