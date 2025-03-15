@@ -171,6 +171,14 @@ std::expected<void, std::error_code> zero::os::process::Process::kill() {
 #endif
 }
 
+zero::os::process::ID zero::os::process::currentProcessID() {
+#ifdef _WIN32
+    return static_cast<ID>(GetCurrentProcessId());
+#else
+    return getpid();
+#endif
+}
+
 std::expected<zero::os::process::Process, std::error_code> zero::os::process::self() {
 #ifdef _WIN32
     return windows::process::self()

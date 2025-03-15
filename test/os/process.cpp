@@ -11,7 +11,6 @@
 #include <future>
 
 #ifndef _WIN32
-#include <unistd.h>
 #include <csignal>
 #endif
 
@@ -26,12 +25,7 @@ constexpr auto ARGUMENTS = {"1"};
 TEST_CASE("list process ids", "[os::process]") {
     const auto ids = zero::os::process::all();
     REQUIRE(ids);
-
-#ifdef _WIN32
-    REQUIRE_THAT(*ids, Catch::Matchers::Contains(static_cast<zero::os::process::ID>(GetCurrentProcessId())));
-#else
-    REQUIRE_THAT(*ids, Catch::Matchers::Contains(static_cast<zero::os::process::ID>(getpid())));
-#endif
+    REQUIRE_THAT(*ids, Catch::Matchers::Contains(zero::os::process::currentProcessID()));
 }
 
 TEST_CASE("process", "[os::process]") {

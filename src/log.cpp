@@ -6,10 +6,6 @@
 #include <ranges>
 #include <algorithm>
 
-#ifndef _WIN32
-#include <unistd.h>
-#endif
-
 constexpr auto LOGGER_BUFFER_SIZE = 1024;
 
 std::expected<void, std::error_code> zero::log::ConsoleProvider::init() {
@@ -42,13 +38,7 @@ zero::log::FileProvider::FileProvider(
     std::optional<std::filesystem::path> directory,
     const std::size_t limit,
     const int remain
-) : mPID{
-#ifdef _WIN32
-        _getpid()
-#else
-        getpid()
-#endif
-    },
+) : mPID{os::process::currentProcessID()},
     mRemain{remain}, mLimit{limit}, mPosition{0}, mName{std::move(name)},
     mDirectory{std::move(directory).value_or(std::filesystem::temp_directory_path())} {
 }

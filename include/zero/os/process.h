@@ -64,6 +64,7 @@ namespace zero::os::process {
         ProcessImpl mImpl;
     };
 
+    ID currentProcessID();
     std::expected<Process, std::error_code> self();
     std::expected<Process, std::error_code> open(ID pid);
     std::expected<std::list<ID>, std::error_code> all();

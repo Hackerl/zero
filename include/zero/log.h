@@ -2,12 +2,11 @@
 #define ZERO_LOG_H
 
 #include "interface.h"
+#include "os/process.h"
 #include "concurrent/channel.h"
 #include <thread>
 #include <fstream>
-#include <list>
 #include <mutex>
-#include <filesystem>
 #include <fmt/format.h>
 #include <fmt/chrono.h>
 
@@ -60,7 +59,7 @@ namespace zero::log {
         std::expected<void, std::error_code> write(const Record &record) override;
 
     private:
-        int mPID;
+        os::process::ID mPID;
         int mRemain;
         std::size_t mLimit;
         std::size_t mPosition;
