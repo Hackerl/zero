@@ -350,6 +350,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     assert(mSlave.reader);
     assert(mSlave.writer);
     assert(command.mInheritedResources.empty());
+    assert(command.mInheritedNativeResources.empty());
 
     STARTUPINFOEXW siEx{};
     siEx.StartupInfo.cb = sizeof(siEx);
@@ -486,6 +487,7 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
 std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::PseudoConsole::spawn(const Command &command) {
     assert(command.mInheritedResources.empty());
+    assert(command.mInheritedNativeResources.empty());
     assert(mSlave.fd() > STDERR_FILENO);
 
     auto pipe = os::pipe();
@@ -739,6 +741,10 @@ const std::vector<zero::os::Resource> &zero::os::process::Command::inheritedReso
     return mInheritedResources;
 }
 
+const std::vector<zero::os::Resource::Native> &zero::os::process::Command::inheritedNativeResources() const {
+    return mInheritedNativeResources;
+}
+
 std::expected<zero::os::process::ChildProcess, std::error_code>
 zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) const {
     assert(
@@ -828,6 +834,8 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     auto inheritedHandles = mInheritedResources
         | std::views::transform(&Resource::get)
         | std::ranges::to<std::vector>();
+
+    std::ranges::copy(mInheritedNativeResources, std::back_inserter(inheritedHandles));
 
     for (int i{0}; i < 3; ++i) {
         const auto &resource = resources[indexMapping[i]];
@@ -1085,6 +1093,12 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             return posix_spawn_file_actions_addinherit_np(&actions, *resource);
         }));
     }
+
+    for (const auto &resource : mInheritedNativeResources) {
+        EXPECT(expected([&] {
+            return posix_spawn_file_actions_addinherit_np(&actions, resource);
+        }));
+    }
 #else
     EXPECT(expected([&] {
         return posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
@@ -1105,6 +1119,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
                 return *resource == fd;
             }
         ) != mInheritedResources.end())
+            continue;
+
+        if (std::ranges::find(mInheritedNativeResources, fd) != mInheritedNativeResources.end())
             continue;
 
         EXPECT(expected([&] {

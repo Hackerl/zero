@@ -196,6 +196,7 @@ namespace zero::os::process {
         [[nodiscard]] const std::optional<std::filesystem::path> &currentDirectory() const;
         [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
         [[nodiscard]] const std::vector<Resource> &inheritedResources() const;
+        [[nodiscard]] const std::vector<Resource::Native> &inheritedNativeResources() const;
 
         template<typename Self>
             requires (!std::is_const_v<Self>)
@@ -263,8 +264,22 @@ namespace zero::os::process {
 
         template<typename Self>
             requires (!std::is_const_v<Self>)
-        Self &&inheritedResources(this Self &&self, std::vector<Resource> resource) {
-            self.mInheritedResources = std::move(resource);
+        Self &&inheritedResources(this Self &&self, std::vector<Resource> resources) {
+            self.mInheritedResources = std::move(resources);
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+            requires (!std::is_const_v<Self>)
+        Self &&inheritedNativeResource(this Self &&self, const Resource::Native resource) {
+            self.mInheritedNativeResources.push_back(resource);
+            return std::forward<Self>(self);
+        }
+
+        template<typename Self>
+            requires (!std::is_const_v<Self>)
+        Self &&inheritedNativeResources(this Self &&self, std::vector<Resource::Native> resources) {
+            self.mInheritedNativeResources = std::move(resources);
             return std::forward<Self>(self);
         }
 
@@ -304,6 +319,7 @@ namespace zero::os::process {
         std::optional<std::filesystem::path> mCurrentDirectory;
         std::array<std::optional<StdioType>, 3> mStdioTypes;
         std::vector<Resource> mInheritedResources;
+        std::vector<Resource::Native> mInheritedNativeResources;
 
         friend class PseudoConsole;
     };

@@ -480,6 +480,49 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
     }
 }
 
+TEST_CASE("spawn child process with native resource", "[os::process]") {
+    using namespace std::chrono_literals;
+
+    auto pipe = zero::os::pipe();
+    REQUIRE(pipe);
+
+    auto &[reader, writer] = *pipe;
+    REQUIRE(writer.setInheritable(true));
+
+    SECTION("inherit") {
+        auto child = zero::os::process::Command{PROGRAM}
+                     .args({ARGUMENTS.begin(), ARGUMENTS.end()})
+                     .inheritedNativeResource(writer.fd())
+                     .stdOutput(zero::os::process::Command::StdioType::NUL)
+                     .spawn();
+        REQUIRE(child);
+        DEFER(REQUIRE(child->wait()));
+
+        const auto tp = std::chrono::system_clock::now();
+        REQUIRE(writer.close());
+
+        std::array<std::byte, 64> data{};
+        REQUIRE(reader.read(data) == 0);
+        REQUIRE(std::chrono::system_clock::now() - tp > 0.9s);
+    }
+
+    SECTION("without inherit") {
+        auto child = zero::os::process::Command{PROGRAM}
+                     .args({ARGUMENTS.begin(), ARGUMENTS.end()})
+                     .stdOutput(zero::os::process::Command::StdioType::NUL)
+                     .spawn();
+        REQUIRE(child);
+        DEFER(REQUIRE(child->wait()));
+
+        const auto tp = std::chrono::system_clock::now();
+        REQUIRE(writer.close());
+
+        std::array<std::byte, 64> data{};
+        REQUIRE(reader.read(data) == 0);
+        REQUIRE(std::chrono::system_clock::now() - tp < 0.9s);
+    }
+}
+
 TEST_CASE("spawn child process with piped stdio", "[os::process]") {
 #ifdef _WIN32
     auto child = zero::os::process::Command{"findstr"}
