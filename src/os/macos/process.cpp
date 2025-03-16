@@ -179,8 +179,9 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
         prev = pos + 1;
         pos = item.find('=');
 
+        // There is a case where only key does not contain `=`, which is ignored for now.
         if (pos == std::string::npos)
-            return std::unexpected{Error::UNEXPECTED_DATA};
+            continue;
 
         envs.emplace(item.substr(0, pos), item.substr(pos + 1));
     }
