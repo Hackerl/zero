@@ -361,7 +361,9 @@ namespace zero::async::promise {
 
         template<typename F1, typename F2>
         auto then(F1 &&f1, F2 &&f2) && {
-            static_assert(std::is_same_v<decltype(std::move(*this).then(f1)), decltype(std::move(*this).fail(f2))>);
+            static_assert(
+                std::is_same_v<decltype(std::move(*this).then(f1)), decltype(std::move(*this).then(f1).fail(f2))>
+            );
 
             const auto fallthrough = std::make_shared<bool>();
 
