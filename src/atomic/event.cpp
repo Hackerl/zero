@@ -74,7 +74,7 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
 void zero::atomic::Event::set() {
     if (Value expected{0}; mState.compare_exchange_strong(expected, 1)) {
 #ifdef _WIN32
-        WakeByAddressSingle(&mState);
+        WakeByAddressAll(&mState);
 #elif defined(__linux__)
         syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
 #elif defined(__APPLE__)
