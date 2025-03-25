@@ -1,4 +1,5 @@
 #include <zero/atomic/event.h>
+#include <zero/defer.h>
 
 #ifdef _WIN32
 #include <zero/expect.h>
@@ -33,6 +34,10 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
             if (Value expected{1}; mState.compare_exchange_strong(expected, 0))
                 return {};
         }
+
+        ++mWaiterCount;
+        DEFER(--mWaiterCount);
+
 #ifdef _WIN32
         EXPECT(os::windows::expected([&] {
             Value expected{0};
@@ -73,6 +78,9 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
 
 void zero::atomic::Event::set() {
     if (Value expected{0}; mState.compare_exchange_strong(expected, 1)) {
+        if (mWaiterCount == 0)
+            return;
+
 #ifdef _WIN32
         WakeByAddressAll(&mState);
 #elif defined(__linux__)

@@ -26,6 +26,7 @@ namespace zero::atomic {
     private:
         bool mManual;
         std::atomic<Value> mState;
+        std::atomic<std::size_t> mWaiterCount;
     };
 }
 
