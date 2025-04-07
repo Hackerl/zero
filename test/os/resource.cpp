@@ -234,7 +234,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
         SECTION("eof") {
             REQUIRE(resource.readAll());
 
-            std::array<std::byte, 64> data;
+            std::array<std::byte, 64> data{};
             REQUIRE(resource.read(data) == 0);
         }
     }

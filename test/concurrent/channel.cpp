@@ -27,7 +27,8 @@ TEST_CASE("channel errors", "[concurrent::channel]") {
         REQUIRE(sender.trySend(1));
         REQUIRE(sender.trySend(2));
         REQUIRE(sender.trySend(3));
-        REQUIRE(sender.size() == 4);
+        REQUIRE(sender.trySend(4));
+        REQUIRE(sender.size() == 5);
         REQUIRE(sender.full());
         REQUIRE_ERROR(sender.trySend(4), zero::concurrent::TrySendError::FULL);
     }
@@ -78,7 +79,8 @@ TEST_CASE("channel errors", "[concurrent::channel]") {
         REQUIRE(sender.trySend(1));
         REQUIRE(sender.trySend(2));
         REQUIRE(sender.trySend(3));
-        REQUIRE(sender.size() == 4);
+        REQUIRE(sender.trySend(4));
+        REQUIRE(sender.size() == 5);
         REQUIRE(sender.full());
         REQUIRE_ERROR(sender.send(4, 50ms), zero::concurrent::SendError::TIMEOUT);
     }

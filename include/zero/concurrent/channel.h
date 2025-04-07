@@ -17,7 +17,7 @@ namespace zero::concurrent {
             std::atomic<std::size_t> counter;
         };
 
-        explicit ChannelCore(const std::size_t capacity) : buffer{capacity} {
+        explicit ChannelCore(const std::size_t capacity) : buffer{capacity + 1} {
         }
 
         std::mutex mutex;
@@ -174,7 +174,7 @@ namespace zero::concurrent {
         }
 
         [[nodiscard]] std::size_t capacity() const {
-            return mCore->buffer.capacity();
+            return mCore->buffer.capacity() - 1;
         }
 
         [[nodiscard]] bool empty() const {
@@ -287,7 +287,7 @@ namespace zero::concurrent {
         }
 
         [[nodiscard]] std::size_t capacity() const {
-            return mCore->buffer.capacity();
+            return mCore->buffer.capacity() - 1;
         }
 
         [[nodiscard]] bool empty() const {
@@ -323,7 +323,7 @@ namespace zero::concurrent {
     using Channel = std::pair<Sender<T>, Receiver<T>>;
 
     template<typename T>
-    Channel<T> channel(const std::size_t capacity) {
+    Channel<T> channel(const std::size_t capacity = 1) {
         const auto core = std::make_shared<ChannelCore<T>>(capacity);
         return {Sender<T>{core}, Receiver<T>{core}};
     }
