@@ -258,9 +258,22 @@ std::expected<zero::os::macos::process::Process, std::error_code> zero::os::maco
 }
 
 std::expected<zero::os::macos::process::Process, std::error_code> zero::os::macos::process::open(const pid_t pid) {
+    // When `SIP` is enabled, calling `kill(0, pid)` on certain system processes will result in an `Operation not permitted` error.
     EXPECT(unix::expected([&] {
         return kill(pid, 0);
+    }).transform([](const auto &) {
+    }).or_else([&](const auto &ec) -> std::expected<void, std::error_code> {
+        if (ec != std::errc::operation_not_permitted)
+            return std::unexpected{ec};
+
+        proc_bsdshortinfo info{};
+
+        if (proc_pidinfo(pid, PROC_PIDT_SHORTBSDINFO, 0, &info, PROC_PIDT_SHORTBSDINFO_SIZE) <= 0)
+            return std::unexpected{std::error_code{errno, std::system_category()}};
+
+        return {};
     }));
+
     return Process{pid};
 }
 
