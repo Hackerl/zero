@@ -97,7 +97,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::env::li
 
     std::map<std::string, std::string> envs;
 
-    for (const auto *env = ptr.get(); *env != L'\0'; env += wcslen(env) + 1) {
+    for (const auto *env = ptr.get(); *env != L'\0'; env += std::wcslen(env) + 1) {
         const auto str = strings::encode(env);
         EXPECT(str);
 

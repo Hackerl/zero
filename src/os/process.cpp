@@ -66,7 +66,7 @@ namespace {
 
         int bsCount{0};
 
-        for (const auto *p = str; *p != '\0'; ++p) {
+        for (auto p = str; *p != '\0'; ++p) {
             if (*p == '\\') {
                 ++bsCount;
             }

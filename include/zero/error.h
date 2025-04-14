@@ -45,7 +45,7 @@
 
 template<typename T>
 auto errorCategoryImmortalize() {
-    std::array<std::byte, sizeof(T)> storage{};
+    alignas(T) std::array<std::byte, sizeof(T)> storage{};
     new(storage.data()) T();
     return storage;
 }
