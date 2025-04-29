@@ -2,7 +2,6 @@
 #define ZERO_ASYNC_PROMISE_H
 
 #include <any>
-#include <mutex>
 #include <memory>
 #include <ranges>
 #include <cassert>

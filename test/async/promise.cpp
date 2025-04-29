@@ -44,7 +44,7 @@ namespace {
         std::list<std::thread> mThreads;
     };
 
-    ThreadPool pool(THREAD_NUMBER, CHANNEL_CAPACITY);
+    ThreadPool pool{THREAD_NUMBER, CHANNEL_CAPACITY};
 }
 
 template<typename T, typename E, typename U>
