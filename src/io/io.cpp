@@ -1,5 +1,6 @@
 #include <zero/io/io.h>
 #include <cassert>
+#include <algorithm>
 
 std::expected<void, std::error_code> zero::io::IReader::readExactly(const std::span<std::byte> data) {
     std::size_t offset{0};

@@ -3,6 +3,7 @@
 
 #include "io.h"
 #include <cassert>
+#include <algorithm>
 
 namespace zero::io {
     DEFINE_ERROR_CODE_EX(

@@ -36,7 +36,7 @@ namespace {
 
         template<typename F>
         void post(F &&f) {
-            mChannel.first.send(std::forward<F>(f));
+            std::ignore = mChannel.first.send(std::forward<F>(f));
         }
 
     private:
