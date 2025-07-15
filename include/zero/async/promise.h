@@ -599,6 +599,8 @@ namespace zero::async::promise {
     template<std::input_iterator I, std::sentinel_for<I> S>
         requires detail::is_specialization_v<std::iter_value_t<I>, Future>
     auto all(I first, S last) {
+        assert(first != last);
+
         using T = typename std::iter_value_t<I>::value_type;
         using E = typename std::iter_value_t<I>::error_type;
 
@@ -676,6 +678,8 @@ namespace zero::async::promise {
 
     template<std::size_t... Is, typename... Ts, typename E>
     auto all(std::index_sequence<Is...>, Future<Ts, E>... futures) {
+        static_assert(sizeof...(Ts) > 0);
+
         using T = std::conditional_t<
             detail::all_same_v<Ts...>,
             std::conditional_t<
@@ -763,6 +767,8 @@ namespace zero::async::promise {
     template<std::input_iterator I, std::sentinel_for<I> S>
         requires detail::is_specialization_v<std::iter_value_t<I>, Future>
     auto allSettled(I first, S last) {
+        assert(first != last);
+
         using T = typename std::iter_value_t<I>::value_type;
         using E = typename std::iter_value_t<I>::error_type;
 
@@ -819,6 +825,8 @@ namespace zero::async::promise {
 
     template<std::size_t... Is, typename... Ts, typename... Es>
     auto allSettled(std::index_sequence<Is...>, Future<Ts, Es>... futures) {
+        static_assert(sizeof...(Ts) > 0);
+
         using T = std::conditional_t<
             detail::all_same_v<Ts...>,
             std::array<std::expected<detail::first_element_t<Ts...>, detail::first_element_t<Es...>>, sizeof...(Ts)>,
@@ -875,6 +883,8 @@ namespace zero::async::promise {
     template<std::input_iterator I, std::sentinel_for<I> S>
         requires detail::is_specialization_v<std::iter_value_t<I>, Future>
     auto any(I first, S last) {
+        assert(first != last);
+
         using T = typename std::iter_value_t<I>::value_type;
         using E = typename std::iter_value_t<I>::error_type;
 
@@ -922,6 +932,8 @@ namespace zero::async::promise {
 
     template<std::size_t... Is, typename... Ts, typename E>
     auto any(std::index_sequence<Is...>, Future<Ts, E>... futures) {
+        static_assert(sizeof...(Ts) > 0);
+
         constexpr auto Same = detail::all_same_v<Ts...>;
 
         struct Context {
@@ -978,6 +990,8 @@ namespace zero::async::promise {
     template<std::input_iterator I, std::sentinel_for<I> S>
         requires detail::is_specialization_v<std::iter_value_t<I>, Future>
     auto race(I first, S last) {
+        assert(first != last);
+
         using T = typename std::iter_value_t<I>::value_type;
         using E = typename std::iter_value_t<I>::error_type;
 
@@ -1017,6 +1031,8 @@ namespace zero::async::promise {
 
     template<typename... Ts, typename E>
     auto race(Future<Ts, E>... futures) {
+        static_assert(sizeof...(Ts) > 0);
+
         constexpr auto Same = detail::all_same_v<Ts...>;
 
         struct Context {
