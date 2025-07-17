@@ -228,7 +228,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
             content.resize(input.size());
 
             REQUIRE(resource.read(content) == input.size());
-            REQUIRE_THAT(content, Catch::Matchers::RangeEquals(input));
+            REQUIRE(content == input);
         }
 
         SECTION("eof") {
@@ -242,10 +242,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     SECTION("write") {
         const auto reversed = input | std::views::reverse | std::ranges::to<std::vector>();
         REQUIRE(resource.write(reversed) == reversed.size());
-
-        const auto content = zero::filesystem::read(path);
-        REQUIRE(content);
-        REQUIRE_THAT(*content, Catch::Matchers::RangeEquals(reversed));
+        REQUIRE(zero::filesystem::read(path) == reversed);
     }
 
     SECTION("position") {

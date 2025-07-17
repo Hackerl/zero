@@ -41,8 +41,5 @@ TEST_CASE("anonymous pipe", "[os]") {
 
     REQUIRE(writer.writeAll(input));
     REQUIRE(writer.close());
-
-    const auto data = future.get();
-    REQUIRE(data);
-    REQUIRE_THAT(*data, Catch::Matchers::Equals(input));
+    REQUIRE(future.get() == input);
 }

@@ -5,8 +5,6 @@
 #include <ranges>
 #include <list>
 
-constexpr std::string_view CONTENT = "hello world";
-
 TEST_CASE("read bytes from file", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     REQUIRE(temp);
@@ -18,12 +16,9 @@ TEST_CASE("read bytes from file", "[filesystem]") {
     }
 
     SECTION("file exists") {
-        REQUIRE(zero::filesystem::write(path, std::as_bytes(std::span{CONTENT})));
-
-        const auto content = zero::filesystem::read(path);
-        REQUIRE(content);
-        REQUIRE_THAT(*content, Catch::Matchers::RangeEquals(std::as_bytes(std::span{CONTENT})));
-
+        const auto content = GENERATE(take(1, randomBytes(1, 102400)));
+        REQUIRE(zero::filesystem::write(path, content));
+        REQUIRE(zero::filesystem::read(path) == content);
         REQUIRE(zero::filesystem::remove(path));
     }
 }
@@ -39,8 +34,9 @@ TEST_CASE("read string from file", "[filesystem]") {
     }
 
     SECTION("file exists") {
-        REQUIRE(zero::filesystem::write(path, std::as_bytes(std::span{CONTENT})));
-        REQUIRE(zero::filesystem::readString(path) == CONTENT);
+        const auto content = GENERATE(take(1, randomString(1, 102400)));
+        REQUIRE(zero::filesystem::write(path, content));
+        REQUIRE(zero::filesystem::readString(path) == content);
         REQUIRE(zero::filesystem::remove(path));
     }
 }
@@ -50,13 +46,11 @@ TEST_CASE("write bytes to file", "[filesystem]") {
     REQUIRE(temp);
 
     const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
+    const auto content = GENERATE(take(1, randomBytes(1, 102400)));
 
-    REQUIRE(zero::filesystem::write(path, std::as_bytes(std::span{CONTENT})));
+    REQUIRE(zero::filesystem::write(path, content));
     DEFER(REQUIRE(zero::filesystem::remove(path)));
-
-    const auto content = zero::filesystem::read(path);
-    REQUIRE(content);
-    REQUIRE_THAT(*content, Catch::Matchers::RangeEquals(std::as_bytes(std::span{CONTENT})));
+    REQUIRE(zero::filesystem::read(path) == content);
 }
 
 TEST_CASE("write string to file", "[filesystem]") {
@@ -64,10 +58,11 @@ TEST_CASE("write string to file", "[filesystem]") {
     REQUIRE(temp);
 
     const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
+    const auto content = GENERATE(take(1, randomString(1, 102400)));
 
-    REQUIRE(zero::filesystem::write(path, CONTENT));
+    REQUIRE(zero::filesystem::write(path, content));
     DEFER(REQUIRE(zero::filesystem::remove(path)));
-    REQUIRE(zero::filesystem::readString(path) == CONTENT);
+    REQUIRE(zero::filesystem::readString(path) == content);
 }
 
 TEST_CASE("copy file", "[filesystem]") {
@@ -76,23 +71,24 @@ TEST_CASE("copy file", "[filesystem]") {
 
     const auto from = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
     const auto to = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
+    const auto content = GENERATE(take(1, randomBytes(1, 102400)));
 
     SECTION("source file does not exist") {
         REQUIRE_ERROR(zero::filesystem::copyFile(from, to), std::errc::no_such_file_or_directory);
     }
 
     SECTION("destination file does not exist") {
-        REQUIRE(zero::filesystem::write(from, CONTENT));
+        REQUIRE(zero::filesystem::write(from, content));
         DEFER(REQUIRE(zero::filesystem::remove(from)));
 
         REQUIRE(zero::filesystem::copyFile(from, to));
         DEFER(REQUIRE(zero::filesystem::remove(to)));
 
-        REQUIRE(zero::filesystem::readString(to) == CONTENT);
+        REQUIRE(zero::filesystem::read(to) == content);
     }
 
     SECTION("destination file exists") {
-        REQUIRE(zero::filesystem::write(from, CONTENT));
+        REQUIRE(zero::filesystem::write(from, content));
         DEFER(REQUIRE(zero::filesystem::remove(from)));
 
         REQUIRE(zero::filesystem::write(to, ""));
@@ -104,7 +100,7 @@ TEST_CASE("copy file", "[filesystem]") {
 
         SECTION("overwrite") {
             REQUIRE(zero::filesystem::copyFile(from, to, std::filesystem::copy_options::overwrite_existing));
-            REQUIRE(zero::filesystem::readString(to) == CONTENT);
+            REQUIRE(zero::filesystem::read(to) == content);
         }
     }
 }

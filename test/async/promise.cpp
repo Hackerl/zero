@@ -90,275 +90,440 @@ zero::async::promise::Future<T, E> resolve(U &&result) {
     return future;
 }
 
-TEST_CASE("promise", "[async::promise]") {
-    using namespace std::chrono_literals;
-
-    zero::async::promise::Promise<int, int> promise;
-    REQUIRE(promise.valid());
-    REQUIRE_FALSE(promise.isFulfilled());
-
-    auto future = promise.getFuture();
-    REQUIRE(future.valid());
-    REQUIRE_FALSE(future.isReady());
-
-    SECTION("resolve") {
-        promise.resolve(1024);
-        REQUIRE(promise.valid());
-        REQUIRE(promise.isFulfilled());
-        REQUIRE(future.valid());
-        REQUIRE(future.isReady());
-        REQUIRE(future.wait());
-        REQUIRE(future.result() == 1024);
-    }
-
-    SECTION("reject") {
-        promise.reject(-1);
-        REQUIRE(promise.valid());
-        REQUIRE(promise.isFulfilled());
-        REQUIRE(future.valid());
-        REQUIRE(future.isReady());
-        REQUIRE(future.wait());
-        REQUIRE_ERROR(future.result(), -1);
-    }
-}
-
-TEST_CASE("callback chain", "[async::promise]") {
-    using namespace std::string_view_literals;
-
-    zero::async::promise::chain<int, int>([](auto p) {
-        p.resolve(1);
-    }).then([](const auto &value) {
-        REQUIRE(value == 1);
-    });
-
-    zero::async::promise::resolve<int, int>(1)
-        .then([](const auto &value) {
-            REQUIRE(value == 1);
-        });
-
-    zero::async::promise::reject<void, int>(-1)
-        .fail([](const auto &error) {
-            REQUIRE(error == -1);
-        });
-
-    zero::async::promise::resolve<int, int>(1)
-        .then([](const auto &value) {
-            return zero::async::promise::resolve<int, int>(value * 10);
-        }).then([](const auto &value) {
-            REQUIRE(value == 10);
-        });
-
-    zero::async::promise::resolve<int, int>(1)
-        .then([](const auto &value) -> std::expected<int, int> {
-            if (value == 2)
-                return std::unexpected{2};
-
-            return 2;
-        }).then([](const auto &value) {
-            REQUIRE(value == 2);
-        });
-
-    zero::async::promise::resolve<int, int>(1)
-        .then([](const auto &value) -> std::expected<int, int> {
-            if (value == 1)
-                return std::unexpected{-1};
-
-            return 2;
-        }).fail([](const auto &error) {
-            REQUIRE(error == -1);
-            return std::unexpected{error};
-        });
-
-    zero::async::promise::resolve<int, int>(1)
-        .then(
-            [](const auto &value) -> std::expected<int, int> {
-                if (value == 2)
-                    return std::unexpected{-1};
-
-                return 2;
-            },
-            [](const auto &error) {
-                FAIL();
-                return std::unexpected{error};
-            }
-        ).fail([](const auto &error) {
-            REQUIRE(error == -1);
-            return std::unexpected{error};
-        });
-
-    zero::async::promise::resolve<int, int>(1)
-        .then(
-            [](const auto &value) -> std::expected<int, int> {
-                if (value == 1)
-                    return std::unexpected{-1};
-
-                return 2;
-            },
-            [](const auto &error) {
-                FAIL();
-                return std::unexpected{error};
-            }
-        ).then([](const auto &value) {
-            REQUIRE(value == 2);
-        });
-
-    zero::async::promise::reject<int, int>(-1)
-        .then(
-            [](const auto &value) -> std::expected<int, int> {
-                FAIL();
-                return {};
-            },
-            [](const auto &error) {
-                REQUIRE(error == -1);
-                return std::unexpected{error};
-            }
-        ).fail([](const auto &error) {
-            REQUIRE(error == -1);
-            return std::unexpected{error};
-        });
-
-    const auto i = std::make_shared<int>(0);
-
-    zero::async::promise::resolve<int, int>(1)
-        .finally([=] {
-            *i = 1;
-        }).then([=](const auto &value) {
-            REQUIRE(*i == 1);
-            REQUIRE(value == 1);
-        });
-
-    zero::async::promise::resolve<std::string, int>("hello world")
-        .then(&std::string::size)
-        .then([](const auto &length) {
-            REQUIRE(length == 11);
-        });
-
-    struct People {
-        std::string name;
-        int age{};
-    };
-
-    zero::async::promise::resolve<People, int>(People{"jack", 18})
-        .then([](const auto &people) {
-            return people.age;
-        })
-        .then([](const auto &age) {
-            REQUIRE(age == 18);
-        });
-
-    zero::async::promise::chain<std::unique_ptr<char[]>, int>([](auto p) {
-        auto buffer = std::make_unique<char[]>(1024);
-        std::memcpy(buffer.get(), "hello", 5);
-        p.resolve(std::move(buffer));
-    }).then([](const auto &buffer) {
-        REQUIRE(buffer.get() == "hello"sv);
-    });
-}
-
-TEST_CASE("callback chain concurrency testing", "[async::promise]") {
-    using namespace std::string_view_literals;
-
-    REQUIRE(resolve<int, int>(1).get() == 1);
-    REQUIRE_ERROR((reject<void, int>(-1).get()), -1);
-    REQUIRE(
-        resolve<int, int>(1)
-            .then([](const auto &value) {
-                return resolve<int, int>(value * 10);
-            }).get() == 10
-    );
-
-    REQUIRE(
-        resolve<int, int>(1)
-            .then([](const auto &value) -> std::expected<int, int> {
-                if (value == 2)
-                    return std::unexpected{2};
-
-                return 2;
-            }).get() == 2
-    );
-
-    REQUIRE_ERROR(
-        (resolve<int, int>(1)
-            .then([](const auto &value) -> std::expected<int, int> {
-                if (value == 1)
-                    return std::unexpected{-1};
-
-                return 2;
-            }).get()),
-        -1
-    );
-
-    const auto i = std::make_shared<int>(0);
-    REQUIRE(
-        resolve<int, int>(1)
-            .finally([=] {
-                *i = 1;
-            }).get() == 1
-    );
-    REQUIRE(*i == 1);
-
-    auto buffer = std::make_unique<char[]>(1024);
-    std::memcpy(buffer.get(), "hello", 5);
-
-    const auto result = resolve<std::unique_ptr<char[]>, int>(std::move(buffer)).get();
-    REQUIRE(result);
-    REQUIRE(result->get() == "hello"sv);
-}
-
-TEST_CASE("promise all", "[async::promise]") {
+TEST_CASE("promise and future", "[async::promise]") {
     SECTION("void") {
+        zero::async::promise::Promise<void, std::error_code> promise;
+        REQUIRE(promise.valid());
+        REQUIRE_FALSE(promise.isFulfilled());
+
+        auto future = promise.getFuture();
+        REQUIRE(future.valid());
+        REQUIRE_FALSE(future.isReady());
+
         SECTION("resolve") {
-            const auto result = all(std::array{
-                resolve<void, int>(),
-                resolve<void, int>(),
-                resolve<void, int>(),
-                resolve<void, int>(),
-                resolve<void, int>()
-            }).get();
-            REQUIRE(result);
+            promise.resolve();
+            REQUIRE(promise.valid());
+            REQUIRE(promise.isFulfilled());
+            REQUIRE(future.valid());
+            REQUIRE(future.isReady());
+            REQUIRE(future.wait());
+            REQUIRE(future.result());
         }
 
         SECTION("reject") {
-            const auto result = all(std::array{
-                resolve<void, int>(),
-                resolve<void, int>(),
-                reject<void, int>(-1),
-                resolve<void, int>(),
-                resolve<void, int>()
-            }).get();
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == -1);
+            promise.reject(make_error_code(std::errc::invalid_argument));
+            REQUIRE(promise.valid());
+            REQUIRE(promise.isFulfilled());
+            REQUIRE(future.valid());
+            REQUIRE(future.isReady());
+            REQUIRE(future.wait());
+            REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
 
     SECTION("not void") {
-        SECTION("resolve") {
-            const auto result = all(std::array{
-                resolve<int, int>(1),
-                resolve<int, int>(2),
-                resolve<int, int>(3),
-                resolve<int, int>(4),
-                resolve<int, int>(5)
-            }).get();
-            REQUIRE(result);
+        zero::async::promise::Promise<int, std::error_code> promise;
+        REQUIRE(promise.valid());
+        REQUIRE_FALSE(promise.isFulfilled());
 
-            REQUIRE(result->at(0) == 1);
-            REQUIRE(result->at(1) == 2);
-            REQUIRE(result->at(2) == 3);
-            REQUIRE(result->at(3) == 4);
-            REQUIRE(result->at(4) == 5);
+        auto future = promise.getFuture();
+        REQUIRE(future.valid());
+        REQUIRE_FALSE(future.isReady());
+
+        SECTION("resolve") {
+            promise.resolve(1);
+            REQUIRE(promise.valid());
+            REQUIRE(promise.isFulfilled());
+            REQUIRE(future.valid());
+            REQUIRE(future.isReady());
+            REQUIRE(future.wait());
+            REQUIRE(future.result() == 1);
         }
 
         SECTION("reject") {
-            const auto result = all(std::array{
-                resolve<int, int>(1),
-                resolve<int, int>(2),
-                reject<int, int>(-1),
-                resolve<int, int>(4),
-                resolve<int, int>(5)
-            }).get();
-            REQUIRE_FALSE(result);
-            REQUIRE(result.error() == -1);
+            promise.reject(make_error_code(std::errc::invalid_argument));
+            REQUIRE(promise.valid());
+            REQUIRE(promise.isFulfilled());
+            REQUIRE(future.valid());
+            REQUIRE(future.isReady());
+            REQUIRE(future.wait());
+            REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
+        }
+    }
+}
+
+TEST_CASE("create a resolved promise", "[async::promise]") {
+    SECTION("void") {
+        const auto future = zero::async::promise::resolve<void, std::error_code>();
+        REQUIRE(future.isReady());
+        REQUIRE(future.result());
+    }
+
+    SECTION("not void") {
+        const auto future = zero::async::promise::resolve<int, std::error_code>(1);
+        REQUIRE(future.isReady());
+        REQUIRE(future.result() == 1);
+    }
+}
+
+TEST_CASE("create a rejected promise", "[async::promise]") {
+    const auto future = zero::async::promise::reject<void, std::error_code>(
+        make_error_code(std::errc::invalid_argument)
+    );
+    REQUIRE(future.isReady());
+    REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
+}
+
+TEST_CASE("receive future value", "[async::promise]") {
+    SECTION("void") {
+        zero::async::promise::resolve<void, std::error_code>()
+            .then([] {
+                SUCCEED();
+            });
+    }
+
+    SECTION("not void") {
+        zero::async::promise::resolve<int, std::error_code>(1)
+            .then([](const auto &value) {
+                REQUIRE(value == 1);
+            });
+    }
+}
+
+TEST_CASE("receive future value and transform", "[async::promise]") {
+    SECTION("void") {
+        const auto result = zero::async::promise::resolve<void, std::error_code>()
+                            .then([] {
+                                return 1;
+                            })
+                            .get();
+        REQUIRE(result == 1);
+    }
+
+    SECTION("not void") {
+        const auto result = zero::async::promise::resolve<int, std::error_code>(1)
+                            .then([](const auto &value) {
+                                return value * 2;
+                            })
+                            .get();
+        REQUIRE(result == 2);
+    }
+}
+
+TEST_CASE("receive future value and try to do something", "[async::promise]") {
+    SECTION("void") {
+        SECTION("success") {
+            const auto result = zero::async::promise::resolve<void, std::error_code>()
+                                .then([]() -> std::expected<int, std::error_code> {
+                                    return 1;
+                                })
+                                .get();
+            REQUIRE(result == 1);
+        }
+
+        SECTION("failure") {
+            const auto result = zero::async::promise::resolve<void, std::error_code>()
+                                .then([]() -> std::expected<int, std::error_code> {
+                                    return std::unexpected{make_error_code(std::errc::invalid_argument)};
+                                })
+                                .get();
+            REQUIRE_ERROR(result, std::errc::invalid_argument);
+        }
+    }
+
+    SECTION("not void") {
+        SECTION("success") {
+            const auto result = zero::async::promise::resolve<int, std::error_code>(1)
+                                .then([](const auto &value) -> std::expected<int, std::error_code> {
+                                    return value * 2;
+                                })
+                                .get();
+            REQUIRE(result == 2);
+        }
+
+        SECTION("failure") {
+            const auto result = zero::async::promise::resolve<int, std::error_code>(1)
+                                .then([](const auto &) -> std::expected<int, std::error_code> {
+                                    return std::unexpected{make_error_code(std::errc::invalid_argument)};
+                                })
+                                .get();
+            REQUIRE_ERROR(result, std::errc::invalid_argument);
+        }
+    }
+}
+
+TEST_CASE("receive future value and try to do something asynchronously", "[async::promise]") {
+    SECTION("void") {
+        SECTION("success") {
+            const auto result = zero::async::promise::resolve<void, std::error_code>()
+                                .then([] {
+                                    return zero::async::promise::resolve<int, std::error_code>(1);
+                                })
+                                .get();
+            REQUIRE(result == 1);
+        }
+
+        SECTION("failure") {
+            const auto result = zero::async::promise::resolve<void, std::error_code>()
+                                .then([] {
+                                    return zero::async::promise::reject<int, std::error_code>(
+                                        make_error_code(std::errc::invalid_argument)
+                                    );
+                                })
+                                .get();
+            REQUIRE_ERROR(result, std::errc::invalid_argument);
+        }
+    }
+
+    SECTION("not void") {
+        SECTION("success") {
+            const auto result = zero::async::promise::resolve<int, std::error_code>(1)
+                                .then([](const auto &value) {
+                                    return zero::async::promise::resolve<int, std::error_code>(value * 2);
+                                })
+                                .get();
+            REQUIRE(result == 2);
+        }
+
+        SECTION("failure") {
+            const auto result = zero::async::promise::resolve<int, std::error_code>(1)
+                                .then([](const auto &) {
+                                    return zero::async::promise::reject<int, std::error_code>(
+                                        make_error_code(std::errc::invalid_argument)
+                                    );
+                                })
+                                .get();
+            REQUIRE_ERROR(result, std::errc::invalid_argument);
+        }
+    }
+}
+
+TEST_CASE("catch future error", "[async::promise]") {
+    zero::async::promise::reject<void, std::error_code>(make_error_code(std::errc::invalid_argument))
+        .fail([](const auto &error) {
+            REQUIRE(error == std::errc::invalid_argument);
+        });
+}
+
+TEST_CASE("catch future error and fallback", "[async::promise]") {
+    const auto result = zero::async::promise::reject<int, std::error_code>(make_error_code(std::errc::invalid_argument))
+                        .fail([](const auto &) {
+                            return 1;
+                        })
+                        .get();
+    REQUIRE(result == 1);
+}
+
+TEST_CASE("catch future error and transform", "[async::promise]") {
+    const auto result = zero::async::promise::reject<void, std::error_code>(
+                            make_error_code(std::errc::invalid_argument)
+                        )
+                        .fail([](const auto &error) {
+                            return std::unexpected{error.value()};
+                        })
+                        .get();
+    REQUIRE_ERROR(result, std::to_underlying(std::errc::invalid_argument));
+}
+
+TEST_CASE("catch future error and do something", "[async::promise]") {
+    SECTION("success") {
+        const auto result = zero::async::promise::reject<int, std::error_code>(
+                                make_error_code(std::errc::invalid_argument)
+                            )
+                            .fail([](const auto &) -> std::expected<int, std::error_code> {
+                                return 1;
+                            })
+                            .get();
+        REQUIRE(result == 1);
+    }
+
+    SECTION("failure") {
+        const auto result = zero::async::promise::reject<int, std::error_code>(
+                                make_error_code(std::errc::invalid_argument)
+                            )
+                            .fail([](const auto &) -> std::expected<int, std::error_code> {
+                                return std::unexpected{make_error_code(std::errc::io_error)};
+                            })
+                            .get();
+        REQUIRE_ERROR(result, std::errc::io_error);
+    }
+}
+
+TEST_CASE("catch future error and do something asynchronously", "[async::promise]") {
+    SECTION("success") {
+        const auto result = zero::async::promise::reject<int, std::error_code>(
+                                make_error_code(std::errc::invalid_argument)
+                            )
+                            .fail([](const auto &) {
+                                return zero::async::promise::resolve<int, std::error_code>(1);
+                            })
+                            .get();
+        REQUIRE(result == 1);
+    }
+
+    SECTION("failure") {
+        const auto result = zero::async::promise::reject<int, std::error_code>(
+                                make_error_code(std::errc::invalid_argument)
+                            )
+                            .fail([](const auto &) {
+                                return zero::async::promise::reject<int, std::error_code>(
+                                    make_error_code(std::errc::io_error));
+                            })
+                            .get();
+        REQUIRE_ERROR(result, std::errc::io_error);
+    }
+}
+
+TEST_CASE("handle future result", "[async::promise]") {
+    SECTION("void") {
+        SECTION("success") {
+            zero::async::promise::resolve<void, std::error_code>()
+                .then(
+                    [] {
+                        SUCCEED();
+                    },
+                    [](const auto &) {
+                        FAIL();
+                    }
+                );
+        }
+
+        SECTION("failure") {
+            zero::async::promise::reject<void, std::error_code>(make_error_code(std::errc::invalid_argument))
+                .then(
+                    [] {
+                        FAIL();
+                    },
+                    [](const auto &error) {
+                        REQUIRE(error == std::errc::invalid_argument);
+                    }
+                );
+        }
+    }
+
+    SECTION("not void") {
+        SECTION("success") {
+            zero::async::promise::resolve<int, std::error_code>(1)
+                .then(
+                    [](const auto &value) {
+                        REQUIRE(value == 1);
+                    },
+                    [](const auto &) {
+                        FAIL();
+                    }
+                );
+        }
+
+        SECTION("failure") {
+            zero::async::promise::reject<int, std::error_code>(make_error_code(std::errc::invalid_argument))
+                .then(
+                    [](const auto &) {
+                        FAIL();
+                    },
+                    [](const auto &error) {
+                        REQUIRE(error == std::errc::invalid_argument);
+                    }
+                );
+        }
+    }
+}
+
+TEST_CASE("finally callback", "[async::promise]") {
+    SECTION("void") {
+        SECTION("success") {
+            const auto result = zero::async::promise::resolve<void, std::error_code>()
+                                .finally([] {
+                                    SUCCEED();
+                                })
+                                .get();
+            REQUIRE(result);
+        }
+
+        SECTION("failure") {
+            const auto result = zero::async::promise::reject<void, std::error_code>(
+                                    make_error_code(std::errc::invalid_argument)
+                                )
+                                .finally([] {
+                                    SUCCEED();
+                                })
+                                .get();
+            REQUIRE_ERROR(result, std::errc::invalid_argument);
+        }
+    }
+
+    SECTION("not void") {
+        SECTION("success") {
+            const auto result = zero::async::promise::resolve<int, std::error_code>(1)
+                                .finally([] {
+                                    SUCCEED();
+                                })
+                                .get();
+            REQUIRE(result == 1);
+        }
+
+        SECTION("failure") {
+            const auto result = zero::async::promise::reject<int, std::error_code>(
+                                    make_error_code(std::errc::invalid_argument)
+                                )
+                                .finally([] {
+                                    SUCCEED();
+                                })
+                                .get();
+            REQUIRE_ERROR(result, std::errc::invalid_argument);
+        }
+    }
+}
+
+TEST_CASE("promise all", "[async::promise]") {
+    SECTION("void") {
+        zero::async::promise::Promise<void, std::error_code> promise1;
+        zero::async::promise::Promise<void, std::error_code> promise2;
+
+        const auto future = all(std::array{
+            promise1.getFuture(),
+            promise2.getFuture()
+        });
+
+        SECTION("success") {
+            promise1.resolve();
+            promise2.resolve();
+            REQUIRE(future.wait());
+            REQUIRE(future.result());
+        }
+
+        SECTION("failure") {
+            promise1.resolve();
+            promise2.reject(make_error_code(std::errc::invalid_argument));
+            REQUIRE(future.wait());
+            REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
+        }
+    }
+
+    SECTION("not void") {
+        zero::async::promise::Promise<int, std::error_code> promise1;
+        zero::async::promise::Promise<int, std::error_code> promise2;
+
+        const auto future = all(std::array{
+            promise1.getFuture(),
+            promise2.getFuture()
+        });
+
+        SECTION("success") {
+            promise1.resolve(1);
+            promise2.resolve(2);
+            REQUIRE(future.wait());
+
+            const auto result = future.result();
+            REQUIRE(result);
+            REQUIRE(result->at(0) == 1);
+            REQUIRE(result->at(1) == 2);
+        }
+
+        SECTION("failure") {
+            promise1.resolve(1);
+            promise2.reject(make_error_code(std::errc::invalid_argument));
+            REQUIRE(future.wait());
+            REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
 }
@@ -366,265 +531,205 @@ TEST_CASE("promise all", "[async::promise]") {
 TEST_CASE("promise variadic all", "[async::promise]") {
     SECTION("same types") {
         SECTION("void") {
-            SECTION("resolve") {
-                const auto result = all(
-                    resolve<void, int>(),
-                    resolve<void, int>(),
-                    resolve<void, int>(),
-                    resolve<void, int>(),
-                    resolve<void, int>()
-                ).get();
-                REQUIRE(result);
+            zero::async::promise::Promise<void, std::error_code> promise1;
+            zero::async::promise::Promise<void, std::error_code> promise2;
+
+            const auto future = all(
+                promise1.getFuture(),
+                promise2.getFuture()
+            );
+
+            SECTION("success") {
+                promise1.resolve();
+                promise2.resolve();
+                REQUIRE(future.wait());
+                REQUIRE(future.result());
             }
 
-            SECTION("reject") {
-                const auto result = all(
-                    resolve<void, int>(),
-                    resolve<void, int>(),
-                    reject<void, int>(-1),
-                    resolve<void, int>(),
-                    resolve<void, int>()
-                ).get();
-                REQUIRE_FALSE(result);
-                REQUIRE(result.error() == -1);
+            SECTION("failure") {
+                promise1.resolve();
+                promise2.reject(make_error_code(std::errc::invalid_argument));
+                REQUIRE(future.wait());
+                REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
             }
         }
 
         SECTION("not void") {
-            SECTION("resolve") {
-                const auto result = all(
-                    resolve<int, int>(1),
-                    resolve<int, int>(2),
-                    resolve<int, int>(3),
-                    resolve<int, int>(4),
-                    resolve<int, int>(5)
-                ).get();
-                REQUIRE(result);
+            zero::async::promise::Promise<int, std::error_code> promise1;
+            zero::async::promise::Promise<int, std::error_code> promise2;
 
-                const auto [r1, r2, r3, r4, r5] = *result;
-                REQUIRE(r1 == 1);
-                REQUIRE(r2 == 2);
-                REQUIRE(r3 == 3);
-                REQUIRE(r4 == 4);
-                REQUIRE(r5 == 5);
+            const auto future = all(
+                promise1.getFuture(),
+                promise2.getFuture()
+            );
+
+            SECTION("success") {
+                promise1.resolve(1);
+                promise2.resolve(2);
+                REQUIRE(future.wait());
+
+                const auto result = future.result();
+                REQUIRE(result);
+                REQUIRE(result->at(0) == 1);
+                REQUIRE(result->at(1) == 2);
             }
 
-            SECTION("reject") {
-                const auto result = all(
-                    resolve<int, int>(1),
-                    resolve<int, int>(2),
-                    reject<int, int>(-1),
-                    resolve<int, int>(4),
-                    resolve<int, int>(5)
-                ).get();
-                REQUIRE_FALSE(result);
-                REQUIRE(result.error() == -1);
+            SECTION("failure") {
+                promise1.resolve(1);
+                promise2.reject(make_error_code(std::errc::invalid_argument));
+                REQUIRE(future.wait());
+                REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
             }
         }
     }
 
     SECTION("different types") {
-        SECTION("resolve") {
-            const auto result = all(
-                resolve<int, int>(1),
-                resolve<void, int>(),
-                resolve<long, int>(2),
-                resolve<long, int>(3),
-                resolve<long, int>(4)
-            ).get();
-            REQUIRE(result);
-            const auto [r1, r2, r3, r4, r5] = *result;
+        zero::async::promise::Promise<int, std::error_code> promise1;
+        zero::async::promise::Promise<void, std::error_code> promise2;
+        zero::async::promise::Promise<long, std::error_code> promise3;
 
-            REQUIRE(r1 == 1);
-            REQUIRE(r3 == 2);
-            REQUIRE(r4 == 3);
-            REQUIRE(r5 == 4);
+        const auto future = all(
+            promise1.getFuture(),
+            promise2.getFuture(),
+            promise3.getFuture()
+        );
+
+        SECTION("success") {
+            promise1.resolve(1);
+            promise2.resolve();
+            promise3.resolve(2);
+            REQUIRE(future.wait());
+
+            const auto result = future.result();
+            REQUIRE(result);
+            REQUIRE(std::get<0>(*result) == 1);
+            REQUIRE(std::get<2>(*result) == 2);
         }
 
-        SECTION("reject") {
-            const auto result = all(
-                resolve<int, int>(1),
-                reject<void, int>(-1),
-                reject<void, int>(-2),
-                reject<void, int>(-3),
-                resolve<int, int>(2),
-                resolve<int, int>(3)
-            ).get();
-            REQUIRE_FALSE(result);
-            const auto error = result.error();
-            REQUIRE((error == -1 || error == -2 || error == -3));
+        SECTION("failure") {
+            promise1.resolve(1);
+            promise2.resolve();
+            promise3.reject(make_error_code(std::errc::invalid_argument));
+            REQUIRE(future.wait());
+            REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
 }
 
 TEST_CASE("promise allSettled", "[async::promise]") {
     SECTION("void") {
-        const auto result = allSettled(std::array{
-            resolve<void, int>(),
-            reject<void, int>(-1),
-            resolve<void, int>(),
-            resolve<void, int>(),
-            resolve<void, int>()
-        }).get();
-        REQUIRE(result);
+        zero::async::promise::Promise<void, std::error_code> promise1;
+        zero::async::promise::Promise<void, std::error_code> promise2;
 
-        REQUIRE(result->at(0));
-        REQUIRE(result->at(1).error() == -1);
-        REQUIRE(result->at(2));
-        REQUIRE(result->at(3));
-        REQUIRE(result->at(4));
+        const auto future = allSettled(std::array{
+            promise1.getFuture(),
+            promise2.getFuture()
+        });
+
+        promise1.resolve();
+        promise2.reject(make_error_code(std::errc::invalid_argument));
+        REQUIRE(future.wait());
+
+        const auto result = *future.result();
+        REQUIRE(result[0]);
+        REQUIRE_ERROR(result[1], std::errc::invalid_argument);
     }
 
     SECTION("not void") {
-        const auto result = allSettled(std::array{
-            resolve<int, int>(1),
-            reject<int, int>(-1),
-            resolve<int, int>(2),
-            resolve<int, int>(3),
-            resolve<int, int>(4)
-        }).get();
-        REQUIRE(result);
+        zero::async::promise::Promise<int, std::error_code> promise1;
+        zero::async::promise::Promise<int, std::error_code> promise2;
 
-        REQUIRE(result->at(0).value() == 1);
-        REQUIRE(result->at(1).error() == -1);
-        REQUIRE(result->at(2).value() == 2);
-        REQUIRE(result->at(3).value() == 3);
-        REQUIRE(result->at(4).value() == 4);
+        const auto future = allSettled(std::array{
+            promise1.getFuture(),
+            promise2.getFuture()
+        });
+
+        promise1.resolve(1);
+        promise2.reject(make_error_code(std::errc::invalid_argument));
+        REQUIRE(future.wait());
+
+        const auto result = *future.result();
+        REQUIRE(result[0] == 1);
+        REQUIRE_ERROR(result[1], std::errc::invalid_argument);
     }
 }
 
 TEST_CASE("promise variadic allSettled", "[async::promise]") {
-    SECTION("same types") {
-        SECTION("void") {
-            const auto result = allSettled(
-                resolve<void, int>(),
-                reject<void, int>(-1),
-                resolve<void, int>(),
-                resolve<void, int>(),
-                resolve<void, int>()
-            ).get();
-            REQUIRE(result);
+    zero::async::promise::Promise<int, std::error_code> promise1;
+    zero::async::promise::Promise<void, std::error_code> promise2;
+    zero::async::promise::Promise<long, std::error_code> promise3;
 
-            const auto [r1, r2, r3, r4, r5] = *result;
-            REQUIRE(r1);
-            REQUIRE(r2.error() == -1);
-            REQUIRE(r3);
-            REQUIRE(r4);
-            REQUIRE(r5);
-        }
+    const auto future = allSettled(
+        promise1.getFuture(),
+        promise2.getFuture(),
+        promise3.getFuture()
+    );
 
-        SECTION("not void") {
-            const auto result = allSettled(
-                resolve<int, int>(1),
-                reject<int, int>(-1),
-                resolve<int, int>(2),
-                resolve<int, int>(3),
-                resolve<int, int>(4)
-            ).get();
-            REQUIRE(result);
+    promise1.resolve(1);
+    promise2.resolve();
+    promise3.reject(make_error_code(std::errc::invalid_argument));
+    REQUIRE(future.wait());
 
-            const auto [r1, r2, r3, r4, r5] = *result;
-            REQUIRE(r1.value() == 1);
-            REQUIRE(r2.error() == -1);
-            REQUIRE(r3.value() == 2);
-            REQUIRE(r4.value() == 3);
-            REQUIRE(r5.value() == 4);
-        }
-    }
-
-    SECTION("different types") {
-        const auto result = allSettled(
-            resolve<int, int>(1),
-            reject<void, int>(-1),
-            resolve<long, int>(2L),
-            resolve<long, long>(3),
-            resolve<int, int>(4),
-            resolve<void, int>()
-        ).get();
-        REQUIRE(result);
-
-        const auto [r1, r2, r3, r4, r5, r6] = *result;
-        REQUIRE(r1.value() == 1);
-        REQUIRE(r2.error() == -1);
-        REQUIRE(r3.value() == 2);
-        REQUIRE(r4.value() == 3);
-        REQUIRE(r5.value() == 4);
-        REQUIRE(r6);
-    }
+    const auto result = *future.result();
+    REQUIRE(std::get<0>(result) == 1);
+    REQUIRE(std::get<1>(result));
+    REQUIRE_ERROR(std::get<2>(result), std::errc::invalid_argument);
 }
 
 TEST_CASE("promise any", "[async::promise]") {
     SECTION("void") {
-        SECTION("resolve") {
-            const auto result = any(std::array{
-                reject<void, int>(-1),
-                reject<void, int>(-2),
-                reject<void, int>(-3),
-                reject<void, int>(-4),
-                reject<void, int>(-5),
-                reject<void, int>(-6),
-                resolve<void, int>()
-            }).get();
-            REQUIRE(result);
+        zero::async::promise::Promise<void, std::error_code> promise1;
+        zero::async::promise::Promise<void, std::error_code> promise2;
+
+        const auto future = any(std::array{
+            promise1.getFuture(),
+            promise2.getFuture()
+        });
+
+        SECTION("success") {
+            promise1.reject(make_error_code(std::errc::invalid_argument));
+            promise2.resolve();
+            REQUIRE(future.wait());
+            REQUIRE(future.result());
         }
 
-        SECTION("reject") {
-            const auto result = any(std::array{
-                reject<void, int>(-1),
-                reject<void, int>(-2),
-                reject<void, int>(-3),
-                reject<void, int>(-4),
-                reject<void, int>(-5),
-                reject<void, int>(-6),
-                reject<void, int>(-7)
-            }).get();
-            REQUIRE_FALSE(result);
+        SECTION("failure") {
+            promise1.reject(make_error_code(std::errc::invalid_argument));
+            promise2.reject(make_error_code(std::errc::io_error));
+            REQUIRE(future.wait());
 
-            const auto &errors = result.error();
-            REQUIRE(errors[0] == -1);
-            REQUIRE(errors[1] == -2);
-            REQUIRE(errors[2] == -3);
-            REQUIRE(errors[3] == -4);
-            REQUIRE(errors[4] == -5);
-            REQUIRE(errors[5] == -6);
-            REQUIRE(errors[6] == -7);
+            const auto result = future.result();
+            REQUIRE_FALSE(result);
+            REQUIRE(result.error()[0] == std::errc::invalid_argument);
+            REQUIRE(result.error()[1] == std::errc::io_error);
         }
     }
 
     SECTION("not void") {
-        SECTION("resolve") {
-            const auto result = any(std::array{
-                reject<int, int>(-1),
-                reject<int, int>(-2),
-                reject<int, int>(-3),
-                reject<int, int>(-4),
-                reject<int, int>(-5),
-                reject<int, int>(-6),
-                resolve<int, int>(1)
-            }).get();
-            REQUIRE(result == 1);
+        zero::async::promise::Promise<int, std::error_code> promise1;
+        zero::async::promise::Promise<int, std::error_code> promise2;
+
+        const auto future = any(std::array{
+            promise1.getFuture(),
+            promise2.getFuture()
+        });
+
+        SECTION("success") {
+            promise1.reject(make_error_code(std::errc::invalid_argument));
+            promise2.resolve(1);
+            REQUIRE(future.wait());
+            REQUIRE(future.result() == 1);
         }
 
-        SECTION("reject") {
-            const auto result = any(std::array{
-                reject<int, int>(-1),
-                reject<int, int>(-2),
-                reject<int, int>(-3),
-                reject<int, int>(-4),
-                reject<int, int>(-5),
-                reject<int, int>(-6),
-                reject<int, int>(-7)
-            }).get();
-            REQUIRE_FALSE(result);
+        SECTION("failure") {
+            promise1.reject(make_error_code(std::errc::invalid_argument));
+            promise2.reject(make_error_code(std::errc::io_error));
+            REQUIRE(future.wait());
 
-            const auto &errors = result.error();
-            REQUIRE(errors[0] == -1);
-            REQUIRE(errors[1] == -2);
-            REQUIRE(errors[2] == -3);
-            REQUIRE(errors[3] == -4);
-            REQUIRE(errors[4] == -5);
-            REQUIRE(errors[5] == -6);
-            REQUIRE(errors[6] == -7);
+            const auto result = future.result();
+            REQUIRE_FALSE(result);
+            REQUIRE(result.error()[0] == std::errc::invalid_argument);
+            REQUIRE(result.error()[1] == std::errc::io_error);
         }
     }
 }
@@ -632,165 +737,113 @@ TEST_CASE("promise any", "[async::promise]") {
 TEST_CASE("promise variadic any", "[async::promise]") {
     SECTION("same types") {
         SECTION("void") {
-            SECTION("resolve") {
-                const auto result = any(
-                    reject<void, int>(-1),
-                    reject<void, int>(-2),
-                    reject<void, int>(-3),
-                    reject<void, int>(-4),
-                    reject<void, int>(-5),
-                    reject<void, int>(-6),
-                    resolve<void, int>()
-                ).get();
-                REQUIRE(result);
+            zero::async::promise::Promise<void, std::error_code> promise1;
+            zero::async::promise::Promise<void, std::error_code> promise2;
+
+            const auto future = any(
+                promise1.getFuture(),
+                promise2.getFuture()
+            );
+
+            SECTION("success") {
+                promise1.reject(make_error_code(std::errc::invalid_argument));
+                promise2.resolve();
+                REQUIRE(future.wait());
+                REQUIRE(future.result());
             }
 
-            SECTION("reject") {
-                SECTION("resolve") {
-                    const auto result = any(
-                        reject<void, int>(-1),
-                        reject<void, int>(-2),
-                        reject<void, int>(-3),
-                        reject<void, int>(-4),
-                        reject<void, int>(-5),
-                        reject<void, int>(-6),
-                        reject<void, int>(-7)
-                    ).get();
-                    REQUIRE_FALSE(result);
+            SECTION("failure") {
+                promise1.reject(make_error_code(std::errc::invalid_argument));
+                promise2.reject(make_error_code(std::errc::io_error));
+                REQUIRE(future.wait());
 
-                    const auto &errors = result.error();
-                    REQUIRE(errors[0] == -1);
-                    REQUIRE(errors[1] == -2);
-                    REQUIRE(errors[2] == -3);
-                    REQUIRE(errors[3] == -4);
-                    REQUIRE(errors[4] == -5);
-                    REQUIRE(errors[5] == -6);
-                    REQUIRE(errors[6] == -7);
-                }
+                const auto result = future.result();
+                REQUIRE_FALSE(result);
+                REQUIRE(result.error()[0] == std::errc::invalid_argument);
+                REQUIRE(result.error()[1] == std::errc::io_error);
             }
         }
 
         SECTION("not void") {
-            SECTION("resolve") {
-                const auto result = any(
-                    reject<int, int>(-1),
-                    reject<int, int>(-2),
-                    reject<int, int>(-3),
-                    reject<int, int>(-4),
-                    reject<int, int>(-5),
-                    reject<int, int>(-6),
-                    resolve<int, int>(1)
-                ).get();
-                REQUIRE(result == 1);
+            zero::async::promise::Promise<int, std::error_code> promise1;
+            zero::async::promise::Promise<int, std::error_code> promise2;
+
+            const auto future = any(
+                promise1.getFuture(),
+                promise2.getFuture()
+            );
+
+            SECTION("success") {
+                promise1.reject(make_error_code(std::errc::invalid_argument));
+                promise2.resolve(1);
+                REQUIRE(future.wait());
+                REQUIRE(future.result() == 1);
             }
 
-            SECTION("reject") {
-                SECTION("resolve") {
-                    const auto result = any(
-                        reject<int, int>(-1),
-                        reject<int, int>(-2),
-                        reject<int, int>(-3),
-                        reject<int, int>(-4),
-                        reject<int, int>(-5),
-                        reject<int, int>(-6),
-                        reject<int, int>(-7)
-                    ).get();
-                    REQUIRE_FALSE(result);
+            SECTION("failure") {
+                promise1.reject(make_error_code(std::errc::invalid_argument));
+                promise2.reject(make_error_code(std::errc::io_error));
+                REQUIRE(future.wait());
 
-                    const auto &errors = result.error();
-                    REQUIRE(errors[0] == -1);
-                    REQUIRE(errors[1] == -2);
-                    REQUIRE(errors[2] == -3);
-                    REQUIRE(errors[3] == -4);
-                    REQUIRE(errors[4] == -5);
-                    REQUIRE(errors[5] == -6);
-                    REQUIRE(errors[6] == -7);
-                }
+                const auto result = future.result();
+                REQUIRE_FALSE(result);
+                REQUIRE(result.error()[0] == std::errc::invalid_argument);
+                REQUIRE(result.error()[1] == std::errc::io_error);
             }
         }
     }
 
 #if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION >= 190000
     SECTION("different types") {
-        SECTION("void") {
-            SECTION("resolve") {
-                const auto result = any(
-                    reject<void, int>(-1),
-                    reject<long, int>(-2),
-                    reject<void, int>(-3),
-                    reject<long, int>(-4),
-                    reject<void, int>(-5),
-                    reject<long, int>(-6),
-                    resolve<void, int>()
-                ).get();
+        zero::async::promise::Promise<int, std::error_code> promise1;
+        zero::async::promise::Promise<void, std::error_code> promise2;
+        zero::async::promise::Promise<long, std::error_code> promise3;
+
+        const auto future = any(
+            promise1.getFuture(),
+            promise2.getFuture(),
+            promise3.getFuture()
+        );
+
+        SECTION("success") {
+            SECTION("no value") {
+                promise1.reject(make_error_code(std::errc::invalid_argument));
+                promise2.resolve();
+                REQUIRE(future.wait());
+
+                const auto result = future.result();
                 REQUIRE(result);
                 REQUIRE_FALSE(result->has_value());
             }
 
-            SECTION("reject") {
-                const auto result = any(
-                    reject<void, int>(-1),
-                    reject<long, int>(-2),
-                    reject<void, int>(-3),
-                    reject<long, int>(-4),
-                    reject<void, int>(-5),
-                    reject<long, int>(-6),
-                    reject<void, int>(-7)
-                ).get();
-                REQUIRE_FALSE(result);
+            SECTION("has value") {
+                promise1.reject(make_error_code(std::errc::invalid_argument));
+                promise2.reject(make_error_code(std::errc::io_error));
+                promise3.resolve(1);
+                REQUIRE(future.wait());
 
-                const auto &errors = result.error();
-                REQUIRE(errors[0] == -1);
-                REQUIRE(errors[1] == -2);
-                REQUIRE(errors[2] == -3);
-                REQUIRE(errors[3] == -4);
-                REQUIRE(errors[4] == -5);
-                REQUIRE(errors[5] == -6);
-                REQUIRE(errors[6] == -7);
+                const auto result = future.result();
+                REQUIRE(result);
+                REQUIRE(result->has_value());
+
+#if defined(_CPPRTTI) || defined(__GXX_RTTI)
+                REQUIRE(result->type() == typeid(long));
+#endif
+                REQUIRE(std::any_cast<long>(*result) == 1);
             }
         }
 
-        SECTION("not void") {
-            SECTION("resolve") {
-                const auto result = any(
-                    reject<void, int>(-1),
-                    reject<long, int>(-2),
-                    reject<void, int>(-3),
-                    reject<long, int>(-4),
-                    reject<void, int>(-5),
-                    reject<long, int>(-6),
-                    resolve<int, int>(1)
-                ).get();
+        SECTION("failure") {
+            promise1.reject(make_error_code(std::errc::invalid_argument));
+            promise2.reject(make_error_code(std::errc::io_error));
+            promise3.reject(make_error_code(std::errc::bad_message));
+            REQUIRE(future.wait());
 
-                REQUIRE(result);
-                const auto &any = *result;
-#if defined(_CPPRTTI) || defined(__GXX_RTTI)
-                REQUIRE(any.type() == typeid(int));
-#endif
-                REQUIRE(std::any_cast<int>(any) == 1);
-            }
-
-            SECTION("reject") {
-                const auto result = any(
-                    reject<void, int>(-1),
-                    reject<long, int>(-2),
-                    reject<void, int>(-3),
-                    reject<long, int>(-4),
-                    reject<void, int>(-5),
-                    reject<long, int>(-6),
-                    reject<int, int>(-7)
-                ).get();
-                REQUIRE_FALSE(result);
-
-                const auto &errors = result.error();
-                REQUIRE(errors[0] == -1);
-                REQUIRE(errors[1] == -2);
-                REQUIRE(errors[2] == -3);
-                REQUIRE(errors[3] == -4);
-                REQUIRE(errors[4] == -5);
-                REQUIRE(errors[5] == -6);
-                REQUIRE(errors[6] == -7);
-            }
+            const auto result = future.result();
+            REQUIRE_FALSE(result);
+            REQUIRE(result.error()[0] == std::errc::invalid_argument);
+            REQUIRE(result.error()[1] == std::errc::io_error);
+            REQUIRE(result.error()[2] == std::errc::bad_message);
         }
     }
 #endif
@@ -798,34 +851,46 @@ TEST_CASE("promise variadic any", "[async::promise]") {
 
 TEST_CASE("promise race", "[async::promise]") {
     SECTION("void") {
-        if (const auto result = race(std::array{
-            resolve<void, int>(),
-            reject<void, int>(-1),
-            resolve<void, int>(),
-            reject<void, int>(-2),
-            resolve<void, int>(),
-            reject<void, int>(-3)
-        }).get(); !result) {
-            const auto error = result.error();
-            REQUIRE((error == -1 || error == -2 || error == -3));
+        zero::async::promise::Promise<void, std::error_code> promise1;
+        zero::async::promise::Promise<void, std::error_code> promise2;
+
+        const auto future = race(std::array{
+            promise1.getFuture(),
+            promise2.getFuture()
+        });
+
+        SECTION("success") {
+            promise1.resolve();
+            REQUIRE(future.wait());
+            REQUIRE(future.result());
+        }
+
+        SECTION("failure") {
+            promise1.reject(make_error_code(std::errc::invalid_argument));
+            REQUIRE(future.wait());
+            REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
 
     SECTION("not void") {
-        if (const auto result = race(std::array{
-            resolve<int, int>(1),
-            reject<int, int>(-1),
-            resolve<int, int>(2),
-            reject<int, int>(-2),
-            resolve<int, int>(3),
-            reject<int, int>(-3)
-        }).get(); result) {
-            const auto value = *result;
-            REQUIRE((value == 1 || value == 2 || value == 3));
+        zero::async::promise::Promise<int, std::error_code> promise1;
+        zero::async::promise::Promise<int, std::error_code> promise2;
+
+        const auto future = race(std::array{
+            promise1.getFuture(),
+            promise2.getFuture()
+        });
+
+        SECTION("success") {
+            promise1.resolve(1);
+            REQUIRE(future.wait());
+            REQUIRE(future.result() == 1);
         }
-        else {
-            const auto error = result.error();
-            REQUIRE((error == -1 || error == -2 || error == -3));
+
+        SECTION("failure") {
+            promise1.reject(make_error_code(std::errc::invalid_argument));
+            REQUIRE(future.wait());
+            REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
 }
@@ -833,59 +898,276 @@ TEST_CASE("promise race", "[async::promise]") {
 TEST_CASE("promise variadic race", "[async::promise]") {
     SECTION("same types") {
         SECTION("void") {
-            if (const auto result = race(
-                resolve<void, int>(),
-                reject<void, int>(-1),
-                resolve<void, int>(),
-                reject<void, int>(-2),
-                resolve<void, int>(),
-                reject<void, int>(-3)
-            ).get(); !result) {
-                const auto error = result.error();
-                REQUIRE((error == -1 || error == -2 || error == -3));
+            zero::async::promise::Promise<void, std::error_code> promise1;
+            zero::async::promise::Promise<void, std::error_code> promise2;
+
+            const auto future = race(
+                promise1.getFuture(),
+                promise2.getFuture()
+            );
+
+            SECTION("success") {
+                promise1.resolve();
+                REQUIRE(future.wait());
+                REQUIRE(future.result());
+            }
+
+            SECTION("failure") {
+                promise1.reject(make_error_code(std::errc::invalid_argument));
+                REQUIRE(future.wait());
+                REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
             }
         }
 
         SECTION("not void") {
-            if (const auto result = race(
-                resolve<int, int>(1),
-                reject<int, int>(-1),
-                resolve<int, int>(2),
-                reject<int, int>(-2),
-                resolve<int, int>(3),
-                reject<int, int>(-3)
-            ).get(); result) {
-                const auto value = *result;
-                REQUIRE((value == 1 || value == 2 || value == 3));
+            zero::async::promise::Promise<int, std::error_code> promise1;
+            zero::async::promise::Promise<int, std::error_code> promise2;
+
+            const auto future = race(
+                promise1.getFuture(),
+                promise2.getFuture()
+            );
+
+            SECTION("success") {
+                promise1.resolve(1);
+                REQUIRE(future.wait());
+                REQUIRE(future.result() == 1);
             }
-            else {
-                const auto error = result.error();
-                REQUIRE((error == -1 || error == -2 || error == -3));
+
+            SECTION("failure") {
+                promise1.reject(make_error_code(std::errc::invalid_argument));
+                REQUIRE(future.wait());
+                REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
             }
         }
     }
 
 #if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION >= 190000
     SECTION("different types") {
-        if (const auto result = race(
-            resolve<int, int>(1),
-            reject<long, int>(-1),
-            resolve<int, int>(2),
-            reject<long, int>(-2),
-            resolve<int, int>(3),
-            reject<long, int>(-3)
-        ).get(); result) {
-            const auto &any = *result;
+        zero::async::promise::Promise<int, std::error_code> promise1;
+        zero::async::promise::Promise<void, std::error_code> promise2;
+        zero::async::promise::Promise<long, std::error_code> promise3;
+
+        const auto future = race(
+            promise1.getFuture(),
+            promise2.getFuture(),
+            promise3.getFuture()
+        );
+
+        SECTION("success") {
+            SECTION("no value") {
+                promise2.resolve();
+                REQUIRE(future.wait());
+
+                const auto result = future.result();
+                REQUIRE(result);
+                REQUIRE_FALSE(result->has_value());
+            }
+
+            SECTION("has value") {
+                promise1.resolve(1);
+                REQUIRE(future.wait());
+
+                const auto result = future.result();
+                REQUIRE(result);
+                REQUIRE(result->has_value());
+
 #if defined(_CPPRTTI) || defined(__GXX_RTTI)
-            REQUIRE(any.type() == typeid(int));
+                REQUIRE(result->type() == typeid(int));
 #endif
-            const auto value = std::any_cast<int>(any);
-            REQUIRE((value == 1 || value == 2 || value == 3));
+                REQUIRE(std::any_cast<int>(*result) == 1);
+            }
         }
-        else {
-            const auto error = result.error();
-            REQUIRE((error == -1 || error == -2 || error == -3));
+
+        SECTION("failure") {
+            promise1.reject(make_error_code(std::errc::invalid_argument));
+            REQUIRE(future.wait());
+            REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
 #endif
 }
+
+TEST_CASE("promise concurrency testing", "[async::promise]") {
+    SECTION("success") {
+        const auto result = resolve<int, std::error_code>(1)
+                            .then([](const auto &value) {
+                                return value * 2;
+                            })
+                            .get();
+        REQUIRE(result == 2);
+    }
+
+    SECTION("failure") {
+        const auto result = reject<int, std::error_code>(make_error_code(std::errc::invalid_argument))
+                            .fail([](const auto &error) {
+                                return std::unexpected{error.value()};
+                            })
+                            .get();
+        REQUIRE_ERROR(result, std::to_underlying(std::errc::invalid_argument));
+    }
+}
+
+TEST_CASE("promise all concurrency testing", "[async::promise]") {
+    SECTION("success") {
+        const auto result = all(std::array{
+            resolve<int, std::error_code>(1),
+            resolve<int, std::error_code>(2)
+        }).get();
+        REQUIRE(result);
+        REQUIRE(result->at(0) == 1);
+        REQUIRE(result->at(1) == 2);
+    }
+
+    SECTION("failure") {
+        const auto result = all(std::array{
+            resolve<int, std::error_code>(1),
+            reject<int, std::error_code>(make_error_code(std::errc::invalid_argument))
+        }).get();
+        REQUIRE_ERROR(result, std::errc::invalid_argument);
+    }
+}
+
+TEST_CASE("promise variadic all concurrency testing", "[async::promise]") {
+    SECTION("success") {
+        const auto result = all(
+            resolve<int, std::error_code>(1),
+            resolve<void, std::error_code>(),
+            resolve<long, std::error_code>(2)
+        ).get();
+        REQUIRE(result);
+        REQUIRE(std::get<0>(*result) == 1);
+        REQUIRE(std::get<2>(*result) == 2);
+    }
+
+    SECTION("failure") {
+        const auto result = all(
+            resolve<int, std::error_code>(1),
+            resolve<void, std::error_code>(),
+            reject<long, std::error_code>(make_error_code(std::errc::invalid_argument))
+        ).get();
+        REQUIRE_ERROR(result, std::errc::invalid_argument);
+    }
+}
+
+TEST_CASE("promise allSettled concurrency testing", "[async::promise]") {
+    const auto result = *allSettled(std::array{
+        resolve<int, std::error_code>(1),
+        reject<int, std::error_code>(make_error_code(std::errc::invalid_argument))
+    }).get();
+    REQUIRE(result[0] == 1);
+    REQUIRE_ERROR(result[1], std::errc::invalid_argument);
+}
+
+TEST_CASE("promise variadic allSettled concurrency testing", "[async::promise]") {
+    const auto result = *allSettled(
+        resolve<int, std::error_code>(1),
+        resolve<void, std::error_code>(),
+        reject<long, std::error_code>(make_error_code(std::errc::invalid_argument))
+    ).get();
+    REQUIRE(std::get<0>(result) == 1);
+    REQUIRE(std::get<1>(result));
+    REQUIRE_ERROR(std::get<2>(result), std::errc::invalid_argument);
+}
+
+TEST_CASE("promise any concurrency testing", "[async::promise]") {
+    SECTION("success") {
+        const auto result = any(std::array{
+            reject<int, std::error_code>(make_error_code(std::errc::invalid_argument)),
+            resolve<int, std::error_code>(1),
+        }).get();
+        REQUIRE(result == 1);
+    }
+
+    SECTION("failure") {
+        const auto result = any(std::array{
+            reject<int, std::error_code>(make_error_code(std::errc::invalid_argument)),
+            reject<int, std::error_code>(make_error_code(std::errc::io_error))
+        }).get();
+        REQUIRE_FALSE(result);
+        REQUIRE(result.error()[0] == std::errc::invalid_argument);
+        REQUIRE(result.error()[1] == std::errc::io_error);
+    }
+}
+
+#if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION >= 190000
+TEST_CASE("promise variadic any concurrency testing", "[async::promise]") {
+    SECTION("success") {
+        const auto result = any(
+            reject<int, std::error_code>(make_error_code(std::errc::invalid_argument)),
+            reject<void, std::error_code>(make_error_code(std::errc::io_error)),
+            resolve<long, std::error_code>(1)
+        ).get();
+        REQUIRE(result);
+        REQUIRE(result->has_value());
+
+#if defined(_CPPRTTI) || defined(__GXX_RTTI)
+        REQUIRE(result->type() == typeid(long));
+#endif
+        REQUIRE(std::any_cast<long>(*result) == 1);
+    }
+
+    SECTION("failure") {
+        const auto result = any(
+            reject<int, std::error_code>(make_error_code(std::errc::invalid_argument)),
+            reject<void, std::error_code>(make_error_code(std::errc::io_error)),
+            reject<long, std::error_code>(make_error_code(std::errc::bad_message))
+        ).get();
+        REQUIRE_FALSE(result);
+        REQUIRE(result.error()[0] == std::errc::invalid_argument);
+        REQUIRE(result.error()[1] == std::errc::io_error);
+        REQUIRE(result.error()[2] == std::errc::bad_message);
+    }
+}
+#endif
+
+TEST_CASE("promise race concurrency testing", "[async::promise]") {
+    zero::async::promise::Promise<int, std::error_code> promise;
+
+    SECTION("success") {
+        const auto result = race(std::array{
+            promise.getFuture(),
+            resolve<int, std::error_code>(1)
+        }).get();
+        REQUIRE(result == 1);
+    }
+
+    SECTION("failure") {
+        const auto result = race(std::array{
+            promise.getFuture(),
+            reject<int, std::error_code>(make_error_code(std::errc::invalid_argument))
+        }).get();
+        REQUIRE_ERROR(result, std::errc::invalid_argument);
+    }
+}
+
+#if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION >= 190000
+TEST_CASE("promise variadic race concurrency testing", "[async::promise]") {
+    zero::async::promise::Promise<int, std::error_code> promise1;
+    zero::async::promise::Promise<void, std::error_code> promise2;
+
+    SECTION("success") {
+        const auto result = race(
+            promise1.getFuture(),
+            promise2.getFuture(),
+            resolve<long, std::error_code>(1)
+        ).get();
+        REQUIRE(result);
+        REQUIRE(result->has_value());
+
+#if defined(_CPPRTTI) || defined(__GXX_RTTI)
+        REQUIRE(result->type() == typeid(long));
+#endif
+        REQUIRE(std::any_cast<long>(*result) == 1);
+    }
+
+    SECTION("failure") {
+        const auto result = race(
+            promise1.getFuture(),
+            promise2.getFuture(),
+            reject<long, std::error_code>(make_error_code(std::errc::invalid_argument))
+        ).get();
+        REQUIRE_ERROR(result, std::errc::invalid_argument);
+    }
+}
+#endif

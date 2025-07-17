@@ -63,30 +63,15 @@ TEST_CASE("convert string to upper case letters", "[strings]") {
 }
 
 TEST_CASE("split string to vector", "[strings]") {
-    REQUIRE_THAT(zero::strings::split("", ""), Catch::Matchers::RangeEquals(std::vector{""}));
-    REQUIRE_THAT(zero::strings::split("", " "), Catch::Matchers::RangeEquals(std::vector{""}));
-    REQUIRE_THAT(zero::strings::split("aBcd", ""), Catch::Matchers::RangeEquals(std::vector{"aBcd"}));
-    REQUIRE_THAT(zero::strings::split("aBc d", " "), Catch::Matchers::RangeEquals(std::vector{"aBc", "d"}));
-    REQUIRE_THAT(zero::strings::split("aBc  d", " "), Catch::Matchers::RangeEquals(std::vector{"aBc", "", "d"}));
-    REQUIRE_THAT(
-        zero::strings::split("a  B c  d", " "),
-        Catch::Matchers::RangeEquals(std::vector{"a", "", "B", "c", "", "d"})
-    );
-
-    REQUIRE_THAT(
-        zero::strings::split("a  B c  d", " ", 0),
-        Catch::Matchers::RangeEquals(std::vector{"a", "", "B", "c", "", "d"})
-    );
-
-    REQUIRE_THAT(
-        zero::strings::split("a  B c  d", " ", -1),
-        Catch::Matchers::RangeEquals(std::vector{"a", "", "B", "c", "", "d"})
-    );
-
-    REQUIRE_THAT(
-        zero::strings::split("a  B c  d", " ", 2),
-        Catch::Matchers::RangeEquals(std::vector{"a", "", "B c  d"})
-    );
+    REQUIRE(zero::strings::split("", "") == std::vector<std::string>{""});
+    REQUIRE(zero::strings::split("", " ") == std::vector<std::string>{""});
+    REQUIRE(zero::strings::split("aBcd", "") == std::vector<std::string>{"aBcd"});
+    REQUIRE(zero::strings::split("aBc d", " ") == std::vector<std::string>{"aBc", "d"});
+    REQUIRE(zero::strings::split("aBc  d", " ") == std::vector<std::string>{"aBc", "", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", " ") == std::vector<std::string>{"a", "", "B", "c", "", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", " ", 0) == std::vector<std::string>{"a", "", "B", "c", "", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", " ", -1) == std::vector<std::string>{"a", "", "B", "c", "", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", " ", 2) == std::vector<std::string>{"a", "", "B c  d"});
 
     BENCHMARK("zero::strings::split") {
         return zero::strings::split("a  B c  d", " ");
@@ -97,19 +82,14 @@ TEST_CASE("split string to vector by whitespace", "[strings]") {
     REQUIRE_THAT(zero::strings::split(""), Catch::Matchers::IsEmpty());
     REQUIRE_THAT(zero::strings::split(" "), Catch::Matchers::IsEmpty());
     REQUIRE_THAT(zero::strings::split(" \n\t "), Catch::Matchers::IsEmpty());
-    REQUIRE_THAT(zero::strings::split(" A \n B    C "), Catch::Matchers::RangeEquals(std::vector{"A", "B", "C"}));
-    REQUIRE_THAT(zero::strings::split("aBcd"), Catch::Matchers::RangeEquals(std::vector{"aBcd"}));
-    REQUIRE_THAT(zero::strings::split("aBc d"), Catch::Matchers::RangeEquals(std::vector{"aBc", "d"}));
-    REQUIRE_THAT(zero::strings::split("aBc  d"), Catch::Matchers::RangeEquals(std::vector{"aBc", "d"}));
-    REQUIRE_THAT(zero::strings::split("a  B c  d"), Catch::Matchers::RangeEquals(std::vector{"a", "B", "c", "d"}));
-    REQUIRE_THAT(zero::strings::split("a  B c  d", 0), Catch::Matchers::RangeEquals(std::vector{"a", "B", "c", "d"}));
-    REQUIRE_THAT(zero::strings::split("a  B c  d", -1), Catch::Matchers::RangeEquals(std::vector{"a", "B", "c", "d"}));
-    REQUIRE_THAT(zero::strings::split("a  B c  d", 2), Catch::Matchers::RangeEquals(std::vector{"a", "B", "c  d"}));
-    REQUIRE_THAT(zero::strings::split(" a  B c  d ", 2), Catch::Matchers::RangeEquals(std::vector{"a", "B", "c  d "}));
-    REQUIRE_THAT(
-        zero::strings::split("\na \t\n B    c  d ", 2),
-        Catch::Matchers::RangeEquals(std::vector{"a", "B", "c  d "})
-    );
+    REQUIRE(zero::strings::split(" A \n B    C ") == std::vector<std::string>{"A", "B", "C"});
+    REQUIRE(zero::strings::split("aBc  d") == std::vector<std::string>{"aBc", "d"});
+    REQUIRE(zero::strings::split("a  B c  d") == std::vector<std::string>{"a", "B", "c", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", 0) == std::vector<std::string>{"a", "B", "c", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", -1) == std::vector<std::string>{"a", "B", "c", "d"});
+    REQUIRE(zero::strings::split("a  B c  d", 2) == std::vector<std::string>{"a", "B", "c  d"});
+    REQUIRE(zero::strings::split(" a  B c  d ", 2) == std::vector<std::string>{"a", "B", "c  d "});
+    REQUIRE(zero::strings::split("\na \t\n B    c  d ", 2) == std::vector<std::string>{"a", "B", "c  d "});
 
     BENCHMARK("zero::strings::split") {
         return zero::strings::split("a  B c  d");

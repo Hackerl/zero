@@ -189,13 +189,13 @@ TEST_CASE("command line additional arguments", "[cmdline]") {
     SECTION("without delimiter") {
         cmdline.parse(std::array{"3"sv, "rest"sv, "arguments"sv});
         REQUIRE(cmdline.get<int>("counts") == 3);
-        REQUIRE_THAT(cmdline.rest(), Catch::Matchers::RangeEquals(std::vector{"rest", "arguments"}));
+        REQUIRE(cmdline.rest() == std::vector<std::string>{"rest", "arguments"});
     }
 
     SECTION("with delimiter") {
         cmdline.parse(std::array{"3"sv, "--"sv, "--counts=3"sv, "-c=3"sv});
         REQUIRE(cmdline.get<int>("counts") == 3);
-        REQUIRE_THAT(cmdline.rest(), Catch::Matchers::RangeEquals(std::vector{"--counts=3", "-c=3"}));
+        REQUIRE(cmdline.rest() == std::vector<std::string>{"--counts=3", "-c=3"});
     }
 }
 

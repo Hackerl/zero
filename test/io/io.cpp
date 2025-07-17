@@ -28,7 +28,7 @@ TEST_CASE("read exactly", "[io]") {
         data.resize(input.size());
 
         REQUIRE(reader.readExactly(data));
-        REQUIRE_THAT(data, Catch::Matchers::RangeEquals(input));
+        REQUIRE(data == input);
     }
 
     SECTION("unexpected eof") {
@@ -73,7 +73,7 @@ TEST_CASE("bytes reader", "[io]") {
     data.resize(input.size());
 
     REQUIRE(reader.read(data) == input.size());
-    REQUIRE_THAT(data, Catch::Matchers::RangeEquals(input));
+    REQUIRE(data == input);
 
     REQUIRE(reader.read(data) == 0);
 }
@@ -83,6 +83,6 @@ TEST_CASE("bytes writer", "[io]") {
 
     zero::io::BytesWriter writer;
     REQUIRE(writer.writeAll(std::as_bytes(std::span{input})));
-    REQUIRE_THAT(writer.data(), Catch::Matchers::RangeEquals(input));
-    REQUIRE_THAT(*writer, Catch::Matchers::RangeEquals(input));
+    REQUIRE(writer.data() == input);
+    REQUIRE(*writer == input);
 }

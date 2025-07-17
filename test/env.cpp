@@ -5,51 +5,63 @@
 #include <ranges>
 
 TEST_CASE("get environment variable", "[env]") {
+    const auto name = GENERATE(take(1, randomAlphanumericString(8, 64)));
+
     SECTION("environment variable does not exist") {
-        REQUIRE(zero::env::get("ZERO_ENV_GET") == std::nullopt);
+        REQUIRE(zero::env::get(name) == std::nullopt);
     }
 
     SECTION("environment variable exist") {
-        REQUIRE(zero::env::set("ZERO_ENV_GET", "1"));
-        DEFER(REQUIRE(zero::env::unset("ZERO_ENV_GET")));
-        REQUIRE(zero::env::get("ZERO_ENV_GET") == "1");
+        const auto value = GENERATE(take(1, randomAlphanumericString(8, 64)));
+        REQUIRE(zero::env::set(name, value));
+        DEFER(REQUIRE(zero::env::unset(name)));
+        REQUIRE(zero::env::get(name) == value);
     }
 }
 
 TEST_CASE("set environment variable", "[env]") {
+    const auto name = GENERATE(take(1, randomAlphanumericString(8, 64)));
+    const auto value = GENERATE(take(1, randomAlphanumericString(8, 64)));
+
     SECTION("environment variable does not exist") {
-        REQUIRE(zero::env::set("ZERO_ENV_SET", "1"));
-        DEFER(REQUIRE(zero::env::unset("ZERO_ENV_SET")));
-        REQUIRE(zero::env::get("ZERO_ENV_SET") == "1");
+        REQUIRE(zero::env::set(name, value));
+        DEFER(REQUIRE(zero::env::unset(name)));
+        REQUIRE(zero::env::get(name) == value);
     }
 
     SECTION("environment variable exist") {
-        REQUIRE(zero::env::set("ZERO_ENV_SET", "1"));
-        DEFER(REQUIRE(zero::env::unset("ZERO_ENV_SET")));
-        REQUIRE(zero::env::set("ZERO_ENV_SET", "2"));
-        REQUIRE(zero::env::get("ZERO_ENV_SET") == "2");
+        REQUIRE(zero::env::set(name, "1"));
+        DEFER(REQUIRE(zero::env::unset(name)));
+        REQUIRE(zero::env::set(name, value));
+        REQUIRE(zero::env::get(name) == value);
     }
 }
 
 TEST_CASE("unset environment variable", "[env]") {
+    const auto name = GENERATE(take(1, randomAlphanumericString(8, 64)));
+
     SECTION("environment variable does not exist") {
-        REQUIRE(zero::env::unset("ZERO_ENV_UNSET"));
+        REQUIRE(zero::env::unset(name));
     }
 
     SECTION("environment variable exist") {
-        REQUIRE(zero::env::set("ZERO_ENV_UNSET", "1"));
-        REQUIRE(zero::env::get("ZERO_ENV_UNSET") == "1");
-        REQUIRE(zero::env::unset("ZERO_ENV_UNSET"));
-        REQUIRE(zero::env::get("ZERO_ENV_UNSET") == std::nullopt);
+        const auto value = GENERATE(take(1, randomAlphanumericString(8, 64)));
+        REQUIRE(zero::env::set(name, value));
+        REQUIRE(zero::env::get(name) == value);
+        REQUIRE(zero::env::unset(name));
+        REQUIRE(zero::env::get(name) == std::nullopt);
     }
 }
 
 TEST_CASE("list environment variable", "[env]") {
-    REQUIRE(zero::env::set("ZERO_ENV_LIST", "1"));
-    DEFER(REQUIRE(zero::env::unset("ZERO_ENV_LIST")));
+    const auto name = GENERATE(take(1, randomAlphanumericString(8, 64)));
+    const auto value = GENERATE(take(1, randomAlphanumericString(8, 64)));
+
+    REQUIRE(zero::env::set(name, value));
+    DEFER(REQUIRE(zero::env::unset(name)));
 
     const auto envs = zero::env::list();
     REQUIRE(envs);
-    REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_ENV_LIST"));
-    REQUIRE(envs->at("ZERO_ENV_LIST") == "1");
+    REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains(name));
+    REQUIRE(envs->at(name) == value);
 }

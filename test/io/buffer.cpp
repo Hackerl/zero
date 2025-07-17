@@ -149,7 +149,7 @@ TEST_CASE("buffer writer", "[io::buffer]") {
         REQUIRE(writer.writeAll(input));
         REQUIRE(writer.flush());
         REQUIRE(writer.pending() == 0);
-        REQUIRE_THAT(bytesWriter->data(), Catch::Matchers::RangeEquals(input));
+        REQUIRE(bytesWriter->data() == input);
     }
 }
 

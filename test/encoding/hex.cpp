@@ -2,11 +2,10 @@
 #include <zero/encoding/hex.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 
-constexpr std::string_view DATA = "hello";
-
 TEST_CASE("hex encoding", "[encoding::hex]") {
+    using namespace std::string_view_literals;
     REQUIRE_THAT(zero::encoding::hex::encode(std::span<const std::byte>{}), Catch::Matchers::IsEmpty());
-    REQUIRE(zero::encoding::hex::encode(std::as_bytes(std::span{DATA})) == "68656c6c6f");
+    REQUIRE(zero::encoding::hex::encode(std::as_bytes(std::span{"hello"sv})) == "68656c6c6f");
 }
 
 TEST_CASE("hex decoding", "[encoding::hex]") {
@@ -25,8 +24,9 @@ TEST_CASE("hex decoding", "[encoding::hex]") {
     }
 
     SECTION("valid") {
+        using namespace std::string_view_literals;
         const auto result = zero::encoding::hex::decode("68656c6c6f");
         REQUIRE(result);
-        REQUIRE_THAT(*result, Catch::Matchers::RangeEquals(std::as_bytes(std::span{DATA})));
+        REQUIRE_THAT(*result, Catch::Matchers::RangeEquals(std::as_bytes(std::span{"hello"sv})));
     }
 }
