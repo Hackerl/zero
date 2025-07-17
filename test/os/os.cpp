@@ -37,7 +37,7 @@ TEST_CASE("anonymous pipe", "[os]") {
     auto &[reader, writer] = *pipe;
 
     auto future = std::async([&] { return reader.readAll(); });
-    const auto input = GENERATE(take(100, randomBytes(1, 10240)));
+    const auto input = GENERATE(take(100, randomBytes(1, 102400)));
 
     REQUIRE(writer.writeAll(input));
     REQUIRE(writer.close());

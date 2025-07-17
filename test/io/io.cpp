@@ -3,26 +3,23 @@
 #include <catch2/matchers/catch_matchers_all.hpp>
 
 TEST_CASE("copy", "[io]") {
-    const auto input = GENERATE(take(10, randomString(1, 10240)));
+    const auto input = GENERATE(take(10, randomBytes(1, 102400)));
 
-    zero::io::StringReader reader{input};
-    zero::io::StringWriter writer;
+    zero::io::BytesReader reader{input};
+    zero::io::BytesWriter writer;
     REQUIRE(zero::io::copy(reader, writer) == input.size());
     REQUIRE(*writer == input);
 }
 
 TEST_CASE("read all", "[io]") {
-    const auto input = GENERATE(take(10, randomString(1, 10240)));
+    const auto input = GENERATE(take(10, randomBytes(1, 102400)));
 
-    zero::io::StringReader reader{input};
-
-    const auto result = reader.readAll();
-    REQUIRE(result);
-    REQUIRE_THAT(*result, Catch::Matchers::RangeEquals(std::as_bytes(std::span{input})));
+    zero::io::BytesReader reader{input};
+    REQUIRE(reader.readAll() == input);
 }
 
 TEST_CASE("read exactly", "[io]") {
-    const auto input = GENERATE(take(10, randomBytes(1, 10240)));
+    const auto input = GENERATE(take(10, randomBytes(1, 102400)));
 
     SECTION("normal") {
         zero::io::BytesReader reader{input};
@@ -45,7 +42,7 @@ TEST_CASE("read exactly", "[io]") {
 }
 
 TEST_CASE("string reader", "[io]") {
-    const auto input = GENERATE(take(10, randomString(1, 10240)));
+    const auto input = GENERATE(take(10, randomString(1, 102400)));
 
     zero::io::StringReader reader{input};
 
@@ -59,7 +56,7 @@ TEST_CASE("string reader", "[io]") {
 }
 
 TEST_CASE("string writer", "[io]") {
-    const auto input = GENERATE(take(10, randomString(1, 10240)));
+    const auto input = GENERATE(take(10, randomString(1, 102400)));
 
     zero::io::StringWriter writer;
     REQUIRE(writer.writeAll(std::as_bytes(std::span{input})));
@@ -68,7 +65,7 @@ TEST_CASE("string writer", "[io]") {
 }
 
 TEST_CASE("bytes reader", "[io]") {
-    const auto input = GENERATE(take(10, randomBytes(1, 10240)));
+    const auto input = GENERATE(take(10, randomBytes(1, 102400)));
 
     zero::io::BytesReader reader{input};
 
@@ -82,7 +79,7 @@ TEST_CASE("bytes reader", "[io]") {
 }
 
 TEST_CASE("bytes writer", "[io]") {
-    const auto input = GENERATE(take(10, randomBytes(1, 10240)));
+    const auto input = GENERATE(take(10, randomBytes(1, 102400)));
 
     zero::io::BytesWriter writer;
     REQUIRE(writer.writeAll(std::as_bytes(std::span{input})));

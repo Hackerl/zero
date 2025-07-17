@@ -125,7 +125,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     REQUIRE(temp);
 
     const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
-    const auto input = GENERATE(take(1, randomBytes(1, 10240)));
+    const auto input = GENERATE(take(1, randomBytes(1, 102400)));
 
     REQUIRE(zero::filesystem::write(path, input));
     DEFER(REQUIRE(zero::filesystem::remove(path)));
