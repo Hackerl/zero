@@ -352,7 +352,7 @@ std::expected<zero::os::windows::process::Process, std::error_code> zero::os::wi
 
 std::expected<zero::os::windows::process::Process, std::error_code> zero::os::windows::process::open(const DWORD pid) {
     const auto handle = OpenProcess(
-        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | SYNCHRONIZE,
+        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | SYNCHRONIZE | PROCESS_TERMINATE,
         false,
         pid
     );

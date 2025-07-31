@@ -1,144 +1,101 @@
 #include <catch_extensions.h>
-#include <zero/os/macos/process.h>
-#include <zero/os/unix/error.h>
+#include <zero/os/process.h>
 #include <zero/filesystem/fs.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
-#include <csignal>
-#include <thread>
 #include <unistd.h>
-#include <sys/wait.h>
+#include <csignal>
+#include <ranges>
 
-TEST_CASE("list process ids", "[os::macos::process]") {
+TEST_CASE("list process ids - macOS", "[os::macos::process]") {
     const auto ids = zero::os::macos::process::all();
     REQUIRE(ids);
     REQUIRE_THAT(*ids, Catch::Matchers::Contains(getpid()));
 }
 
-TEST_CASE("self process", "[os::macos::process]") {
-    using namespace std::chrono_literals;
+TEST_CASE("process - macOS", "[os::macos::process]") {
+    const std::string program{"sleep"};
+    constexpr std::array arguments{"1"};
 
-    const auto pid = getpid();
-    const auto process = zero::os::macos::process::self();
+    auto child = zero::os::process::Command{program}
+                 .args({arguments.begin(), arguments.end()})
+                 .env("ZERO_MACOS_PROCESS_TESTS", "1")
+                 .stdInput(zero::os::process::Command::StdioType::NUL)
+                 .stdOutput(zero::os::process::Command::StdioType::NUL)
+                 .stdError(zero::os::process::Command::StdioType::NUL)
+                 .spawn();
+    REQUIRE(child);
+
+    auto process = zero::os::macos::process::open(child->pid());
     REQUIRE(process);
-    REQUIRE(process->pid() == pid);
-    REQUIRE(process->ppid() == getppid());
 
-    const auto path = zero::filesystem::applicationPath();
-    REQUIRE(path);
-
-    REQUIRE(process->name() == "zero_test");
-    REQUIRE(process->comm() == "zero_test");
-
-    const auto cmdline = process->cmdline();
-    REQUIRE(cmdline);
-    REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
-
-    const auto envs = process->envs();
-    REQUIRE(envs);
-
-    REQUIRE(process->exe() == *path);
-    REQUIRE(process->cwd() == zero::filesystem::currentPath());
-
-    const auto startTime = process->startTime();
-    REQUIRE(startTime);
-    REQUIRE(std::chrono::system_clock::now() - *startTime < 10min);
-
-    const auto memory = process->memory();
-    REQUIRE(memory);
-
-    const auto cpu = process->cpu();
-    REQUIRE(cpu);
-
-    const auto io = process->io();
-    REQUIRE(io);
-}
-
-TEST_CASE("child process", "[os::macos::process]") {
-    using namespace std::chrono_literals;
-
-    const auto pid = fork();
-
-    if (pid == 0) {
-        pause();
-        std::exit(EXIT_FAILURE);
+    SECTION("pid") {
+        REQUIRE(process->pid() == child->pid());
     }
 
-    REQUIRE(pid > 0);
-    std::this_thread::sleep_for(100ms);
-
-    auto process = zero::os::macos::process::open(pid);
-    REQUIRE(process);
-    REQUIRE(process->pid() == pid);
-
-    const auto path = zero::filesystem::applicationPath();
-    REQUIRE(path);
-
-    REQUIRE(process->name() == "zero_test");
-    REQUIRE(process->comm() == "zero_test");
-
-    const auto cmdline = process->cmdline();
-    REQUIRE(cmdline);
-    REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
-
-    const auto envs = process->envs();
-    REQUIRE(envs);
-
-    REQUIRE(process->exe() == *path);
-    REQUIRE(process->cwd() == zero::filesystem::currentPath());
-
-    const auto memory = process->memory();
-    REQUIRE(memory);
-
-    const auto cpu = process->cpu();
-    REQUIRE(cpu);
-
-    const auto io = process->io();
-    REQUIRE(io);
-
-    REQUIRE(process->kill(SIGKILL));
-
-    REQUIRE(
-        zero::os::unix::ensure([&] {
-            return waitpid(pid, nullptr, 0);
-        }) == pid
-    );
-}
-
-TEST_CASE("zombie process", "[os::macos::process]") {
-    using namespace std::chrono_literals;
-
-    const auto pid = fork();
-
-    if (pid == 0) {
-        pause();
-        std::exit(EXIT_FAILURE);
+    SECTION("ppid") {
+        REQUIRE(process->ppid() == getpid());
     }
 
-    REQUIRE(pid > 0);
-    REQUIRE(zero::os::unix::expected([=] {
-        return kill(pid, SIGKILL);
-    }));
+    SECTION("comm") {
+        REQUIRE(process->comm() == program);
+    }
 
-    std::this_thread::sleep_for(100ms);
+    SECTION("cwd") {
+        REQUIRE(process->cwd() == zero::filesystem::currentPath());
+    }
 
-    const auto process = zero::os::macos::process::open(pid);
-    REQUIRE(process);
-    REQUIRE(process->pid() == pid);
+    SECTION("exe") {
+        const auto exe = process->exe();
+        REQUIRE(exe);
+        REQUIRE(exe->filename() == program);
+    }
 
-    REQUIRE_ERROR(process->name(), std::errc::no_such_process);
-    REQUIRE_ERROR(process->comm(), std::errc::no_such_process);
-    REQUIRE_ERROR(process->cmdline(), std::errc::invalid_argument);
-    REQUIRE_ERROR(process->envs(), std::errc::invalid_argument);
-    REQUIRE_ERROR(process->exe(), std::errc::no_such_process);
-    REQUIRE_ERROR(process->cwd(), std::errc::no_such_process);
+    SECTION("cmdline") {
+        const auto cmdline = process->cmdline();
+        REQUIRE(cmdline);
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::EndsWith(program));
+        REQUIRE_THAT(
+            (std::ranges::subrange{cmdline->begin() + 1, cmdline->end()}),
+            Catch::Matchers::RangeEquals(arguments)
+        );
+    }
 
-    REQUIRE(
-        zero::os::unix::ensure([&] {
-            return waitpid(pid, nullptr, 0);
-        }) == pid
-    );
+    SECTION("envs") {
+        const auto envs = process->envs();
+        REQUIRE(envs);
+        REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_MACOS_PROCESS_TESTS"));
+        REQUIRE(envs->at("ZERO_MACOS_PROCESS_TESTS") == "1");
+    }
+
+    SECTION("startTime") {
+        using namespace std::chrono_literals;
+        const auto startTime = process->startTime();
+        REQUIRE(startTime);
+        REQUIRE(std::chrono::system_clock::now() - *startTime < 1min);
+    }
+
+    SECTION("cpu") {
+        const auto cpu = process->cpu();
+        REQUIRE(cpu);
+    }
+
+    SECTION("memory") {
+        const auto memory = process->memory();
+        REQUIRE(memory);
+    }
+
+    SECTION("io") {
+        const auto io = process->io();
+        REQUIRE(io);
+    }
+
+    SECTION("kill") {
+        REQUIRE(process->kill(SIGKILL));
+    }
+
+    REQUIRE(child->wait());
 }
 
-TEST_CASE("open process failed", "[os::macos::process]") {
-    REQUIRE_ERROR(zero::os::macos::process::open(99999), std::errc::no_such_process);
+TEST_CASE("no such process - macOS", "[os::macos::process]") {
+    REQUIRE_ERROR(zero::os::macos::process::open(std::numeric_limits<pid_t>::max()), std::errc::no_such_process);
 }

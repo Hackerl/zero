@@ -428,7 +428,7 @@ TEST_CASE("handle future result", "[async::promise]") {
     }
 }
 
-TEST_CASE("finally callback", "[async::promise]") {
+TEST_CASE("future finally callback", "[async::promise]") {
     SECTION("void") {
         SECTION("success") {
             const auto result = zero::async::promise::resolve<void, std::error_code>()

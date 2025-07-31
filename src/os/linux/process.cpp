@@ -106,6 +106,7 @@ std::expected<zero::os::linux::process::IOStat, std::error_code> zero::os::linux
     return mProcess.io();
 }
 
+// ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::os::linux::process::Process::kill(const int sig) {
     EXPECT(unix::expected([&] {
         return ::kill(mProcess.pid(), sig);

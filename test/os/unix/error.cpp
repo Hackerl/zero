@@ -3,10 +3,34 @@
 #include <unistd.h>
 
 TEST_CASE("unix syscall wrapper", "[os::unix::error]") {
-    const auto result = zero::os::unix::expected([&] {
-        std::array<char, 1024> buffer{};
-        return read(-1, buffer.data(), buffer.size());
+    SECTION("failure") {
+        const auto result = zero::os::unix::expected([] {
+            errno = EINVAL;
+            return -1;
+        });
+        REQUIRE_ERROR(result, std::errc::invalid_argument);
+    }
+
+    SECTION("success") {
+        const auto result = zero::os::unix::expected([] {
+            return 0;
+        });
+        REQUIRE(result);
+    }
+}
+
+TEST_CASE("signal-safe unix syscall wrapper", "[os::unix::error]") {
+    bool interrupted{false};
+
+    const auto result = zero::os::unix::ensure([&] {
+        if (!interrupted) {
+            interrupted = true;
+            errno = EINTR;
+            return -1;
+        }
+
+        return 0;
     });
-    REQUIRE_FALSE(result);
-    REQUIRE(result.error() == std::errc::bad_file_descriptor);
+    REQUIRE(result);
+    REQUIRE(interrupted);
 }
