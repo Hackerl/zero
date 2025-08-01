@@ -96,3 +96,7 @@ void zero::atomic::Event::set() {
 void zero::atomic::Event::reset() {
     mState = 0;
 }
+
+bool zero::atomic::Event::isSet() const {
+    return mState == 1;
+}

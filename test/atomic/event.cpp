@@ -7,6 +7,7 @@ TEST_CASE("auto-reset event", "[atomic::event]") {
     using namespace std::chrono_literals;
 
     zero::atomic::Event event;
+    REQUIRE_FALSE(event.isSet());
 
     SECTION("normal") {
         std::atomic<int> n;
@@ -18,11 +19,11 @@ TEST_CASE("auto-reset event", "[atomic::event]") {
                 event.set();
             }
         };
+        DEFER(thread.join());
 
         REQUIRE(event.wait());
+        REQUIRE_FALSE(event.isSet());
         REQUIRE(n == 1);
-        DEFER(thread.join());
-        REQUIRE_ERROR(event.wait(10ms), std::errc::timed_out);
     }
 
     SECTION("timeout") {
@@ -31,10 +32,11 @@ TEST_CASE("auto-reset event", "[atomic::event]") {
 }
 
 TEST_CASE("manual-reset event", "[atomic::event]") {
-    using namespace std::chrono_literals;
-
     SECTION("not set initially") {
+        using namespace std::chrono_literals;
+
         zero::atomic::Event event{true};
+        REQUIRE_FALSE(event.isSet());
 
         SECTION("normal") {
             std::atomic<int> n;
@@ -49,11 +51,11 @@ TEST_CASE("manual-reset event", "[atomic::event]") {
             DEFER(thread.join());
 
             REQUIRE(event.wait());
-            REQUIRE(event.wait());
+            REQUIRE(event.isSet());
             REQUIRE(n == 1);
 
             event.reset();
-            REQUIRE_ERROR(event.wait(10ms), std::errc::timed_out);
+            REQUIRE_FALSE(event.isSet());
         }
 
         SECTION("timeout") {
@@ -63,11 +65,12 @@ TEST_CASE("manual-reset event", "[atomic::event]") {
 
     SECTION("initial set") {
         zero::atomic::Event event{true, true};
+        REQUIRE(event.isSet());
 
         REQUIRE(event.wait());
-        REQUIRE(event.wait());
+        REQUIRE(event.isSet());
 
         event.reset();
-        REQUIRE_ERROR(event.wait(10ms), std::errc::timed_out);
+        REQUIRE_FALSE(event.isSet());
     }
 }

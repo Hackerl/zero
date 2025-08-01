@@ -22,6 +22,7 @@ namespace zero::atomic {
 
         void set();
         void reset();
+        bool isSet() const;
 
     private:
         bool mManual;
