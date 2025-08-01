@@ -7,7 +7,7 @@
 #include <thread>
 #include <fstream>
 #include <mutex>
-#include <fmt/format.h>
+#include <fmt/std.h>
 #include <fmt/chrono.h>
 
 namespace zero::log {
@@ -93,7 +93,7 @@ namespace zero::log {
         );
 
         void log(const Level level, const std::string_view filename, const int line, std::string content) {
-            std::ignore = mChannel.first.send(
+            if (const auto result = mChannel.first.send(
                 {
                     level,
                     line,
@@ -102,8 +102,15 @@ namespace zero::log {
                     std::move(content)
                 },
                 mTimeout
-            );
+            ); !result) {
+                fmt::print(stderr, "log failed: {}\n", std::error_code{result.error()});
+                return;
+            }
+
+            ++mPending;
         }
+
+        void sync();
 
     private:
         std::mutex mMutex;
@@ -113,6 +120,7 @@ namespace zero::log {
         std::optional<Level> mMinLogLevel;
         std::optional<Level> mMaxLogLevel;
         std::optional<std::chrono::milliseconds> mTimeout;
+        std::atomic<std::size_t> mPending;
         concurrent::Channel<Record> mChannel;
     };
 

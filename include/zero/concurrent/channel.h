@@ -28,7 +28,7 @@ namespace zero::concurrent {
 
         void notifySender() {
             {
-                std::lock_guard guard{mutex};
+                const std::lock_guard guard{mutex};
 
                 if (!sender.waiting)
                     return;
@@ -41,7 +41,7 @@ namespace zero::concurrent {
 
         void notifyReceiver() {
             {
-                std::lock_guard guard{mutex};
+                const std::lock_guard guard{mutex};
 
                 if (!receiver.waiting)
                     return;
@@ -54,7 +54,7 @@ namespace zero::concurrent {
 
         void close() {
             {
-                std::lock_guard guard{mutex};
+                const std::lock_guard guard{mutex};
 
                 if (closed)
                     return;

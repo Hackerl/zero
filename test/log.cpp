@@ -101,6 +101,23 @@ TEST_CASE("logger", "[log]") {
         fakeit::Verify(Method(mock, write)).Exactly(times);
         fakeit::Verify(Method(mock, flush)).AtLeastOnce();
     }
+
+    SECTION("sync") {
+        const auto times = GENERATE(take(1, random(1, 1024)));
+
+        logger.addProvider(level, std::unique_ptr<zero::log::IProvider>{&mock.get()});
+
+        for (int i{0}; i < times; ++i)
+            logger.log(level, filename, line, content);
+
+        logger.sync();
+        REQUIRE(event.isSet());
+
+        fakeit::Verify(Method(mock, init)).Once();
+        fakeit::Verify(Method(mock, rotate)).Exactly(times);
+        fakeit::Verify(Method(mock, write)).Exactly(times);
+        fakeit::Verify(Method(mock, flush)).AtLeastOnce();
+    }
 }
 
 TEST_CASE("override log level from environment variable", "[log]") {

@@ -117,7 +117,7 @@ std::expected<void, std::error_code> zero::log::FileProvider::write(const Record
     return {};
 }
 
-zero::log::Logger::Logger() : mChannel{concurrent::channel<Record>(LOGGER_BUFFER_SIZE)} {
+zero::log::Logger::Logger() : mPending{0}, mChannel{concurrent::channel<Record>(LOGGER_BUFFER_SIZE)} {
 }
 
 zero::log::Logger::~Logger() {
@@ -140,7 +140,7 @@ void zero::log::Logger::consume() {
             std::list<std::chrono::milliseconds> durations;
 
             {
-                std::lock_guard guard{mMutex};
+                const std::lock_guard guard{mMutex};
 
                 const auto now = std::chrono::system_clock::now();
                 auto it = mConfigs.begin();
@@ -149,7 +149,8 @@ void zero::log::Logger::consume() {
                     const auto duration = duration_cast<std::chrono::milliseconds>(it->flushDeadline - now);
 
                     if (duration.count() <= 0) {
-                        if (!it->provider->flush()) {
+                        if (const auto result = it->provider->flush(); !result) {
+                            fmt::print(stderr, "flush log failed: {} ({})\n", result.error().message(), result.error());
                             it = mConfigs.erase(it);
                             continue;
                         }
@@ -172,21 +173,29 @@ void zero::log::Logger::consume() {
                 continue;
         }
 
-        std::lock_guard guard{mMutex};
+        const std::lock_guard guard{mMutex};
 
         const auto now = std::chrono::system_clock::now();
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
             if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(Level::ERROR_LEVEL))) {
-                if (!it->provider->write(*record) || !it->provider->rotate()) {
+                if (const auto result = it->provider->write(*record); !result) {
+                    fmt::print(stderr, "write log failed: {} ({})\n", result.error().message(), result.error());
+                    it = mConfigs.erase(it);
+                    continue;
+                }
+
+                if (const auto result = it->provider->rotate(); !result) {
+                    fmt::print(stderr, "rotate log failed: {} ({})\n", result.error().message(), result.error());
                     it = mConfigs.erase(it);
                     continue;
                 }
             }
 
             if (it->flushDeadline <= now) {
-                if (!it->provider->flush()) {
+                if (const auto result = it->provider->flush(); !result) {
+                    fmt::print(stderr, "flush log failed: {} ({})\n", result.error().message(), result.error());
                     it = mConfigs.erase(it);
                     continue;
                 }
@@ -197,6 +206,9 @@ void zero::log::Logger::consume() {
 
             ++it;
         }
+
+        if (--mPending == 0)
+            mPending.notify_all();
     }
 }
 
@@ -247,10 +259,12 @@ void zero::log::Logger::addProvider(
         mThread = std::thread{&Logger::consume, this};
     });
 
-    if (!provider->init())
+    if (const auto result = provider->init(); !result) {
+        fmt::print(stderr, "initialize log provider failed: {} ({})\n", result.error().message(), result.error());
         return;
+    }
 
-    std::lock_guard guard{mMutex};
+    const std::lock_guard guard{mMutex};
 
     mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(Level::ERROR_LEVEL));
 
@@ -260,6 +274,25 @@ void zero::log::Logger::addProvider(
         interval,
         std::chrono::system_clock::now() + interval
     );
+}
+
+void zero::log::Logger::sync() {
+    while (true) {
+        const auto pending = mPending.load();
+
+        if (pending == 0)
+            break;
+
+        mPending.wait(pending);
+    }
+
+    const std::lock_guard guard{mMutex};
+
+    for (const auto &config: mConfigs) {
+        if (const auto result = config.provider->flush(); !result) {
+            fmt::print(stderr, "flush log failed: {} ({})\n", result.error().message(), result.error());
+        }
+    }
 }
 
 zero::log::Logger &zero::log::globalLogger() {
