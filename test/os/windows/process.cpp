@@ -73,7 +73,7 @@ TEST_CASE("process - Windows", "[os::windows::process]") {
         REQUIRE(envs->at("ZERO_WINDOWS_PROCESS_TESTS") == "1");
     }
 
-    SECTION("startTime") {
+    SECTION("start time") {
         using namespace std::chrono_literals;
         const auto startTime = process->startTime();
         REQUIRE(startTime);

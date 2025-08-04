@@ -67,7 +67,7 @@ TEST_CASE("process - macOS", "[os::macos::process]") {
         REQUIRE(envs->at("ZERO_MACOS_PROCESS_TESTS") == "1");
     }
 
-    SECTION("startTime") {
+    SECTION("start time") {
         using namespace std::chrono_literals;
         const auto startTime = process->startTime();
         REQUIRE(startTime);

@@ -129,6 +129,22 @@ namespace zero::concurrent {
             return {};
         }
 
+        std::expected<void, std::pair<T, TrySendError>> trySendEx(T &&element) {
+            if (mCore->closed)
+                return std::unexpected{std::pair{std::move(element), TrySendError::DISCONNECTED}};
+
+            const auto index = mCore->buffer.reserve();
+
+            if (!index)
+                return std::unexpected{std::pair{std::move(element), TrySendError::FULL}};
+
+            mCore->buffer[*index] = std::move(element);
+            mCore->buffer.commit(*index);
+
+            mCore->notifyReceiver();
+            return {};
+        }
+
         template<typename U = T>
         std::expected<void, SendError>
         send(U &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
@@ -162,6 +178,41 @@ namespace zero::concurrent {
 
                 if (mCore->sender.cv.wait_for(lock, *timeout) == std::cv_status::timeout)
                     return std::unexpected{SendError::TIMEOUT};
+            }
+        }
+
+        std::expected<void, std::pair<T, SendError>>
+        sendEx(T &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
+            if (mCore->closed)
+                return std::unexpected{std::pair{std::move(element), SendError::DISCONNECTED}};
+
+            while (true) {
+                const auto index = mCore->buffer.reserve();
+
+                if (index) {
+                    mCore->buffer[*index] = std::move(element);
+                    mCore->buffer.commit(*index);
+                    mCore->notifyReceiver();
+                    return {};
+                }
+
+                std::unique_lock lock{mCore->mutex};
+
+                if (mCore->closed)
+                    return std::unexpected{std::pair{std::move(element), SendError::DISCONNECTED}};
+
+                if (!mCore->buffer.full())
+                    continue;
+
+                mCore->sender.waiting = true;
+
+                if (!timeout) {
+                    mCore->sender.cv.wait(lock);
+                    continue;
+                }
+
+                if (mCore->sender.cv.wait_for(lock, *timeout) == std::cv_status::timeout)
+                    return std::unexpected{std::pair{std::move(element), SendError::TIMEOUT}};
             }
         }
 
