@@ -1,9 +1,33 @@
 #include <catch_extensions.h>
 #include <zero/filesystem/fs.h>
+#include <zero/strings/strings.h>
 #include <zero/defer.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
 #include <list>
+
+TEST_CASE("create path from UTF-8 string", "[filesystem]") {
+    SECTION("valid") {
+        REQUIRE_NOTHROW(zero::filesystem::path("你好"));
+    }
+
+#ifdef _WIN32
+    SECTION("invalid") {
+        REQUIRE_THROWS_MATCHES(
+            zero::filesystem::path("\xc0\xaf"),
+            std::system_error,
+            Catch::Matchers::Predicate<std::system_error>([](const auto &error) {
+                return error.code() == std::errc::illegal_byte_sequence;
+            })
+        );
+    }
+#endif
+}
+
+TEST_CASE("convert path to UTF-8 string", "[filesystem]") {
+    std::setlocale(LC_ALL, "en_US.UTF-8");
+    REQUIRE(zero::strings::decode(zero::filesystem::stringify(zero::filesystem::path("你好"))) == L"你好");
+}
 
 TEST_CASE("read bytes from file", "[filesystem]") {
     const auto temp = zero::filesystem::temporaryDirectory();

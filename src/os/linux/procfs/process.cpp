@@ -630,9 +630,9 @@ zero::os::linux::procfs::process::open(const pid_t pid) {
     const auto path = std::filesystem::path{"/proc"} / std::to_string(pid);
     const auto fd = unix::expected([&] {
 #ifdef O_PATH
-        return ::open(path.string().c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
+        return ::open(path.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
 #else
-        return ::open(path.string().c_str(), O_DIRECTORY | O_CLOEXEC);
+        return ::open(path.c_str(), O_DIRECTORY | O_CLOEXEC);
 #endif
     });
     EXPECT(fd);
@@ -655,7 +655,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
         if (!*result)
             continue;
 
-        const auto id = strings::toNumber<pid_t>(entry->path().filename().string());
+        const auto id = strings::toNumber<pid_t>(entry->path().filename().native());
 
         if (!id)
             continue;

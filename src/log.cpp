@@ -51,7 +51,7 @@ std::expected<void, std::error_code> zero::log::FileProvider::init() {
         duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()
     );
 
-    mStream.open(mDirectory / name);
+    mStream.open(mDirectory / filesystem::path(name));
 
     if (!mStream.is_open())
         return std::unexpected{std::error_code{errno, std::generic_category()}};
@@ -85,7 +85,7 @@ std::expected<void, std::error_code> zero::log::FileProvider::rotate() {
 
         const auto &path = entry->path();
 
-        if (!path.filename().string().starts_with(prefix))
+        if (!filesystem::stringify(path.filename()).starts_with(prefix))
             continue;
 
         logs.push_back(path);

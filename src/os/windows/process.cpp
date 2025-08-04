@@ -97,7 +97,7 @@ std::expected<DWORD, std::error_code> zero::os::windows::process::Process::ppid(
 
 std::expected<std::string, std::error_code> zero::os::windows::process::Process::name() const {
     return exe().transform([](const auto &path) {
-        return path.filename().string();
+        return filesystem::stringify(path.filename());
     });
 }
 

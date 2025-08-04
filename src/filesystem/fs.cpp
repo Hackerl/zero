@@ -1,4 +1,5 @@
 #include <zero/filesystem/fs.h>
+#include <zero/strings/strings.h>
 #include <fstream>
 
 #ifdef _WIN32
@@ -14,6 +15,32 @@
 #elif defined(__linux__)
 #include <zero/filesystem/fs.h>
 #endif
+
+std::filesystem::path zero::filesystem::path(const std::string_view source) {
+#ifdef _WIN32
+    auto result = strings::decode(source);
+
+    if (!result)
+        throw std::system_error{result.error()};
+
+    return *std::move(result);
+#else
+    return source;
+#endif
+}
+
+std::string zero::filesystem::stringify(const std::filesystem::path &path) {
+#ifdef _WIN32
+    auto result = strings::encode(path.native());
+
+    if (!result)
+        throw std::system_error{result.error()};
+
+    return *std::move(result);
+#else
+    return path.native();
+#endif
+}
 
 std::expected<std::filesystem::path, std::error_code> zero::filesystem::applicationPath() {
 #ifdef _WIN32

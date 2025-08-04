@@ -7,6 +7,15 @@
 #include <filesystem>
 
 namespace zero::filesystem {
+    /*
+     * Encoding issues on Windows are always a headache.
+     * `std::filesystem::path` uses `ANSI` encoding by default for `std::string`,
+     * which often causes unexpected encoding exceptions when building cross-platform applications.
+     * I want to standardize the string encoding to `UTF-8`, so I created these two functions.
+     */
+    std::filesystem::path path(std::string_view source);
+    std::string stringify(const std::filesystem::path &path);
+
     std::expected<std::filesystem::path, std::error_code> applicationPath();
     std::expected<std::filesystem::path, std::error_code> applicationDirectory();
 

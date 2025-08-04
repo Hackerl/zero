@@ -20,8 +20,8 @@ TEST_CASE("operating system resource", "[os::resource]") {
     const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
 #ifdef _WIN32
-    const auto handle = CreateFileA(
-        path.string().c_str(),
+    const auto handle = CreateFileW(
+        path.c_str(),
         GENERIC_READ | GENERIC_WRITE,
         0,
         nullptr,
@@ -131,8 +131,8 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     DEFER(REQUIRE(zero::filesystem::remove(path)));
 
 #ifdef _WIN32
-    const auto handle = CreateFileA(
-        path.string().c_str(),
+    const auto handle = CreateFileW(
+        path.c_str(),
         GENERIC_READ | GENERIC_WRITE,
         FILE_SHARE_READ,
         nullptr,

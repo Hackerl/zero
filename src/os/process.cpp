@@ -9,6 +9,7 @@
 #include <future>
 
 #ifdef _WIN32
+#include <zero/filesystem/fs.h>
 #include <zero/strings/strings.h>
 #include <zero/os/windows/error.h>
 #else
@@ -413,7 +414,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     )));
     EXPECT(environment);
 
-    std::vector arguments{command.mPath.string()};
+    std::vector arguments{filesystem::stringify(command.mPath)};
     std::ranges::copy(command.mArguments, std::back_inserter(arguments));
 
     auto cmd = strings::decode(to_string(
@@ -502,7 +503,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     EXPECT(pipe);
     EXPECT(pipe->second.setInheritable(false));
 
-    const auto program = command.mPath.string();
+    const auto &program = command.mPath.native();
 
     std::vector arguments{program};
     std::ranges::copy(command.mArguments, std::back_inserter(arguments));
@@ -907,7 +908,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     )));
     EXPECT(environment);
 
-    std::vector arguments{mPath.string()};
+    std::vector arguments{filesystem::stringify(mPath)};
     std::ranges::copy(mArguments, std::back_inserter(arguments));
 
     auto cmd = strings::decode(to_string(
@@ -989,7 +990,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         )
     );
 
-    const auto program = mPath.string();
+    const auto &program = mPath.native();
 
     std::vector arguments{program};
     std::ranges::copy(mArguments, std::back_inserter(arguments));
