@@ -545,9 +545,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         return str.data();
     });
 
-    const auto pid = unix::expected([] {
-        return fork();
-    });
+    const auto pid = unix::expected(fork);
     EXPECT(pid);
 
     if (*pid == 0) {
@@ -562,6 +560,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
                     return write(fd, &error, sizeof(error));
                 });
                 assert(n);
+                assert(*n == sizeof(error));
                 std::abort();
             }
 
@@ -639,12 +638,12 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     assert(n);
 
     if (*n != 0) {
-        assert(n == sizeof(int));
+        assert(*n == sizeof(int));
         const auto id = unix::ensure([&] {
             return waitpid(*pid, nullptr, 0);
         });
         assert(id);
-        assert(*id == pid);
+        assert(*id == *pid);
         return std::unexpected{std::error_code{error, std::system_category()}};
     }
 
