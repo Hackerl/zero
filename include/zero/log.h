@@ -1,6 +1,7 @@
 #ifndef ZERO_LOG_H
 #define ZERO_LOG_H
 
+#include "utility.h"
 #include "interface.h"
 #include "os/process.h"
 #include "concurrent/channel.h"
@@ -149,7 +150,7 @@ struct fmt::formatter<zero::log::Record, Char> {
         return fmt::format_to(
             ctx.out(),
             "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
-            localtime(std::chrono::system_clock::to_time_t(record.timestamp)),
+            zero::localTime(std::chrono::system_clock::to_time_t(record.timestamp)),
             zero::log::TAGS[std::to_underlying(record.level)],
             record.filename,
             record.line,

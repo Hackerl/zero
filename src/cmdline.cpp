@@ -3,6 +3,7 @@
 #include <cassert>
 #include <ranges>
 #include <fmt/std.h>
+#include <fmt/ranges.h>
 
 zero::Cmdline::Cmdline() : mOptionals{{"help", '?', "print help message", false}} {
 }
@@ -132,10 +133,10 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
             if (!result)
                 throw std::runtime_error{
                     fmt::format(
-                        "invalid value '{}' for positional argument '{}'[{} ({})]",
+                        "invalid value '{}' for positional argument '{}'[{:s} ({})]",
                         argument,
                         it->name,
-                        result.error().message(),
+                        result.error(),
                         result.error()
                     )
                 };
@@ -163,10 +164,10 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
             if (!result)
                 throw std::runtime_error{
                     fmt::format(
-                        "invalid value '{}' for optional argument '{}'[{} ({})]",
+                        "invalid value '{}' for optional argument '{}'[{:s} ({})]",
                         arguments[i],
                         argument,
-                        result.error().message(),
+                        result.error(),
                         result.error()
                     )
                 };
@@ -217,10 +218,10 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
         if (!result)
             throw std::runtime_error{
                 fmt::format(
-                    "invalid value '{}' for optional argument '{}'[{} ({})]",
+                    "invalid value '{}' for optional argument '{}'[{:s} ({})]",
                     argument.substr(pos + 1),
                     argument.substr(0, pos),
-                    result.error().message(),
+                    result.error(),
                     result.error()
                 )
             };

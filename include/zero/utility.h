@@ -1,6 +1,7 @@
 #ifndef ZERO_UTILITY_H
 #define ZERO_UTILITY_H
 
+#include <ctime>
 #include <expected>
 #include <zero/detail/type_traits.h>
 
@@ -20,6 +21,8 @@ namespace zero {
             return error;
         }));
     }
+
+    std::tm localTime(std::time_t time);
 }
 
 #endif //ZERO_UTILITY_H

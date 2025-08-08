@@ -150,7 +150,7 @@ void zero::log::Logger::consume() {
 
                     if (duration.count() <= 0) {
                         if (const auto result = it->provider->flush(); !result) {
-                            fmt::print(stderr, "flush log failed: {} ({})\n", result.error().message(), result.error());
+                            fmt::print(stderr, "flush log failed: {:s} ({})\n", result.error(), result.error());
                             it = mConfigs.erase(it);
                             continue;
                         }
@@ -181,13 +181,13 @@ void zero::log::Logger::consume() {
         while (it != mConfigs.end()) {
             if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(Level::ERROR_LEVEL))) {
                 if (const auto result = it->provider->write(*record); !result) {
-                    fmt::print(stderr, "write log failed: {} ({})\n", result.error().message(), result.error());
+                    fmt::print(stderr, "write log failed: {:s} ({})\n", result.error(), result.error());
                     it = mConfigs.erase(it);
                     continue;
                 }
 
                 if (const auto result = it->provider->rotate(); !result) {
-                    fmt::print(stderr, "rotate log failed: {} ({})\n", result.error().message(), result.error());
+                    fmt::print(stderr, "rotate log failed: {:s} ({})\n", result.error(), result.error());
                     it = mConfigs.erase(it);
                     continue;
                 }
@@ -195,7 +195,7 @@ void zero::log::Logger::consume() {
 
             if (it->flushDeadline <= now) {
                 if (const auto result = it->provider->flush(); !result) {
-                    fmt::print(stderr, "flush log failed: {} ({})\n", result.error().message(), result.error());
+                    fmt::print(stderr, "flush log failed: {:s} ({})\n", result.error(), result.error());
                     it = mConfigs.erase(it);
                     continue;
                 }
@@ -260,7 +260,7 @@ void zero::log::Logger::addProvider(
     });
 
     if (const auto result = provider->init(); !result) {
-        fmt::print(stderr, "initialize log provider failed: {} ({})\n", result.error().message(), result.error());
+        fmt::print(stderr, "initialize log provider failed: {:s} ({})\n", result.error(), result.error());
         return;
     }
 
@@ -290,7 +290,7 @@ void zero::log::Logger::sync() {
 
     for (const auto &config: mConfigs) {
         if (const auto result = config.provider->flush(); !result) {
-            fmt::print(stderr, "flush log failed: {} ({})\n", result.error().message(), result.error());
+            fmt::print(stderr, "flush log failed: {:s} ({})\n", result.error(), result.error());
         }
     }
 }
