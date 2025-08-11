@@ -2,56 +2,88 @@
 #include <zero/cache/lru.h>
 
 TEST_CASE("LRU cache", "[cache::lru]") {
-    zero::cache::LRUCache<int, std::string> cache{5};
+    const auto capacity = GENERATE(1uz, take(1, random(2uz, 1024uz)));
 
-    REQUIRE(cache.capacity() == 5);
-    REQUIRE(cache.empty());
+    zero::cache::LRUCache<std::size_t, std::string> cache{capacity};
 
-    SECTION("lookup/insert cache") {
-        REQUIRE_FALSE(cache.get(0));
-        cache.set(0, "hello");
+    SECTION("contains") {
+        SECTION("exists") {
+            cache.set(0, "0");
+            REQUIRE(cache.contains(0));
+        }
 
-        REQUIRE(cache.size() == 1);
-
-        auto value = cache.get(0);
-        REQUIRE(value);
-        REQUIRE(value->get() == "hello");
-
-        cache.set(0, "world");
-        cache.set(1, "hello");
-
-        REQUIRE(cache.size() == 2);
-
-        value = cache.get(0);
-        REQUIRE(value);
-        REQUIRE(value->get() == "world");
-
-        value = cache.get(1);
-        REQUIRE(value);
-        REQUIRE(value->get() == "hello");
+        SECTION("does not exist") {
+            REQUIRE_FALSE(cache.contains(0));
+        }
     }
 
-    SECTION("evict cache") {
-        cache.set(0, "0");
-        cache.set(1, "1");
-        cache.set(2, "2");
-        cache.set(3, "3");
-        cache.set(4, "4");
+    SECTION("size") {
+        const auto size = GENERATE_REF(take(1, random(0uz, 1024uz)));
 
-        REQUIRE(cache.size() == 5);
-        cache.set(5, "5");
+        for (std::size_t i{0}; i < size; ++i) {
+            cache.set(i, std::to_string(i));
+        }
 
-        REQUIRE(cache.size() == 5);
-        REQUIRE_FALSE(cache.get(0));
+        REQUIRE(cache.size() == (std::min)(size, capacity));
+    }
 
-        cache.set(1, "1!");
-        cache.set(6, "6");
+    SECTION("capacity") {
+        REQUIRE(cache.capacity() == capacity);
+    }
 
-        REQUIRE(cache.size() == 5);
+    SECTION("empty") {
+        SECTION("empty") {
+            REQUIRE(cache.empty());
+        }
 
-        const auto value = cache.get(1);
-        REQUIRE(value);
-        REQUIRE(value->get() == "1!");
-        REQUIRE_FALSE(cache.get(2));
+        SECTION("not empty") {
+            cache.set(0, "0");
+            REQUIRE_FALSE(cache.empty());
+        }
+    }
+
+    SECTION("get") {
+        SECTION("exists") {
+            cache.set(0, "0");
+            const auto value = cache.get(0);
+            REQUIRE(value);
+            REQUIRE(value->get() == "0");
+        }
+
+        SECTION("does not exist") {
+            REQUIRE_FALSE(cache.get(0));
+        }
+    }
+
+    SECTION("set") {
+        SECTION("new key") {
+            cache.set(0, "0");
+            const auto value = cache.get(0);
+            REQUIRE(value);
+            REQUIRE(value->get() == "0");
+        }
+
+        SECTION("existing key") {
+            cache.set(0, "0");
+            cache.set(0, "1");
+            const auto value = cache.get(0);
+            REQUIRE(value);
+            REQUIRE(value->get() == "1");
+        }
+
+        SECTION("evict") {
+            for (std::size_t i{0}; i < capacity; ++i) {
+                cache.set(i, std::to_string(i));
+            }
+
+            REQUIRE(cache.size() == capacity);
+            cache.set(capacity, std::to_string(capacity));
+            REQUIRE(cache.size() == capacity);
+            REQUIRE_FALSE(cache.get(0));
+
+            const auto value = cache.get(capacity);
+            REQUIRE(value);
+            REQUIRE(value->get() == std::to_string(capacity));
+        }
     }
 }

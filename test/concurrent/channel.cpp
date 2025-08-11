@@ -239,7 +239,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
     }
 
     SECTION("empty") {
-        SECTION("not empty") {
+        SECTION("empty") {
             REQUIRE(sender.empty());
         }
 
@@ -380,7 +380,7 @@ TEST_CASE("channel receiver", "[concurrent::channel]") {
     }
 
     SECTION("empty") {
-        SECTION("not empty") {
+        SECTION("empty") {
             REQUIRE(receiver.empty());
         }
 
