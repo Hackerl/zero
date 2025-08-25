@@ -125,9 +125,9 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     REQUIRE(temp);
 
     const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
-    const auto input = GENERATE(take(1, randomBytes(1, 102400)));
+    const auto content = GENERATE(take(1, randomBytes(1, 102400)));
 
-    REQUIRE(zero::filesystem::write(path, input));
+    REQUIRE(zero::filesystem::write(path, content));
     DEFER(REQUIRE(zero::filesystem::remove(path)));
 
 #ifdef _WIN32
@@ -224,11 +224,11 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
 
     SECTION("read") {
         SECTION("normal") {
-            std::vector<std::byte> content;
-            content.resize(input.size());
+            std::vector<std::byte> data;
+            data.resize(content.size());
 
-            REQUIRE(resource.read(content) == input.size());
-            REQUIRE(content == input);
+            REQUIRE(resource.read(data) == content.size());
+            REQUIRE(data == content);
         }
 
         SECTION("eof") {
@@ -240,7 +240,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     }
 
     SECTION("write") {
-        const auto reversed = input | std::views::reverse | std::ranges::to<std::vector>();
+        const auto reversed = content | std::views::reverse | std::ranges::to<std::vector>();
         REQUIRE(resource.write(reversed) == reversed.size());
         REQUIRE(zero::filesystem::read(path) == reversed);
     }
@@ -248,22 +248,22 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     SECTION("position") {
         REQUIRE(resource.position() == 0);
         REQUIRE(resource.readAll());
-        REQUIRE(resource.position() == input.size());
+        REQUIRE(resource.position() == content.size());
     }
 
     SECTION("length") {
-        REQUIRE(resource.length() == input.size());
+        REQUIRE(resource.length() == content.size());
     }
 
     SECTION("rewind") {
         REQUIRE(resource.readAll());
-        REQUIRE(resource.position() == input.size());
+        REQUIRE(resource.position() == content.size());
         REQUIRE(resource.rewind());
         REQUIRE(resource.position() == 0);
     }
 
     SECTION("seek") {
-        const auto offset = GENERATE_REF(take(1, random<std::size_t>(0, input.size() - 1)));
+        const auto offset = GENERATE_REF(take(1, random<std::size_t>(0, content.size() - 1)));
 
         SECTION("begin") {
             REQUIRE(resource.seek(offset, zero::io::ISeekable::Whence::BEGIN) == offset);
@@ -275,16 +275,13 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
 
         SECTION("end") {
             REQUIRE(resource.seek(
-                -(static_cast<std::int64_t>(input.size() - offset)),
+                -(static_cast<std::int64_t>(content.size() - offset)),
                 zero::io::ISeekable::Whence::END
             ) == offset);
         }
 
-        const auto content = resource.readAll();
-        REQUIRE(content);
-        REQUIRE_THAT(
-            *content,
-            Catch::Matchers::RangeEquals(std::span{input.begin() + offset, input.end()})
-        );
+        const auto data = resource.readAll();
+        REQUIRE(data);
+        REQUIRE_THAT(*data, Catch::Matchers::RangeEquals(std::span{content.begin() + offset, content.end()}));
     }
 }

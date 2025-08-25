@@ -1,6 +1,5 @@
 #include <catch_extensions.h>
 #include <zero/io/io.h>
-#include <catch2/matchers/catch_matchers_all.hpp>
 
 TEST_CASE("copy", "[io]") {
     const auto input = GENERATE(take(10, randomBytes(1, 102400)));
@@ -82,7 +81,7 @@ TEST_CASE("bytes writer", "[io]") {
     const auto input = GENERATE(take(10, randomBytes(1, 102400)));
 
     zero::io::BytesWriter writer;
-    REQUIRE(writer.writeAll(std::as_bytes(std::span{input})));
+    REQUIRE(writer.writeAll(input));
     REQUIRE(writer.data() == input);
     REQUIRE(*writer == input);
 }
