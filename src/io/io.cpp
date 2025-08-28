@@ -30,7 +30,7 @@ std::expected<std::vector<std::byte>, std::error_code> zero::io::IReader::readAl
         if (*n == 0)
             break;
 
-        data.insert(data.end(), buffer.begin(), buffer.begin() + static_cast<std::ptrdiff_t>(*n));
+        data.append_range(std::span{buffer.data(), *n});
     }
 
     return data;
@@ -106,7 +106,7 @@ std::expected<std::size_t, std::error_code> zero::io::BytesReader::read(const st
 }
 
 std::expected<std::size_t, std::error_code> zero::io::BytesWriter::write(const std::span<const std::byte> data) {
-    mBytes.insert(mBytes.end(), data.begin(), data.end());
+    mBytes.append_range(data);
     return data.size();
 }
 
