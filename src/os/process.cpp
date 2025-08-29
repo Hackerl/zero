@@ -415,7 +415,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     EXPECT(environment);
 
     std::vector arguments{filesystem::stringify(command.mPath)};
-    std::ranges::copy(command.mArguments, std::back_inserter(arguments));
+    arguments.append_range(command.mArguments);
 
     auto cmd = strings::decode(to_string(
         fmt::join(arguments | std::views::transform(quote), " ")
@@ -506,7 +506,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     const auto &program = command.mPath.native();
 
     std::vector arguments{program};
-    std::ranges::copy(command.mArguments, std::back_inserter(arguments));
+    arguments.append_range(command.mArguments);
 
     std::map<std::string, std::string> envs;
 
@@ -843,7 +843,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         | std::views::transform(&Resource::get)
         | std::ranges::to<std::vector>();
 
-    std::ranges::copy(mInheritedNativeResources, std::back_inserter(inheritedHandles));
+    inheritedHandles.append_range(mInheritedNativeResources);
 
     for (int i{0}; i < 3; ++i) {
         const auto &resource = resources[indexMapping[i]];
@@ -908,7 +908,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     EXPECT(environment);
 
     std::vector arguments{filesystem::stringify(mPath)};
-    std::ranges::copy(mArguments, std::back_inserter(arguments));
+    arguments.append_range(mArguments);
 
     auto cmd = strings::decode(to_string(
         fmt::join(arguments | std::views::transform(quote), " ")
@@ -992,7 +992,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     const auto &program = mPath.native();
 
     std::vector arguments{program};
-    std::ranges::copy(mArguments, std::back_inserter(arguments));
+    arguments.append_range(mArguments);
 
     std::map<std::string, std::string> envs;
 
