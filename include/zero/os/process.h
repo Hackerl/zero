@@ -58,6 +58,8 @@ namespace zero::os::process {
         [[nodiscard]] std::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] std::expected<IOStat, std::error_code> io() const;
 
+        [[nodiscard]] std::expected<std::string, std::error_code> user() const;
+
         std::expected<void, std::error_code> kill();
 
     private:

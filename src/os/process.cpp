@@ -163,6 +163,10 @@ std::expected<zero::os::process::IOStat, std::error_code> zero::os::process::Pro
     });
 }
 
+std::expected<std::string, std::error_code> zero::os::process::Process::user() const {
+    return mImpl.user();
+}
+
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::os::process::Process::kill() {
 #ifdef _WIN32

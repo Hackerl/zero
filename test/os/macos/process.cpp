@@ -1,5 +1,6 @@
 #include <catch_extensions.h>
 #include <zero/os/process.h>
+#include <zero/os/os.h>
 #include <zero/filesystem/fs.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <unistd.h>
@@ -87,6 +88,10 @@ TEST_CASE("process - macOS", "[os::macos::process]") {
     SECTION("io") {
         const auto io = process->io();
         REQUIRE(io);
+    }
+
+    SECTION("user") {
+        REQUIRE(process->user() == zero::os::username());
     }
 
     SECTION("kill") {

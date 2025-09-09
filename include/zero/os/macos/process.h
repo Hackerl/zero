@@ -30,7 +30,8 @@ namespace zero::os::macos::process {
         DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::macos::process::Process",
-            UNEXPECTED_DATA, "unexpected data"
+            UNEXPECTED_DATA, "unexpected data",
+            NO_SUCH_USER, "no such user"
         )
 
         explicit Process(pid_t pid);
@@ -55,6 +56,8 @@ namespace zero::os::macos::process {
         [[nodiscard]] std::expected<CPUTime, std::error_code> cpu() const;
         [[nodiscard]] std::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] std::expected<IOStat, std::error_code> io() const;
+
+        [[nodiscard]] std::expected<std::string, std::error_code> user() const;
 
         std::expected<void, std::error_code> kill(int sig);
 

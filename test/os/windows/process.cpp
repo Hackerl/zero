@@ -1,5 +1,6 @@
 #include <catch_extensions.h>
 #include <zero/os/process.h>
+#include <zero/os/os.h>
 #include <zero/filesystem/fs.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
@@ -93,6 +94,16 @@ TEST_CASE("process - Windows", "[os::windows::process]") {
     SECTION("io") {
         const auto io = process->io();
         REQUIRE(io);
+    }
+
+    SECTION("user") {
+        const auto user = process->user();
+        REQUIRE(user);
+
+        const auto username = zero::os::username();
+        REQUIRE(username);
+
+        REQUIRE_THAT(*user, Catch::Matchers::EndsWith(*username));
     }
 
     SECTION("exit code") {

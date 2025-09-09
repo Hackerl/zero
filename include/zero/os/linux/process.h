@@ -20,6 +20,12 @@ namespace zero::os::linux::process {
 
     class Process {
     public:
+        DEFINE_ERROR_CODE_INNER(
+            Error,
+            "zero::os::linux::process::Process",
+            NO_SUCH_USER, "no such user"
+        )
+
         explicit Process(procfs::process::Process process);
         Process(Process &&rhs) noexcept;
         Process &operator=(Process &&rhs) noexcept;
@@ -38,6 +44,8 @@ namespace zero::os::linux::process {
         [[nodiscard]] std::expected<MemoryStat, std::error_code> memory() const;
         [[nodiscard]] std::expected<IOStat, std::error_code> io() const;
 
+        [[nodiscard]] std::expected<std::string, std::error_code> user() const;
+
         std::expected<void, std::error_code> kill(int sig);
 
     private:
@@ -48,5 +56,7 @@ namespace zero::os::linux::process {
     std::expected<Process, std::error_code> open(pid_t pid);
     std::expected<std::list<pid_t>, std::error_code> all();
 }
+
+DECLARE_ERROR_CODE(zero::os::linux::process::Process::Error)
 
 #endif //ZERO_OS_LINUX_PROCESS_H

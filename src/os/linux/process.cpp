@@ -4,6 +4,7 @@
 #include <zero/expect.h>
 #include <unistd.h>
 #include <csignal>
+#include <pwd.h>
 
 zero::os::linux::process::Process::Process(procfs::process::Process process) : mProcess{std::move(process)} {
 }
@@ -106,6 +107,36 @@ std::expected<zero::os::linux::process::IOStat, std::error_code> zero::os::linux
     return mProcess.io();
 }
 
+std::expected<std::string, std::error_code> zero::os::linux::process::Process::user() const {
+    const auto status = mProcess.status();
+    EXPECT(status);
+
+    const auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
+
+    auto size = static_cast<std::size_t>(max != -1 ? max : 1024);
+    auto buffer = std::make_unique<char[]>(size);
+
+    passwd pwd{};
+    passwd *ptr{};
+
+    while (true) {
+        const auto n = getpwuid_r(status->uid[0], &pwd, buffer.get(), size, &ptr);
+
+        if (n == 0) {
+            if (!ptr)
+                return std::unexpected{Error::NO_SUCH_USER};
+
+            return pwd.pw_name;
+        }
+
+        if (n != ERANGE)
+            return std::unexpected{std::error_code(n, std::system_category())};
+
+        size *= 2;
+        buffer = std::make_unique<char[]>(size);
+    }
+}
+
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::os::linux::process::Process::kill(const int sig) {
     EXPECT(unix::expected([&] {
@@ -129,3 +160,5 @@ std::expected<zero::os::linux::process::Process, std::error_code> zero::os::linu
 std::expected<std::list<pid_t>, std::error_code> zero::os::linux::process::all() {
     return procfs::process::all();
 }
+
+DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::linux::process::Process::Error)

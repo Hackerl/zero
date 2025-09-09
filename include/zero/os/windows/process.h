@@ -67,6 +67,8 @@ namespace zero::os::windows::process {
         [[nodiscard]] std::expected<DWORD, std::error_code> exitCode() const;
         [[nodiscard]] std::expected<void, std::error_code> wait(std::optional<std::chrono::milliseconds> timeout) const;
 
+        [[nodiscard]] std::expected<std::string, std::error_code> user() const;
+
         std::expected<void, std::error_code> terminate(DWORD code);
 
     private:

@@ -6,6 +6,7 @@
 #include <zero/defer.h>
 #include <winternl.h>
 #include <psapi.h>
+#include <fmt/xchar.h>
 
 #ifdef _WIN64
 constexpr auto CURRENT_DIRECTORY_OFFSET = 0x38;
@@ -337,6 +338,58 @@ zero::os::windows::process::Process::wait(const std::optional<std::chrono::milli
     }
 
     return {};
+}
+
+std::expected<std::string, std::error_code> zero::os::windows::process::Process::user() const {
+    HANDLE token{};
+
+    EXPECT(expected([&] {
+        return OpenProcessToken(*mResource, TOKEN_QUERY, &token);
+    }));
+    DEFER(CloseHandle(token));
+
+    DWORD size{1024};
+    auto buffer = std::make_unique<std::byte[]>(size);
+
+    while (true) {
+        const auto result = expected([&] {
+            return GetTokenInformation(token, TokenUser, buffer.get(), size, &size);
+        });
+
+        if (result)
+            break;
+
+        if (result.error() != std::error_code{ERROR_INSUFFICIENT_BUFFER, std::system_category()})
+            return std::unexpected{result.error()};
+
+        buffer = std::make_unique<std::byte[]>(size);
+    }
+
+    const auto sid = reinterpret_cast<const TOKEN_USER *>(buffer.get())->User.Sid;
+
+    DWORD nameSize{1024};
+    DWORD domainSize{1024};
+
+    auto name = std::make_unique<WCHAR[]>(nameSize);
+    auto domain = std::make_unique<WCHAR[]>(domainSize);
+
+    while (true) {
+        const auto result = expected([&] {
+            SID_NAME_USE type{};
+            return LookupAccountSidW(nullptr, sid, name.get(), &nameSize, domain.get(), &domainSize, &type);
+        });
+
+        if (result)
+            break;
+
+        if (result.error() != std::error_code{ERROR_INSUFFICIENT_BUFFER, std::system_category()})
+            return std::unexpected{result.error()};
+
+        name = std::make_unique<WCHAR[]>(nameSize);
+        domain = std::make_unique<WCHAR[]>(domainSize);
+    }
+
+    return strings::encode(fmt::format(L"{}\\{}", domain.get(), name.get()));
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst

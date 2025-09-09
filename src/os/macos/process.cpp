@@ -8,6 +8,7 @@
 #include <libproc.h>
 #include <unistd.h>
 #include <csignal>
+#include <pwd.h>
 
 zero::os::macos::process::Process::Process(const pid_t pid) : mPID{pid} {
 }
@@ -243,6 +244,38 @@ zero::os::macos::process::Process::io() const {
         info.ri_diskio_bytesread,
         info.ri_diskio_byteswritten
     };
+}
+
+std::expected<std::string, std::error_code> zero::os::macos::process::Process::user() const {
+    proc_bsdinfo info{};
+
+    if (proc_pidinfo(mPID, PROC_PIDTBSDINFO, 0, &info, PROC_PIDTBSDINFO_SIZE) <= 0)
+        return std::unexpected{std::error_code{errno, std::system_category()}};
+
+    const auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
+
+    auto size = static_cast<std::size_t>(max != -1 ? max : 1024);
+    auto buffer = std::make_unique<char[]>(size);
+
+    passwd pwd{};
+    passwd *ptr{};
+
+    while (true) {
+        const auto n = getpwuid_r(info.pbi_uid, &pwd, buffer.get(), size, &ptr);
+
+        if (n == 0) {
+            if (!ptr)
+                return std::unexpected{Error::NO_SUCH_USER};
+
+            return pwd.pw_name;
+        }
+
+        if (n != ERANGE)
+            return std::unexpected{std::error_code(n, std::system_category())};
+
+        size *= 2;
+        buffer = std::make_unique<char[]>(size);
+    }
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst

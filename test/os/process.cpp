@@ -79,6 +79,16 @@ TEST_CASE("process", "[os::process]") {
         const auto io = process->io();
         REQUIRE(io);
     }
+
+    SECTION("user") {
+        const auto user = process->user();
+        REQUIRE(user);
+
+        const auto username = zero::os::username();
+        REQUIRE(username);
+
+        REQUIRE_THAT(*user, Catch::Matchers::EndsWith(*username));
+    }
 }
 
 TEST_CASE("child process", "[os::process]") {
