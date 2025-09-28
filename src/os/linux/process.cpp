@@ -146,13 +146,13 @@ std::expected<void, std::error_code> zero::os::linux::process::Process::kill(con
 }
 
 std::expected<zero::os::linux::process::Process, std::error_code> zero::os::linux::process::self() {
-    return procfs::process::self().transform([](auto process) {
+    return procfs::process::self().transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
 }
 
 std::expected<zero::os::linux::process::Process, std::error_code> zero::os::linux::process::open(const pid_t pid) {
-    return procfs::process::open(pid).transform([](auto process) {
+    return procfs::process::open(pid).transform([](procfs::process::Process &&process) {
         return Process{std::move(process)};
     });
 }

@@ -192,7 +192,7 @@ std::expected<zero::os::process::Process, std::error_code> zero::os::process::se
 #elif defined(__linux__)
     return linux::process::self()
 #endif
-        .transform([](auto process) {
+        .transform([](ProcessImpl &&process) {
             return Process{std::move(process)};
         });
 }
@@ -205,7 +205,7 @@ std::expected<zero::os::process::Process, std::error_code> zero::os::process::op
 #elif defined(__linux__)
     return linux::process::open(static_cast<pid_t>(pid))
 #endif
-        .transform([](auto process) {
+        .transform([](ProcessImpl &&process) {
             return Process{std::move(process)};
         });
 }
