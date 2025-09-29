@@ -34,7 +34,7 @@ TEST_CASE("flatten std::expected", "[utility]") {
     }
 }
 
-TEST_CASE("flatten with error type", "[utility]") {
+TEST_CASE("flatten std::expected with error type", "[utility]") {
     SECTION("void") {
         SECTION("has value") {
             REQUIRE(zero::flattenWith<long>(std::expected<std::expected<void, short>, int>{}));
@@ -61,5 +61,15 @@ TEST_CASE("flatten with error type", "[utility]") {
                 -1
             );
         }
+    }
+}
+
+TEST_CASE("extract std::expected", "[utility]") {
+    SECTION("has value") {
+        REQUIRE(zero::extract(std::expected<int, int>{0}) == 0);
+    }
+
+    SECTION("has error") {
+        REQUIRE_FALSE(zero::extract(std::expected<int, int>{std::unexpected{-1}}));
     }
 }

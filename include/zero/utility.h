@@ -31,6 +31,15 @@ namespace zero {
         }));
     }
 
+    template<typename T, typename E>
+        requires (!std::is_void_v<T>)
+    std::optional<T> extract(std::expected<T, E> expected) {
+        if (!expected)
+            return std::nullopt;
+
+        return *std::move(expected);
+    }
+
     std::tm localTime(std::time_t time);
 }
 
