@@ -3,9 +3,18 @@
 
 #include <ctime>
 #include <expected>
+#include <optional>
 #include <zero/detail/type_traits.h>
 
 namespace zero {
+    template<typename T>
+    std::optional<T> flatten(std::optional<std::optional<T>> optional) {
+        if (!optional || !*optional)
+            return std::nullopt;
+
+        return *std::move(*optional);
+    }
+
     template<typename T, typename E1, typename E2>
         requires std::is_convertible_v<E1, E2>
     auto flatten(std::expected<std::expected<T, E1>, E2> expected) {

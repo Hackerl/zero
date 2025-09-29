@@ -1,7 +1,18 @@
 #include "catch_extensions.h"
 #include <zero/utility.h>
 
-TEST_CASE("flatten", "[utility]") {
+TEST_CASE("flatten std::optional", "[utility]") {
+    SECTION("has value") {
+        REQUIRE(zero::flatten(std::optional<std::optional<int>>{0}) == 0);
+    }
+
+    SECTION("no value") {
+        REQUIRE_FALSE(zero::flatten(std::optional<std::optional<int>>{}));
+        REQUIRE_FALSE(zero::flatten(std::optional<std::optional<int>>{std::optional<int>{}}));
+    }
+}
+
+TEST_CASE("flatten std::expected", "[utility]") {
     SECTION("void") {
         SECTION("has value") {
             REQUIRE(zero::flatten(std::expected<std::expected<void, short>, int>{}));
