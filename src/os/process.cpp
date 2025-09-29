@@ -42,6 +42,10 @@ constexpr auto STDOUT_W = 3;
 constexpr auto STDERR_R = 4;
 constexpr auto STDERR_W = 5;
 
+#ifndef _WIN32
+constexpr auto FD_MAX = 65535;
+#endif
+
 #ifdef _WIN32
 namespace {
     const auto createPseudoConsole = reinterpret_cast<decltype(&CreatePseudoConsole)>(
@@ -604,7 +608,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
             return static_cast<int>(sysconf(_SC_OPEN_MAX));
         });
 
-        for (int fd{STDERR_FILENO + 1}; fd < max; ++fd) {
+        for (int fd{STDERR_FILENO + 1}; fd < std::min(max, FD_MAX); ++fd) {
             if (fd == pipe->second.fd())
                 continue;
 
@@ -1124,7 +1128,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     EXPECT(max);
 
     // The program assumes that the file descriptor to be inherited is not set FD_CLOEXEC.
-    for (int fd{STDERR_FILENO + 1}; fd < *max; ++fd) {
+    for (int fd{STDERR_FILENO + 1}; fd < std::min(*max, FD_MAX); ++fd) {
         if (std::ranges::find_if(
             mInheritedResources,
             [=](const auto &resource) {
