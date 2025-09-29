@@ -17,7 +17,7 @@ namespace zero {
 
     template<typename T, typename E1, typename E2>
         requires std::is_convertible_v<E1, E2>
-    auto flatten(std::expected<std::expected<T, E1>, E2> expected) {
+    std::expected<T, E2> flatten(std::expected<std::expected<T, E1>, E2> expected) {
         return std::move(expected).and_then([](std::expected<T, E1> &&result) -> std::expected<T, E2> {
             return result;
         });
@@ -38,6 +38,23 @@ namespace zero {
             return std::nullopt;
 
         return *std::move(expected);
+    }
+
+    template<typename T, typename E>
+    std::optional<std::expected<T, E>> transpose(std::expected<std::optional<T>, E> expected) {
+        if (!expected)
+            return std::unexpected{std::move(expected).error()};
+
+        return *std::move(expected);
+    }
+
+    template<typename T, typename E>
+        requires (!std::is_void_v<T>)
+    std::expected<std::optional<T>, E> transpose(std::optional<std::expected<T, E>> optional) {
+        if (!optional)
+            return std::nullopt;
+
+        return *std::move(optional);
     }
 
     std::tm localTime(std::time_t time);

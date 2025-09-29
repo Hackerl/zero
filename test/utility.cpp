@@ -73,3 +73,37 @@ TEST_CASE("extract std::expected", "[utility]") {
         REQUIRE_FALSE(zero::extract(std::expected<int, int>{std::unexpected{-1}}));
     }
 }
+
+TEST_CASE("transpose std::expected", "[utility]") {
+    SECTION("has value") {
+        SECTION("has value") {
+            REQUIRE(zero::transpose(std::expected<std::optional<int>, int>{0}) == 0);
+        }
+
+        SECTION("no value") {
+            REQUIRE_FALSE(zero::transpose(std::expected<std::optional<int>, int>{}));
+        }
+    }
+
+    SECTION("has error") {
+        REQUIRE(zero::transpose(std::expected<std::optional<int>, int>{std::unexpected{-1}}) == std::unexpected{-1});
+    }
+}
+
+TEST_CASE("transpose std::optional", "[utility]") {
+    SECTION("has value") {
+        SECTION("has value") {
+            REQUIRE(zero::transpose(std::optional<std::expected<int, int>>{0}) == 0);
+        }
+
+        SECTION("has error") {
+            REQUIRE(
+                zero::transpose(std::optional<std::expected<int, int>>{std::unexpected{-1}}) == std::unexpected{-1}
+            );
+        }
+    }
+
+    SECTION("no value") {
+        REQUIRE(zero::transpose(std::optional<std::expected<int, int>>{}) == std::nullopt);
+    }
+}
