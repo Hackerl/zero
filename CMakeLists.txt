@@ -107,7 +107,7 @@ install(
 
 install(
         EXPORT ${PROJECT_NAME}Targets
-        NAMESPACE zero::
+        NAMESPACE ${PROJECT_NAME}::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
 
