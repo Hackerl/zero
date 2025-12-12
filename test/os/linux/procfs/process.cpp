@@ -13,7 +13,7 @@ TEST_CASE("list process ids - procfs", "[os::linux::procfs::process]") {
 }
 
 TEST_CASE("process - procfs", "[os::linux::procfs::process]") {
-    constexpr std::string program{"sleep"};
+    constexpr auto program{"sleep"};
     constexpr std::array arguments{"1"};
 
     auto child = zero::os::process::Command{program}
@@ -25,7 +25,7 @@ TEST_CASE("process - procfs", "[os::linux::procfs::process]") {
                  .spawn();
     REQUIRE(child);
 
-    auto process = zero::os::linux::procfs::process::open(child->pid());
+    auto process = zero::os::linux::procfs::process::open(static_cast<pid_t>(child->pid()));
     REQUIRE(process);
 
     SECTION("pid") {

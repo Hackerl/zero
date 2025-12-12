@@ -520,7 +520,7 @@ std::expected<std::filesystem::space_info, std::error_code> zero::filesystem::sp
 std::expected<std::filesystem::file_status, std::error_code>
 zero::filesystem::status(const std::filesystem::path &path) {
     std::error_code ec;
-    const auto result = std::filesystem::status(path, ec);
+    auto result = std::filesystem::status(path, ec);
 
     if (ec)
         return std::unexpected{ec};
@@ -531,7 +531,7 @@ zero::filesystem::status(const std::filesystem::path &path) {
 std::expected<std::filesystem::file_status, std::error_code>
 zero::filesystem::symlinkStatus(const std::filesystem::path &path) {
     std::error_code ec;
-    const auto result = symlink_status(path, ec);
+    auto result = symlink_status(path, ec);
 
     if (ec)
         return std::unexpected{ec};
@@ -800,7 +800,7 @@ zero::filesystem::DirectoryEntry::lastWriteTime() const {
 
 std::expected<std::filesystem::file_status, std::error_code> zero::filesystem::DirectoryEntry::status() const {
     std::error_code ec;
-    const auto result = mEntry.status(ec);
+    auto result = mEntry.status(ec);
 
     if (ec)
         return std::unexpected{ec};
@@ -810,7 +810,7 @@ std::expected<std::filesystem::file_status, std::error_code> zero::filesystem::D
 
 std::expected<std::filesystem::file_status, std::error_code> zero::filesystem::DirectoryEntry::symlinkStatus() const {
     std::error_code ec;
-    const auto result = mEntry.symlink_status(ec);
+    auto result = mEntry.symlink_status(ec);
 
     if (ec)
         return std::unexpected{ec};

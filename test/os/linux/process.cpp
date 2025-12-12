@@ -14,7 +14,7 @@ TEST_CASE("list process ids - Linux", "[os::linux::process]") {
 }
 
 TEST_CASE("process - Linux", "[os::linux::process]") {
-    constexpr std::string program{"sleep"};
+    constexpr auto program{"sleep"};
     constexpr std::array arguments{"1"};
 
     auto child = zero::os::process::Command{program}
@@ -26,7 +26,7 @@ TEST_CASE("process - Linux", "[os::linux::process]") {
                  .spawn();
     REQUIRE(child);
 
-    auto process = zero::os::linux::process::open(child->pid());
+    auto process = zero::os::linux::process::open(static_cast<pid_t>(child->pid()));
     REQUIRE(process);
 
     SECTION("pid") {

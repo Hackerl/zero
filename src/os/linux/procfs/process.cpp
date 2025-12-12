@@ -134,13 +134,15 @@ zero::os::linux::procfs::process::Process::stat() const {
 
     Stat stat;
 
-    const auto pid = strings::toNumber<std::int32_t>({content->begin(), content->begin() + start - 1});
+    const auto pid = strings::toNumber<std::int32_t>({
+        content->begin(), content->begin() + static_cast<std::ptrdiff_t>(start) - 1
+    });
     Z_EXPECT(pid);
 
     stat.pid = *pid;
     stat.comm = content->substr(start + 1, end - start - 1);
 
-    const auto tokens = strings::split({content->begin() + end + 2, content->end()}, " ");
+    const auto tokens = strings::split({content->begin() + static_cast<std::ptrdiff_t>(end) + 2, content->end()}, " ");
 
     if (tokens.size() < STAT_BASIC_FIELDS - 2)
         return std::unexpected{procfs::Error::UNEXPECTED_DATA};

@@ -75,7 +75,6 @@ namespace zero::async::promise {
 
         Future<T, E> getFuture() {
             assert(mCore);
-            assert(!mRetrieved);
 
             if (mRetrieved)
                 throw std::logic_error{"future already retrieved"};

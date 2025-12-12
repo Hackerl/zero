@@ -149,7 +149,7 @@ std::expected<void, std::error_code> zero::os::Resource::close() {
 #endif
 }
 
-zero::os::IOResource::IOResource(Resource::Native native) : mResource{native} {
+zero::os::IOResource::IOResource(const Resource::Native native) : mResource{native} {
 }
 
 zero::os::IOResource::IOResource(Resource resource) : mResource{std::move(resource)} {

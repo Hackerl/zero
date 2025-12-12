@@ -41,6 +41,7 @@ zero::encoding::base64::decode(const std::string_view encoded) {
     if (encoded.length() % 4)
         return std::unexpected{DecodeError::INVALID_LENGTH};
 
+    // ReSharper disable once CppTooWideScope
     constexpr std::array mapping{
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,

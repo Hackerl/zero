@@ -65,7 +65,9 @@ zero::os::linux::process::Process::startTime() const {
     Z_EXPECT(kernelStat);
 
     return std::chrono::system_clock::from_time_t(
-        static_cast<std::int64_t>(kernelStat->bootTime + static_cast<double>(stat->startTime) / *ticks)
+        static_cast<std::time_t>(
+            kernelStat->bootTime + static_cast<std::uint64_t>(static_cast<double>(stat->startTime) / *ticks)
+        )
     );
 }
 

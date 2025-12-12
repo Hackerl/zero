@@ -155,7 +155,7 @@ namespace zero {
         void addOptional(std::string name, char shortName, std::string desc);
 
         template<typename T>
-        T get(const std::string_view name) const {
+        [[nodiscard]] T get(const std::string_view name) const {
             const auto it = std::ranges::find_if(
                 mPositionals,
                 [&](const auto &positional) {
@@ -170,7 +170,7 @@ namespace zero {
         }
 
         template<typename T>
-        std::optional<T> getOptional(const std::string_view name) const {
+        [[nodiscard]] std::optional<T> getOptional(const std::string_view name) const {
             const auto &value = find(name).value;
 
             if (!value.has_value())

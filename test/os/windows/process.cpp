@@ -12,7 +12,7 @@ TEST_CASE("list process ids - Windows", "[os::windows::process]") {
 }
 
 TEST_CASE("process - Windows", "[os::windows::process]") {
-    constexpr std::string program{"ping"};
+    constexpr auto program{"ping"};
     constexpr std::array arguments{"localhost", "-n", "2"};
 
     auto child = zero::os::process::Command{program}
