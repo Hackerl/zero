@@ -9,7 +9,7 @@
 #include <zero/error.h>
 
 namespace zero::encoding::hex {
-    DEFINE_ERROR_CODE_EX(
+    Z_DEFINE_ERROR_CODE_EX(
         DecodeError,
         "zero::encoding::hex::decode",
         INVALID_LENGTH, "invalid length for a hex string", std::errc::invalid_argument,
@@ -20,6 +20,6 @@ namespace zero::encoding::hex {
     std::expected<std::vector<std::byte>, DecodeError> decode(std::string_view encoded);
 }
 
-DECLARE_ERROR_CODE(zero::encoding::hex::DecodeError)
+Z_DECLARE_ERROR_CODE(zero::encoding::hex::DecodeError)
 
 #endif //ZERO_ENCODING_HEX_H

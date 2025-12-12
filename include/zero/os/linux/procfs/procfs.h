@@ -10,7 +10,7 @@
 #undef linux
 
 namespace zero::os::linux::procfs {
-    DEFINE_ERROR_CODE(
+    Z_DEFINE_ERROR_CODE(
         Error,
         "zero::os::linux::procfs",
         UNEXPECTED_DATA, "unexpected data"
@@ -110,6 +110,6 @@ namespace zero::os::linux::procfs {
     std::expected<MemoryStat, std::error_code> memory();
 }
 
-DECLARE_ERROR_CODE(zero::os::linux::procfs::Error)
+Z_DECLARE_ERROR_CODE(zero::os::linux::procfs::Error)
 
 #endif //ZERO_OS_LINUX_PROCFS_H

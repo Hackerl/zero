@@ -25,7 +25,7 @@ namespace zero {
     std::expected<std::any, std::error_code> parseValue(const std::string_view input) {
         if constexpr (std::is_arithmetic_v<T>) {
             const auto value = strings::toNumber<T>(input);
-            EXPECT(value);
+            Z_EXPECT(value);
             return *value;
         }
         else if constexpr (std::is_same_v<T, std::string>) {
@@ -39,7 +39,7 @@ namespace zero {
 
             for (const auto &token: strings::split(input, ",")) {
                 auto value = parseValue<typename T::value_type>(strings::trim(token));
-                EXPECT(value);
+                Z_EXPECT(value);
                 v.push_back(std::move(std::any_cast<typename T::value_type>(*value)));
             }
 
@@ -47,7 +47,7 @@ namespace zero {
         }
         else {
             auto value = scan<T>(input);
-            EXPECT(value);
+            Z_EXPECT(value);
             return *std::move(value);
         }
     }

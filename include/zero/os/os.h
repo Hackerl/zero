@@ -8,7 +8,7 @@ namespace zero::os {
     std::expected<std::string, std::error_code> hostname();
 
 #ifndef _WIN32
-    DEFINE_ERROR_CODE(
+    Z_DEFINE_ERROR_CODE(
         GetUsernameError,
         "zero::os::username",
         NO_SUCH_ENTRY, "no such entry"
@@ -22,7 +22,7 @@ namespace zero::os {
 }
 
 #ifndef _WIN32
-DECLARE_ERROR_CODE(zero::os::GetUsernameError)
+Z_DECLARE_ERROR_CODE(zero::os::GetUsernameError)
 #endif
 
 #endif //ZERO_OS_H

@@ -57,7 +57,7 @@ std::expected<std::filesystem::path, std::error_code> zero::filesystem::applicat
     std::array<char, MAXPATHLEN> buffer{};
     auto size = static_cast<std::uint32_t>(buffer.size());
 
-    EXPECT(os::unix::expected([&] {
+    Z_EXPECT(os::unix::expected([&] {
         return _NSGetExecutablePath(buffer.data(), &size);
     }));
 

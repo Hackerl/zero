@@ -21,12 +21,12 @@ namespace {
                     return {};
 
                 const auto value = zero::strings::toNumber<typename T::value_type>(*it++);
-                EXPECT(value);
+                Z_EXPECT(value);
                 var = *value;
             }
             else {
                 const auto value = zero::strings::toNumber<T>(*it++);
-                EXPECT(value);
+                Z_EXPECT(value);
                 var = *value;
             }
 
@@ -35,16 +35,16 @@ namespace {
 
         zero::os::linux::procfs::CPUTime cpuTime;
 
-        EXPECT(set(cpuTime.user));
-        EXPECT(set(cpuTime.nice));
-        EXPECT(set(cpuTime.system));
-        EXPECT(set(cpuTime.idle));
-        EXPECT(set(cpuTime.ioWait));
-        EXPECT(set(cpuTime.irq));
-        EXPECT(set(cpuTime.softIRQ));
-        EXPECT(set(cpuTime.steal));
-        EXPECT(set(cpuTime.guest));
-        EXPECT(set(cpuTime.guestNice));
+        Z_EXPECT(set(cpuTime.user));
+        Z_EXPECT(set(cpuTime.nice));
+        Z_EXPECT(set(cpuTime.system));
+        Z_EXPECT(set(cpuTime.idle));
+        Z_EXPECT(set(cpuTime.ioWait));
+        Z_EXPECT(set(cpuTime.irq));
+        Z_EXPECT(set(cpuTime.softIRQ));
+        Z_EXPECT(set(cpuTime.steal));
+        Z_EXPECT(set(cpuTime.guest));
+        Z_EXPECT(set(cpuTime.guestNice));
 
         return cpuTime;
     }
@@ -52,44 +52,44 @@ namespace {
 
 std::expected<zero::os::linux::procfs::Stat, std::error_code> zero::os::linux::procfs::stat() {
     const auto content = filesystem::readString("/proc/stat");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     Stat stat;
 
     for (const auto &line: strings::split(strings::trim(*content), "\n")) {
         if (line.starts_with("cpu ")) {
             const auto cpuTime = parseCPUTime(line);
-            EXPECT(cpuTime);
+            Z_EXPECT(cpuTime);
             stat.total = *cpuTime;
         }
         else if (line.starts_with("cpu")) {
             const auto cpuTime = parseCPUTime(line);
-            EXPECT(cpuTime);
+            Z_EXPECT(cpuTime);
             stat.cpuTimes.push_back(*cpuTime);
         }
         else if (line.starts_with("ctxt ")) {
             const auto value = strings::toNumber<std::uint64_t>(line.substr(5));
-            EXPECT(value);
+            Z_EXPECT(value);
             stat.contextSwitches = *value;
         }
         else if (line.starts_with("btime ")) {
             const auto value = strings::toNumber<std::uint64_t>(line.substr(6));
-            EXPECT(value);
+            Z_EXPECT(value);
             stat.bootTime = *value;
         }
         else if (line.starts_with("processes ")) {
             const auto value = strings::toNumber<std::uint64_t>(line.substr(10));
-            EXPECT(value);
+            Z_EXPECT(value);
             stat.processesCreated = *value;
         }
         else if (line.starts_with("procs_running ")) {
             const auto value = strings::toNumber<std::uint32_t>(line.substr(14));
-            EXPECT(value);
+            Z_EXPECT(value);
             stat.processesRunning = *value;
         }
         else if (line.starts_with("procs_blocked ")) {
             const auto value = strings::toNumber<std::uint32_t>(line.substr(14));
-            EXPECT(value);
+            Z_EXPECT(value);
             stat.processesBlocked = *value;
         }
     }
@@ -99,7 +99,7 @@ std::expected<zero::os::linux::procfs::Stat, std::error_code> zero::os::linux::p
 
 std::expected<zero::os::linux::procfs::MemoryStat, std::error_code> zero::os::linux::procfs::memory() {
     const auto content = filesystem::readString("/proc/meminfo");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     std::map<std::string, std::string> map;
 
@@ -120,7 +120,7 @@ std::expected<zero::os::linux::procfs::MemoryStat, std::error_code> zero::os::li
                 return {};
 
             const auto value = strings::toNumber<typename T::value_type>(it->second);
-            EXPECT(value);
+            Z_EXPECT(value);
             var = *value;
         }
         else {
@@ -128,7 +128,7 @@ std::expected<zero::os::linux::procfs::MemoryStat, std::error_code> zero::os::li
                 return std::unexpected{Error::UNEXPECTED_DATA};
 
             const auto value = strings::toNumber<T>(it->second);
-            EXPECT(value);
+            Z_EXPECT(value);
             var = *value;
         }
 
@@ -137,71 +137,71 @@ std::expected<zero::os::linux::procfs::MemoryStat, std::error_code> zero::os::li
 
     MemoryStat stat;
 
-    EXPECT(set(stat.memoryTotal, "MemTotal"));
-    EXPECT(set(stat.memoryFree, "MemFree"));
-    EXPECT(set(stat.memoryAvailable, "MemAvailable"));
-    EXPECT(set(stat.buffers, "Buffers"));
-    EXPECT(set(stat.cached, "Cached"));
-    EXPECT(set(stat.swapCached, "SwapCached"));
-    EXPECT(set(stat.active, "Active"));
-    EXPECT(set(stat.inactive, "Inactive"));
-    EXPECT(set(stat.activeAnonymous, "Active(anon)"));
-    EXPECT(set(stat.inactiveAnonymous, "Inactive(anon)"));
-    EXPECT(set(stat.activeFile, "Active(file)"));
-    EXPECT(set(stat.inactiveFile, "Inactive(file)"));
-    EXPECT(set(stat.unevictable, "Unevictable"));
-    EXPECT(set(stat.mLocked, "Mlocked"));
-    EXPECT(set(stat.highTotal, "HighTotal"));
-    EXPECT(set(stat.highFree, "HighFree"));
-    EXPECT(set(stat.lowTotal, "LowTotal"));
-    EXPECT(set(stat.lowFree, "LowFree"));
-    EXPECT(set(stat.mmapCopy, "MmapCopy"));
-    EXPECT(set(stat.swapTotal, "SwapTotal"));
-    EXPECT(set(stat.swapFree, "SwapFree"));
-    EXPECT(set(stat.dirty, "Dirty"));
-    EXPECT(set(stat.writeBack, "Writeback"));
-    EXPECT(set(stat.anonymousPages, "AnonPages"));
-    EXPECT(set(stat.mapped, "Mapped"));
-    EXPECT(set(stat.sharedMemory, "Shmem"));
-    EXPECT(set(stat.slab, "Slab"));
-    EXPECT(set(stat.reclaimableSlab, "SReclaimable"));
-    EXPECT(set(stat.unreclaimableSlab, "SUnreclaim"));
-    EXPECT(set(stat.kernelStack, "KernelStack"));
-    EXPECT(set(stat.pageTables, "PageTables"));
-    EXPECT(set(stat.secondaryPageTables, "SecPageTables"));
-    EXPECT(set(stat.quickLists, "Quicklists"));
-    EXPECT(set(stat.nfsUnstable, "NFS_Unstable"));
-    EXPECT(set(stat.bounceBuffers, "Bounce"));
-    EXPECT(set(stat.writeBackTemporary, "WritebackTmp"));
-    EXPECT(set(stat.commitLimit, "CommitLimit"));
-    EXPECT(set(stat.committedAs, "Committed_AS"));
-    EXPECT(set(stat.vmallocTotal, "VmallocTotal"));
-    EXPECT(set(stat.vmallocUsed, "VmallocUsed"));
-    EXPECT(set(stat.vmallocChunk, "VmallocChunk"));
-    EXPECT(set(stat.hardwareCorrupted, "HardwareCorrupted"));
-    EXPECT(set(stat.anonymousHugePages, "AnonHugePages"));
-    EXPECT(set(stat.sharedMemoryHugePages, "ShmemHugePages"));
-    EXPECT(set(stat.sharedMemoryPMDMapped, "ShmemPmdMapped"));
-    EXPECT(set(stat.cmaTotal, "CmaTotal"));
-    EXPECT(set(stat.cmaFree, "CmaFree"));
-    EXPECT(set(stat.hugePagesTotal, "HugePages_Total"));
-    EXPECT(set(stat.hugePagesFree, "HugePages_Free"));
-    EXPECT(set(stat.hugePagesReserved, "HugePages_Rsvd"));
-    EXPECT(set(stat.hugePagesSurplus, "HugePages_Surp"));
-    EXPECT(set(stat.hugePageSize, "Hugepagesize"));
-    EXPECT(set(stat.directMap4K, "DirectMap4k"));
-    EXPECT(set(stat.directMap4M, "DirectMap4M"));
-    EXPECT(set(stat.directMap2M, "DirectMap2M"));
-    EXPECT(set(stat.directMap1G, "DirectMap1G"));
-    EXPECT(set(stat.hugeTLB, "Hugetlb"));
-    EXPECT(set(stat.perCPU, "Percpu"));
-    EXPECT(set(stat.reclaimableKernel, "KReclaimable"));
-    EXPECT(set(stat.filePMDMapped, "FilePmdMapped"));
-    EXPECT(set(stat.fileHugePages, "FileHugePages"));
-    EXPECT(set(stat.zSwap, "Zswap"));
-    EXPECT(set(stat.zSwapped, "Zswapped"));
+    Z_EXPECT(set(stat.memoryTotal, "MemTotal"));
+    Z_EXPECT(set(stat.memoryFree, "MemFree"));
+    Z_EXPECT(set(stat.memoryAvailable, "MemAvailable"));
+    Z_EXPECT(set(stat.buffers, "Buffers"));
+    Z_EXPECT(set(stat.cached, "Cached"));
+    Z_EXPECT(set(stat.swapCached, "SwapCached"));
+    Z_EXPECT(set(stat.active, "Active"));
+    Z_EXPECT(set(stat.inactive, "Inactive"));
+    Z_EXPECT(set(stat.activeAnonymous, "Active(anon)"));
+    Z_EXPECT(set(stat.inactiveAnonymous, "Inactive(anon)"));
+    Z_EXPECT(set(stat.activeFile, "Active(file)"));
+    Z_EXPECT(set(stat.inactiveFile, "Inactive(file)"));
+    Z_EXPECT(set(stat.unevictable, "Unevictable"));
+    Z_EXPECT(set(stat.mLocked, "Mlocked"));
+    Z_EXPECT(set(stat.highTotal, "HighTotal"));
+    Z_EXPECT(set(stat.highFree, "HighFree"));
+    Z_EXPECT(set(stat.lowTotal, "LowTotal"));
+    Z_EXPECT(set(stat.lowFree, "LowFree"));
+    Z_EXPECT(set(stat.mmapCopy, "MmapCopy"));
+    Z_EXPECT(set(stat.swapTotal, "SwapTotal"));
+    Z_EXPECT(set(stat.swapFree, "SwapFree"));
+    Z_EXPECT(set(stat.dirty, "Dirty"));
+    Z_EXPECT(set(stat.writeBack, "Writeback"));
+    Z_EXPECT(set(stat.anonymousPages, "AnonPages"));
+    Z_EXPECT(set(stat.mapped, "Mapped"));
+    Z_EXPECT(set(stat.sharedMemory, "Shmem"));
+    Z_EXPECT(set(stat.slab, "Slab"));
+    Z_EXPECT(set(stat.reclaimableSlab, "SReclaimable"));
+    Z_EXPECT(set(stat.unreclaimableSlab, "SUnreclaim"));
+    Z_EXPECT(set(stat.kernelStack, "KernelStack"));
+    Z_EXPECT(set(stat.pageTables, "PageTables"));
+    Z_EXPECT(set(stat.secondaryPageTables, "SecPageTables"));
+    Z_EXPECT(set(stat.quickLists, "Quicklists"));
+    Z_EXPECT(set(stat.nfsUnstable, "NFS_Unstable"));
+    Z_EXPECT(set(stat.bounceBuffers, "Bounce"));
+    Z_EXPECT(set(stat.writeBackTemporary, "WritebackTmp"));
+    Z_EXPECT(set(stat.commitLimit, "CommitLimit"));
+    Z_EXPECT(set(stat.committedAs, "Committed_AS"));
+    Z_EXPECT(set(stat.vmallocTotal, "VmallocTotal"));
+    Z_EXPECT(set(stat.vmallocUsed, "VmallocUsed"));
+    Z_EXPECT(set(stat.vmallocChunk, "VmallocChunk"));
+    Z_EXPECT(set(stat.hardwareCorrupted, "HardwareCorrupted"));
+    Z_EXPECT(set(stat.anonymousHugePages, "AnonHugePages"));
+    Z_EXPECT(set(stat.sharedMemoryHugePages, "ShmemHugePages"));
+    Z_EXPECT(set(stat.sharedMemoryPMDMapped, "ShmemPmdMapped"));
+    Z_EXPECT(set(stat.cmaTotal, "CmaTotal"));
+    Z_EXPECT(set(stat.cmaFree, "CmaFree"));
+    Z_EXPECT(set(stat.hugePagesTotal, "HugePages_Total"));
+    Z_EXPECT(set(stat.hugePagesFree, "HugePages_Free"));
+    Z_EXPECT(set(stat.hugePagesReserved, "HugePages_Rsvd"));
+    Z_EXPECT(set(stat.hugePagesSurplus, "HugePages_Surp"));
+    Z_EXPECT(set(stat.hugePageSize, "Hugepagesize"));
+    Z_EXPECT(set(stat.directMap4K, "DirectMap4k"));
+    Z_EXPECT(set(stat.directMap4M, "DirectMap4M"));
+    Z_EXPECT(set(stat.directMap2M, "DirectMap2M"));
+    Z_EXPECT(set(stat.directMap1G, "DirectMap1G"));
+    Z_EXPECT(set(stat.hugeTLB, "Hugetlb"));
+    Z_EXPECT(set(stat.perCPU, "Percpu"));
+    Z_EXPECT(set(stat.reclaimableKernel, "KReclaimable"));
+    Z_EXPECT(set(stat.filePMDMapped, "FilePmdMapped"));
+    Z_EXPECT(set(stat.fileHugePages, "FileHugePages"));
+    Z_EXPECT(set(stat.zSwap, "Zswap"));
+    Z_EXPECT(set(stat.zSwapped, "Zswapped"));
 
     return stat;
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::linux::procfs::Error)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::linux::procfs::Error)

@@ -326,10 +326,10 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
         return std::unexpected{Error::API_NOT_AVAILABLE};
 
     auto first = pipe();
-    EXPECT(first);
+    Z_EXPECT(first);
 
     auto second = pipe();
-    EXPECT(second);
+    Z_EXPECT(second);
 
     HPCON hPC{};
 
@@ -379,11 +379,11 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     const auto buffer = std::make_unique<std::byte[]>(size);
     siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
     }));
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return UpdateProcThreadAttribute(
             siEx.lpAttributeList,
             0,
@@ -399,7 +399,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
 
     if (command.mInheritEnv) {
         auto result = env::list();
-        EXPECT(result);
+        Z_EXPECT(result);
         envs = *std::move(result);
     }
 
@@ -420,7 +420,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         }),
         ""
     )));
-    EXPECT(environment);
+    Z_EXPECT(environment);
 
     std::vector arguments{filesystem::stringify(command.mPath)};
     arguments.append_range(command.mArguments);
@@ -428,11 +428,11 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     auto cmd = strings::decode(to_string(
         fmt::join(arguments | std::views::transform(quote), " ")
     ));
-    EXPECT(cmd);
+    Z_EXPECT(cmd);
 
     PROCESS_INFORMATION info{};
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return CreateProcessW(
             nullptr,
             cmd->data(),
@@ -477,12 +477,12 @@ std::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     int master{}, slave{};
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return openpty(&master, &slave, nullptr, nullptr, nullptr);
     }));
 
     PseudoConsole pc{IOResource{master}, IOResource{slave}};
-    EXPECT(pc.resize(rows, columns));
+    Z_EXPECT(pc.resize(rows, columns));
 
     return pc;
 }
@@ -494,7 +494,7 @@ std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(co
     ws.ws_row = rows;
     ws.ws_col = columns;
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return ioctl(mMaster.fd(), TIOCSWINSZ, &ws);
     }));
 
@@ -508,8 +508,8 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     assert(mSlave.fd() > STDERR_FILENO);
 
     auto pipe = os::pipe();
-    EXPECT(pipe);
-    EXPECT(pipe->second.setInheritable(false));
+    Z_EXPECT(pipe);
+    Z_EXPECT(pipe->second.setInheritable(false));
 
     const auto &program = command.mPath.native();
 
@@ -520,7 +520,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
 
     if (command.mInheritEnv) {
         auto result = env::list();
-        EXPECT(result);
+        Z_EXPECT(result);
         envs = *std::move(result);
     }
 
@@ -554,7 +554,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     });
 
     const auto pid = unix::expected(fork);
-    EXPECT(pid);
+    Z_EXPECT(pid);
 
     if (*pid == 0) {
         const auto guard = [fd = pipe->second.fd()]<typename F>(F &&f) {
@@ -682,7 +682,7 @@ std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process:
 #ifdef _WIN32
     const auto &impl = this->impl();
 
-    EXPECT(impl.wait(std::nullopt));
+    Z_EXPECT(impl.wait(std::nullopt));
     return impl.exitCode().transform([](const DWORD code) {
         return ExitStatus{code};
     });
@@ -693,7 +693,7 @@ std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process:
     const auto id = unix::ensure([&] {
         return waitpid(pid, &s, 0);
     });
-    EXPECT(id);
+    Z_EXPECT(id);
     assert(*id == pid);
 
     return ExitStatus{s};
@@ -725,7 +725,7 @@ zero::os::process::ChildProcess::tryWait() {
     const auto id = unix::expected([&] {
         return waitpid(pid, &s, WNOHANG);
     });
-    EXPECT(id);
+    Z_EXPECT(id);
 
     if (*id == 0)
         return std::nullopt;
@@ -789,7 +789,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
             HANDLE duplicate{};
 
-            EXPECT(windows::expected([&] {
+            Z_EXPECT(windows::expected([&] {
                 return DuplicateHandle(
                     GetCurrentProcess(),
                     handle,
@@ -807,9 +807,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
         if (type == StdioType::PIPED) {
             auto pipe = os::pipe();
-            EXPECT(pipe);
-            EXPECT(pipe->first.setInheritable(true));
-            EXPECT(pipe->second.setInheritable(true));
+            Z_EXPECT(pipe);
+            Z_EXPECT(pipe->first.setInheritable(true));
+            Z_EXPECT(pipe->second.setInheritable(true));
 
             resources[i * 2] = std::move(pipe->first);
             resources[i * 2 + 1] = std::move(pipe->second);
@@ -872,11 +872,11 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     const auto buffer = std::make_unique<std::byte[]>(size);
     siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
     }));
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return UpdateProcThreadAttribute(
             siEx.lpAttributeList,
             0,
@@ -892,7 +892,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     if (mInheritEnv) {
         auto result = env::list();
-        EXPECT(result);
+        Z_EXPECT(result);
         envs = *std::move(result);
     }
 
@@ -913,7 +913,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         }),
         ""
     )));
-    EXPECT(environment);
+    Z_EXPECT(environment);
 
     std::vector arguments{filesystem::stringify(mPath)};
     arguments.append_range(mArguments);
@@ -921,11 +921,11 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     auto cmd = strings::decode(to_string(
         fmt::join(arguments | std::views::transform(quote), " ")
     ));
-    EXPECT(cmd);
+    Z_EXPECT(cmd);
 
     PROCESS_INFORMATION info{};
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return CreateProcessW(
             nullptr,
             cmd->data(),
@@ -971,7 +971,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
         if (type == StdioType::PIPED) {
             auto pipe = os::pipe();
-            EXPECT(pipe);
+            Z_EXPECT(pipe);
 
             resources[i * 2] = std::move(pipe->first);
             resources[i * 2 + 1] = std::move(pipe->second);
@@ -983,7 +983,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         }).transform([](const auto &fd) {
             return IOResource{fd};
         });
-        EXPECT(resource);
+        Z_EXPECT(resource);
 
         resources[indexMapping[i]] = *std::move(resource);
     }
@@ -1006,7 +1006,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     if (mInheritEnv) {
         auto result = env::list();
-        EXPECT(result);
+        Z_EXPECT(result);
         envs = *std::move(result);
     }
 
@@ -1051,21 +1051,21 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     posix_spawn_file_actions_t actions{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return posix_spawn_file_actions_init(&actions);
     }));
 
-    DEFER(posix_spawn_file_actions_destroy(&actions));
+    Z_DEFER(posix_spawn_file_actions_destroy(&actions));
 
     for (int i{0}; i < 3; ++i) {
         if (const auto &resource = resources[indexMapping[i]]) {
-            EXPECT(expected([&] {
+            Z_EXPECT(expected([&] {
                 return posix_spawn_file_actions_adddup2(&actions, resource->fd(), i);
             }));
         }
 #ifdef __APPLE__
         else {
-            EXPECT(expected([&] {
+            Z_EXPECT(expected([&] {
                 return posix_spawn_file_actions_addinherit_np(&actions, i);
             }));
         }
@@ -1083,21 +1083,21 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         if (!posix_spawn_file_actions_addchdir_np)
             return std::unexpected{Error::API_NOT_AVAILABLE};
 #endif
-        EXPECT(expected([&] {
+        Z_EXPECT(expected([&] {
             return posix_spawn_file_actions_addchdir_np(&actions, mCurrentDirectory->c_str());
         }));
     }
 
     posix_spawnattr_t attr{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return posix_spawnattr_init(&attr);
     }));
 
-    DEFER(posix_spawnattr_destroy(&attr));
+    Z_DEFER(posix_spawnattr_destroy(&attr));
 
 #ifdef __APPLE__
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return posix_spawnattr_setflags(
             &attr,
             POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK
@@ -1105,18 +1105,18 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     }));
 
     for (const auto &resource : mInheritedResources) {
-        EXPECT(expected([&] {
+        Z_EXPECT(expected([&] {
             return posix_spawn_file_actions_addinherit_np(&actions, *resource);
         }));
     }
 
     for (const auto &resource : mInheritedNativeResources) {
-        EXPECT(expected([&] {
+        Z_EXPECT(expected([&] {
             return posix_spawn_file_actions_addinherit_np(&actions, resource);
         }));
     }
 #else
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
     }));
 
@@ -1125,7 +1125,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     }).transform([](const auto &value) {
         return static_cast<int>(value);
     });
-    EXPECT(max);
+    Z_EXPECT(max);
 
     // The program assumes that the file descriptor to be inherited is not set FD_CLOEXEC.
     for (int fd{STDERR_FILENO + 1}; fd < std::min(*max, FD_MAX); ++fd) {
@@ -1140,7 +1140,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         if (std::ranges::find(mInheritedNativeResources, fd) != mInheritedNativeResources.end())
             continue;
 
-        EXPECT(expected([&] {
+        Z_EXPECT(expected([&] {
             return posix_spawn_file_actions_addclose(&actions, fd);
         }));
     }
@@ -1148,7 +1148,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     pid_t pid{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return posix_spawnp(&pid, program.c_str(), &actions, &attr, argv.get(), envp.get());
     }));
 
@@ -1190,10 +1190,10 @@ std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process:
 std::expected<zero::os::process::Output, std::error_code>
 zero::os::process::Command::output() const {
     auto child = spawn({StdioType::NUL, StdioType::PIPED, StdioType::PIPED});
-    EXPECT(child);
+    Z_EXPECT(child);
 
     if (auto input = std::exchange(child->stdInput(), std::nullopt)) {
-        EXPECT(input->close());
+        Z_EXPECT(input->close());
     }
 
     auto future = std::async([&] {
@@ -1221,7 +1221,7 @@ zero::os::process::Command::output() const {
     }
 
     const auto status = child->wait();
-    EXPECT(status);
+    Z_EXPECT(status);
 
     return Output{
         *status,
@@ -1231,9 +1231,9 @@ zero::os::process::Command::output() const {
 }
 
 #if defined(_WIN32)
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::PseudoConsole::Error)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::PseudoConsole::Error)
 #endif
 
 #if defined(__ANDROID__) && __ANDROID_API__ < 34
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::Command::Error)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::Command::Error)
 #endif

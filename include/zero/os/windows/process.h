@@ -31,12 +31,12 @@ namespace zero::os::windows::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_INNER_EX(
+        Z_DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::windows::process::Process",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported,
             PROCESS_STILL_ACTIVE, "process still active", std::errc::operation_would_block,
-            UNEXPECTED_DATA, "unexpected data", DEFAULT_ERROR_CONDITION,
+            UNEXPECTED_DATA, "unexpected data", Z_DEFAULT_ERROR_CONDITION,
             WAIT_PROCESS_TIMEOUT, "wait process timeout", std::errc::timed_out
         )
 
@@ -81,6 +81,6 @@ namespace zero::os::windows::process {
     std::expected<std::list<DWORD>, std::error_code> all();
 }
 
-DECLARE_ERROR_CODE(zero::os::windows::process::Process::Error)
+Z_DECLARE_ERROR_CODE(zero::os::windows::process::Process::Error)
 
 #endif //ZERO_OS_WINDOWS_PROCESS_H

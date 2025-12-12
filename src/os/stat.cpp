@@ -20,7 +20,7 @@ std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
 #ifdef _WIN32
     FILETIME idle{}, kernel{}, user{};
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return GetSystemTimes(&idle, &kernel, &user);
     }));
 
@@ -34,14 +34,14 @@ std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     return time;
 #elif defined(__linux__)
     const auto stat = linux::procfs::stat();
-    EXPECT(stat);
+    Z_EXPECT(stat);
 
     const auto ticks = unix::expected([] {
         return sysconf(_SC_CLK_TCK);
     }).transform([](const auto &value) {
         return static_cast<double>(value);
     });
-    EXPECT(ticks);
+    Z_EXPECT(ticks);
 
     return CPUTime{
         static_cast<double>(stat->total.user) / *ticks,
@@ -65,7 +65,7 @@ std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     }).transform([](const auto &value) {
         return static_cast<double>(value);
     });
-    EXPECT(ticks);
+    Z_EXPECT(ticks);
 
     return CPUTime{
         data.cpu_ticks[CPU_STATE_USER] / *ticks,
@@ -80,7 +80,7 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
     MEMORYSTATUSEX status{};
     status.dwLength = sizeof(status);
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return GlobalMemoryStatusEx(&status);
     }));
 
@@ -93,7 +93,7 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
     };
 #elif defined(__linux__)
     const auto memory = linux::procfs::memory();
-    EXPECT(memory);
+    Z_EXPECT(memory);
 
     MemoryStat stat;
 
@@ -128,7 +128,7 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
     std::uint64_t total{};
     auto size = sizeof(total);
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         std::array mib{CTL_HW, HW_MEMSIZE};
         return sysctl(mib.data(), mib.size(), &total, &size, nullptr, 0);
     }));

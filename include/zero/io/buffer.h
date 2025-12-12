@@ -6,7 +6,7 @@
 #include <algorithm>
 
 namespace zero::io {
-    DEFINE_ERROR_CODE_EX(
+    Z_DEFINE_ERROR_CODE_EX(
         BufReaderError,
         "zero::io::BufReader",
         INVALID_ARGUMENT, "invalid argument", std::errc::invalid_argument,
@@ -36,7 +36,7 @@ namespace zero::io {
                 mTail = 0;
 
                 const auto n = std::invoke(&IReader::read, mReader, std::span{mBuffer.get(), mCapacity});
-                EXPECT(n);
+                Z_EXPECT(n);
 
                 if (*n == 0)
                     return 0;
@@ -58,7 +58,7 @@ namespace zero::io {
 
         std::expected<std::string, std::error_code> readLine() override {
             auto data = readUntil(std::byte{'\n'});
-            EXPECT(data);
+            Z_EXPECT(data);
 
             if (!data->empty() && data->back() == std::byte{'\r'})
                 data->pop_back();
@@ -85,7 +85,7 @@ namespace zero::io {
                 mTail = 0;
 
                 const auto n = std::invoke(&IReader::read, mReader, std::span{mBuffer.get(), mCapacity});
-                EXPECT(n);
+                Z_EXPECT(n);
 
                 if (*n == 0)
                     return std::unexpected{make_error_code(BufReaderError::UNEXPECTED_EOF)};
@@ -111,7 +111,7 @@ namespace zero::io {
                         mReader,
                         std::span{mBuffer.get() + mTail, mCapacity - mTail}
                     );
-                    EXPECT(n);
+                    Z_EXPECT(n);
 
                     if (*n == 0)
                         return std::unexpected{make_error_code(BufReaderError::UNEXPECTED_EOF)};
@@ -148,7 +148,7 @@ namespace zero::io {
             assert(mPending <= mCapacity);
 
             if (mPending == mCapacity) {
-                EXPECT(flush());
+                Z_EXPECT(flush());
             }
 
             const auto size = (std::min)(mCapacity - mPending, data.size());
@@ -196,7 +196,7 @@ namespace zero::io {
                     mWriter,
                     std::span{mBuffer.get() + offset, mPending - offset}
                 );
-                EXPECT(n);
+                Z_EXPECT(n);
 
                 offset += *n;
             }
@@ -216,6 +216,6 @@ namespace zero::io {
     };
 }
 
-DECLARE_ERROR_CODES(zero::io::BufReaderError)
+Z_DECLARE_ERROR_CODES(zero::io::BufReaderError)
 
 #endif // ZERO_IO_BUFFER_H

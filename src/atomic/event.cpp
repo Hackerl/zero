@@ -36,10 +36,10 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
         }
 
         ++mWaiterCount;
-        DEFER(--mWaiterCount);
+        Z_DEFER(--mWaiterCount);
 
 #ifdef _WIN32
-        EXPECT(os::windows::expected([&] {
+        Z_EXPECT(os::windows::expected([&] {
             Value expected{0};
             return WaitOnAddress(
                 &mState,
@@ -62,7 +62,7 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
         }); !result && result.error() != std::errc::resource_unavailable_try_again)
             return std::unexpected{result.error()};
 #elif defined(__APPLE__)
-        EXPECT(os::unix::ensure([&] {
+        Z_EXPECT(os::unix::ensure([&] {
             return __ulock_wait(
                 UL_COMPARE_AND_WAIT,
                 &mState,

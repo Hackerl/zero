@@ -56,13 +56,13 @@ zero::os::linux::process::Process::startTime() const {
     }).transform([](const auto &value) {
         return static_cast<double>(value);
     });
-    EXPECT(ticks);
+    Z_EXPECT(ticks);
 
     const auto stat = mProcess.stat();
-    EXPECT(stat);
+    Z_EXPECT(stat);
 
     const auto kernelStat = procfs::stat();
-    EXPECT(kernelStat);
+    Z_EXPECT(kernelStat);
 
     return std::chrono::system_clock::from_time_t(
         static_cast<std::int64_t>(kernelStat->bootTime + static_cast<double>(stat->startTime) / *ticks)
@@ -75,10 +75,10 @@ std::expected<zero::os::linux::process::CPUTime, std::error_code> zero::os::linu
     }).transform([](const auto &value) {
         return static_cast<double>(value);
     });
-    EXPECT(ticks);
+    Z_EXPECT(ticks);
 
     const auto stat = mProcess.stat();
-    EXPECT(stat);
+    Z_EXPECT(stat);
 
     return CPUTime{
         static_cast<double>(stat->userTime) / *ticks,
@@ -92,10 +92,10 @@ std::expected<zero::os::linux::process::MemoryStat, std::error_code> zero::os::l
     }).transform([](const auto &value) {
         return static_cast<std::uint64_t>(value);
     });
-    EXPECT(pageSize);
+    Z_EXPECT(pageSize);
 
     const auto statM = mProcess.statM();
-    EXPECT(statM);
+    Z_EXPECT(statM);
 
     return MemoryStat{
         statM->residentSetSize * *pageSize,
@@ -109,7 +109,7 @@ std::expected<zero::os::linux::process::IOStat, std::error_code> zero::os::linux
 
 std::expected<std::string, std::error_code> zero::os::linux::process::Process::user() const {
     const auto status = mProcess.status();
-    EXPECT(status);
+    Z_EXPECT(status);
 
     const auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
 
@@ -139,7 +139,7 @@ std::expected<std::string, std::error_code> zero::os::linux::process::Process::u
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::os::linux::process::Process::kill(const int sig) {
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return ::kill(mProcess.pid(), sig);
     }));
     return {};
@@ -161,4 +161,4 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::process::all()
     return procfs::process::all();
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::linux::process::Process::Error)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::linux::process::Process::Error)

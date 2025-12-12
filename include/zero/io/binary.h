@@ -9,7 +9,7 @@ namespace zero::io::binary {
         requires (std::is_arithmetic_v<T> && sizeof(T) > 1)
     std::expected<T, std::error_code> readLE(detail::Trait<IReader> auto &reader) {
         std::array<std::byte, sizeof(T)> bytes{};
-        EXPECT(std::invoke(&IReader::readExactly, reader, bytes));
+        Z_EXPECT(std::invoke(&IReader::readExactly, reader, bytes));
 
         T v{};
 
@@ -23,7 +23,7 @@ namespace zero::io::binary {
         requires (std::is_arithmetic_v<T> && sizeof(T) > 1)
     std::expected<T, std::error_code> readBE(detail::Trait<IReader> auto &reader) {
         std::array<std::byte, sizeof(T)> bytes{};
-        EXPECT(std::invoke(&IReader::readExactly, reader, bytes));
+        Z_EXPECT(std::invoke(&IReader::readExactly, reader, bytes));
 
         T v{};
 

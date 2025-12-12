@@ -13,10 +13,10 @@ namespace {
 TEST_CASE("expect macro", "[expect]") {
     const auto calculate = [](const int input) -> std::expected<int, std::error_code> {
         auto value = twice(input);
-        EXPECT(value);
+        Z_EXPECT(value);
 
         value = twice(*value);
-        EXPECT(value);
+        Z_EXPECT(value);
 
         return *value;
     };
@@ -33,8 +33,8 @@ TEST_CASE("expect macro", "[expect]") {
 #ifdef __GNUC__
 TEST_CASE("try macro", "[expect]") {
     const auto calculate = [](const int input) -> std::expected<int, std::error_code> {
-        auto value = TRY(twice(input));
-        value = TRY(twice(value));
+        auto value = Z_TRY(twice(input));
+        value = Z_TRY(twice(value));
         return value;
     };
 

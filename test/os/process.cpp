@@ -301,7 +301,7 @@ TEST_CASE("spawn child process with arguments", "[os::process]") {
 
     auto child = command.spawn();
     REQUIRE(child);
-    DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE(child->wait()));
 
     const auto name = child->name();
     REQUIRE(name);
@@ -319,7 +319,7 @@ TEST_CASE("spawn child process with complex escape characters", "[os::process]")
                     .stdError(zero::os::process::Command::StdioType::NUL)
                     .spawn();
     REQUIRE(child);
-    DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE(child->wait()));
 
     const auto cmdline = child->cmdline();
     REQUIRE(cmdline);
@@ -341,7 +341,7 @@ TEST_CASE("spawn child process with working directory", "[os::process]") {
                  .stdOutput(zero::os::process::Command::StdioType::NUL)
                  .spawn();
     REQUIRE(child);
-    DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE(child->wait()));
     REQUIRE(child->cwd() == *temp);
 }
 
@@ -365,11 +365,11 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
     SECTION("inherit") {
         REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
-        DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
+        Z_DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
 
         auto child = command.spawn();
         REQUIRE(child);
-        DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE(child->wait()));
 
         const auto envs = child->envs();
         REQUIRE(envs);
@@ -381,7 +381,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         SECTION("empty") {
             auto child = command.clearEnv().spawn();
             REQUIRE(child);
-            DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -390,11 +390,11 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
         SECTION("not empty") {
             REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
-            DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
+            Z_DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
 
             auto child = command.clearEnv().spawn();
             REQUIRE(child);
-            DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -404,7 +404,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         SECTION("add env") {
             auto child = command.env("ZERO_PROCESS_TESTS", "1").spawn();
             REQUIRE(child);
-            DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -414,11 +414,11 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
         SECTION("remove env") {
             REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
-            DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
+            Z_DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
 
             auto child = command.removeEnv("ZERO_PROCESS_TESTS").spawn();
             REQUIRE(child);
-            DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -428,7 +428,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         SECTION("set envs") {
             auto child = command.envs({{"ZERO_PROCESS_TESTS", "1"}}).spawn();
             REQUIRE(child);
-            DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -457,7 +457,7 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::NUL)
                      .spawn();
         REQUIRE(child);
-        DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE(child->wait()));
 
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
@@ -473,7 +473,7 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::NUL)
                      .spawn();
         REQUIRE(child);
-        DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE(child->wait()));
 
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
@@ -500,7 +500,7 @@ TEST_CASE("spawn child process with native resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::NUL)
                      .spawn();
         REQUIRE(child);
-        DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE(child->wait()));
 
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
@@ -516,7 +516,7 @@ TEST_CASE("spawn child process with native resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::NUL)
                      .spawn();
         REQUIRE(child);
-        DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE(child->wait()));
 
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
@@ -541,7 +541,7 @@ TEST_CASE("spawn child process with piped stdio", "[os::process]") {
                     .spawn();
 #endif
     REQUIRE(child);
-    DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE(child->wait()));
     REQUIRE_FALSE(child->stdError());
 
     auto stdInput = std::exchange(child->stdInput(), std::nullopt);
@@ -605,7 +605,7 @@ TEST_CASE("spawn child process with pseudo console", "[os::process]") {
 #else
     auto child = pc->spawn(zero::os::process::Command{"sh"});
     REQUIRE(child);
-    DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE(child->wait()));
 
     auto &master = pc->master();
     REQUIRE(master);

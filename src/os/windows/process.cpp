@@ -44,7 +44,7 @@ std::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Proce
 
     PROCESS_BASIC_INFORMATION info{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return NT_SUCCESS(queryInformationProcess(
             *mResource,
             ProcessBasicInformation,
@@ -56,7 +56,7 @@ std::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Proce
 
     std::uintptr_t ptr{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
             &info.PebBaseAddress->ProcessParameters,
@@ -83,7 +83,7 @@ std::expected<DWORD, std::error_code> zero::os::windows::process::Process::ppid(
 
     PROCESS_BASIC_INFORMATION info{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return NT_SUCCESS(queryInformationProcess(
             *mResource,
             ProcessBasicInformation,
@@ -104,11 +104,11 @@ std::expected<std::string, std::error_code> zero::os::windows::process::Process:
 
 std::expected<std::filesystem::path, std::error_code> zero::os::windows::process::Process::cwd() const {
     const auto ptr = parameters();
-    EXPECT(ptr);
+    Z_EXPECT(ptr);
 
     UNICODE_STRING str{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
             reinterpret_cast<LPCVOID>(*ptr + CURRENT_DIRECTORY_OFFSET),
@@ -123,7 +123,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::windows::process
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
             str.Buffer,
@@ -140,7 +140,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::windows::process
     std::array<WCHAR, MAX_PATH> buffer{};
     auto size = static_cast<DWORD>(buffer.size());
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return QueryFullProcessImageNameW(*mResource, 0, buffer.data(), &size);
     }));
 
@@ -149,11 +149,11 @@ std::expected<std::filesystem::path, std::error_code> zero::os::windows::process
 
 std::expected<std::vector<std::string>, std::error_code> zero::os::windows::process::Process::cmdline() const {
     const auto ptr = parameters();
-    EXPECT(ptr);
+    Z_EXPECT(ptr);
 
     UNICODE_STRING str{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
             reinterpret_cast<LPCVOID>(*ptr + offsetof(RTL_USER_PROCESS_PARAMETERS, CommandLine)),
@@ -168,7 +168,7 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
             str.Buffer,
@@ -184,12 +184,12 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
     if (!args)
         return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-    DEFER(LocalFree(args));
+    Z_DEFER(LocalFree(args));
     std::vector<std::string> cmdline;
 
     for (int i{0}; i < num; ++i) {
         auto arg = strings::encode(args[i]);
-        EXPECT(arg);
+        Z_EXPECT(arg);
         cmdline.push_back(*std::move(arg));
     }
 
@@ -198,11 +198,11 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
 
 std::expected<std::map<std::string, std::string>, std::error_code> zero::os::windows::process::Process::envs() const {
     const auto ptr = parameters();
-    EXPECT(ptr);
+    Z_EXPECT(ptr);
 
     PVOID env{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
             reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_OFFSET),
@@ -214,7 +214,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
 
     ULONG size{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
             reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_SIZE_OFFSET),
@@ -226,7 +226,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
 
     const auto buffer = std::make_unique<WCHAR[]>(size / sizeof(WCHAR));
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
             env,
@@ -237,7 +237,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
     }));
 
     const auto str = strings::encode(std::wstring_view(buffer.get(), size / sizeof(WCHAR)));
-    EXPECT(str);
+    Z_EXPECT(str);
 
     std::map<std::string, std::string> envs;
 
@@ -263,7 +263,7 @@ std::expected<std::chrono::system_clock::time_point, std::error_code>
 zero::os::windows::process::Process::startTime() const {
     FILETIME create{}, exit{}, kernel{}, user{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return GetProcessTimes(*mResource, &create, &exit, &kernel, &user);
     }));
 
@@ -275,7 +275,7 @@ zero::os::windows::process::Process::startTime() const {
 std::expected<zero::os::windows::process::CPUTime, std::error_code> zero::os::windows::process::Process::cpu() const {
     FILETIME create{}, exit{}, kernel{}, user{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return GetProcessTimes(*mResource, &create, &exit, &kernel, &user);
     }));
 
@@ -289,7 +289,7 @@ std::expected<zero::os::windows::process::MemoryStat, std::error_code>
 zero::os::windows::process::Process::memory() const {
     PROCESS_MEMORY_COUNTERS counters{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return GetProcessMemoryInfo(*mResource, &counters, sizeof(counters));
     }));
 
@@ -302,7 +302,7 @@ zero::os::windows::process::Process::memory() const {
 std::expected<zero::os::windows::process::IOStat, std::error_code> zero::os::windows::process::Process::io() const {
     IO_COUNTERS counters{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return GetProcessIoCounters(*mResource, &counters);
     }));
 
@@ -317,7 +317,7 @@ std::expected<zero::os::windows::process::IOStat, std::error_code> zero::os::win
 std::expected<DWORD, std::error_code> zero::os::windows::process::Process::exitCode() const {
     DWORD code{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return GetExitCodeProcess(*mResource, &code);
     }));
 
@@ -343,10 +343,10 @@ zero::os::windows::process::Process::wait(const std::optional<std::chrono::milli
 std::expected<std::string, std::error_code> zero::os::windows::process::Process::user() const {
     HANDLE token{};
 
-    EXPECT(expected([&] {
+    Z_EXPECT(expected([&] {
         return OpenProcessToken(*mResource, TOKEN_QUERY, &token);
     }));
-    DEFER(CloseHandle(token));
+    Z_DEFER(CloseHandle(token));
 
     DWORD size{1024};
     auto buffer = std::make_unique<std::byte[]>(size);
@@ -423,7 +423,7 @@ std::expected<std::list<DWORD>, std::error_code> zero::os::windows::process::all
     while (true) {
         DWORD needed{};
 
-        EXPECT(expected([&] {
+        Z_EXPECT(expected([&] {
             return EnumProcesses(buffer.get(), size * sizeof(DWORD), &needed);
         }));
 
@@ -435,4 +435,4 @@ std::expected<std::list<DWORD>, std::error_code> zero::os::windows::process::all
     }
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::windows::process::Process::Error)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::windows::process::Process::Error)

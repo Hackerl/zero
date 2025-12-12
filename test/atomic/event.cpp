@@ -19,7 +19,7 @@ TEST_CASE("auto-reset event", "[atomic::event]") {
                 event.set();
             }
         };
-        DEFER(thread.join());
+        Z_DEFER(thread.join());
 
         REQUIRE(event.wait());
         REQUIRE_FALSE(event.isSet());
@@ -48,7 +48,7 @@ TEST_CASE("manual-reset event", "[atomic::event]") {
                     event.set();
                 }
             };
-            DEFER(thread.join());
+            Z_DEFER(thread.join());
 
             REQUIRE(event.wait());
             REQUIRE(event.isSet());

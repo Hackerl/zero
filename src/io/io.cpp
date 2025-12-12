@@ -7,7 +7,7 @@ std::expected<void, std::error_code> zero::io::IReader::readExactly(const std::s
 
     while (offset < data.size()) {
         const auto n = read(data.subspan(offset));
-        EXPECT(n);
+        Z_EXPECT(n);
 
         if (*n == 0)
             return std::unexpected{ReadExactlyError::UNEXPECTED_EOF};
@@ -25,7 +25,7 @@ std::expected<std::vector<std::byte>, std::error_code> zero::io::IReader::readAl
         std::array<std::byte, 10240> buffer; // NOLINT(*-pro-type-member-init)
 
         const auto n = read(buffer);
-        EXPECT(n);
+        Z_EXPECT(n);
 
         if (*n == 0)
             break;
@@ -41,7 +41,7 @@ std::expected<void, std::error_code> zero::io::IWriter::writeAll(const std::span
 
     while (offset < data.size()) {
         const auto n = write(data.subspan(offset));
-        EXPECT(n);
+        Z_EXPECT(n);
 
         assert(*n != 0);
         offset += *n;
@@ -51,18 +51,18 @@ std::expected<void, std::error_code> zero::io::IWriter::writeAll(const std::span
 }
 
 std::expected<void, std::error_code> zero::io::ISeekable::rewind() {
-    EXPECT(seek(0, Whence::BEGIN));
+    Z_EXPECT(seek(0, Whence::BEGIN));
     return {};
 }
 
 std::expected<std::uint64_t, std::error_code> zero::io::ISeekable::length() {
     const auto pos = position();
-    EXPECT(pos);
+    Z_EXPECT(pos);
 
     const auto length = seek(0, Whence::END);
-    EXPECT(length);
+    Z_EXPECT(length);
 
-    EXPECT(seek(*pos, Whence::BEGIN));
+    Z_EXPECT(seek(*pos, Whence::BEGIN));
     return *length;
 }
 
@@ -110,7 +110,7 @@ std::expected<std::size_t, std::error_code> zero::io::BytesWriter::write(const s
     return data.size();
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCES(
+Z_DEFINE_ERROR_CATEGORY_INSTANCES(
     zero::io::Error,
     zero::io::IReader::ReadExactlyError
 )

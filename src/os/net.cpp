@@ -88,7 +88,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
             return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
         const auto name = strings::encode(buf.data());
-        EXPECT(name);
+        Z_EXPECT(name);
 
         std::vector<Address> addresses;
 
@@ -144,10 +144,10 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
 #elif defined(__linux__) || __APPLE__
     ifaddrs *addr{};
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return getifaddrs(&addr);
     }));
-    DEFER(freeifaddrs(addr));
+    Z_DEFER(freeifaddrs(addr));
 
     std::map<std::string, Interface> interfaces;
 
@@ -247,7 +247,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
     }).transform([](const auto &fd) {
         return Resource{fd};
     });
-    EXPECT(resource);
+    Z_EXPECT(resource);
 
     for (auto &[name, mac, addresses]: std::views::values(interfaces)) {
         ifreq request{};
@@ -255,7 +255,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
         request.ifr_addr.sa_family = AF_INET;
         std::strncpy(request.ifr_name, name.c_str(), IFNAMSIZ);
 
-        EXPECT(unix::expected([&] {
+        Z_EXPECT(unix::expected([&] {
             return ioctl(resource->get(), SIOCGIFHWADDR, &request);
         }));
 

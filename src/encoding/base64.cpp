@@ -84,4 +84,4 @@ zero::encoding::base64::decode(const std::string_view encoded) {
     return buffer;
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::encoding::base64::DecodeError)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::encoding::base64::DecodeError)

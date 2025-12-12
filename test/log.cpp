@@ -131,7 +131,7 @@ TEST_CASE("override log level from environment variable", "[log]") {
     const auto level = GENERATE_REF(from_range(levels));
 
     REQUIRE(zero::env::set("ZERO_LOG_LEVEL", std::to_string(std::to_underlying(level))));
-    DEFER(REQUIRE(zero::env::unset("ZERO_LOG_LEVEL")));
+    Z_DEFER(REQUIRE(zero::env::unset("ZERO_LOG_LEVEL")));
 
     zero::atomic::Event event;
     fakeit::Mock<zero::log::IProvider> mock;
@@ -173,7 +173,7 @@ TEST_CASE("file log provider", "[log]") {
 
     SECTION("init") {
         REQUIRE(zero::filesystem::createDirectory(directory));
-        DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
 
         zero::log::FileProvider provider{name, directory};
         REQUIRE(provider.init());
@@ -182,7 +182,7 @@ TEST_CASE("file log provider", "[log]") {
 
     SECTION("write and flush") {
         REQUIRE(zero::filesystem::createDirectory(directory));
-        DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
 
         zero::log::FileProvider provider{name, directory};
         REQUIRE(provider.init());
@@ -213,7 +213,7 @@ TEST_CASE("file log provider", "[log]") {
         using namespace std::chrono_literals;
 
         REQUIRE(zero::filesystem::createDirectory(directory));
-        DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
 
         const auto limit = GENERATE(take(1, random<std::size_t>(64, 1024)));
         const auto remain = GENERATE(take(1, random(5, 10)));

@@ -60,7 +60,7 @@ std::expected<bool, std::error_code> zero::os::Resource::isInheritable() const {
 #ifdef _WIN32
     DWORD flags{};
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return GetHandleInformation(mNative, &flags);
     }));
 
@@ -78,7 +78,7 @@ std::expected<zero::os::Resource, std::error_code> zero::os::Resource::duplicate
 #ifdef _WIN32
     HANDLE handle{};
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return DuplicateHandle(
             GetCurrentProcess(),
             mNative,
@@ -99,7 +99,7 @@ std::expected<zero::os::Resource, std::error_code> zero::os::Resource::duplicate
     });
 
     if (!inheritable) {
-        EXPECT(resource->setInheritable(false));
+        Z_EXPECT(resource->setInheritable(false));
     }
 
     return *std::move(resource);
@@ -116,14 +116,14 @@ std::expected<void, std::error_code> zero::os::Resource::setInheritable(const bo
     auto flags = unix::expected([this] {
         return fcntl(mNative, F_GETFD);
     });
-    EXPECT(flags);
+    Z_EXPECT(flags);
 
     if (inheritable)
         *flags &= ~FD_CLOEXEC;
     else
         *flags |= FD_CLOEXEC;
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return fcntl(mNative, F_SETFD, *flags);
     }));
 
@@ -142,7 +142,7 @@ std::expected<void, std::error_code> zero::os::Resource::close() {
         return CloseHandle(std::exchange(mNative, INVALID_RESOURCE));
     });
 #else
-    EXPECT(unix::ensure([this] {
+    Z_EXPECT(unix::ensure([this] {
         return ::close(std::exchange(mNative, INVALID_RESOURCE));
     }));
     return {};
@@ -181,7 +181,7 @@ std::expected<std::size_t, std::error_code> zero::os::IOResource::read(const std
 #ifdef _WIN32
     DWORD n{};
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return ReadFile(*mResource, data.data(), static_cast<DWORD>(data.size()), &n, nullptr);
     }).or_else([](const auto &ec) -> std::expected<void, std::error_code> {
         if (ec != std::errc::broken_pipe)
@@ -201,7 +201,7 @@ std::expected<std::size_t, std::error_code> zero::os::IOResource::read(const std
 std::expected<std::size_t, std::error_code> zero::os::IOResource::write(const std::span<const std::byte> data) {
 #ifdef _WIN32
     DWORD n{};
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return WriteFile(*mResource, data.data(), static_cast<DWORD>(data.size()), &n, nullptr);
     }));
     return n;
@@ -216,7 +216,7 @@ std::expected<std::uint64_t, std::error_code> zero::os::IOResource::seek(const s
 #ifdef _WIN32
     LARGE_INTEGER pos{};
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return SetFilePointerEx(
             *mResource,
             LARGE_INTEGER{.QuadPart = offset},
@@ -238,7 +238,7 @@ std::expected<std::uint64_t, std::error_code> zero::os::IOResource::seek(const s
             whence == Whence::BEGIN ? SEEK_SET : whence == Whence::CURRENT ? SEEK_CUR : SEEK_END
         );
     });
-    EXPECT(pos);
+    Z_EXPECT(pos);
 
     return *pos;
 #endif

@@ -26,7 +26,7 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
     std::array<WCHAR, MAX_COMPUTERNAME_LENGTH + 1> buffer{};
     auto size = static_cast<DWORD>(buffer.size());
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return GetComputerNameW(buffer.data(), &size);
     }));
 
@@ -34,7 +34,7 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
 #elif defined(__linux__)
     std::array<char, HOST_NAME_MAX + 1> buffer{};
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return gethostname(buffer.data(), buffer.size());
     }));
 
@@ -42,7 +42,7 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
 #elif defined(__APPLE__)
     std::array<char, MAXHOSTNAMELEN> buffer{};
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return gethostname(buffer.data(), buffer.size());
     }));
 
@@ -57,7 +57,7 @@ std::expected<std::string, std::error_code> zero::os::username() {
     std::array<WCHAR, UNLEN + 1> buffer{};
     auto size = static_cast<DWORD>(buffer.size());
 
-    EXPECT(windows::expected([&] {
+    Z_EXPECT(windows::expected([&] {
         return GetUserNameW(buffer.data(), &size);
     }));
 
@@ -136,7 +136,7 @@ zero::os::pipe() {
 #else
     std::array<int, 2> fds{};
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return ::pipe(fds.data());
     }));
 
@@ -145,5 +145,5 @@ zero::os::pipe() {
 }
 
 #ifndef _WIN32
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::GetUsernameError)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::GetUsernameError)
 #endif

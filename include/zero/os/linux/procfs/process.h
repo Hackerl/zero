@@ -167,7 +167,7 @@ namespace zero::os::linux::procfs::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_INNER(
+        Z_DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::linux::procfs::process::Process",
             MAYBE_ZOMBIE_PROCESS, "maybe zombie process"
@@ -204,6 +204,6 @@ namespace zero::os::linux::procfs::process {
     std::expected<std::list<pid_t>, std::error_code> all();
 }
 
-DECLARE_ERROR_CODE(zero::os::linux::procfs::process::Process::Error)
+Z_DECLARE_ERROR_CODE(zero::os::linux::procfs::process::Process::Error)
 
 #endif //ZERO_OS_LINUX_PROCFS_PROCESS_H

@@ -6,7 +6,7 @@
 #include <mach/mach.h>
 
 namespace zero::os::macos {
-    DEFINE_ERROR_TRANSFORMER_EX(
+    Z_DEFINE_ERROR_TRANSFORMER_EX(
         Error,
         "zero::os::macos",
         mach_error_string,
@@ -25,6 +25,6 @@ namespace zero::os::macos {
     )
 }
 
-DECLARE_ERROR_CODE(zero::os::macos::Error)
+Z_DECLARE_ERROR_CODE(zero::os::macos::Error)
 
 #endif //ZERO_OS_MACOS_ERROR_H

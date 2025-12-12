@@ -4,28 +4,28 @@
 TEST_CASE("defer expression", "[defer]") {
     int i{0};
 
-    DEFER(REQUIRE(i == 15));
-    DEFER(
+    Z_DEFER(REQUIRE(i == 15));
+    Z_DEFER(
         REQUIRE(i == 10);
         i += 5;
     );
 
-    DEFER(
+    Z_DEFER(
         REQUIRE(i == 6);
         i += 4;
     );
 
-    DEFER(
+    Z_DEFER(
         REQUIRE(i == 3);
         i += 3;
     );
 
-    DEFER(
+    Z_DEFER(
         REQUIRE(i == 1);
         i += 2;
     );
 
-    DEFER(
+    Z_DEFER(
         REQUIRE(i == 0);
         i += 1;
     );

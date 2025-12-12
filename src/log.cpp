@@ -68,17 +68,17 @@ std::expected<void, std::error_code> zero::log::FileProvider::rotate() {
     mStream.clear();
 
     const auto iterator = filesystem::readDirectory(mDirectory);
-    EXPECT(iterator);
+    Z_EXPECT(iterator);
 
     const auto prefix = fmt::format("{}.{}", mName, mPID);
 
     std::list<std::filesystem::path> logs;
 
     for (const auto &entry: *iterator) {
-        EXPECT(entry);
+        Z_EXPECT(entry);
 
         const auto result = entry->isRegularFile();
-        EXPECT(result);
+        Z_EXPECT(result);
 
         if (!*result)
             continue;
@@ -94,7 +94,7 @@ std::expected<void, std::error_code> zero::log::FileProvider::rotate() {
     logs.sort();
 
     for (const auto &log: logs | std::views::reverse | std::views::drop(mRemain)) {
-        EXPECT(filesystem::remove(log));
+        Z_EXPECT(filesystem::remove(log));
     }
 
     return init();

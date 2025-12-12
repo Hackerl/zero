@@ -40,4 +40,4 @@ zero::encoding::hex::decode(const std::string_view encoded) {
     return data;
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::encoding::hex::DecodeError)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::encoding::hex::DecodeError)

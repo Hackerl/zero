@@ -136,7 +136,7 @@ zero::strings::encode(const std::wstring_view str, const std::string &encoding) 
     if (cd == reinterpret_cast<iconv_t>(-1))
         return std::unexpected{std::error_code{errno, std::generic_category()}};
 
-    DEFER(iconv_close(cd));
+    Z_DEFER(iconv_close(cd));
     std::string output;
 
     auto input = reinterpret_cast<char *>(const_cast<wchar_t *>(str.data()));
@@ -164,7 +164,7 @@ zero::strings::decode(const std::string_view str, const std::string &encoding) {
     if (cd == reinterpret_cast<iconv_t>(-1))
         return std::unexpected{std::error_code{errno, std::generic_category()}};
 
-    DEFER(iconv_close(cd));
+    Z_DEFER(iconv_close(cd));
     std::wstring output;
 
     auto input = const_cast<char *>(str.data());

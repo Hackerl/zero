@@ -67,17 +67,17 @@ namespace zero::concurrent {
         }
     };
 
-    DEFINE_ERROR_CODE_EX(
+    Z_DEFINE_ERROR_CODE_EX(
         TrySendError,
         "zero::concurrent::Sender::trySend",
-        DISCONNECTED, "sending on a disconnected channel", DEFAULT_ERROR_CONDITION,
+        DISCONNECTED, "sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
         FULL, "sending on a full channel", std::errc::operation_would_block
     )
 
-    DEFINE_ERROR_CODE_EX(
+    Z_DEFINE_ERROR_CODE_EX(
         SendError,
         "zero::concurrent::Sender::send",
-        DISCONNECTED, "sending on a disconnected channel", DEFAULT_ERROR_CONDITION,
+        DISCONNECTED, "sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
         TIMEOUT, "timed out waiting on send operation", std::errc::timed_out
     )
 
@@ -244,17 +244,17 @@ namespace zero::concurrent {
         std::shared_ptr<ChannelCore<T>> mCore;
     };
 
-    DEFINE_ERROR_CODE_EX(
+    Z_DEFINE_ERROR_CODE_EX(
         TryReceiveError,
         "zero::concurrent::Receiver::tryReceive",
-        DISCONNECTED, "receiving on an empty and disconnected channel", DEFAULT_ERROR_CONDITION,
+        DISCONNECTED, "receiving on an empty and disconnected channel", Z_DEFAULT_ERROR_CONDITION,
         EMPTY, "receiving on an empty channel", std::errc::operation_would_block
     )
 
-    DEFINE_ERROR_CODE_EX(
+    Z_DEFINE_ERROR_CODE_EX(
         ReceiveError,
         "zero::concurrent::Receiver::receive",
-        DISCONNECTED, "channel is empty and disconnected", DEFAULT_ERROR_CONDITION,
+        DISCONNECTED, "channel is empty and disconnected", Z_DEFAULT_ERROR_CONDITION,
         TIMEOUT, "timed out waiting on receive operation", std::errc::timed_out
     )
 
@@ -357,7 +357,7 @@ namespace zero::concurrent {
         std::shared_ptr<ChannelCore<T>> mCore;
     };
 
-    DEFINE_ERROR_CONDITION_EX(
+    Z_DEFINE_ERROR_CONDITION_EX(
         ChannelError,
         "zero::concurrent::channel",
         DISCONNECTED,
@@ -380,13 +380,13 @@ namespace zero::concurrent {
     }
 }
 
-DECLARE_ERROR_CODES(
+Z_DECLARE_ERROR_CODES(
     zero::concurrent::TrySendError,
     zero::concurrent::SendError,
     zero::concurrent::TryReceiveError,
     zero::concurrent::ReceiveError
 )
 
-DECLARE_ERROR_CONDITION(zero::concurrent::ChannelError)
+Z_DECLARE_ERROR_CONDITION(zero::concurrent::ChannelError)
 
 #endif //ZERO_CONCURRENT_CHANNEL_H

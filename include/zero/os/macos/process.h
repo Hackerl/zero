@@ -27,7 +27,7 @@ namespace zero::os::macos::process {
 
     class Process {
     public:
-        DEFINE_ERROR_CODE_INNER(
+        Z_DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::macos::process::Process",
             UNEXPECTED_DATA, "unexpected data",
@@ -70,6 +70,6 @@ namespace zero::os::macos::process {
     std::expected<std::list<pid_t>, std::error_code> all();
 }
 
-DECLARE_ERROR_CODE(zero::os::macos::process::Process::Error)
+Z_DECLARE_ERROR_CODE(zero::os::macos::process::Process::Error)
 
 #endif //ZERO_OS_MACOS_PROCESS_H

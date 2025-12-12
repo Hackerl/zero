@@ -26,7 +26,7 @@ zero::os::linux::procfs::process::Process::readFile(const char *filename) const 
     }).transform([](const auto &fd) {
         return Resource{fd};
     });
-    EXPECT(resource);
+    Z_EXPECT(resource);
 
     std::string content;
 
@@ -36,7 +36,7 @@ zero::os::linux::procfs::process::Process::readFile(const char *filename) const 
         const auto n = unix::ensure([&] {
             return read(resource->get(), buffer.data(), buffer.size());
         });
-        EXPECT(n);
+        Z_EXPECT(n);
 
         if (*n == 0)
             break;
@@ -54,7 +54,7 @@ pid_t zero::os::linux::procfs::process::Process::pid() const {
 std::expected<std::filesystem::path, std::error_code> zero::os::linux::procfs::process::Process::exe() const {
     std::array<char, PATH_MAX + 1> buffer{};
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return readlinkat(*mResource, "exe", buffer.data(), PATH_MAX);
     }));
 
@@ -64,7 +64,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::linux::procfs::p
 std::expected<std::filesystem::path, std::error_code> zero::os::linux::procfs::process::Process::cwd() const {
     std::array<char, PATH_MAX + 1> buffer{};
 
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return readlinkat(*mResource, "cwd", buffer.data(), PATH_MAX);
     }));
 
@@ -73,7 +73,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::linux::procfs::p
 
 std::expected<std::string, std::error_code> zero::os::linux::procfs::process::Process::comm() const {
     auto content = readFile("comm");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     if (content->size() < 2)
         return std::unexpected{procfs::Error::UNEXPECTED_DATA};
@@ -84,7 +84,7 @@ std::expected<std::string, std::error_code> zero::os::linux::procfs::process::Pr
 
 std::expected<std::vector<std::string>, std::error_code> zero::os::linux::procfs::process::Process::cmdline() const {
     auto content = readFile("cmdline");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     if (content->empty())
         return std::unexpected{Error::MAYBE_ZOMBIE_PROCESS};
@@ -101,7 +101,7 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::linux::procfs
 std::expected<std::map<std::string, std::string>, std::error_code>
 zero::os::linux::procfs::process::Process::environ() const {
     auto content = readFile("environ");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     if (content->empty())
         return {};
@@ -124,7 +124,7 @@ zero::os::linux::procfs::process::Process::environ() const {
 std::expected<zero::os::linux::procfs::process::Stat, std::error_code>
 zero::os::linux::procfs::process::Process::stat() const {
     const auto content = readFile("stat");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     const auto start = content->find('(');
     const auto end = content->rfind(')');
@@ -135,7 +135,7 @@ zero::os::linux::procfs::process::Process::stat() const {
     Stat stat;
 
     const auto pid = strings::toNumber<std::int32_t>({content->begin(), content->begin() + start - 1});
-    EXPECT(pid);
+    Z_EXPECT(pid);
 
     stat.pid = *pid;
     stat.comm = content->substr(start + 1, end - start - 1);
@@ -155,67 +155,67 @@ zero::os::linux::procfs::process::Process::stat() const {
                 return {};
 
             const auto value = strings::toNumber<typename T::value_type>(*it++);
-            EXPECT(value);
+            Z_EXPECT(value);
             var = *value;
         }
         else {
             const auto value = strings::toNumber<T>(*it++);
-            EXPECT(value);
+            Z_EXPECT(value);
             var = *value;
         }
 
         return {};
     };
 
-    EXPECT(set(stat.ppid));
-    EXPECT(set(stat.processGroupID));
-    EXPECT(set(stat.sessionID));
-    EXPECT(set(stat.ttyNumber));
-    EXPECT(set(stat.terminalProcessGroupID));
-    EXPECT(set(stat.flags));
-    EXPECT(set(stat.minorFaults));
-    EXPECT(set(stat.childMinorFaults));
-    EXPECT(set(stat.majorFaults));
-    EXPECT(set(stat.childMajorFaults));
-    EXPECT(set(stat.userTime));
-    EXPECT(set(stat.systemTime));
-    EXPECT(set(stat.childUserTime));
-    EXPECT(set(stat.childSystemTime));
-    EXPECT(set(stat.priority));
-    EXPECT(set(stat.niceValue));
-    EXPECT(set(stat.numThreads));
-    EXPECT(set(stat.intervalRealValue));
-    EXPECT(set(stat.startTime));
-    EXPECT(set(stat.virtualMemorySize));
-    EXPECT(set(stat.rss));
-    EXPECT(set(stat.rssLimit));
-    EXPECT(set(stat.startCode));
-    EXPECT(set(stat.endCode));
-    EXPECT(set(stat.startStack));
-    EXPECT(set(stat.kernelStackPointer));
-    EXPECT(set(stat.kernelInstructionPointer));
-    EXPECT(set(stat.pendingSignals));
-    EXPECT(set(stat.blockedSignals));
-    EXPECT(set(stat.ignoredSignals));
-    EXPECT(set(stat.caughtSignals));
-    EXPECT(set(stat.waitingChannel));
-    EXPECT(set(stat.pagesSwapped));
-    EXPECT(set(stat.childPagesSwapped));
-    EXPECT(set(stat.exitSignal));
-    EXPECT(set(stat.processor));
-    EXPECT(set(stat.realTimePriority));
-    EXPECT(set(stat.schedulingPolicy));
-    EXPECT(set(stat.blockIODelayTicks));
-    EXPECT(set(stat.guestTime));
-    EXPECT(set(stat.childGuestTime));
-    EXPECT(set(stat.startData));
-    EXPECT(set(stat.endData));
-    EXPECT(set(stat.startBrk));
-    EXPECT(set(stat.argStart));
-    EXPECT(set(stat.argEnd));
-    EXPECT(set(stat.envStart));
-    EXPECT(set(stat.envEnd));
-    EXPECT(set(stat.exitCode));
+    Z_EXPECT(set(stat.ppid));
+    Z_EXPECT(set(stat.processGroupID));
+    Z_EXPECT(set(stat.sessionID));
+    Z_EXPECT(set(stat.ttyNumber));
+    Z_EXPECT(set(stat.terminalProcessGroupID));
+    Z_EXPECT(set(stat.flags));
+    Z_EXPECT(set(stat.minorFaults));
+    Z_EXPECT(set(stat.childMinorFaults));
+    Z_EXPECT(set(stat.majorFaults));
+    Z_EXPECT(set(stat.childMajorFaults));
+    Z_EXPECT(set(stat.userTime));
+    Z_EXPECT(set(stat.systemTime));
+    Z_EXPECT(set(stat.childUserTime));
+    Z_EXPECT(set(stat.childSystemTime));
+    Z_EXPECT(set(stat.priority));
+    Z_EXPECT(set(stat.niceValue));
+    Z_EXPECT(set(stat.numThreads));
+    Z_EXPECT(set(stat.intervalRealValue));
+    Z_EXPECT(set(stat.startTime));
+    Z_EXPECT(set(stat.virtualMemorySize));
+    Z_EXPECT(set(stat.rss));
+    Z_EXPECT(set(stat.rssLimit));
+    Z_EXPECT(set(stat.startCode));
+    Z_EXPECT(set(stat.endCode));
+    Z_EXPECT(set(stat.startStack));
+    Z_EXPECT(set(stat.kernelStackPointer));
+    Z_EXPECT(set(stat.kernelInstructionPointer));
+    Z_EXPECT(set(stat.pendingSignals));
+    Z_EXPECT(set(stat.blockedSignals));
+    Z_EXPECT(set(stat.ignoredSignals));
+    Z_EXPECT(set(stat.caughtSignals));
+    Z_EXPECT(set(stat.waitingChannel));
+    Z_EXPECT(set(stat.pagesSwapped));
+    Z_EXPECT(set(stat.childPagesSwapped));
+    Z_EXPECT(set(stat.exitSignal));
+    Z_EXPECT(set(stat.processor));
+    Z_EXPECT(set(stat.realTimePriority));
+    Z_EXPECT(set(stat.schedulingPolicy));
+    Z_EXPECT(set(stat.blockIODelayTicks));
+    Z_EXPECT(set(stat.guestTime));
+    Z_EXPECT(set(stat.childGuestTime));
+    Z_EXPECT(set(stat.startData));
+    Z_EXPECT(set(stat.endData));
+    Z_EXPECT(set(stat.startBrk));
+    Z_EXPECT(set(stat.argStart));
+    Z_EXPECT(set(stat.argEnd));
+    Z_EXPECT(set(stat.envStart));
+    Z_EXPECT(set(stat.envEnd));
+    Z_EXPECT(set(stat.exitCode));
 
     return stat;
 }
@@ -223,7 +223,7 @@ zero::os::linux::procfs::process::Process::stat() const {
 std::expected<zero::os::linux::procfs::process::StatM, std::error_code>
 zero::os::linux::procfs::process::Process::statM() const {
     const auto content = readFile("statm");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     const auto tokens = strings::split(*content, " ");
 
@@ -231,25 +231,25 @@ zero::os::linux::procfs::process::Process::statM() const {
         return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
     const auto size = strings::toNumber<std::uint64_t>(tokens[0]);
-    EXPECT(size);
+    Z_EXPECT(size);
 
     const auto resident = strings::toNumber<std::uint64_t>(tokens[1]);
-    EXPECT(resident);
+    Z_EXPECT(resident);
 
     const auto shared = strings::toNumber<std::uint64_t>(tokens[2]);
-    EXPECT(shared);
+    Z_EXPECT(shared);
 
     const auto text = strings::toNumber<std::uint64_t>(tokens[3]);
-    EXPECT(text);
+    Z_EXPECT(text);
 
     const auto library = strings::toNumber<std::uint64_t>(tokens[4]);
-    EXPECT(library);
+    Z_EXPECT(library);
 
     const auto data = strings::toNumber<std::uint64_t>(tokens[5]);
-    EXPECT(data);
+    Z_EXPECT(data);
 
     const auto dirty = strings::toNumber<std::uint64_t>(tokens[6]);
-    EXPECT(dirty);
+    Z_EXPECT(dirty);
 
     return StatM{
         *size,
@@ -268,7 +268,7 @@ std::expected<std::vector<T>, std::error_code> parseNumbers(const std::string_vi
 
     for (const auto &token: zero::strings::split(str)) {
         const auto n = zero::strings::toNumber<T>(token);
-        EXPECT(n);
+        Z_EXPECT(n);
         result.emplace_back(*n);
     }
 
@@ -281,7 +281,7 @@ namespace {
 
         for (const auto &token: zero::strings::split(str, ",")) {
             const auto n = zero::strings::toNumber<std::uint32_t>(token, 16);
-            EXPECT(n);
+            Z_EXPECT(n);
             result.emplace_back(*n);
         }
 
@@ -296,7 +296,7 @@ parseAllowedList(const std::string_view str) {
     for (const auto &token: zero::strings::split(str, ",")) {
         if (!token.contains('-')) {
             const auto n = zero::strings::toNumber<std::uint32_t>(token);
-            EXPECT(n);
+            Z_EXPECT(n);
             result.emplace_back(*n, *n);
             continue;
         }
@@ -307,10 +307,10 @@ parseAllowedList(const std::string_view str) {
             return std::unexpected{zero::os::linux::procfs::Error::UNEXPECTED_DATA};
 
         const auto begin = zero::strings::toNumber<std::uint32_t>(tokens[0]);
-        EXPECT(begin);
+        Z_EXPECT(begin);
 
         const auto end = zero::strings::toNumber<std::uint32_t>(tokens[1]);
-        EXPECT(end);
+        Z_EXPECT(end);
 
         result.emplace_back(*begin, *end);
     }
@@ -321,7 +321,7 @@ parseAllowedList(const std::string_view str) {
 std::expected<zero::os::linux::procfs::process::Status, std::error_code>
 zero::os::linux::procfs::process::Process::status() const {
     const auto content = readFile("status");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     std::map<std::string, std::string> map;
 
@@ -340,7 +340,7 @@ zero::os::linux::procfs::process::Process::status() const {
         if (it == map.end())
             return std::nullopt;
 
-        DEFER(map.erase(it));
+        Z_DEFER(map.erase(it));
         return std::move(it->second);
     };
 
@@ -356,7 +356,7 @@ zero::os::linux::procfs::process::Process::status() const {
         }
 
         if constexpr (detail::is_specialization_v<V, std::expected>) {
-            EXPECT(*value);
+            Z_EXPECT(*value);
             var = *std::move(*value);
         }
         else {
@@ -380,18 +380,18 @@ zero::os::linux::procfs::process::Process::status() const {
 
     Status status;
 
-    EXPECT(set(status.name, take("Name")));
-    EXPECT(setNumber(status.umask, "Umask", 8));
-    EXPECT(set(status.state, take("State")));
-    EXPECT(setNumber(status.threadGroupID, "Tgid"));
-    EXPECT(setNumber(status.numaGroupID, "Ngid"));
-    EXPECT(setNumber(status.pid, "Pid"));
-    EXPECT(setNumber(status.ppid, "PPid"));
-    EXPECT(setNumber(status.tracerPID, "TracerPid"));
+    Z_EXPECT(set(status.name, take("Name")));
+    Z_EXPECT(setNumber(status.umask, "Umask", 8));
+    Z_EXPECT(set(status.state, take("State")));
+    Z_EXPECT(setNumber(status.threadGroupID, "Tgid"));
+    Z_EXPECT(setNumber(status.numaGroupID, "Ngid"));
+    Z_EXPECT(setNumber(status.pid, "Pid"));
+    Z_EXPECT(setNumber(status.ppid, "PPid"));
+    Z_EXPECT(setNumber(status.tracerPID, "TracerPid"));
 
     const auto parseIDs = [](const auto &value) -> std::expected<std::array<std::uint32_t, 4>, std::error_code> {
         const auto numbers = parseNumbers<std::uint32_t>(value);
-        EXPECT(numbers);
+        Z_EXPECT(numbers);
 
         if (numbers->size() != 4)
             return std::unexpected{procfs::Error::UNEXPECTED_DATA};
@@ -399,36 +399,36 @@ zero::os::linux::procfs::process::Process::status() const {
         return std::array{numbers->at(0), numbers->at(1), numbers->at(2), numbers->at(3)};
     };
 
-    EXPECT(set(status.uid, take("Uid").transform(parseIDs)));
-    EXPECT(set(status.gid, take("Gid").transform(parseIDs)));
+    Z_EXPECT(set(status.uid, take("Uid").transform(parseIDs)));
+    Z_EXPECT(set(status.gid, take("Gid").transform(parseIDs)));
 
-    EXPECT(setNumber(status.fdSize, "FDSize"));
+    Z_EXPECT(setNumber(status.fdSize, "FDSize"));
 
-    EXPECT(set(status.supplementaryGroupIDs, take("Groups").transform(parseNumbers<std::int32_t>)));
-    EXPECT(set(status.namespaceThreadGroupIDs, take("NStgid").transform(parseNumbers<std::int32_t>)));
-    EXPECT(set(status.namespaceProcessIDs, take("NSpid").transform(parseNumbers<std::int32_t>)));
-    EXPECT(set(status.namespaceProcessGroupIDs, take("NSpgid").transform(parseNumbers<std::int32_t>)));
-    EXPECT(set(status.namespaceSessionIDs, take("NSsid").transform(parseNumbers<std::int32_t>)));
+    Z_EXPECT(set(status.supplementaryGroupIDs, take("Groups").transform(parseNumbers<std::int32_t>)));
+    Z_EXPECT(set(status.namespaceThreadGroupIDs, take("NStgid").transform(parseNumbers<std::int32_t>)));
+    Z_EXPECT(set(status.namespaceProcessIDs, take("NSpid").transform(parseNumbers<std::int32_t>)));
+    Z_EXPECT(set(status.namespaceProcessGroupIDs, take("NSpgid").transform(parseNumbers<std::int32_t>)));
+    Z_EXPECT(set(status.namespaceSessionIDs, take("NSsid").transform(parseNumbers<std::int32_t>)));
 
-    EXPECT(setNumber(status.vmPeak, "VmPeak"));
-    EXPECT(setNumber(status.vmSize, "VmSize"));
-    EXPECT(setNumber(status.vmLocked, "VmLck"));
-    EXPECT(setNumber(status.vmPinned, "VmPin"));
-    EXPECT(setNumber(status.vmHWM, "VmHWM"));
-    EXPECT(setNumber(status.vmRSS, "VmRSS"));
-    EXPECT(setNumber(status.rssAnonymous, "RssAnon"));
-    EXPECT(setNumber(status.rssFile, "RssFile"));
-    EXPECT(setNumber(status.rssSharedMemory, "RssShmem"));
-    EXPECT(setNumber(status.vmData, "VmData"));
-    EXPECT(setNumber(status.vmStack, "VmStk"));
-    EXPECT(setNumber(status.vmExe, "VmExe"));
-    EXPECT(setNumber(status.vmLib, "VmLib"));
-    EXPECT(setNumber(status.vmPTE, "VmPTE"));
-    EXPECT(setNumber(status.vmSwap, "VmSwap"));
-    EXPECT(setNumber(status.hugeTLBPages, "HugetlbPages"));
-    EXPECT(setNumber(status.threads, "Threads"));
+    Z_EXPECT(setNumber(status.vmPeak, "VmPeak"));
+    Z_EXPECT(setNumber(status.vmSize, "VmSize"));
+    Z_EXPECT(setNumber(status.vmLocked, "VmLck"));
+    Z_EXPECT(setNumber(status.vmPinned, "VmPin"));
+    Z_EXPECT(setNumber(status.vmHWM, "VmHWM"));
+    Z_EXPECT(setNumber(status.vmRSS, "VmRSS"));
+    Z_EXPECT(setNumber(status.rssAnonymous, "RssAnon"));
+    Z_EXPECT(setNumber(status.rssFile, "RssFile"));
+    Z_EXPECT(setNumber(status.rssSharedMemory, "RssShmem"));
+    Z_EXPECT(setNumber(status.vmData, "VmData"));
+    Z_EXPECT(setNumber(status.vmStack, "VmStk"));
+    Z_EXPECT(setNumber(status.vmExe, "VmExe"));
+    Z_EXPECT(setNumber(status.vmLib, "VmLib"));
+    Z_EXPECT(setNumber(status.vmPTE, "VmPTE"));
+    Z_EXPECT(setNumber(status.vmSwap, "VmSwap"));
+    Z_EXPECT(setNumber(status.hugeTLBPages, "HugetlbPages"));
+    Z_EXPECT(setNumber(status.threads, "Threads"));
 
-    EXPECT(set(
+    Z_EXPECT(set(
         status.signalQueue,
         take("SigQ").transform([](const auto &value) -> std::expected<std::array<std::uint64_t, 2>, std::error_code> {
             const auto tokens = strings::split(value, "/", 1);
@@ -437,39 +437,39 @@ zero::os::linux::procfs::process::Process::status() const {
                 return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
             const auto number = strings::toNumber<std::uint64_t>(tokens[0]);
-            EXPECT(number);
+            Z_EXPECT(number);
 
             const auto limit = strings::toNumber<std::uint64_t>(tokens[1]);
-            EXPECT(limit);
+            Z_EXPECT(limit);
 
             return std::array{*number, *limit};
         })
     ));
 
-    EXPECT(setNumber(status.pendingSignals, "SigPnd", 16));
-    EXPECT(setNumber(status.blockedSignals, "SigBlk", 16));
-    EXPECT(setNumber(status.ignoredSignals, "SigIgn", 16));
-    EXPECT(setNumber(status.caughtSignals, "SigCgt", 16));
-    EXPECT(setNumber(status.inheritableCapabilities, "CapInh", 16));
-    EXPECT(setNumber(status.permittedCapabilities, "CapPrm", 16));
-    EXPECT(setNumber(status.effectiveCapabilities, "CapEff", 16));
-    EXPECT(setNumber(status.boundingCapabilities, "CapBnd", 16));
-    EXPECT(setNumber(status.ambientCapabilities, "CapAmb", 16));
-    EXPECT(setNumber(status.noNewPrivileges, "NoNewPrivs"));
-    EXPECT(setNumber(status.seccompMode, "Seccomp"));
+    Z_EXPECT(setNumber(status.pendingSignals, "SigPnd", 16));
+    Z_EXPECT(setNumber(status.blockedSignals, "SigBlk", 16));
+    Z_EXPECT(setNumber(status.ignoredSignals, "SigIgn", 16));
+    Z_EXPECT(setNumber(status.caughtSignals, "SigCgt", 16));
+    Z_EXPECT(setNumber(status.inheritableCapabilities, "CapInh", 16));
+    Z_EXPECT(setNumber(status.permittedCapabilities, "CapPrm", 16));
+    Z_EXPECT(setNumber(status.effectiveCapabilities, "CapEff", 16));
+    Z_EXPECT(setNumber(status.boundingCapabilities, "CapBnd", 16));
+    Z_EXPECT(setNumber(status.ambientCapabilities, "CapAmb", 16));
+    Z_EXPECT(setNumber(status.noNewPrivileges, "NoNewPrivs"));
+    Z_EXPECT(setNumber(status.seccompMode, "Seccomp"));
 
-    EXPECT(set(status.speculationStoreBypass, take("Speculation_Store_Bypass")));
+    Z_EXPECT(set(status.speculationStoreBypass, take("Speculation_Store_Bypass")));
 
-    EXPECT(set(status.allowedCPUs, take("Cpus_allowed").transform(parseAllowed)));
-    EXPECT(set(status.allowedCPUList, take("Cpus_allowed_list").transform(parseAllowedList)));
-    EXPECT(set(status.allowedMemoryNodes, take("Mems_allowed").transform(parseAllowed)));
-    EXPECT(set(status.allowedMemoryNodeList, take("Mems_allowed_list").transform(parseAllowedList)));
+    Z_EXPECT(set(status.allowedCPUs, take("Cpus_allowed").transform(parseAllowed)));
+    Z_EXPECT(set(status.allowedCPUList, take("Cpus_allowed_list").transform(parseAllowedList)));
+    Z_EXPECT(set(status.allowedMemoryNodes, take("Mems_allowed").transform(parseAllowed)));
+    Z_EXPECT(set(status.allowedMemoryNodeList, take("Mems_allowed_list").transform(parseAllowedList)));
 
-    EXPECT(setNumber(status.voluntaryContextSwitches, "voluntary_ctxt_switches"));
-    EXPECT(setNumber(status.nonVoluntaryContextSwitches, "nonvoluntary_ctxt_switches"));
+    Z_EXPECT(setNumber(status.voluntaryContextSwitches, "voluntary_ctxt_switches"));
+    Z_EXPECT(setNumber(status.nonVoluntaryContextSwitches, "nonvoluntary_ctxt_switches"));
 
-    EXPECT(set(status.coreDumping, take("CoreDumping").transform([](const auto &value) { return value == "1"; })));
-    EXPECT(set(status.thpEnabled, take("THP_enabled").transform([](const auto &value) { return value == "1"; })));
+    Z_EXPECT(set(status.coreDumping, take("CoreDumping").transform([](const auto &value) { return value == "1"; })));
+    Z_EXPECT(set(status.thpEnabled, take("THP_enabled").transform([](const auto &value) { return value == "1"; })));
 
     return status;
 }
@@ -480,7 +480,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
     const auto fd = unix::expected([&] {
         return openat(*mResource, "task", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     });
-    EXPECT(fd);
+    Z_EXPECT(fd);
 
     const auto dir = fdopendir(*fd);
 
@@ -489,7 +489,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
         return std::unexpected{std::error_code{errno, std::system_category()}};
     }
 
-    DEFER(closedir(dir));
+    Z_DEFER(closedir(dir));
     std::list<pid_t> tasks;
 
     while (true) {
@@ -502,7 +502,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
             continue;
 
         const auto id = strings::toNumber<pid_t>(e->d_name);
-        EXPECT(id);
+        Z_EXPECT(id);
 
         tasks.push_back(*id);
     }
@@ -513,7 +513,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
 std::expected<std::list<zero::os::linux::procfs::process::MemoryMapping>, std::error_code>
 zero::os::linux::procfs::process::Process::maps() const {
     const auto content = readFile("maps");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     if (content->empty())
         return std::unexpected{Error::MAYBE_ZOMBIE_PROCESS};
@@ -532,16 +532,16 @@ zero::os::linux::procfs::process::Process::maps() const {
             return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
         const auto start = strings::toNumber<std::uint64_t>(tokens[0], 16);
-        EXPECT(start);
+        Z_EXPECT(start);
 
         const auto end = strings::toNumber<std::uint64_t>(tokens[1], 16);
-        EXPECT(end);
+        Z_EXPECT(end);
 
         const auto offset = strings::toNumber<std::uint64_t>(fields[2], 16);
-        EXPECT(offset);
+        Z_EXPECT(offset);
 
         const auto inode = strings::toNumber<std::uint64_t>(fields[4]);
-        EXPECT(inode);
+        Z_EXPECT(inode);
 
         MemoryMapping memoryMapping;
 
@@ -583,7 +583,7 @@ zero::os::linux::procfs::process::Process::maps() const {
 std::expected<zero::os::linux::procfs::process::IOStat, std::error_code>
 zero::os::linux::procfs::process::Process::io() const {
     const auto content = readFile("io");
-    EXPECT(content);
+    Z_EXPECT(content);
 
     std::map<std::string, std::string> map;
 
@@ -603,20 +603,20 @@ zero::os::linux::procfs::process::Process::io() const {
             return std::unexpected{procfs::Error::UNEXPECTED_DATA};
 
         const auto value = strings::toNumber<T>(it->second);
-        EXPECT(value);
+        Z_EXPECT(value);
         var = *value;
         return {};
     };
 
     IOStat stat;
 
-    EXPECT(set(stat.readCharacters, "rchar"));
-    EXPECT(set(stat.writeCharacters, "wchar"));
-    EXPECT(set(stat.readSyscalls, "syscr"));
-    EXPECT(set(stat.writeSyscalls, "syscw"));
-    EXPECT(set(stat.readBytes, "read_bytes"));
-    EXPECT(set(stat.writeBytes, "write_bytes"));
-    EXPECT(set(stat.cancelledWriteBytes, "cancelled_write_bytes"));
+    Z_EXPECT(set(stat.readCharacters, "rchar"));
+    Z_EXPECT(set(stat.writeCharacters, "wchar"));
+    Z_EXPECT(set(stat.readSyscalls, "syscr"));
+    Z_EXPECT(set(stat.writeSyscalls, "syscw"));
+    Z_EXPECT(set(stat.readBytes, "read_bytes"));
+    Z_EXPECT(set(stat.writeBytes, "write_bytes"));
+    Z_EXPECT(set(stat.cancelledWriteBytes, "cancelled_write_bytes"));
 
     return stat;
 }
@@ -635,22 +635,22 @@ zero::os::linux::procfs::process::open(const pid_t pid) {
         return ::open(path.c_str(), O_DIRECTORY | O_CLOEXEC);
 #endif
     });
-    EXPECT(fd);
+    Z_EXPECT(fd);
 
     return Process{Resource{*fd}, pid};
 }
 
 std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::process::all() {
     const auto iterator = filesystem::readDirectory("/proc");
-    EXPECT(iterator);
+    Z_EXPECT(iterator);
 
     std::list<pid_t> ids;
 
     for (const auto &entry: *iterator) {
-        EXPECT(entry);
+        Z_EXPECT(entry);
 
         const auto result = entry->isDirectory();
-        EXPECT(result);
+        Z_EXPECT(result);
 
         if (!*result)
             continue;
@@ -666,4 +666,4 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
     return ids;
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::linux::procfs::process::Process::Error)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::linux::procfs::process::Process::Error)

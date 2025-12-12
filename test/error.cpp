@@ -16,46 +16,46 @@ namespace {
     }
 }
 
-DEFINE_ERROR_CODE(
+Z_DEFINE_ERROR_CODE(
     ErrorCode,
     "ErrorCode",
     INVALID_ARGUMENT, "invalid argument",
     TIMEOUT, "timeout"
 )
 
-DECLARE_ERROR_CODE(ErrorCode)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCode)
+Z_DECLARE_ERROR_CODE(ErrorCode)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCode)
 
-DEFINE_ERROR_CONDITION(
+Z_DEFINE_ERROR_CONDITION(
     ErrorCondition,
     "ErrorCondition",
     INVALID_ARGUMENT, "invalid argument",
     TIMEOUT, "timeout"
 )
 
-DECLARE_ERROR_CONDITION(ErrorCondition)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCondition)
+Z_DECLARE_ERROR_CONDITION(ErrorCondition)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCondition)
 
-DEFINE_ERROR_CODE_EX(
+Z_DEFINE_ERROR_CODE_EX(
     ErrorCodeEx,
     "ErrorCodeEx",
     INVALID_ARGUMENT, "invalid argument", ErrorCondition::INVALID_ARGUMENT,
     TIMEOUT, "timeout", ErrorCondition::TIMEOUT
 )
 
-DECLARE_ERROR_CODE(ErrorCodeEx)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeEx)
+Z_DECLARE_ERROR_CODE(ErrorCodeEx)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeEx)
 
-DEFINE_ERROR_TRANSFORMER(
+Z_DEFINE_ERROR_TRANSFORMER(
     ErrorTransformer,
     "ErrorTransformer",
     stringify
 )
 
-DECLARE_ERROR_CODE(ErrorTransformer)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformer)
+Z_DECLARE_ERROR_CODE(ErrorTransformer)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformer)
 
-DEFINE_ERROR_TRANSFORMER_EX(
+Z_DEFINE_ERROR_TRANSFORMER_EX(
     ErrorTransformerEx,
     "ErrorTransformerEx",
     stringify,
@@ -73,10 +73,10 @@ DEFINE_ERROR_TRANSFORMER_EX(
     }
 )
 
-DECLARE_ERROR_CODE(ErrorTransformerEx)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerEx)
+Z_DECLARE_ERROR_CODE(ErrorTransformerEx)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerEx)
 
-DEFINE_ERROR_CONDITION_EX(
+Z_DEFINE_ERROR_CONDITION_EX(
     ErrorConditionEx,
     "ErrorConditionEx",
     INVALID_ARGUMENT,
@@ -97,11 +97,11 @@ DEFINE_ERROR_CONDITION_EX(
     }
 )
 
-DECLARE_ERROR_CONDITION(ErrorConditionEx)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionEx)
+Z_DECLARE_ERROR_CONDITION(ErrorConditionEx)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionEx)
 
 struct ErrorCodeWrapper {
-    DEFINE_ERROR_CODE_INNER(
+    Z_DEFINE_ERROR_CODE_INNER(
         ErrorCode,
         "ErrorCode",
         INVALID_ARGUMENT, "invalid argument",
@@ -109,11 +109,11 @@ struct ErrorCodeWrapper {
     )
 };
 
-DECLARE_ERROR_CODE(ErrorCodeWrapper::ErrorCode)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeWrapper::ErrorCode)
+Z_DECLARE_ERROR_CODE(ErrorCodeWrapper::ErrorCode)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeWrapper::ErrorCode)
 
 struct ErrorConditionWrapper {
-    DEFINE_ERROR_CONDITION_INNER(
+    Z_DEFINE_ERROR_CONDITION_INNER(
         ErrorCondition,
         "ErrorCondition",
         INVALID_ARGUMENT, "invalid argument",
@@ -121,11 +121,11 @@ struct ErrorConditionWrapper {
     )
 };
 
-DECLARE_ERROR_CONDITION(ErrorConditionWrapper::ErrorCondition)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionWrapper::ErrorCondition)
+Z_DECLARE_ERROR_CONDITION(ErrorConditionWrapper::ErrorCondition)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionWrapper::ErrorCondition)
 
 struct ErrorCodeExWrapper {
-    DEFINE_ERROR_CODE_INNER_EX(
+    Z_DEFINE_ERROR_CODE_INNER_EX(
         ErrorCodeEx,
         "ErrorCodeEx",
         INVALID_ARGUMENT, "invalid argument", ErrorConditionWrapper::ErrorCondition::INVALID_ARGUMENT,
@@ -133,22 +133,22 @@ struct ErrorCodeExWrapper {
     )
 };
 
-DECLARE_ERROR_CODE(ErrorCodeExWrapper::ErrorCodeEx)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeExWrapper::ErrorCodeEx)
+Z_DECLARE_ERROR_CODE(ErrorCodeExWrapper::ErrorCodeEx)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeExWrapper::ErrorCodeEx)
 
 struct ErrorTransformerWrapper {
-    DEFINE_ERROR_TRANSFORMER_INNER(
+    Z_DEFINE_ERROR_TRANSFORMER_INNER(
         ErrorTransformer,
         "ErrorTransformer",
         stringify
     )
 };
 
-DECLARE_ERROR_CODE(ErrorTransformerWrapper::ErrorTransformer)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerWrapper::ErrorTransformer)
+Z_DECLARE_ERROR_CODE(ErrorTransformerWrapper::ErrorTransformer)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerWrapper::ErrorTransformer)
 
 struct ErrorTransformerExWrapper {
-    DEFINE_ERROR_TRANSFORMER_INNER_EX(
+    Z_DEFINE_ERROR_TRANSFORMER_INNER_EX(
         ErrorTransformerEx,
         "ErrorTransformerEx",
         stringify,
@@ -167,11 +167,11 @@ struct ErrorTransformerExWrapper {
     )
 };
 
-DECLARE_ERROR_CODE(ErrorTransformerExWrapper::ErrorTransformerEx)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerExWrapper::ErrorTransformerEx)
+Z_DECLARE_ERROR_CODE(ErrorTransformerExWrapper::ErrorTransformerEx)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerExWrapper::ErrorTransformerEx)
 
 struct ErrorConditionExWrapper {
-    DEFINE_ERROR_CONDITION_INNER_EX(
+    Z_DEFINE_ERROR_CONDITION_INNER_EX(
         ErrorConditionEx,
         "ErrorConditionEx",
         INVALID_ARGUMENT,
@@ -193,8 +193,8 @@ struct ErrorConditionExWrapper {
     )
 };
 
-DECLARE_ERROR_CONDITION(ErrorConditionExWrapper::ErrorConditionEx)
-DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionExWrapper::ErrorConditionEx)
+Z_DECLARE_ERROR_CONDITION(ErrorConditionExWrapper::ErrorConditionEx)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionExWrapper::ErrorConditionEx)
 
 TEST_CASE("custom error code", "[error]") {
     using namespace std::string_view_literals;

@@ -1,3 +1,3 @@
 #include <zero/io/buffer.h>
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::io::BufReaderError)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::io::BufReaderError)

@@ -96,7 +96,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::macos::process::
 
 std::expected<std::vector<std::string>, std::error_code> zero::os::macos::process::Process::cmdline() const {
     const auto arguments = this->arguments();
-    EXPECT(arguments);
+    Z_EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
         return std::unexpected{Error::UNEXPECTED_DATA};
@@ -129,7 +129,7 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::macos::proces
 
 std::expected<std::map<std::string, std::string>, std::error_code> zero::os::macos::process::Process::envs() const {
     const auto arguments = this->arguments();
-    EXPECT(arguments);
+    Z_EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
         return std::unexpected{Error::UNEXPECTED_DATA};
@@ -280,7 +280,7 @@ std::expected<std::string, std::error_code> zero::os::macos::process::Process::u
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::os::macos::process::Process::kill(const int sig) {
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return ::kill(mPID, sig);
     }));
     return {};
@@ -292,7 +292,7 @@ std::expected<zero::os::macos::process::Process, std::error_code> zero::os::maco
 
 std::expected<zero::os::macos::process::Process, std::error_code> zero::os::macos::process::open(const pid_t pid) {
     // When `SIP` is enabled, calling `kill(0, pid)` on certain system processes will result in an `Operation not permitted` error.
-    EXPECT(unix::expected([&] {
+    Z_EXPECT(unix::expected([&] {
         return kill(pid, 0);
     }).transform([](const auto &) {
     }).or_else([&](const auto &ec) -> std::expected<void, std::error_code> {
@@ -328,4 +328,4 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::macos::process::all()
     }
 }
 
-DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::macos::process::Process::Error)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::macos::process::Process::Error)

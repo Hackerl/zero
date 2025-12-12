@@ -14,7 +14,7 @@ TEST_CASE("get environment variable", "[env]") {
     SECTION("environment variable exist") {
         const auto value = GENERATE(take(1, randomAlphanumericString(8, 64)));
         REQUIRE(zero::env::set(name, value));
-        DEFER(REQUIRE(zero::env::unset(name)));
+        Z_DEFER(REQUIRE(zero::env::unset(name)));
         REQUIRE(zero::env::get(name) == value);
     }
 }
@@ -25,13 +25,13 @@ TEST_CASE("set environment variable", "[env]") {
 
     SECTION("environment variable does not exist") {
         REQUIRE(zero::env::set(name, value));
-        DEFER(REQUIRE(zero::env::unset(name)));
+        Z_DEFER(REQUIRE(zero::env::unset(name)));
         REQUIRE(zero::env::get(name) == value);
     }
 
     SECTION("environment variable exist") {
         REQUIRE(zero::env::set(name, "1"));
-        DEFER(REQUIRE(zero::env::unset(name)));
+        Z_DEFER(REQUIRE(zero::env::unset(name)));
         REQUIRE(zero::env::set(name, value));
         REQUIRE(zero::env::get(name) == value);
     }
@@ -58,7 +58,7 @@ TEST_CASE("list environment variable", "[env]") {
     const auto value = GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     REQUIRE(zero::env::set(name, value));
-    DEFER(REQUIRE(zero::env::unset(name)));
+    Z_DEFER(REQUIRE(zero::env::unset(name)));
 
     const auto envs = zero::env::list();
     REQUIRE(envs);

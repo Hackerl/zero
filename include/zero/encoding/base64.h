@@ -9,7 +9,7 @@
 #include <zero/error.h>
 
 namespace zero::encoding::base64 {
-    DEFINE_ERROR_CODE_EX(
+    Z_DEFINE_ERROR_CODE_EX(
         DecodeError,
         "zero::encoding::base64::decode",
         INVALID_LENGTH, "invalid length for a base64 string", std::errc::invalid_argument
@@ -19,6 +19,6 @@ namespace zero::encoding::base64 {
     std::expected<std::vector<std::byte>, DecodeError> decode(std::string_view encoded);
 }
 
-DECLARE_ERROR_CODE(zero::encoding::base64::DecodeError)
+Z_DECLARE_ERROR_CODE(zero::encoding::base64::DecodeError)
 
 #endif //ZERO_ENCODING_BASE64_H

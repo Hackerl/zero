@@ -19,8 +19,8 @@ namespace zero {
     };
 }
 
-#define DEFER_NAME(x, y) x##y
-#define DEFER_VARIABLE(x, y) DEFER_NAME(x, y)
-#define DEFER(code) zero::Defer DEFER_VARIABLE(defer, __COUNTER__){[&](){ code; }}
+#define Z_DEFER_NAME(x, y) x##y
+#define Z_DEFER_VARIABLE(x, y) Z_DEFER_NAME(x, y)
+#define Z_DEFER(code) zero::Defer Z_DEFER_VARIABLE(defer, __COUNTER__){[&](){ code; }}
 
 #endif //ZERO_DEFER_H

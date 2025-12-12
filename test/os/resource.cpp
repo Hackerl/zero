@@ -30,7 +30,7 @@ TEST_CASE("operating system resource", "[os::resource]") {
         nullptr
     );
     REQUIRE(handle != INVALID_HANDLE_VALUE);
-    DEFER(REQUIRE(zero::filesystem::remove(path)));
+    Z_DEFER(REQUIRE(zero::filesystem::remove(path)));
 
     const auto raw = handle;
 #else
@@ -38,7 +38,7 @@ TEST_CASE("operating system resource", "[os::resource]") {
         return open(path.c_str(), O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, S_IRUSR | S_IWUSR);
     });
     REQUIRE(fd);
-    DEFER(REQUIRE(zero::filesystem::remove(path)));
+    Z_DEFER(REQUIRE(zero::filesystem::remove(path)));
 
     const auto raw = *fd;
 #endif
@@ -128,7 +128,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     const auto content = GENERATE(take(1, randomBytes(1, 102400)));
 
     REQUIRE(zero::filesystem::write(path, content));
-    DEFER(REQUIRE(zero::filesystem::remove(path)));
+    Z_DEFER(REQUIRE(zero::filesystem::remove(path)));
 
 #ifdef _WIN32
     const auto handle = CreateFileW(

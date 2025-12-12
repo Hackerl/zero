@@ -19,7 +19,7 @@ extern char **environ;
 std::expected<std::optional<std::string>, std::error_code> zero::env::get(const std::string &name) {
 #ifdef _WIN32
     const auto str = strings::decode(name);
-    EXPECT(str);
+    Z_EXPECT(str);
 
     DWORD size{1024};
     auto buffer = std::make_unique<WCHAR[]>(size);
@@ -54,16 +54,16 @@ std::expected<std::optional<std::string>, std::error_code> zero::env::get(const 
 std::expected<void, std::error_code> zero::env::set(const std::string &name, const std::string &value) {
 #ifdef _WIN32
     const auto k = strings::decode(name);
-    EXPECT(k);
+    Z_EXPECT(k);
 
     const auto v = strings::decode(value);
-    EXPECT(v);
+    Z_EXPECT(v);
 
     return os::windows::expected([&] {
         return SetEnvironmentVariableW(k->c_str(), v->c_str());
     });
 #else
-    EXPECT(os::unix::expected([&] {
+    Z_EXPECT(os::unix::expected([&] {
         return setenv(name.c_str(), value.c_str(), 1);
     }));
     return {};
@@ -78,7 +78,7 @@ std::expected<void, std::error_code> zero::env::unset(const std::string &name) {
         });
     });
 #else
-    EXPECT(os::unix::expected([&] {
+    Z_EXPECT(os::unix::expected([&] {
         return unsetenv(name.c_str());
     }));
     return {};
@@ -99,7 +99,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::env::li
 
     for (const auto *env = ptr.get(); *env != L'\0'; env += std::wcslen(env) + 1) {
         const auto str = strings::encode(env);
-        EXPECT(str);
+        Z_EXPECT(str);
 
         auto tokens = strings::split(*str, "=", 1);
 

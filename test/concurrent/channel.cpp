@@ -463,7 +463,7 @@ TEST_CASE("channel concurrency testing", "[concurrent::channel]") {
 
     const auto produce = [&]() -> std::expected<void, std::error_code> {
         for (int i{0}; i < times; ++i) {
-            EXPECT(sender.send(element));
+            Z_EXPECT(sender.send(element));
         }
 
         return {};

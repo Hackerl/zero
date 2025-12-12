@@ -8,7 +8,7 @@
 #include <zero/error.h>
 
 namespace zero::os::windows {
-    DEFINE_ERROR_TRANSFORMER_EX(
+    Z_DEFINE_ERROR_TRANSFORMER_EX(
         ResultHandle,
         "HRESULT",
         [](const int value) -> std::string {
@@ -37,6 +37,6 @@ namespace zero::os::windows {
     }
 }
 
-DECLARE_ERROR_CODE(zero::os::windows::ResultHandle)
+Z_DECLARE_ERROR_CODE(zero::os::windows::ResultHandle)
 
 #endif //ZERO_OS_WINDOWS_ERROR_H

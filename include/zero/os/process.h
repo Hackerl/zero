@@ -119,7 +119,7 @@ namespace zero::os::process {
     public:
         using IOResource = IOResource;
 
-        DEFINE_ERROR_CODE_INNER_EX(
+        Z_DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::PseudoConsole",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
@@ -180,7 +180,7 @@ namespace zero::os::process {
     class Command {
     public:
 #if defined(__ANDROID__) && __ANDROID_API__ < 34
-        DEFINE_ERROR_CODE_INNER_EX(
+        Z_DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::Command",
             API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
@@ -329,11 +329,11 @@ namespace zero::os::process {
 }
 
 #if defined(_WIN32)
-DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
+Z_DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
 #endif
 
 #if defined(__ANDROID__) && __ANDROID_API__ < 34
-DECLARE_ERROR_CODE(zero::os::process::Command::Error)
+Z_DECLARE_ERROR_CODE(zero::os::process::Command::Error)
 #endif
 
 template<typename Char>

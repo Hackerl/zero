@@ -14,7 +14,7 @@
 #endif
 
 namespace zero::io {
-    DEFINE_ERROR_CONDITION(
+    Z_DEFINE_ERROR_CONDITION(
         Error,
         "zero::io",
         UNEXPECTED_EOF, "unexpected end of file"
@@ -38,7 +38,7 @@ namespace zero::io {
 
     class IReader : public virtual Interface {
     public:
-        DEFINE_ERROR_CODE_INNER_EX(
+        Z_DEFINE_ERROR_CODE_INNER_EX(
             ReadExactlyError,
             "zero::io::IReader",
             UNEXPECTED_EOF, "unexpected end of file", make_error_condition(Error::UNEXPECTED_EOF)
@@ -91,12 +91,12 @@ namespace zero::io {
             std::array<std::byte, 20480> data; // NOLINT(*-pro-type-member-init)
 
             const auto n = std::invoke(&IReader::read, reader, data);
-            EXPECT(n);
+            Z_EXPECT(n);
 
             if (*n == 0)
                 break;
 
-            EXPECT(std::invoke(&IWriter::writeAll, writer, std::span{data.data(), *n}));
+            Z_EXPECT(std::invoke(&IWriter::writeAll, writer, std::span{data.data(), *n}));
             written += *n;
         }
 
@@ -160,7 +160,7 @@ namespace zero::io {
     };
 }
 
-DECLARE_ERROR_CONDITION(zero::io::Error)
-DECLARE_ERROR_CODE(zero::io::IReader::ReadExactlyError)
+Z_DECLARE_ERROR_CONDITION(zero::io::Error)
+Z_DECLARE_ERROR_CODE(zero::io::IReader::ReadExactlyError)
 
 #endif //ZERO_IO_H
