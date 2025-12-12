@@ -13,7 +13,7 @@ TEST_CASE("list process ids - procfs", "[os::linux::procfs::process]") {
 }
 
 TEST_CASE("process - procfs", "[os::linux::procfs::process]") {
-    const std::string program{"sleep"};
+    constexpr std::string program{"sleep"};
     constexpr std::array arguments{"1"};
 
     auto child = zero::os::process::Command{program}

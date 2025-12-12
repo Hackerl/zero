@@ -14,7 +14,7 @@ TEST_CASE("list process ids - Linux", "[os::linux::process]") {
 }
 
 TEST_CASE("process - Linux", "[os::linux::process]") {
-    const std::string program{"sleep"};
+    constexpr std::string program{"sleep"};
     constexpr std::array arguments{"1"};
 
     auto child = zero::os::process::Command{program}
