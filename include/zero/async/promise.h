@@ -647,7 +647,7 @@ namespace zero::async::promise {
 
             const auto ctx = std::make_shared<Context>(static_cast<std::size_t>(std::ranges::distance(first, last)));
 
-            // waiting for libc++ to implement std::ranges::views::enumerate
+            // Waiting for libc++ to implement std::ranges::views::enumerate
             for (std::size_t i{0}; first != last; ++first, ++i) {
                 (*first).setCallback([=](std::expected<T, E> &&result) {
                     if (!result) {

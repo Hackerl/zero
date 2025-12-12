@@ -121,7 +121,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
     for (std::size_t i{0}; i < arguments.size(); ++i) {
         const auto &argument = arguments[i];
 
-        // positional argument, may be a negative number
+        // Positional argument, may be a negative number
         if (argument.size() <= 1 || argument[0] != '-' || std::isdigit(static_cast<unsigned char>(argument[1]))) {
             if (it == mPositionals.end()) {
                 mRest.emplace_back(argument);
@@ -145,7 +145,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
             continue;
         }
 
-        // short optional argument
+        // Short optional argument
         if (const auto c = argument[1]; c != '-') {
             auto &[name, shortName, desc, value, typeInfo] = find(c);
 
@@ -187,7 +187,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
             break;
         }
 
-        // long optional argument
+        // Long optional argument
         const auto pos = argument.find('=');
         auto &[name, shortName, desc, value, typeInfo] = find(argument.substr(0, pos).substr(2));
 

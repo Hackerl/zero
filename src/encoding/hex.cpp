@@ -25,7 +25,7 @@ zero::encoding::hex::decode(const std::string_view encoded) {
 
     std::vector<std::byte> data;
 
-    // waiting for libc++ to implement std::ranges::views::chunk
+    // Waiting for libc++ to implement std::ranges::views::chunk
     for (std::size_t i{0}; i < encoded.size(); i += 2) {
         const auto n = strings::toNumber<unsigned int>({encoded.data() + i, 2}, 16);
 
