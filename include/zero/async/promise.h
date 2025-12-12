@@ -174,7 +174,7 @@ namespace zero::async::promise {
     }
 
     template<typename F, typename T>
-    using callback_result_t = typename std::conditional_t<
+    using callback_result_t = std::conditional_t<
         std::is_void_v<T>,
         std::invoke_result<F>,
         std::invoke_result<F, T>
@@ -298,7 +298,7 @@ namespace zero::async::promise {
         template<typename F>
             requires detail::is_specialization_v<callback_result_t<F, T>, std::expected>
         auto then(F &&f) && {
-            using NextValue = typename callback_result_t<F, T>::value_type;
+            using NextValue = callback_result_t<F, T>::value_type;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -371,7 +371,7 @@ namespace zero::async::promise {
                 return f(std::forward<Ts>(args)...);
             });
 
-            using NextValue = typename decltype(future)::value_type;
+            using NextValue = decltype(future)::value_type;
 
             return std::move(future).fail([=, f = std::forward<F2>(f2)](E &&error) mutable {
                 if (*fallthrough)
@@ -384,7 +384,7 @@ namespace zero::async::promise {
         template<typename F>
             requires detail::is_specialization_v<callback_result_t<F, E>, Future>
         auto fail(F &&f) && {
-            using NextError = typename callback_result_t<F, E>::error_type;
+            using NextError = callback_result_t<F, E>::error_type;
 
             assert(mCore);
             assert(!mCore->callback);
@@ -561,7 +561,7 @@ namespace zero::async::promise {
     };
 
     template<typename T>
-    using optional_wrapper_t = typename optional_wrapper<T>::type;
+    using optional_wrapper_t = optional_wrapper<T>::type;
 
     template<typename T>
     std::vector<T> unwrap(std::vector<std::optional<T>> &&vector) {
@@ -601,8 +601,8 @@ namespace zero::async::promise {
     auto all(I first, S last) {
         assert(first != last);
 
-        using T = typename std::iter_value_t<I>::value_type;
-        using E = typename std::iter_value_t<I>::error_type;
+        using T = std::iter_value_t<I>::value_type;
+        using E = std::iter_value_t<I>::error_type;
 
         if constexpr (std::is_void_v<T>) {
             struct Context {
@@ -769,8 +769,8 @@ namespace zero::async::promise {
     auto allSettled(I first, S last) {
         assert(first != last);
 
-        using T = typename std::iter_value_t<I>::value_type;
-        using E = typename std::iter_value_t<I>::error_type;
+        using T = std::iter_value_t<I>::value_type;
+        using E = std::iter_value_t<I>::error_type;
 
         struct Context {
             explicit Context(const std::size_t n) : count{n}, results(n) {
@@ -885,8 +885,8 @@ namespace zero::async::promise {
     auto any(I first, S last) {
         assert(first != last);
 
-        using T = typename std::iter_value_t<I>::value_type;
-        using E = typename std::iter_value_t<I>::error_type;
+        using T = std::iter_value_t<I>::value_type;
+        using E = std::iter_value_t<I>::error_type;
 
         struct Context {
             explicit Context(const std::size_t n) : count{n}, errors(n) {
@@ -992,8 +992,8 @@ namespace zero::async::promise {
     auto race(I first, S last) {
         assert(first != last);
 
-        using T = typename std::iter_value_t<I>::value_type;
-        using E = typename std::iter_value_t<I>::error_type;
+        using T = std::iter_value_t<I>::value_type;
+        using E = std::iter_value_t<I>::error_type;
 
         struct Context {
             Promise<T, E> promise;

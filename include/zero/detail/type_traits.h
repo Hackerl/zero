@@ -87,14 +87,14 @@ namespace zero::detail {
         using call_type = function_traits<decltype(&F::operator())>;
 
     public:
-        using return_type = typename call_type::return_type;
+        using return_type = call_type::return_type;
 
         static constexpr std::size_t arity = call_type::arity - 1;
 
         template<std::size_t N>
         struct argument {
             static_assert(N < arity, "invalid parameter index");
-            using type = typename call_type::template argument<N + 1>::type;
+            using type = call_type::template argument<N + 1>::type;
         };
     };
 
@@ -117,10 +117,10 @@ namespace zero::detail {
     };
 
     template<typename F>
-    using function_result_t = typename function_traits<F>::return_type;
+    using function_result_t = function_traits<F>::return_type;
 
     template<typename F>
-    using function_arguments_t = typename function_arguments<F, function_traits<F>::arity - 1>::type;
+    using function_arguments_t = function_arguments<F, function_traits<F>::arity - 1>::type;
 
     template<typename T, typename I>
     concept Trait = std::is_convertible_v<std::remove_cvref_t<T>, std::shared_ptr<I>> || (
