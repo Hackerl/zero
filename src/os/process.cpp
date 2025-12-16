@@ -1230,7 +1230,7 @@ zero::os::process::Command::output() const {
     };
 }
 
-#if defined(_WIN32)
+#ifdef _WIN32
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::PseudoConsole::Error)
 #endif
 

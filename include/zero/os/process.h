@@ -328,7 +328,7 @@ namespace zero::os::process {
     };
 }
 
-#if defined(_WIN32)
+#ifdef _WIN32
 Z_DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
 #endif
 
