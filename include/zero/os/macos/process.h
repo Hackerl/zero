@@ -4,7 +4,6 @@
 #include <map>
 #include <list>
 #include <vector>
-#include <expected>
 #include <filesystem>
 #include <zero/error.h>
 

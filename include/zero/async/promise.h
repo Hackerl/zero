@@ -7,10 +7,10 @@
 #include <cassert>
 #include <utility>
 #include <optional>
-#include <expected>
 #include <stdexcept>
 #include <functional>
 #include <fmt/core.h>
+#include <zero/error.h>
 #include <zero/atomic/event.h>
 #include <zero/detail/type_traits.h>
 
@@ -240,9 +240,7 @@ namespace zero::async::promise {
         }
 
         std::expected<T, E> get() && {
-            if (const auto result = wait(); !result)
-                throw std::system_error{result.error()};
-
+            error::guard(wait());
             return std::move(*mCore->result);
         }
 

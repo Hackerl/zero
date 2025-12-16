@@ -3,6 +3,7 @@
 
 #include <array>
 #include <utility>
+#include <expected>
 #include <system_error>
 
 /*
@@ -43,17 +44,19 @@
  * but for now, I'll choose to use `placement new` to solve everything simply and directly.
  */
 
-template<typename T>
-auto errorCategoryImmortalize() {
-    alignas(T) std::array<std::byte, sizeof(T)> storage{};
-    new(storage.data()) T();
-    return storage;
-}
+namespace zero::error {
+    template<typename T>
+    auto categoryImmortalize() {
+        alignas(T) std::array<std::byte, sizeof(T)> storage{};
+        new(storage.data()) T();
+        return storage;
+    }
 
-template<typename T>
-const T &errorCategoryInstance() {
-    static const auto storage = errorCategoryImmortalize<T>();
-    return *reinterpret_cast<const T *>(storage.data());
+    template<typename T>
+    const T &categoryInstance() {
+        static const auto storage = categoryImmortalize<T>();
+        return *reinterpret_cast<const T *>(storage.data());
+    }
 }
 
 #define Z_ERROR_EXPAND(x) x
@@ -635,10 +638,23 @@ const T &errorCategoryInstance() {
 
 #define Z_DEFINE_ERROR_CATEGORY_INSTANCE(Type)                                                                  \
     const std::error_category &Type##Category::instance() {                                                     \
-        return errorCategoryInstance<Type##Category>();                                                         \
+        return zero::error::categoryInstance<Type##Category>();                                                 \
     }
 
 #define Z_DEFINE_ERROR_CATEGORY_INSTANCES(...)                                                                  \
     Z_ERROR_EXPAND(Z_ERROR_PASTE(Z_DEFINE_ERROR_CATEGORY_INSTANCE, __VA_ARGS__))
+
+namespace zero::error {
+    template<typename T>
+    T guard(std::expected<T, std::error_code> &&expected) {
+        if (!expected)
+            throw std::system_error{expected.error()};
+
+        if constexpr (std::is_void_v<T>)
+            return;
+        else
+            return *std::move(expected);
+    }
+}
 
 #endif //ZERO_ERROR_H

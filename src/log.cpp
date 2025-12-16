@@ -223,15 +223,12 @@ void zero::log::Logger::addProvider(
 ) {
     std::call_once(mOnceFlag, [=, this] {
         const auto getOption = [](const std::string &name) -> std::optional<int> {
-            const auto value = env::get(name);
+            const auto value = error::guard(env::get(name));
 
             if (!value)
-                throw std::system_error{value.error()};
-
-            if (!*value)
                 return std::nullopt;
 
-            const auto option = strings::toNumber<int>(**value);
+            const auto option = strings::toNumber<int>(*value);
 
             if (!option)
                 return std::nullopt;

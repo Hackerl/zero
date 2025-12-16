@@ -3,7 +3,6 @@
 
 #include <chrono>
 #include <optional>
-#include <expected>
 #include <condition_variable>
 #include <zero/error.h>
 #include <zero/atomic/circular_buffer.h>

@@ -5,7 +5,6 @@
 #include <span>
 #include <array>
 #include <ranges>
-#include <expected>
 #include <fmt/std.h>
 #include <fmt/ranges.h>
 

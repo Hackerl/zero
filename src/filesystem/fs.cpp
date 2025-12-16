@@ -5,6 +5,7 @@
 #ifdef _WIN32
 #include <array>
 #include <windows.h>
+#include <zero/error.h>
 #elif defined(__APPLE__)
 #include <array>
 #include <mach-o/dyld.h>
@@ -18,12 +19,7 @@
 
 std::filesystem::path zero::filesystem::path(const std::string_view source) {
 #ifdef _WIN32
-    auto result = strings::decode(source);
-
-    if (!result)
-        throw std::system_error{result.error()};
-
-    return *std::move(result);
+    return error::guard(strings::decode(source));
 #else
     return source;
 #endif
@@ -31,12 +27,7 @@ std::filesystem::path zero::filesystem::path(const std::string_view source) {
 
 std::string zero::filesystem::stringify(const std::filesystem::path &path) {
 #ifdef _WIN32
-    auto result = strings::encode(path.native());
-
-    if (!result)
-        throw std::system_error{result.error()};
-
-    return *std::move(result);
+    return error::guard(strings::encode(path.native()));
 #else
     return path.native();
 #endif

@@ -2,7 +2,6 @@
 #define ZERO_OS_WINDOWS_ERROR_H
 
 #include <optional>
-#include <expected>
 #include <windows.h>
 #include <fmt/core.h>
 #include <zero/error.h>

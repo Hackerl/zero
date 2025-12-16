@@ -4,7 +4,6 @@
 #include <vector>
 #include <cstdint>
 #include <optional>
-#include <expected>
 #include <zero/error.h>
 
 #undef linux

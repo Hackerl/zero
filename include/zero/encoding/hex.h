@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 #include <cstddef>
-#include <expected>
 #include <zero/error.h>
 
 namespace zero::encoding::hex {
