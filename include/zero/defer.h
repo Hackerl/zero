@@ -21,6 +21,6 @@ namespace zero {
 
 #define Z_DEFER_NAME(x, y) x##y
 #define Z_DEFER_VARIABLE(x, y) Z_DEFER_NAME(x, y)
-#define Z_DEFER(code) zero::Defer Z_DEFER_VARIABLE(defer, __COUNTER__){[&](){ code; }}
+#define Z_DEFER(...) zero::Defer Z_DEFER_VARIABLE(defer, __COUNTER__){[&](){ __VA_ARGS__; }}
 
 #endif //ZERO_DEFER_H

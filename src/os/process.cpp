@@ -447,9 +447,12 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         );
     }));
 
-    CloseHandle(info.hThread);
-    std::ignore = mSlave.reader.close();
-    std::ignore = mSlave.writer.close();
+    error::guard(windows::expected([&] {
+        return CloseHandle(info.hThread);
+    }));
+
+    error::guard(mSlave.reader.close());
+    error::guard(mSlave.writer.close());
 
     return ChildProcess{Process{windows::process::Process{Resource{info.hProcess}, info.dwProcessId}}, {}};
 }
@@ -612,7 +615,9 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
             if (fd == pipe->second.fd())
                 continue;
 
-            close(fd);
+            std::ignore = unix::expected([&] {
+                return close(fd);
+            });
         }
 
         if (const auto &directory = command.mCurrentDirectory) {
@@ -621,9 +626,13 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
             });
         }
 
-        guard([] {
-            sigset_t set{};
-            sigemptyset(&set);
+        sigset_t set{};
+
+        guard([&] {
+            return sigemptyset(&set);
+        });
+
+        guard([&] {
             return sigprocmask(SIG_SETMASK, &set, nullptr);
         });
 
@@ -639,7 +648,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
 #endif
     }
 
-    std::ignore = pipe->second.close();
+    error::guard(pipe->second.close());
 
     int error{};
     const auto n = pipe->first.read({reinterpret_cast<std::byte *>(&error), sizeof(error)});
@@ -655,12 +664,20 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         return std::unexpected{std::error_code{error, std::system_category()}};
     }
 
-    std::ignore = mSlave.close();
+    error::guard(mSlave.close());
 
     auto process = open(*pid);
 
     if (!process) {
-        kill(*pid, SIGKILL);
+        error::guard(unix::expected([&] {
+            return kill(*pid, SIGKILL);
+        }).or_else([](const auto &ec) -> std::expected<int, std::error_code> {
+            if (ec != std::errc::no_such_process)
+                return std::unexpected{ec};
+
+            return {};
+        }));
+
         const auto id = unix::ensure([&] {
             return waitpid(*pid, nullptr, 0);
         });
@@ -783,6 +800,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
         if (type == StdioType::INHERIT) {
             const auto handle = GetStdHandle(typeMapping[i]);
+
+            if (handle == INVALID_HANDLE_VALUE)
+                throw std::system_error{static_cast<int>(GetLastError()), std::system_category()};
 
             if (!handle)
                 continue;
@@ -940,7 +960,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         );
     }));
 
-    CloseHandle(info.hThread);
+    error::guard(windows::expected([&] {
+        return CloseHandle(info.hThread);
+    }));
 
     std::array<std::optional<IOResource>, 3> stdio;
 
@@ -1155,7 +1177,15 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     auto process = open(pid);
 
     if (!process) {
-        kill(pid, SIGKILL);
+        error::guard(unix::expected([&] {
+            return kill(pid, SIGKILL);
+        }).or_else([](const auto &ec) -> std::expected<int, std::error_code> {
+            if (ec != std::errc::no_such_process)
+                return std::unexpected{ec};
+
+            return {};
+        }));
+
         const auto id = unix::ensure([&] {
             return waitpid(pid, nullptr, 0);
         });
@@ -1207,16 +1237,26 @@ zero::os::process::Command::output() const {
                     .value_or(std::vector<std::byte>{});
 
     if (!out) {
-        std::ignore = child->kill();
-        std::ignore = child->wait();
+        error::guard(child->kill().or_else([](const auto &ec) -> std::expected<void, std::error_code> {
+            if (ec != std::errc::no_such_process)
+                return std::unexpected{ec};
+
+            return {};
+        }));
+        error::guard(child->wait());
         return std::unexpected{out.error()};
     }
 
     auto err = future.get();
 
     if (!err) {
-        std::ignore = child->kill();
-        std::ignore = child->wait();
+        error::guard(child->kill().or_else([](const auto &ec) -> std::expected<void, std::error_code> {
+            if (ec != std::errc::no_such_process)
+                return std::unexpected{ec};
+
+            return {};
+        }));
+        error::guard(child->wait());
         return std::unexpected{err.error()};
     }
 

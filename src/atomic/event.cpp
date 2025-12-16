@@ -9,8 +9,10 @@
 #include <unistd.h>
 #include <syscall.h>
 #include <linux/futex.h>
+#include <zero/error.h>
 #include <zero/os/unix/error.h>
 #elif defined(__APPLE__)
+#include <zero/error.h>
 #include <zero/expect.h>
 #include <zero/os/unix/error.h>
 
@@ -84,9 +86,18 @@ void zero::atomic::Event::set() {
 #ifdef _WIN32
         WakeByAddressAll(&mState);
 #elif defined(__linux__)
-        syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
+        error::guard(os::unix::expected([this] {
+            return syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
+        }));
 #elif defined(__APPLE__)
-        __ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, &mState, 0);
+        error::guard(os::unix::expected([this] {
+            return __ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, &mState, 0);
+        }).or_else([](const auto &ec) -> std::expected<int, std::error_code> {
+            if (ec != std::errc::no_such_file_or_directory)
+                return std::unexpected{ec};
+
+            return {};
+        }));
 #else
 #error "unsupported platform"
 #endif

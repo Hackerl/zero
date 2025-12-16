@@ -1,7 +1,6 @@
 #include <zero/os/resource.h>
 #include <zero/expect.h>
 #include <utility>
-#include <cassert>
 
 #ifdef _WIN32
 #include <zero/os/windows/error.h>
@@ -32,8 +31,7 @@ zero::os::Resource::~Resource() {
     if (!valid())
         return;
 
-    const auto result = close();
-    assert(result);
+    error::guard(close());
 }
 
 zero::os::Resource::Native zero::os::Resource::get() const {

@@ -487,18 +487,28 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
     const auto dir = fdopendir(*fd);
 
     if (!dir) {
-        close(*fd);
+        error::guard(unix::expected([&] {
+            return close(*fd);
+        }));
         return std::unexpected{std::error_code{errno, std::system_category()}};
     }
 
-    Z_DEFER(closedir(dir));
+    Z_DEFER(error::guard(unix::expected([&] {
+        return closedir(dir);
+    })));
+
     std::list<pid_t> tasks;
+    errno = 0;
 
     while (true) {
         const auto *e = readdir(dir);
 
-        if (!e)
+        if (!e) {
+            if (errno != 0)
+                return std::unexpected{std::error_code{errno, std::system_category()}};
+
             break;
+        }
 
         if (e->d_name == "."sv || e->d_name == ".."sv)
             continue;

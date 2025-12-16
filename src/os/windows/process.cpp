@@ -184,7 +184,11 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
     if (!args)
         return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
 
-    Z_DEFER(LocalFree(args));
+    Z_DEFER(
+        if (LocalFree(args))
+            throw std::system_error{static_cast<int>(GetLastError()), std::system_category()};
+    );
+
     std::vector<std::string> cmdline;
 
     for (int i{0}; i < num; ++i) {
@@ -346,7 +350,10 @@ std::expected<std::string, std::error_code> zero::os::windows::process::Process:
     Z_EXPECT(expected([&] {
         return OpenProcessToken(*mResource, TOKEN_QUERY, &token);
     }));
-    Z_DEFER(CloseHandle(token));
+
+    Z_DEFER(error::guard(expected([&] {
+        return CloseHandle(token);
+    })));
 
     DWORD size{1024};
     auto buffer = std::make_unique<std::byte[]>(size);
