@@ -13,7 +13,7 @@ namespace zero::os::windows {
         "HRESULT",
         [](const int value) -> std::string {
             if (HRESULT_FACILITY(value) != FACILITY_WIN32)
-                return fmt::format("unknown HRESULT {}", value);
+                return fmt::format("Unknown HRESULT {}", value);
 
             return std::system_category().message(value);
         },

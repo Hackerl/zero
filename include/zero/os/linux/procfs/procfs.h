@@ -13,7 +13,7 @@ namespace zero::os::linux::procfs {
     Z_DEFINE_ERROR_CODE(
         Error,
         "zero::os::linux::procfs",
-        UNEXPECTED_DATA, "unexpected data"
+        UNEXPECTED_DATA, "Unexpected data"
     )
 
     struct CPUTime {

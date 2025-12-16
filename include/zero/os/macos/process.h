@@ -30,8 +30,8 @@ namespace zero::os::macos::process {
         Z_DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::macos::process::Process",
-            UNEXPECTED_DATA, "unexpected data",
-            NO_SUCH_USER, "no such user"
+            UNEXPECTED_DATA, "Unexpected data",
+            NO_SUCH_USER, "No such user"
         )
 
         explicit Process(pid_t pid);

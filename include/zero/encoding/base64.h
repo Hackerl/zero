@@ -12,7 +12,7 @@ namespace zero::encoding::base64 {
     Z_DEFINE_ERROR_CODE_EX(
         DecodeError,
         "zero::encoding::base64::decode",
-        INVALID_LENGTH, "invalid length for a base64 string", std::errc::invalid_argument
+        INVALID_LENGTH, "Invalid length for a base64 string", std::errc::invalid_argument
     )
 
     std::string encode(std::span<const std::byte> data);

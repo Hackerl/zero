@@ -5,7 +5,7 @@
 #include <fmt/std.h>
 #include <fmt/ranges.h>
 
-zero::Cmdline::Cmdline() : mOptionals{{"help", '?', "print help message", false}} {
+zero::Cmdline::Cmdline() : mOptionals{{"help", '?', "Print help message", false}} {
 }
 
 // ReSharper disable once CppDFALocalValueEscapesFunction
@@ -18,7 +18,7 @@ zero::Cmdline::Optional &zero::Cmdline::find(const char shortName) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error{fmt::format("unknown optional argument '-{}'", shortName)};
+        throw std::runtime_error{fmt::format("Unknown optional argument '-{}'", shortName)};
 
     return *it;
 }
@@ -33,7 +33,7 @@ zero::Cmdline::Optional &zero::Cmdline::find(const std::string_view name) {
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error{fmt::format("unknown optional argument '--{}'", name)};
+        throw std::runtime_error{fmt::format("Unknown optional argument '--{}'", name)};
 
     return *it;
 }
@@ -48,7 +48,7 @@ const zero::Cmdline::Optional &zero::Cmdline::find(const std::string_view name) 
     );
 
     if (it == mOptionals.end())
-        throw std::runtime_error{fmt::format("unknown optional argument '--{}'", name)};
+        throw std::runtime_error{fmt::format("Unknown optional argument '--{}'", name)};
 
     return *it;
 }
@@ -56,7 +56,7 @@ const zero::Cmdline::Optional &zero::Cmdline::find(const std::string_view name) 
 void zero::Cmdline::help() const {
     fmt::print(
         stderr,
-        "usage: {} [options] {} ... {} ...\n",
+        "Usage: {} [options] {} ... {} ...\n",
         filesystem::applicationPath()->filename(),
         fmt::join(
             mPositionals | std::views::transform([](const auto &positional) {
@@ -67,12 +67,12 @@ void zero::Cmdline::help() const {
         mFooter.value_or("extra")
     );
 
-    fmt::print(stderr, "positional:\n");
+    fmt::print(stderr, "Positional:\n");
 
     for (const auto &[name, desc, value, typeInfo]: mPositionals)
         fmt::print(stderr, "\t{:<30} {}({})\n", name, desc, typeInfo.name);
 
-    fmt::print(stderr, "optional:\n");
+    fmt::print(stderr, "Optional:\n");
 
     for (const auto &[name, shortName, desc, value, typeInfo]: mOptionals) {
         if (!shortName) {
@@ -133,7 +133,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
             if (!result)
                 throw std::runtime_error{
                     fmt::format(
-                        "invalid value '{}' for positional argument '{}'[{:s} ({})]",
+                        "Invalid value '{}' for positional argument '{}' [{:s} ({})]",
                         argument,
                         it->name,
                         result.error(),
@@ -156,7 +156,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
 
             if (i + 1 >= arguments.size())
                 throw std::runtime_error{
-                    fmt::format("optional argument '{}' requires a value but none was provided", argument)
+                    fmt::format("Optional argument '{}' requires a value", argument)
                 };
 
             auto result = typeInfo->parse(arguments[++i]);
@@ -164,7 +164,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
             if (!result)
                 throw std::runtime_error{
                     fmt::format(
-                        "invalid value '{}' for optional argument '{}'[{:s} ({})]",
+                        "Invalid value '{}' for optional argument '{}' [{:s} ({})]",
                         arguments[i],
                         argument,
                         result.error(),
@@ -195,7 +195,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
             if (pos != std::string_view::npos)
                 throw std::runtime_error{
                     fmt::format(
-                        "unexpected value '{}' for flag '{}'",
+                        "Unexpected value '{}' for flag '{}'",
                         argument.substr(pos + 1),
                         name
                     )
@@ -208,7 +208,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
         if (pos == std::string_view::npos || pos + 1 == argument.size())
             throw std::runtime_error{
                 fmt::format(
-                    "optional argument '{}' requires a value but none was provided",
+                    "Optional argument '{}' requires a value",
                     argument.substr(0, pos)
                 )
             };
@@ -218,7 +218,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
         if (!result)
             throw std::runtime_error{
                 fmt::format(
-                    "invalid value '{}' for optional argument '{}'[{:s} ({})]",
+                    "Invalid value '{}' for optional argument '{}' [{:s} ({})]",
                     argument.substr(pos + 1),
                     argument.substr(0, pos),
                     result.error(),
@@ -237,7 +237,7 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
     if (it != mPositionals.end())
         throw std::runtime_error{
             format(
-                "missing required positional arguments: {}",
+                "Missing required positional arguments: {}",
                 fmt::join(
                     std::ranges::subrange{it, mPositionals.end()} | std::views::transform([](const auto &positional) {
                         return fmt::format("'{}'", positional.name);
@@ -253,7 +253,7 @@ void zero::Cmdline::parse(const int argc, const char *const *argv) {
         parse(std::vector<std::string_view>{argv + 1, argv + argc});
     }
     catch (const std::runtime_error &e) {
-        fmt::print(stderr, "error:\n\t{}\n", e.what());
+        fmt::print(stderr, "Error:\n\t{}\n", e.what());
         help();
         std::exit(EXIT_FAILURE);
     }

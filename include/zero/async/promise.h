@@ -77,7 +77,7 @@ namespace zero::async::promise {
             assert(mCore);
 
             if (mRetrieved)
-                throw std::logic_error{"future already retrieved"};
+                throw std::logic_error{"Future already retrieved"};
 
             mRetrieved = true;
             return Future<T, E>{mCore};
@@ -107,7 +107,7 @@ namespace zero::async::promise {
             }
 
             if (state != State::ONLY_CALLBACK || !mCore->state.compare_exchange_strong(state, State::DONE))
-                throw std::logic_error{fmt::format("unexpected state: {}", std::to_underlying(state))};
+                throw std::logic_error{fmt::format("Unexpected promise state: {}", std::to_underlying(state))};
 
             mCore->event.set();
             mCore->trigger();
@@ -130,7 +130,7 @@ namespace zero::async::promise {
             }
 
             if (state != State::ONLY_CALLBACK || !mCore->state.compare_exchange_strong(state, State::DONE))
-                throw std::logic_error{fmt::format("unexpected state: {}", std::to_underlying(state))};
+                throw std::logic_error{fmt::format("Unexpected promise state: {}", std::to_underlying(state))};
 
             mCore->event.set();
             mCore->trigger();
@@ -260,7 +260,7 @@ namespace zero::async::promise {
                 return;
 
             if (state != State::ONLY_RESULT || !mCore->state.compare_exchange_strong(state, State::DONE))
-                throw std::logic_error{fmt::format("unexpected state: {}", std::to_underlying(state))};
+                throw std::logic_error{fmt::format("Unexpected promise state: {}", std::to_underlying(state))};
 
             mCore->trigger();
         }

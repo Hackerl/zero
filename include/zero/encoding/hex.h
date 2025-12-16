@@ -12,8 +12,8 @@ namespace zero::encoding::hex {
     Z_DEFINE_ERROR_CODE_EX(
         DecodeError,
         "zero::encoding::hex::decode",
-        INVALID_LENGTH, "invalid length for a hex string", std::errc::invalid_argument,
-        INVALID_HEX_CHARACTER, "invalid hex character", std::errc::invalid_argument
+        INVALID_LENGTH, "Invalid length for a hex string", std::errc::invalid_argument,
+        INVALID_HEX_CHARACTER, "Invalid hex character", std::errc::invalid_argument
     )
 
     std::string encode(std::span<const std::byte> data);

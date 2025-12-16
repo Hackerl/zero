@@ -9,8 +9,8 @@ namespace zero::io {
     Z_DEFINE_ERROR_CODE_EX(
         BufReaderError,
         "zero::io::BufReader",
-        INVALID_ARGUMENT, "invalid argument", std::errc::invalid_argument,
-        UNEXPECTED_EOF, "unexpected end of file", Error::UNEXPECTED_EOF
+        INVALID_ARGUMENT, "Invalid argument", std::errc::invalid_argument,
+        UNEXPECTED_EOF, "Unexpected end of file", Error::UNEXPECTED_EOF
     )
 
     template<detail::Trait<IReader> T>

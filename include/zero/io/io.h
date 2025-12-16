@@ -17,7 +17,7 @@ namespace zero::io {
     Z_DEFINE_ERROR_CONDITION(
         Error,
         "zero::io",
-        UNEXPECTED_EOF, "unexpected end of file"
+        UNEXPECTED_EOF, "Unexpected end of file"
     )
 
 #ifdef _WIN32
@@ -41,7 +41,7 @@ namespace zero::io {
         Z_DEFINE_ERROR_CODE_INNER_EX(
             ReadExactlyError,
             "zero::io::IReader",
-            UNEXPECTED_EOF, "unexpected end of file", make_error_condition(Error::UNEXPECTED_EOF)
+            UNEXPECTED_EOF, "Unexpected end of file", make_error_condition(Error::UNEXPECTED_EOF)
         )
 
         virtual std::expected<std::size_t, std::error_code> read(std::span<std::byte> data) = 0;

@@ -70,15 +70,15 @@ namespace zero::concurrent {
     Z_DEFINE_ERROR_CODE_EX(
         TrySendError,
         "zero::concurrent::Sender::trySend",
-        DISCONNECTED, "sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
-        FULL, "sending on a full channel", std::errc::operation_would_block
+        DISCONNECTED, "Sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
+        FULL, "Sending on a full channel", std::errc::operation_would_block
     )
 
     Z_DEFINE_ERROR_CODE_EX(
         SendError,
         "zero::concurrent::Sender::send",
-        DISCONNECTED, "sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
-        TIMEOUT, "timed out waiting on send operation", std::errc::timed_out
+        DISCONNECTED, "Sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
+        TIMEOUT, "Send operation timed out", std::errc::timed_out
     )
 
     template<typename T>
@@ -247,15 +247,15 @@ namespace zero::concurrent {
     Z_DEFINE_ERROR_CODE_EX(
         TryReceiveError,
         "zero::concurrent::Receiver::tryReceive",
-        DISCONNECTED, "receiving on an empty and disconnected channel", Z_DEFAULT_ERROR_CONDITION,
-        EMPTY, "receiving on an empty channel", std::errc::operation_would_block
+        DISCONNECTED, "Receiving on an empty and disconnected channel", Z_DEFAULT_ERROR_CONDITION,
+        EMPTY, "Receiving on an empty channel", std::errc::operation_would_block
     )
 
     Z_DEFINE_ERROR_CODE_EX(
         ReceiveError,
         "zero::concurrent::Receiver::receive",
-        DISCONNECTED, "channel is empty and disconnected", Z_DEFAULT_ERROR_CONDITION,
-        TIMEOUT, "timed out waiting on receive operation", std::errc::timed_out
+        DISCONNECTED, "Receiving on an empty and disconnected channel", Z_DEFAULT_ERROR_CONDITION,
+        TIMEOUT, "Receive operation timed out", std::errc::timed_out
     )
 
     template<typename T>
@@ -361,7 +361,7 @@ namespace zero::concurrent {
         ChannelError,
         "zero::concurrent::channel",
         DISCONNECTED,
-        "channel disconnected",
+        "Channel disconnected",
         [](const std::error_code &ec) {
             return ec == make_error_code(TrySendError::DISCONNECTED) ||
                 ec == make_error_code(SendError::DISCONNECTED) ||

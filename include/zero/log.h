@@ -104,7 +104,7 @@ namespace zero::log {
                 },
                 mTimeout
             ); !result) {
-                fmt::print(stderr, "log failed: {}\n", std::error_code{result.error()});
+                fmt::print(stderr, "Failed to send log: {}\n", std::error_code{result.error()});
                 return;
             }
 

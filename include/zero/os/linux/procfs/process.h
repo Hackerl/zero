@@ -170,7 +170,7 @@ namespace zero::os::linux::procfs::process {
         Z_DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::linux::procfs::process::Process",
-            MAYBE_ZOMBIE_PROCESS, "maybe zombie process"
+            MAYBE_ZOMBIE_PROCESS, "Maybe zombie process"
         )
 
         Process(Resource resource, pid_t pid);

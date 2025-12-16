@@ -164,7 +164,7 @@ namespace zero {
             );
 
             if (it == mPositionals.end())
-                throw std::runtime_error{fmt::format("unknown positional argument '{}'", name)};
+                throw std::runtime_error{fmt::format("Unknown positional argument '{}'", name)};
 
             return std::any_cast<T>(it->value);
         }

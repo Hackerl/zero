@@ -27,13 +27,13 @@ TEST_CASE("positional command line arguments", "[cmdline]") {
     using namespace std::string_view_literals;
 
     zero::Cmdline cmdline;
-    cmdline.add<int>("counts", "retry counts");
+    cmdline.add<int>("counts", "Retry counts");
 
     SECTION("missing") {
         REQUIRE_THROWS_MATCHES(
             cmdline.parse({}),
             std::runtime_error,
-            Catch::Matchers::Message("missing required positional arguments: 'counts'")
+            Catch::Matchers::Message("Missing required positional arguments: 'counts'")
         );
     }
 
@@ -42,7 +42,7 @@ TEST_CASE("positional command line arguments", "[cmdline]") {
             cmdline.parse(std::array{"/tmp"sv}),
             std::runtime_error,
             Catch::Matchers::MessageMatches(
-                Catch::Matchers::StartsWith("invalid value '/tmp' for positional argument 'counts'")
+                Catch::Matchers::StartsWith("Invalid value '/tmp' for positional argument 'counts'")
             )
         );
     }
@@ -59,7 +59,7 @@ TEST_CASE("optional command line arguments", "[cmdline]") {
     const auto def = GENERATE(as<std::optional<int>>{}, std::nullopt, 0, 1, 2);
 
     zero::Cmdline cmdline;
-    cmdline.addOptional<int>("counts", 'c', "retry counts", def);
+    cmdline.addOptional<int>("counts", 'c', "Retry counts", def);
 
     SECTION("missing") {
         cmdline.parse({});
@@ -72,7 +72,7 @@ TEST_CASE("optional command line arguments", "[cmdline]") {
                 REQUIRE_THROWS_MATCHES(
                     cmdline.parse(std::array{"--counts="sv}),
                     std::runtime_error,
-                    Catch::Matchers::Message("optional argument '--counts' requires a value but none was provided")
+                    Catch::Matchers::Message("Optional argument '--counts' requires a value")
                 );
             }
 
@@ -80,7 +80,7 @@ TEST_CASE("optional command line arguments", "[cmdline]") {
                 REQUIRE_THROWS_MATCHES(
                     cmdline.parse(std::array{"--counts"sv}),
                     std::runtime_error,
-                    Catch::Matchers::Message("optional argument '--counts' requires a value but none was provided")
+                    Catch::Matchers::Message("Optional argument '--counts' requires a value")
                 );
             }
         }
@@ -89,7 +89,7 @@ TEST_CASE("optional command line arguments", "[cmdline]") {
             REQUIRE_THROWS_MATCHES(
                 cmdline.parse(std::array{"-c"sv}),
                 std::runtime_error,
-                Catch::Matchers::Message("optional argument '-c' requires a value but none was provided")
+                Catch::Matchers::Message("Optional argument '-c' requires a value")
             );
         }
     }
@@ -100,7 +100,7 @@ TEST_CASE("optional command line arguments", "[cmdline]") {
                 cmdline.parse(std::array{"--counts=/tmp"sv}),
                 std::runtime_error,
                 Catch::Matchers::MessageMatches(
-                    Catch::Matchers::StartsWith("invalid value '/tmp' for optional argument '--counts'")
+                    Catch::Matchers::StartsWith("Invalid value '/tmp' for optional argument '--counts'")
                 )
             );
         }
@@ -110,7 +110,7 @@ TEST_CASE("optional command line arguments", "[cmdline]") {
                 cmdline.parse(std::array{"-c"sv, "/tmp"sv}),
                 std::runtime_error,
                 Catch::Matchers::MessageMatches(
-                    Catch::Matchers::StartsWith("invalid value '/tmp' for optional argument '-c'")
+                    Catch::Matchers::StartsWith("Invalid value '/tmp' for optional argument '-c'")
                 )
             );
         }
@@ -133,7 +133,7 @@ TEST_CASE("optional command line arguments without short name", "[cmdline]") {
     using namespace std::string_view_literals;
 
     zero::Cmdline cmdline;
-    cmdline.addOptional<int>("counts", '\0', "retry counts");
+    cmdline.addOptional<int>("counts", '\0', "Retry counts");
 
     SECTION("long") {
         cmdline.parse(std::array{"--counts=3"sv});
@@ -144,7 +144,7 @@ TEST_CASE("optional command line arguments without short name", "[cmdline]") {
         REQUIRE_THROWS_MATCHES(
             cmdline.parse(std::array{"-c"sv, "3"sv}),
             std::runtime_error,
-            Catch::Matchers::Message("unknown optional argument '-c'")
+            Catch::Matchers::Message("Unknown optional argument '-c'")
         );
     }
 }
@@ -153,13 +153,13 @@ TEST_CASE("command line flags", "[cmdline]") {
     using namespace std::string_view_literals;
 
     zero::Cmdline cmdline;
-    cmdline.addOptional("debug", 'd', "debug mode");
+    cmdline.addOptional("debug", 'd', "Debug mode");
 
     SECTION("unexpected value") {
         REQUIRE_THROWS_MATCHES(
             cmdline.parse(std::array{"--debug="sv}),
             std::runtime_error,
-            Catch::Matchers::Message("unexpected value '' for flag 'debug'")
+            Catch::Matchers::Message("Unexpected value '' for flag 'debug'")
         );
     }
 
@@ -185,7 +185,7 @@ TEST_CASE("command line additional arguments", "[cmdline]") {
     using namespace std::string_view_literals;
 
     zero::Cmdline cmdline;
-    cmdline.add<int>("counts", "retry counts");
+    cmdline.add<int>("counts", "Retry counts");
 
     SECTION("without delimiter") {
         cmdline.parse(std::array{"3"sv, "rest"sv, "arguments"sv});
@@ -214,7 +214,7 @@ TEMPLATE_TEST_CASE(
         const std::vector arguments{std::to_string(value)};
 
         zero::Cmdline cmdline;
-        cmdline.add<TestType>(name, "");
+        cmdline.add<TestType>(name, "Test value");
         cmdline.parse(std::vector<std::string_view>{arguments.begin(), arguments.end()});
 
         REQUIRE(cmdline.get<TestType>(name) == value);
@@ -224,7 +224,7 @@ TEMPLATE_TEST_CASE(
         const std::vector arguments{fmt::format("--{}={}", name, value)};
 
         zero::Cmdline cmdline;
-        cmdline.addOptional<TestType>(name, '\0', "");
+        cmdline.addOptional<TestType>(name, '\0', "Test value");
         cmdline.parse(std::vector<std::string_view>{arguments.begin(), arguments.end()});
 
         REQUIRE(cmdline.getOptional<TestType>(name) == value);
@@ -245,7 +245,7 @@ TEMPLATE_TEST_CASE(
         const std::vector arguments{to_string(fmt::join(values, ","))};
 
         zero::Cmdline cmdline;
-        cmdline.add<std::vector<TestType>>(name, "");
+        cmdline.add<std::vector<TestType>>(name, "Test values");
         cmdline.parse(std::vector<std::string_view>{arguments.begin(), arguments.end()});
 
         REQUIRE(cmdline.get<std::vector<TestType>>(name) == values);
@@ -255,7 +255,7 @@ TEMPLATE_TEST_CASE(
         const std::vector arguments{fmt::format("--{}={}", name, fmt::join(values, ","))};
 
         zero::Cmdline cmdline;
-        cmdline.addOptional<std::vector<TestType>>(name, '\0', "");
+        cmdline.addOptional<std::vector<TestType>>(name, '\0', "Test values");
         cmdline.parse(std::vector<std::string_view>{arguments.begin(), arguments.end()});
 
         REQUIRE(cmdline.getOptional<std::vector<TestType>>(name) == values);
@@ -268,14 +268,14 @@ TEST_CASE("parsing custom type from command line arguments", "[cmdline]") {
     zero::Cmdline cmdline;
 
     SECTION("positional") {
-        cmdline.add<Config>("config", "");
+        cmdline.add<Config>("config", "User configuration");
 
         SECTION("invalid") {
             REQUIRE_THROWS_MATCHES(
                 cmdline.parse(std::array{"root"sv}),
                 std::runtime_error,
                 Catch::Matchers::MessageMatches(
-                    Catch::Matchers::StartsWith("invalid value 'root' for positional argument 'config'")
+                    Catch::Matchers::StartsWith("Invalid value 'root' for positional argument 'config'")
                 )
             );
         }
@@ -287,14 +287,14 @@ TEST_CASE("parsing custom type from command line arguments", "[cmdline]") {
     }
 
     SECTION("optional") {
-        cmdline.addOptional<Config>("config", '\0', "");
+        cmdline.addOptional<Config>("config", '\0', "User configuration");
 
         SECTION("invalid") {
             REQUIRE_THROWS_MATCHES(
                 cmdline.parse(std::array{"--config=root"sv}),
                 std::runtime_error,
                 Catch::Matchers::MessageMatches(
-                    Catch::Matchers::StartsWith("invalid value 'root' for optional argument '--config'")
+                    Catch::Matchers::StartsWith("Invalid value 'root' for optional argument '--config'")
                 )
             );
         }

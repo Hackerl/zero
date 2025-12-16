@@ -122,7 +122,7 @@ namespace zero::os::process {
         Z_DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::PseudoConsole",
-            API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
+            API_NOT_AVAILABLE, "API not available", std::errc::function_not_supported
         )
 
         struct Endpoint {
@@ -183,7 +183,7 @@ namespace zero::os::process {
         Z_DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::Command",
-            API_NOT_AVAILABLE, "api not available", std::errc::function_not_supported
+            API_NOT_AVAILABLE, "API not available", std::errc::function_not_supported
         )
 #endif
         enum class StdioType {

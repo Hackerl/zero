@@ -23,7 +23,7 @@ namespace zero::os::linux::process {
         Z_DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::linux::process::Process",
-            NO_SUCH_USER, "no such user"
+            NO_SUCH_USER, "No such user"
         )
 
         explicit Process(procfs::process::Process process);
