@@ -6,6 +6,11 @@
 #include <expected>
 #include <system_error>
 
+#if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
+#include <fmt/core.h>
+#include <stacktrace>
+#endif
+
 /*
  * When std::error_category is defined as a static variable,
  * its destruction timing is uncertain and it may be invalid when the program exits.
@@ -645,10 +650,30 @@ namespace zero::error {
     Z_ERROR_EXPAND(Z_ERROR_PASTE(Z_DEFINE_ERROR_CATEGORY_INSTANCE, __VA_ARGS__))
 
 namespace zero::error {
+#if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
+    class SystemError : public std::system_error {
+    public:
+        template<typename... Args>
+        explicit SystemError(Args &&... args)
+            : std::system_error{std::forward<Args>(args)...},
+              mMessage{fmt::format("{} {}", std::system_error::what(), std::to_string(std::stacktrace::current(1)))} {
+        }
+
+        [[nodiscard]] const char *what() const noexcept override {
+            return mMessage.c_str();
+        }
+
+    private:
+        std::string mMessage;
+    };
+#else
+    using SystemError = std::system_error;
+#endif
+
     template<typename T>
     T guard(std::expected<T, std::error_code> &&expected) {
         if (!expected)
-            throw std::system_error{expected.error()};
+            throw SystemError{expected.error()};
 
         if constexpr (std::is_void_v<T>)
             return;

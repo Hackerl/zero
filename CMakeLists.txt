@@ -60,6 +60,7 @@ target_link_libraries(
         $<$<PLATFORM_ID:Windows>:Synchronization>
         PUBLIC
         fmt::fmt
+        $<$<CXX_COMPILER_ID:GNU>:stdc++exp>
 )
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
