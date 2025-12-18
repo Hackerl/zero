@@ -6,9 +6,11 @@
 #include <expected>
 #include <system_error>
 
+#if __has_include(<stacktrace>)
+#include <stacktrace>
 #if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
 #include <fmt/core.h>
-#include <stacktrace>
+#endif
 #endif
 
 /*
