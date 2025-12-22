@@ -59,7 +59,7 @@ TEST_CASE("process - procfs", "[os::linux::procfs::process]") {
     SECTION("environ") {
         const auto envs = process->environ();
         REQUIRE(envs);
-        REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_LINUX_PROCFS_PROCESS_TESTS"));
+        REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_LINUX_PROCFS_PROCESS_TESTS"));
         REQUIRE(envs->at("ZERO_LINUX_PROCFS_PROCESS_TESTS") == "1");
     }
 

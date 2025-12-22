@@ -70,7 +70,7 @@ TEST_CASE("process - Windows", "[os::windows::process]") {
     SECTION("envs") {
         const auto envs = process->envs();
         REQUIRE(envs);
-        REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_WINDOWS_PROCESS_TESTS"));
+        REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_WINDOWS_PROCESS_TESTS"));
         REQUIRE(envs->at("ZERO_WINDOWS_PROCESS_TESTS") == "1");
     }
 

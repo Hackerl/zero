@@ -260,7 +260,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
     });
     Z_EXPECT(resource);
 
-    for (auto &[name, mac, addresses]: std::views::values(interfaces)) {
+    for (auto &[name, mac, addresses]: interfaces | std::views::values) {
         ifreq request{};
 
         request.ifr_addr.sa_family = AF_INET;

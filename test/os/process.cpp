@@ -372,7 +372,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
         const auto envs = child->envs();
         REQUIRE(envs);
-        REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
+        REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
         REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
     }
 
@@ -397,7 +397,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
             const auto envs = child->envs();
             REQUIRE(envs);
-            REQUIRE_THAT(std::views::keys(*envs), !Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
+            REQUIRE_THAT(*envs | std::views::keys, !Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
         }
 
         SECTION("add env") {
@@ -407,7 +407,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
             const auto envs = child->envs();
             REQUIRE(envs);
-            REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
+            REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
             REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
         }
 
@@ -421,7 +421,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
             const auto envs = child->envs();
             REQUIRE(envs);
-            REQUIRE_THAT(std::views::keys(*envs), !Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
+            REQUIRE_THAT(*envs | std::views::keys, !Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
         }
 
         SECTION("set envs") {
@@ -431,7 +431,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
             const auto envs = child->envs();
             REQUIRE(envs);
-            REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
+            REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
             REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
         }
     }

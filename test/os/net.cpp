@@ -61,7 +61,7 @@ TEST_CASE("network interfaces", "[os::net]") {
     const std::string result{reinterpret_cast<const char *>(output->out.data()), output->out.size()};
 #endif
 
-    for (const auto &[name, mac, addresses]: std::views::values(*interfaces)) {
+    for (const auto &[name, mac, addresses]: *interfaces | std::views::values) {
 #ifdef _WIN32
         NET_LUID id{};
         REQUIRE(ConvertInterfaceNameToLuidA(name.c_str(), &id) == ERROR_SUCCESS);

@@ -62,6 +62,6 @@ TEST_CASE("list environment variable", "[env]") {
 
     const auto envs = zero::env::list();
     REQUIRE(envs);
-    REQUIRE_THAT(std::views::keys(*envs), Catch::Matchers::Contains(name));
+    REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains(name));
     REQUIRE(envs->at(name) == value);
 }
