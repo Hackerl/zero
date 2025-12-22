@@ -16,8 +16,8 @@ namespace zero::filesystem {
     std::filesystem::path path(std::string_view source);
     std::string stringify(const std::filesystem::path &path);
 
-    std::expected<std::filesystem::path, std::error_code> applicationPath();
-    std::expected<std::filesystem::path, std::error_code> applicationDirectory();
+    std::filesystem::path applicationPath();
+    std::filesystem::path applicationDirectory();
 
     std::expected<std::vector<std::byte>, std::error_code> read(const std::filesystem::path &path);
     std::expected<std::string, std::error_code> readString(const std::filesystem::path &path);

@@ -1,5 +1,6 @@
 #include <zero/filesystem/fs.h>
 #include <zero/strings/strings.h>
+#include <zero/error.h>
 #include <fstream>
 
 #ifdef _WIN32
@@ -33,33 +34,33 @@ std::string zero::filesystem::stringify(const std::filesystem::path &path) {
 #endif
 }
 
-std::expected<std::filesystem::path, std::error_code> zero::filesystem::applicationPath() {
+std::filesystem::path zero::filesystem::applicationPath() {
 #ifdef _WIN32
     std::array<WCHAR, MAX_PATH> buffer{};
 
     if (const auto length = GetModuleFileNameW(nullptr, buffer.data(), buffer.size());
         length == 0 || length == buffer.size())
-        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+        throw error::SystemError{static_cast<int>(GetLastError()), std::system_category()};
 
     return buffer.data();
 #elif defined(__linux__)
-    return readSymlink("/proc/self/exe");
+    return error::guard(readSymlink("/proc/self/exe"));
 #elif defined(__APPLE__)
     std::array<char, MAXPATHLEN> buffer{};
     auto size = static_cast<std::uint32_t>(buffer.size());
 
-    Z_EXPECT(os::unix::expected([&] {
+    error::guard(os::unix::expected([&] {
         return _NSGetExecutablePath(buffer.data(), &size);
     }));
 
-    return weaklyCanonical(buffer.data());
+    return error::guard(weaklyCanonical(buffer.data()));
 #else
 #error "unsupported platform"
 #endif
 }
 
-std::expected<std::filesystem::path, std::error_code> zero::filesystem::applicationDirectory() {
-    return applicationPath().transform(&std::filesystem::path::parent_path);
+std::filesystem::path zero::filesystem::applicationDirectory() {
+    return applicationPath().parent_path();
 }
 
 std::expected<std::vector<std::byte>, std::error_code> zero::filesystem::read(const std::filesystem::path &path) {

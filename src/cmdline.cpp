@@ -57,7 +57,7 @@ void zero::Cmdline::help() const {
     fmt::print(
         stderr,
         "Usage: {} [options] {} ... {} ...\n",
-        filesystem::applicationPath()->filename(),
+        filesystem::applicationPath().filename(),
         fmt::join(
             mPositionals | std::views::transform([](const auto &positional) {
                 return fmt::format("{}({})", positional.name, positional.typeInfo.name);

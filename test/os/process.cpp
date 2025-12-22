@@ -33,20 +33,19 @@ TEST_CASE("process", "[os::process]") {
     REQUIRE(process);
 
     const auto path = zero::filesystem::applicationPath();
-    REQUIRE(path);
 
     SECTION("name") {
-        REQUIRE(process->name() == path->filename());
+        REQUIRE(process->name() == path.filename());
     }
 
     SECTION("exe") {
-        REQUIRE(process->exe() == *path);
+        REQUIRE(process->exe() == path);
     }
 
     SECTION("cmdline") {
         const auto cmdline = process->cmdline();
         REQUIRE(cmdline);
-        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path->filename().string()));
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path.filename().string()));
     }
 
     SECTION("cwd") {
