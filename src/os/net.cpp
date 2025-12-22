@@ -1,4 +1,5 @@
 #include <zero/os/net.h>
+#include <zero/error.h>
 
 #ifdef _WIN32
 #include <memory>
@@ -34,8 +35,13 @@
 std::string zero::os::net::stringify(const std::span<const std::byte, 4> ip) {
     std::array<char, INET_ADDRSTRLEN> address{};
 
-    if (!inet_ntop(AF_INET, ip.data(), address.data(), address.size()))
-        throw std::runtime_error{"Failed to convert IPv4 address to text form"};
+    if (!inet_ntop(AF_INET, ip.data(), address.data(), address.size())) {
+#ifdef _WIN32
+        throw error::SystemError{WSAGetLastError(), std::system_category()};
+#else
+        throw error::SystemError{errno, std::system_category()};
+#endif
+    }
 
     return address.data();
 }
@@ -43,8 +49,13 @@ std::string zero::os::net::stringify(const std::span<const std::byte, 4> ip) {
 std::string zero::os::net::stringify(const std::span<const std::byte, 16> ip) {
     std::array<char, INET6_ADDRSTRLEN> address{};
 
-    if (!inet_ntop(AF_INET6, ip.data(), address.data(), address.size()))
-        throw std::runtime_error{"Failed to convert IPv6 address to text form"};
+    if (!inet_ntop(AF_INET6, ip.data(), address.data(), address.size())) {
+#ifdef _WIN32
+        throw error::SystemError{WSAGetLastError(), std::system_category()};
+#else
+        throw error::SystemError{errno, std::system_category()};
+#endif
+    }
 
     return address.data();
 }
