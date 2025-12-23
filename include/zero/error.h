@@ -672,8 +672,9 @@ namespace zero::error {
     using SystemError = std::system_error;
 #endif
 
-    template<typename T>
-    T guard(std::expected<T, std::error_code> &&expected) {
+    template<typename T, typename E>
+        requires std::is_convertible_v<E, std::error_code>
+    T guard(std::expected<T, E> &&expected) {
         if (!expected)
             throw SystemError{expected.error()};
 
