@@ -363,8 +363,8 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
                    .stdOutput(zero::os::process::Command::StdioType::NUL);
 
     SECTION("inherit") {
-        REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
-        Z_DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
+        zero::env::set("ZERO_PROCESS_TESTS", "1");
+        Z_DEFER(zero::env::unset("ZERO_PROCESS_TESTS"));
 
         auto child = command.spawn();
         REQUIRE(child);
@@ -388,8 +388,8 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         }
 
         SECTION("not empty") {
-            REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
-            Z_DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
+            zero::env::set("ZERO_PROCESS_TESTS", "1");
+            Z_DEFER(zero::env::unset("ZERO_PROCESS_TESTS"));
 
             auto child = command.clearEnv().spawn();
             REQUIRE(child);
@@ -412,8 +412,8 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         }
 
         SECTION("remove env") {
-            REQUIRE(zero::env::set("ZERO_PROCESS_TESTS", "1"));
-            Z_DEFER(REQUIRE(zero::env::unset("ZERO_PROCESS_TESTS")));
+            zero::env::set("ZERO_PROCESS_TESTS", "1");
+            Z_DEFER(zero::env::unset("ZERO_PROCESS_TESTS"));
 
             auto child = command.removeEnv("ZERO_PROCESS_TESTS").spawn();
             REQUIRE(child);

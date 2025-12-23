@@ -1,5 +1,5 @@
 #include <zero/env.h>
-#include <zero/expect.h>
+#include <zero/error.h>
 #include <zero/strings/strings.h>
 
 #ifdef _WIN32
@@ -16,24 +16,23 @@ extern char **environ;
 #endif
 #endif
 
-std::expected<std::optional<std::string>, std::error_code> zero::env::get(const std::string &name) {
+std::optional<std::string> zero::env::get(const std::string &name) {
 #ifdef _WIN32
-    const auto str = strings::decode(name);
-    Z_EXPECT(str);
+    const auto str = error::guard(strings::decode(name));
 
     DWORD size{1024};
     auto buffer = std::make_unique<WCHAR[]>(size);
 
     while (true) {
-        const auto result = GetEnvironmentVariableW(str->c_str(), buffer.get(), size);
+        const auto result = GetEnvironmentVariableW(str.c_str(), buffer.get(), size);
         assert(result != size);
 
         if (result > 0 && result < size)
-            return strings::encode(buffer.get());
+            return error::guard(strings::encode(buffer.get()));
 
         if (result == 0) {
             if (const auto error = GetLastError(); error != ERROR_ENVVAR_NOT_FOUND)
-                return std::unexpected{std::error_code{static_cast<int>(error), std::system_category()}};
+                throw error::SystemError{static_cast<int>(error), std::system_category()};
 
             return std::nullopt;
         }
@@ -51,41 +50,34 @@ std::expected<std::optional<std::string>, std::error_code> zero::env::get(const 
 #endif
 }
 
-std::expected<void, std::error_code> zero::env::set(const std::string &name, const std::string &value) {
+void zero::env::set(const std::string &name, const std::string &value) {
 #ifdef _WIN32
-    const auto k = strings::decode(name);
-    Z_EXPECT(k);
-
-    const auto v = strings::decode(value);
-    Z_EXPECT(v);
-
-    return os::windows::expected([&] {
-        return SetEnvironmentVariableW(k->c_str(), v->c_str());
-    });
+    error::guard(os::windows::expected([&] {
+        return SetEnvironmentVariableW(
+            error::guard(strings::decode(name)).c_str(),
+            error::guard(strings::decode(value)).c_str()
+        );
+    }));
 #else
-    Z_EXPECT(os::unix::expected([&] {
+    error::guard(os::unix::expected([&] {
         return setenv(name.c_str(), value.c_str(), 1);
     }));
-    return {};
 #endif
 }
 
-std::expected<void, std::error_code> zero::env::unset(const std::string &name) {
+void zero::env::unset(const std::string &name) {
 #ifdef _WIN32
-    return strings::decode(name).and_then([](const auto &str) {
-        return os::windows::expected([&] {
-            return SetEnvironmentVariableW(str.c_str(), nullptr);
-        });
-    });
+    error::guard(os::windows::expected([&] {
+        return SetEnvironmentVariableW(error::guard(strings::decode(name)).c_str(), nullptr);
+    }));
 #else
-    Z_EXPECT(os::unix::expected([&] {
+    error::guard(os::unix::expected([&] {
         return unsetenv(name.c_str());
     }));
-    return {};
 #endif
 }
 
-std::expected<std::map<std::string, std::string>, std::error_code> zero::env::list() {
+std::map<std::string, std::string> zero::env::list() {
 #ifdef _WIN32
     const std::unique_ptr<WCHAR, decltype(&FreeEnvironmentStringsW)> ptr{
         GetEnvironmentStringsW(),
@@ -93,15 +85,12 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::env::li
     };
 
     if (!ptr)
-        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+        throw error::SystemError{static_cast<int>(GetLastError()), std::system_category()};
 
     std::map<std::string, std::string> envs;
 
     for (const auto *env = ptr.get(); *env != L'\0'; env += std::wcslen(env) + 1) {
-        const auto str = strings::encode(env);
-        Z_EXPECT(str);
-
-        auto tokens = strings::split(*str, "=", 1);
+        auto tokens = strings::split(error::guard(strings::encode(env)), "=", 1);
 
         if (tokens.size() != 2)
             continue;

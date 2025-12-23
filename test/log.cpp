@@ -130,8 +130,8 @@ TEST_CASE("override log level from environment variable", "[log]") {
 
     const auto level = GENERATE_REF(from_range(levels));
 
-    REQUIRE(zero::env::set("ZERO_LOG_LEVEL", std::to_string(std::to_underlying(level))));
-    Z_DEFER(REQUIRE(zero::env::unset("ZERO_LOG_LEVEL")));
+    zero::env::set("ZERO_LOG_LEVEL", std::to_string(std::to_underlying(level)));
+    Z_DEFER(zero::env::unset("ZERO_LOG_LEVEL"));
 
     zero::atomic::Event event;
     fakeit::Mock<zero::log::IProvider> mock;

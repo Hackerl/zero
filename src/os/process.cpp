@@ -397,11 +397,8 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
 
     std::map<std::string, std::string> envs;
 
-    if (command.mInheritEnv) {
-        auto result = env::list();
-        Z_EXPECT(result);
-        envs = *std::move(result);
-    }
+    if (command.mInheritEnv)
+        envs = env::list();
 
     for (const auto &[key, value]: command.mEnviron) {
         if (!value) {
@@ -521,11 +518,8 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
 
     std::map<std::string, std::string> envs;
 
-    if (command.mInheritEnv) {
-        auto result = env::list();
-        Z_EXPECT(result);
-        envs = *std::move(result);
-    }
+    if (command.mInheritEnv)
+        envs = env::list();
 
     for (const auto &[key, value]: command.mEnviron) {
         if (!value) {
@@ -910,11 +904,8 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     std::map<std::string, std::string> envs;
 
-    if (mInheritEnv) {
-        auto result = env::list();
-        Z_EXPECT(result);
-        envs = *std::move(result);
-    }
+    if (mInheritEnv)
+        envs = env::list();
 
     for (const auto &[key, value]: mEnviron) {
         if (!value) {
@@ -1026,11 +1017,8 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     std::map<std::string, std::string> envs;
 
-    if (mInheritEnv) {
-        auto result = env::list();
-        Z_EXPECT(result);
-        envs = *std::move(result);
-    }
+    if (mInheritEnv)
+        envs = env::list();
 
     for (const auto &[key, value]: mEnviron) {
         if (!value) {
