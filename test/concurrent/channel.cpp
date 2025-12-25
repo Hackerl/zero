@@ -474,10 +474,10 @@ TEST_CASE("channel concurrency testing", "[concurrent::channel]") {
             const auto result = receiver.receive();
 
             if (!result) {
-                if (result.error() == zero::concurrent::ReceiveError::DISCONNECTED)
-                    return {};
+                if (result.error() != zero::concurrent::ReceiveError::DISCONNECTED)
+                    return std::unexpected{result.error()};
 
-                return std::unexpected{result.error()};
+                return {};
             }
 
             if (*result != element)
