@@ -83,7 +83,7 @@ private:
     }
 
 public:
-    const std::vector<std::byte> &get() const override {
+    [[nodiscard]] const std::vector<std::byte> &get() const override {
         return mBytes;
     }
 
@@ -121,7 +121,7 @@ private:
     }
 
 public:
-    const std::string &get() const override {
+    [[nodiscard]] const std::string &get() const override {
         return mString;
     }
 
