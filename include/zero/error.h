@@ -653,7 +653,7 @@ namespace zero::error {
 
 namespace zero::error {
 #if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
-    class SystemError : public std::system_error {
+    class SystemError final : public std::system_error {
     public:
         template<typename... Args>
         explicit SystemError(Args &&... args)
