@@ -3,12 +3,9 @@
 
 #include <map>
 #include <list>
-#include <vector>
 #include <chrono>
 #include <optional>
-#include <windows.h>
 #include <filesystem>
-#include <zero/error.h>
 #include <zero/os/resource.h>
 
 namespace zero::os::windows::process {

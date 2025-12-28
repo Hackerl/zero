@@ -4,11 +4,9 @@
 #include <map>
 #include <list>
 #include <array>
-#include <vector>
 #include <bitset>
 #include <optional>
 #include <filesystem>
-#include <zero/error.h>
 #include <zero/os/resource.h>
 
 #undef linux
