@@ -1,21 +1,7 @@
 #ifndef ZERO_OS_PROCESS_H
 #define ZERO_OS_PROCESS_H
 
-#include <fmt/core.h>
-
-#ifdef _WIN32
-#include "windows/process.h"
-#elif defined(__APPLE__)
-#include <TargetConditionals.h>
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
-#include "resource.h"
-#include "macos/process.h"
-#else
-#define ZERO_NO_PROCESS_API
-#endif
-#elif defined(__linux__)
-#include "linux/process.h"
-#endif
+#include <cstdint>
 
 namespace zero::os::process {
     using ID = std::uint32_t;
@@ -23,7 +9,18 @@ namespace zero::os::process {
     ID currentProcessID();
 }
 
-#ifndef ZERO_NO_PROCESS_API
+#ifndef ZERO_PROCESS_PARTIAL_API
+#include <fmt/core.h>
+
+#ifdef _WIN32
+#include "windows/process.h"
+#elif defined(__APPLE__)
+#include "resource.h"
+#include "macos/process.h"
+#elif defined(__linux__)
+#include "linux/process.h"
+#endif
+
 namespace zero::os::process {
 #ifdef _WIN32
     using ProcessImpl = windows::process::Process;

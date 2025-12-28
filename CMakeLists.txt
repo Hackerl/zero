@@ -44,6 +44,10 @@ add_library(
         $<$<PLATFORM_ID:Linux,Android>:src/os/linux/process.cpp src/os/linux/procfs/procfs.cpp src/os/linux/procfs/process.cpp>
 )
 
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    target_compile_definitions(zero PUBLIC ZERO_PROCESS_PARTIAL_API)
+endif ()
+
 target_include_directories(
         zero
         PUBLIC

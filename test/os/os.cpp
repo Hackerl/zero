@@ -5,7 +5,7 @@
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <future>
 
-#ifndef ZERO_NO_PROCESS_API
+#ifndef ZERO_PROCESS_PARTIAL_API
 TEST_CASE("get hostname", "[os]") {
     const auto hostname = zero::os::hostname();
     REQUIRE(hostname);

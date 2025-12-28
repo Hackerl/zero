@@ -12,7 +12,7 @@ zero::os::process::ID zero::os::process::currentProcessID() {
 #endif
 }
 
-#ifndef ZERO_NO_PROCESS_API
+#ifndef ZERO_PROCESS_PARTIAL_API
 #include <zero/os/os.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
