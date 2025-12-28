@@ -34,6 +34,7 @@ TEST_CASE("network components", "[os::net]") {
     );
 }
 
+#ifndef ZERO_NO_PROCESS_API
 TEST_CASE("network interfaces", "[os::net]") {
     const auto interfaces = zero::os::net::interfaces();
     REQUIRE(interfaces);
@@ -114,3 +115,4 @@ TEST_CASE("network interfaces", "[os::net]") {
         );
     }
 }
+#endif

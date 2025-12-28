@@ -1,4 +1,18 @@
 #include <zero/os/process.h>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
+zero::os::process::ID zero::os::process::currentProcessID() {
+#ifdef _WIN32
+    return static_cast<ID>(GetCurrentProcessId());
+#else
+    return getpid();
+#endif
+}
+
+#ifndef ZERO_NO_PROCESS_API
 #include <zero/os/os.h>
 #include <zero/expect.h>
 #include <zero/defer.h>
@@ -17,7 +31,6 @@
 #include <algorithm>
 #include <fcntl.h>
 #include <spawn.h>
-#include <unistd.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
 #include <zero/os/unix/error.h>
@@ -177,14 +190,6 @@ std::expected<void, std::error_code> zero::os::process::Process::kill() {
     return mImpl.terminate(EXIT_FAILURE);
 #else
     return mImpl.kill(SIGKILL);
-#endif
-}
-
-zero::os::process::ID zero::os::process::currentProcessID() {
-#ifdef _WIN32
-    return static_cast<ID>(GetCurrentProcessId());
-#else
-    return getpid();
 #endif
 }
 
@@ -1264,4 +1269,5 @@ Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::PseudoConsole::Error)
 
 #if defined(__ANDROID__) && __ANDROID_API__ < 34
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::Command::Error)
+#endif
 #endif

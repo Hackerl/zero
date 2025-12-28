@@ -158,6 +158,31 @@ jobs:
         env:
           SDKROOT: macosx
 
+  ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        env:
+          VCPKG_BINARY_SOURCES: default,rw
+      - name: Setup vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: ${{ runner.os }}-vcpkg-binary-cache-${{ hashFiles('vcpkg*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-binary-cache-
+      - name: Build
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: debug-asan
+          configurePresetAdditionalArgs: "['-DCMAKE_SYSTEM_NAME=iOS', '-DCMAKE_CATCH_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST']"
+          buildPreset: debug-asan
+        env:
+          SDKROOT: iphoneos
+
   android:
     runs-on: ubuntu-latest
     strategy:

@@ -17,7 +17,6 @@ add_executable(
         os/os.cpp
         os/net.cpp
         os/stat.cpp
-        os/process.cpp
         os/resource.cpp
         cache/lru.cpp
         async/promise.cpp
@@ -30,9 +29,11 @@ add_executable(
         filesystem/fs.cpp
         detail/type_traits.cpp
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>
+        $<$<BOOL:${APPLE}>:os/macos/error.cpp>
         $<$<PLATFORM_ID:Windows>:os/windows/error.cpp os/windows/process.cpp>
-        $<$<PLATFORM_ID:Darwin>:os/macos/error.cpp os/macos/process.cpp>
+        $<$<PLATFORM_ID:Darwin>:os/macos/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:os/linux/process.cpp os/linux/procfs/procfs.cpp os/linux/procfs/process.cpp>
+        $<$<PLATFORM_ID:Windows,Darwin,Linux,Android>:os/process.cpp>
 )
 
 if (MSVC)

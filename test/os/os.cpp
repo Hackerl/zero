@@ -5,6 +5,7 @@
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <future>
 
+#ifndef ZERO_NO_PROCESS_API
 TEST_CASE("get hostname", "[os]") {
     const auto hostname = zero::os::hostname();
     REQUIRE(hostname);
@@ -29,6 +30,7 @@ TEST_CASE("get username", "[os]") {
         Catch::Matchers::ContainsSubstring(*username)
     );
 }
+#endif
 
 TEST_CASE("anonymous pipe", "[os]") {
     auto pipe = zero::os::pipe();

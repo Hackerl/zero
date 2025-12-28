@@ -8,6 +8,7 @@
 #include <thread>
 #include <fstream>
 #include <mutex>
+#include <list>
 #include <fmt/std.h>
 #include <fmt/chrono.h>
 

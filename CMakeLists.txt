@@ -38,8 +38,9 @@ add_library(
         src/encoding/base64.cpp
         src/strings/strings.cpp
         src/filesystem/fs.cpp
+        $<$<BOOL:${APPLE}>:src/os/macos/error.cpp>
         $<$<PLATFORM_ID:Windows>:src/os/windows/error.cpp src/os/windows/process.cpp>
-        $<$<PLATFORM_ID:Darwin>:src/os/macos/error.cpp src/os/macos/process.cpp>
+        $<$<PLATFORM_ID:Darwin>:src/os/macos/process.cpp>
         $<$<PLATFORM_ID:Linux,Android>:src/os/linux/process.cpp src/os/linux/procfs/procfs.cpp src/os/linux/procfs/process.cpp>
 )
 
