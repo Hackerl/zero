@@ -555,10 +555,9 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         return str.data();
     });
 
-    const auto pid = unix::expected(fork);
-    Z_EXPECT(pid);
+    const auto pid = error::guard(unix::expected(fork));
 
-    if (*pid == 0) {
+    if (pid == 0) {
         const auto guard = [fd = pipe->second.fd()]<typename F>(F &&f) {
             static_assert(std::is_integral_v<std::invoke_result_t<F>>);
 
@@ -650,26 +649,25 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     error::guard(pipe->second.close());
 
     int error{};
-    const auto n = pipe->first.read({reinterpret_cast<std::byte *>(&error), sizeof(error)});
-    assert(n);
 
-    if (*n != 0) {
-        assert(*n == sizeof(int));
-        const auto id = unix::ensure([&] {
-            return waitpid(*pid, nullptr, 0);
-        });
-        assert(id);
-        assert(*id == *pid);
+    if (const auto n = error::guard(pipe->first.read({reinterpret_cast<std::byte *>(&error), sizeof(error)})); n != 0) {
+        assert(n == sizeof(int));
+
+        const auto id = error::guard(unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        }));
+        assert(id == pid);
+
         return std::unexpected{std::error_code{error, std::system_category()}};
     }
 
     error::guard(mSlave.close());
 
-    auto process = open(*pid);
+    auto process = open(pid);
 
     if (!process) {
         error::guard(unix::expected([&] {
-            return kill(*pid, SIGKILL);
+            return kill(pid, SIGKILL);
         }).or_else([](const auto &ec) -> std::expected<int, std::error_code> {
             if (ec != std::errc::no_such_process)
                 return std::unexpected{ec};
@@ -677,11 +675,11 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
             return {};
         }));
 
-        const auto id = unix::ensure([&] {
-            return waitpid(*pid, nullptr, 0);
-        });
-        assert(id);
-        assert(*id == *pid);
+        const auto id = error::guard(unix::ensure([&] {
+            return waitpid(pid, nullptr, 0);
+        }));
+        assert(id == pid);
+
         return std::unexpected{process.error()};
     }
 
@@ -1179,11 +1177,11 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             return {};
         }));
 
-        const auto id = unix::ensure([&] {
+        const auto id = error::guard(unix::ensure([&] {
             return waitpid(pid, nullptr, 0);
-        });
-        assert(id);
-        assert(*id == pid);
+        }));
+        assert(id == pid);
+
         return std::unexpected{process.error()};
     }
 
