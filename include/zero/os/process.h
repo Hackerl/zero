@@ -185,7 +185,7 @@ namespace zero::os::process {
 
     class Command {
     public:
-#if defined(__ANDROID__) && __ANDROID_API__ < 34
+#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
         Z_DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::process::Command",
@@ -338,7 +338,7 @@ namespace zero::os::process {
 Z_DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
 #endif
 
-#if defined(__ANDROID__) && __ANDROID_API__ < 34
+#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
 Z_DECLARE_ERROR_CODE(zero::os::process::Command::Error)
 #endif
 

@@ -39,7 +39,7 @@ zero::os::process::ID zero::os::process::currentProcessID() {
 #else
 #include <pty.h>
 #endif
-#if defined(__ANDROID__) && __ANDROID_API__ < 34
+#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
 #include <dlfcn.h>
 #endif
 #endif
@@ -1086,7 +1086,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     }
 
     if (mCurrentDirectory) {
-#if defined(__ANDROID__) && __ANDROID_API__ < 34
+#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
         static const auto posix_spawn_file_actions_addchdir_np = reinterpret_cast<
             int (*)(posix_spawn_file_actions_t *, const char *)
         >(
@@ -1265,7 +1265,7 @@ zero::os::process::Command::output() const {
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::PseudoConsole::Error)
 #endif
 
-#if defined(__ANDROID__) && __ANDROID_API__ < 34
+#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::Command::Error)
 #endif
 #endif
