@@ -3,8 +3,9 @@
 #include <array>
 
 #ifdef _WIN32
+#include <atomic>
 #include <windows.h>
-#include <Lmcons.h>
+#include <lmcons.h>
 #include <zero/os/windows/error.h>
 #include <zero/strings/strings.h>
 #elif defined(__linux__)

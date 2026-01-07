@@ -49,7 +49,7 @@ target_link_libraries(
         Threads::Threads
         Catch2::Catch2WithMain
         FakeIt::FakeIt-catch
-        $<$<PLATFORM_ID:Windows>:Iphlpapi>
+        $<$<PLATFORM_ID:Windows>:iphlpapi>
 )
 
 include(Catch)

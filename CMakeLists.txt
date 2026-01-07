@@ -60,9 +60,9 @@ target_link_libraries(
         PRIVATE
         Iconv::Iconv
         Threads::Threads
-        $<$<PLATFORM_ID:Windows>:Ws2_32>
-        $<$<PLATFORM_ID:Windows>:Iphlpapi>
-        $<$<PLATFORM_ID:Windows>:Synchronization>
+        $<$<PLATFORM_ID:Windows>:ws2_32>
+        $<$<PLATFORM_ID:Windows>:iphlpapi>
+        $<$<PLATFORM_ID:Windows>:synchronization>
         PUBLIC
         fmt::fmt
         $<$<CXX_COMPILER_ID:GNU>:stdc++exp>

@@ -93,7 +93,11 @@ std::expected<DWORD, std::error_code> zero::os::windows::process::Process::ppid(
         ));
     }));
 
+#ifdef __MINGW32__
+    return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.InheritedFromUniqueProcessId));
+#else
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
+#endif
 }
 
 std::expected<std::string, std::error_code> zero::os::windows::process::Process::name() const {

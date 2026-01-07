@@ -18,6 +18,7 @@ zero::os::process::ID zero::os::process::currentProcessID() {
 #include <zero/defer.h>
 #include <zero/env.h>
 #include <fmt/ranges.h>
+#include <algorithm>
 #include <cassert>
 #include <ranges>
 #include <future>
@@ -28,7 +29,6 @@ zero::os::process::ID zero::os::process::currentProcessID() {
 #include <zero/os/windows/error.h>
 #else
 #include <csignal>
-#include <algorithm>
 #include <fcntl.h>
 #include <spawn.h>
 #include <sys/wait.h>
