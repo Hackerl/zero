@@ -3,7 +3,6 @@
 #include <zero/strings/strings.h>
 #include <zero/filesystem/fs.h>
 #include <zero/expect.h>
-#include <unistd.h>
 #include <map>
 
 namespace {

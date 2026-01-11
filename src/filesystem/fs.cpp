@@ -6,7 +6,6 @@
 #ifdef _WIN32
 #include <array>
 #include <windows.h>
-#include <zero/error.h>
 #elif defined(__APPLE__)
 #include <array>
 #include <mach-o/dyld.h>

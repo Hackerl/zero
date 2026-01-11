@@ -26,7 +26,7 @@ TEST_CASE("process - macOS", "[os::macos::process]") {
                  .spawn();
     REQUIRE(child);
 
-    auto process = zero::os::macos::process::open(child->pid());
+    auto process = zero::os::macos::process::open(static_cast<pid_t>(child->pid()));
     REQUIRE(process);
 
     SECTION("pid") {
