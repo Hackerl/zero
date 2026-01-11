@@ -535,9 +535,9 @@ TEST_CASE("spawn child process with piped stdio", "[os::process]") {
                  .spawn();
 #else
     auto child = zero::os::process::Command{"cat"}
-                    .stdInput(zero::os::process::Command::StdioType::PIPED)
-                    .stdOutput(zero::os::process::Command::StdioType::PIPED)
-                    .spawn();
+                 .stdInput(zero::os::process::Command::StdioType::PIPED)
+                 .stdOutput(zero::os::process::Command::StdioType::PIPED)
+                 .spawn();
 #endif
     REQUIRE(child);
     Z_DEFER(REQUIRE(child->wait()));

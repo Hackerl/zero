@@ -221,40 +221,43 @@ void zero::log::Logger::addProvider(
     std::unique_ptr<IProvider> provider,
     const std::chrono::milliseconds interval
 ) {
-    std::call_once(mOnceFlag, [=, this] {
-        const auto getOption = [](const std::string &name) -> std::optional<int> {
-            const auto value = env::get(name);
+    std::call_once(
+        mOnceFlag,
+        [=, this] {
+            const auto getOption = [](const std::string &name) -> std::optional<int> {
+                const auto value = env::get(name);
 
-            if (!value)
-                return std::nullopt;
+                if (!value)
+                    return std::nullopt;
 
-            const auto option = strings::toNumber<int>(*value);
+                const auto option = strings::toNumber<int>(*value);
 
-            if (!option)
-                return std::nullopt;
+                if (!option)
+                    return std::nullopt;
 
-            return *option;
-        };
+                return *option;
+            };
 
-        if (const auto value = getOption("ZERO_LOG_LEVEL")) {
-            if (const auto lv = static_cast<Level>(*value); lv < Level::ERROR_LEVEL || lv > Level::DEBUG_LEVEL)
-                return;
+            if (const auto value = getOption("ZERO_LOG_LEVEL")) {
+                if (const auto lv = static_cast<Level>(*value); lv < Level::ERROR_LEVEL || lv > Level::DEBUG_LEVEL)
+                    return;
 
-            mMinLogLevel = static_cast<Level>(*value);
-            mMaxLogLevel = mMinLogLevel;
-        }
-
-        if (const auto value = getOption("ZERO_LOG_TIMEOUT")) {
-            if (*value <= 0) {
-                mTimeout.reset();
-                return;
+                mMinLogLevel = static_cast<Level>(*value);
+                mMaxLogLevel = mMinLogLevel;
             }
 
-            mTimeout = std::chrono::milliseconds{*value};
-        }
+            if (const auto value = getOption("ZERO_LOG_TIMEOUT")) {
+                if (*value <= 0) {
+                    mTimeout.reset();
+                    return;
+                }
 
-        mThread = std::thread{&Logger::consume, this};
-    });
+                mTimeout = std::chrono::milliseconds{*value};
+            }
+
+            mThread = std::thread{&Logger::consume, this};
+        }
+    );
 
     if (const auto result = provider->init(); !result) {
         fmt::print(stderr, "Failed to initialize log provider: {:s} ({})\n", result.error(), result.error());

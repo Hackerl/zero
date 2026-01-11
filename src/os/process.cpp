@@ -113,7 +113,7 @@ namespace {
 }
 #endif
 
-zero::os::process::Process::Process(ProcessImpl impl): mImpl{std::move(impl)} {
+zero::os::process::Process::Process(ProcessImpl impl) : mImpl{std::move(impl)} {
 }
 
 zero::os::process::ProcessImpl &zero::os::process::Process::impl() {
@@ -547,13 +547,21 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     const auto argv = std::make_unique<char *[]>(arguments.size() + 1);
     const auto envp = std::make_unique<char *[]>(environment.size() + 1);
 
-    std::ranges::transform(arguments, argv.get(), [](auto &str) {
-        return str.data();
-    });
+    std::ranges::transform(
+        arguments,
+        argv.get(),
+        [](auto &str) {
+            return str.data();
+        }
+    );
 
-    std::ranges::transform(environment, envp.get(), [](auto &str) {
-        return str.data();
-    });
+    std::ranges::transform(
+        environment,
+        envp.get(),
+        [](auto &str) {
+            return str.data();
+        }
+    );
 
     const auto pid = error::guard(unix::expected(fork));
 
@@ -748,7 +756,7 @@ zero::os::process::ChildProcess::tryWait() {
 #endif
 }
 
-zero::os::process::Command::Command(std::filesystem::path path): mInheritEnv{true}, mPath{std::move(path)} {
+zero::os::process::Command::Command(std::filesystem::path path) : mInheritEnv{true}, mPath{std::move(path)} {
 }
 
 const std::filesystem::path &zero::os::process::Command::program() const {
@@ -1044,13 +1052,21 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     const auto argv = std::make_unique<char *[]>(arguments.size() + 1);
     const auto envp = std::make_unique<char *[]>(environment.size() + 1);
 
-    std::ranges::transform(arguments, argv.get(), [](auto &str) {
-        return str.data();
-    });
+    std::ranges::transform(
+        arguments,
+        argv.get(),
+        [](auto &str) {
+            return str.data();
+        }
+    );
 
-    std::ranges::transform(environment, envp.get(), [](auto &str) {
-        return str.data();
-    });
+    std::ranges::transform(
+        environment,
+        envp.get(),
+        [](auto &str) {
+            return str.data();
+        }
+    );
 
     const auto expected = []<typename F>(F &&f) -> std::expected<void, std::error_code> {
         static_assert(std::is_same_v<std::invoke_result_t<F>, int>);
@@ -1117,13 +1133,13 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         );
     }));
 
-    for (const auto &resource : mInheritedResources) {
+    for (const auto &resource: mInheritedResources) {
         Z_EXPECT(expected([&] {
             return posix_spawn_file_actions_addinherit_np(&actions, *resource);
         }));
     }
 
-    for (const auto &resource : mInheritedNativeResources) {
+    for (const auto &resource: mInheritedNativeResources) {
         Z_EXPECT(expected([&] {
             return posix_spawn_file_actions_addinherit_np(&actions, resource);
         }));

@@ -188,7 +188,10 @@ zero::strings::decode(const std::string_view str, const std::string &encoding) {
         if (iconv(cd, &input, &inBytesLeft, &ptr, &outBytesLeft) == -1 && errno != E2BIG)
             return std::unexpected{std::error_code{errno, std::generic_category()}};
 
-        output.append(reinterpret_cast<const wchar_t *>(buffer.data()), (buffer.size() - outBytesLeft) / sizeof(wchar_t));
+        output.append(
+            reinterpret_cast<const wchar_t *>(buffer.data()),
+            (buffer.size() - outBytesLeft) / sizeof(wchar_t)
+        );
     }
 
     return output;

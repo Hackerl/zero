@@ -20,7 +20,10 @@ TEST_CASE("hex decoding", "[encoding::hex]") {
     }
 
     SECTION("invalid hex character") {
-        REQUIRE_ERROR(zero::encoding::hex::decode("68656c6cy6"), zero::encoding::hex::DecodeError::INVALID_HEX_CHARACTER);
+        REQUIRE_ERROR(
+            zero::encoding::hex::decode("68656c6cy6"),
+            zero::encoding::hex::DecodeError::INVALID_HEX_CHARACTER
+        );
     }
 
     SECTION("valid") {

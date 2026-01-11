@@ -16,12 +16,12 @@ TEST_CASE("process - Windows", "[os::windows::process]") {
     constexpr std::array arguments{"localhost", "-n", "2"};
 
     auto child = zero::os::process::Command{program}
-                       .args({arguments.begin(), arguments.end()})
-                       .env("ZERO_WINDOWS_PROCESS_TESTS", "1")
-                       .stdInput(zero::os::process::Command::StdioType::NUL)
-                       .stdOutput(zero::os::process::Command::StdioType::NUL)
-                       .stdError(zero::os::process::Command::StdioType::NUL)
-                       .spawn();
+                 .args({arguments.begin(), arguments.end()})
+                 .env("ZERO_WINDOWS_PROCESS_TESTS", "1")
+                 .stdInput(zero::os::process::Command::StdioType::NUL)
+                 .stdOutput(zero::os::process::Command::StdioType::NUL)
+                 .stdError(zero::os::process::Command::StdioType::NUL)
+                 .spawn();
     REQUIRE(child);
 
     auto process = zero::os::windows::process::open(child->pid());

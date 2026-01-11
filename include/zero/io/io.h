@@ -161,6 +161,7 @@ namespace zero::io {
 }
 
 Z_DECLARE_ERROR_CONDITION(zero::io::Error)
+
 Z_DECLARE_ERROR_CODE(zero::io::IReader::ReadExactlyError)
 
 #endif //ZERO_IO_H

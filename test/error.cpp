@@ -24,6 +24,7 @@ Z_DEFINE_ERROR_CODE(
 )
 
 Z_DECLARE_ERROR_CODE(ErrorCode)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCode)
 
 Z_DEFINE_ERROR_CONDITION(
@@ -34,6 +35,7 @@ Z_DEFINE_ERROR_CONDITION(
 )
 
 Z_DECLARE_ERROR_CONDITION(ErrorCondition)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCondition)
 
 Z_DEFINE_ERROR_CODE_EX(
@@ -44,6 +46,7 @@ Z_DEFINE_ERROR_CODE_EX(
 )
 
 Z_DECLARE_ERROR_CODE(ErrorCodeEx)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeEx)
 
 Z_DEFINE_ERROR_TRANSFORMER(
@@ -53,6 +56,7 @@ Z_DEFINE_ERROR_TRANSFORMER(
 )
 
 Z_DECLARE_ERROR_CODE(ErrorTransformer)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformer)
 
 Z_DEFINE_ERROR_TRANSFORMER_EX(
@@ -74,6 +78,7 @@ Z_DEFINE_ERROR_TRANSFORMER_EX(
 )
 
 Z_DECLARE_ERROR_CODE(ErrorTransformerEx)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerEx)
 
 Z_DEFINE_ERROR_CONDITION_EX(
@@ -98,6 +103,7 @@ Z_DEFINE_ERROR_CONDITION_EX(
 )
 
 Z_DECLARE_ERROR_CONDITION(ErrorConditionEx)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionEx)
 
 struct ErrorCodeWrapper {
@@ -110,6 +116,7 @@ struct ErrorCodeWrapper {
 };
 
 Z_DECLARE_ERROR_CODE(ErrorCodeWrapper::ErrorCode)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeWrapper::ErrorCode)
 
 struct ErrorConditionWrapper {
@@ -122,6 +129,7 @@ struct ErrorConditionWrapper {
 };
 
 Z_DECLARE_ERROR_CONDITION(ErrorConditionWrapper::ErrorCondition)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionWrapper::ErrorCondition)
 
 struct ErrorCodeExWrapper {
@@ -134,6 +142,7 @@ struct ErrorCodeExWrapper {
 };
 
 Z_DECLARE_ERROR_CODE(ErrorCodeExWrapper::ErrorCodeEx)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeExWrapper::ErrorCodeEx)
 
 struct ErrorTransformerWrapper {
@@ -145,6 +154,7 @@ struct ErrorTransformerWrapper {
 };
 
 Z_DECLARE_ERROR_CODE(ErrorTransformerWrapper::ErrorTransformer)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerWrapper::ErrorTransformer)
 
 struct ErrorTransformerExWrapper {
@@ -168,6 +178,7 @@ struct ErrorTransformerExWrapper {
 };
 
 Z_DECLARE_ERROR_CODE(ErrorTransformerExWrapper::ErrorTransformerEx)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerExWrapper::ErrorTransformerEx)
 
 struct ErrorConditionExWrapper {
@@ -194,6 +205,7 @@ struct ErrorConditionExWrapper {
 };
 
 Z_DECLARE_ERROR_CONDITION(ErrorConditionExWrapper::ErrorConditionEx)
+
 Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionExWrapper::ErrorConditionEx)
 
 TEST_CASE("custom error code", "[error]") {

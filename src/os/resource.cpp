@@ -210,7 +210,8 @@ std::expected<std::size_t, std::error_code> zero::os::IOResource::write(const st
 #endif
 }
 
-std::expected<std::uint64_t, std::error_code> zero::os::IOResource::seek(const std::int64_t offset, const Whence whence) {
+std::expected<std::uint64_t, std::error_code>
+zero::os::IOResource::seek(const std::int64_t offset, const Whence whence) {
 #ifdef _WIN32
     LARGE_INTEGER pos{};
 
