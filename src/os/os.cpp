@@ -24,14 +24,22 @@
 
 std::expected<std::string, std::error_code> zero::os::hostname() {
 #ifdef _WIN32
-    std::array<WCHAR, MAX_COMPUTERNAME_LENGTH + 1> buffer{};
-    auto size = static_cast<DWORD>(buffer.size());
+    DWORD size{64};
+    auto buffer = std::make_unique<WCHAR[]>(size);
 
-    Z_EXPECT(windows::expected([&] {
-        return GetComputerNameW(buffer.data(), &size);
-    }));
+    while (true) {
+        const auto result = windows::expected([&] {
+            return GetComputerNameExW(ComputerNameDnsHostname, buffer.get(), &size);
+        });
 
-    return strings::encode(buffer.data());
+        if (result)
+            return strings::encode(buffer.get());
+
+        if (result.error() != std::error_code{ERROR_MORE_DATA, std::system_category()})
+            return std::unexpected{result.error()};
+
+        buffer = std::make_unique<WCHAR[]>(size);
+    }
 #elif defined(__linux__)
     std::array<char, HOST_NAME_MAX + 1> buffer{};
 
