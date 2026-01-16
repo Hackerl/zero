@@ -7,7 +7,7 @@
 #include <zero/error.h>
 #include <zero/expect.h>
 #include <zero/interface.h>
-#include <zero/detail/type_traits.h>
+#include <zero/traits/type_traits.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -84,7 +84,7 @@ namespace zero::io {
     };
 
     std::expected<std::size_t, std::error_code>
-    copy(detail::Trait<IReader> auto &reader, detail::Trait<IWriter> auto &writer) {
+    copy(traits::Trait<IReader> auto &reader, traits::Trait<IWriter> auto &writer) {
         std::size_t written{0};
 
         while (true) {

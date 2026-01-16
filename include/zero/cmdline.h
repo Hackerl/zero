@@ -3,7 +3,7 @@
 
 #include "expect.h"
 #include "strings/strings.h"
-#include "detail/type_traits.h"
+#include "traits/type_traits.h"
 #include <any>
 #include <span>
 #include <list>
@@ -34,7 +34,7 @@ namespace zero {
         else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return std::filesystem::path{input};
         }
-        else if constexpr (detail::is_specialization_v<T, std::vector>) {
+        else if constexpr (traits::is_specialization_v<T, std::vector>) {
             T v;
 
             for (const auto &token: strings::split(input, ",")) {
@@ -60,7 +60,7 @@ namespace zero {
         else if constexpr (std::is_same_v<T, std::filesystem::path>) {
             return "path";
         }
-        else if constexpr (detail::is_specialization_v<T, std::vector>) {
+        else if constexpr (traits::is_specialization_v<T, std::vector>) {
             return fmt::format("{}[]", getTypeName<typename T::value_type>());
         }
         else {

@@ -1,12 +1,12 @@
-#ifndef ZERO_DETAIL_TYPE_TRAITS_H
-#define ZERO_DETAIL_TYPE_TRAITS_H
+#ifndef ZERO_TRAITS_TYPE_TRAITS_H
+#define ZERO_TRAITS_TYPE_TRAITS_H
 
 #include <array>
 #include <tuple>
 #include <memory>
 #include <type_traits>
 
-namespace zero::detail {
+namespace zero::traits {
     template<typename, template<typename...> class>
     inline constexpr bool is_specialization_v = false;
 
@@ -129,4 +129,4 @@ namespace zero::detail {
     );
 }
 
-#endif //ZERO_DETAIL_TYPE_TRAITS_H
+#endif //ZERO_TRAITS_TYPE_TRAITS_H

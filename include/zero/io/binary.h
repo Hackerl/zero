@@ -7,7 +7,7 @@
 namespace zero::io::binary {
     template<typename T>
         requires (std::is_arithmetic_v<T> && sizeof(T) > 1)
-    std::expected<T, std::error_code> readLE(detail::Trait<IReader> auto &reader) {
+    std::expected<T, std::error_code> readLE(traits::Trait<IReader> auto &reader) {
         std::array<std::byte, sizeof(T)> bytes{};
         Z_EXPECT(std::invoke(&IReader::readExactly, reader, bytes));
 
@@ -21,7 +21,7 @@ namespace zero::io::binary {
 
     template<typename T>
         requires (std::is_arithmetic_v<T> && sizeof(T) > 1)
-    std::expected<T, std::error_code> readBE(detail::Trait<IReader> auto &reader) {
+    std::expected<T, std::error_code> readBE(traits::Trait<IReader> auto &reader) {
         std::array<std::byte, sizeof(T)> bytes{};
         Z_EXPECT(std::invoke(&IReader::readExactly, reader, bytes));
 
@@ -35,7 +35,7 @@ namespace zero::io::binary {
 
     template<typename T>
         requires (std::is_arithmetic_v<T> && sizeof(T) > 1)
-    std::expected<void, std::error_code> writeLE(detail::Trait<IWriter> auto &writer, const T value) {
+    std::expected<void, std::error_code> writeLE(traits::Trait<IWriter> auto &writer, const T value) {
         std::array<std::byte, sizeof(T)> bytes{};
 
         for (std::size_t i{0}; i < sizeof(T); ++i)
@@ -46,7 +46,7 @@ namespace zero::io::binary {
 
     template<typename T>
         requires (std::is_arithmetic_v<T> && sizeof(T) > 1)
-    std::expected<void, std::error_code> writeBE(detail::Trait<IWriter> auto &writer, const T value) {
+    std::expected<void, std::error_code> writeBE(traits::Trait<IWriter> auto &writer, const T value) {
         std::array<std::byte, sizeof(T)> bytes{};
 
         for (std::size_t i{0}; i < sizeof(T); ++i)

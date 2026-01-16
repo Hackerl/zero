@@ -12,7 +12,7 @@
 #include <fmt/core.h>
 #include <zero/error.h>
 #include <zero/atomic/event.h>
-#include <zero/detail/type_traits.h>
+#include <zero/traits/type_traits.h>
 
 namespace zero::async::promise {
     enum class State {
@@ -264,7 +264,7 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization_v<callback_result_t<F, T>, Future>
+            requires traits::is_specialization_v<callback_result_t<F, T>, Future>
         auto then(F &&f) && {
             assert(mCore);
             assert(!mCore->callback);
@@ -293,7 +293,7 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization_v<callback_result_t<F, T>, std::expected>
+            requires traits::is_specialization_v<callback_result_t<F, T>, std::expected>
         auto then(F &&f) && {
             using NextValue = callback_result_t<F, T>::value_type;
 
@@ -324,8 +324,8 @@ namespace zero::async::promise {
 
         template<typename F>
             requires (
-                !detail::is_specialization_v<callback_result_t<F, T>, Future> &&
-                !detail::is_specialization_v<callback_result_t<F, T>, std::expected>
+                !traits::is_specialization_v<callback_result_t<F, T>, Future> &&
+                !traits::is_specialization_v<callback_result_t<F, T>, std::expected>
             )
         auto then(F &&f) && {
             using NextValue = callback_result_t<F, T>;
@@ -379,7 +379,7 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization_v<callback_result_t<F, E>, Future>
+            requires traits::is_specialization_v<callback_result_t<F, E>, Future>
         auto fail(F &&f) && {
             using NextError = callback_result_t<F, E>::error_type;
 
@@ -412,7 +412,7 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization_v<callback_result_t<F, E>, std::expected>
+            requires traits::is_specialization_v<callback_result_t<F, E>, std::expected>
         auto fail(F &&f) && {
             assert(mCore);
             assert(!mCore->callback);
@@ -440,7 +440,7 @@ namespace zero::async::promise {
         }
 
         template<typename F>
-            requires detail::is_specialization_v<callback_result_t<F, E>, std::unexpected>
+            requires traits::is_specialization_v<callback_result_t<F, E>, std::unexpected>
         auto fail(F &&f) && {
             assert(mCore);
             assert(!mCore->callback);
@@ -470,9 +470,9 @@ namespace zero::async::promise {
 
         template<typename F>
             requires (
-                !detail::is_specialization_v<callback_result_t<F, E>, Future> &&
-                !detail::is_specialization_v<callback_result_t<F, E>, std::expected> &&
-                !detail::is_specialization_v<callback_result_t<F, E>, std::unexpected>
+                !traits::is_specialization_v<callback_result_t<F, E>, Future> &&
+                !traits::is_specialization_v<callback_result_t<F, E>, std::expected> &&
+                !traits::is_specialization_v<callback_result_t<F, E>, std::unexpected>
             )
         auto fail(F &&f) && {
             assert(mCore);
@@ -594,7 +594,7 @@ namespace zero::async::promise {
     }
 
     template<std::input_iterator I, std::sentinel_for<I> S>
-        requires detail::is_specialization_v<std::iter_value_t<I>, Future>
+        requires traits::is_specialization_v<std::iter_value_t<I>, Future>
     auto all(I first, S last) {
         assert(first != last);
 
@@ -668,7 +668,7 @@ namespace zero::async::promise {
     }
 
     template<std::ranges::input_range R>
-        requires detail::is_specialization_v<std::ranges::range_value_t<R>, Future>
+        requires traits::is_specialization_v<std::ranges::range_value_t<R>, Future>
     auto all(R futures) {
         return all(futures.begin(), futures.end());
     }
@@ -678,11 +678,11 @@ namespace zero::async::promise {
         static_assert(sizeof...(Ts) > 0);
 
         using T = std::conditional_t<
-            detail::all_same_v<Ts...>,
+            traits::all_same_v<Ts...>,
             std::conditional_t<
-                std::is_void_v<detail::first_element_t<Ts...>>,
+                std::is_void_v<traits::first_element_t<Ts...>>,
                 void,
-                std::array<detail::first_element_t<Ts...>, sizeof...(Ts)>
+                std::array<traits::first_element_t<Ts...>, sizeof...(Ts)>
             >,
             std::tuple<std::conditional_t<std::is_void_v<Ts>, std::nullptr_t, Ts>...>
         >;
@@ -762,7 +762,7 @@ namespace zero::async::promise {
     }
 
     template<std::input_iterator I, std::sentinel_for<I> S>
-        requires detail::is_specialization_v<std::iter_value_t<I>, Future>
+        requires traits::is_specialization_v<std::iter_value_t<I>, Future>
     auto allSettled(I first, S last) {
         assert(first != last);
 
@@ -815,7 +815,7 @@ namespace zero::async::promise {
     }
 
     template<std::ranges::input_range R>
-        requires detail::is_specialization_v<std::ranges::range_value_t<R>, Future>
+        requires traits::is_specialization_v<std::ranges::range_value_t<R>, Future>
     auto allSettled(R futures) {
         return allSettled(futures.begin(), futures.end());
     }
@@ -825,8 +825,8 @@ namespace zero::async::promise {
         static_assert(sizeof...(Ts) > 0);
 
         using T = std::conditional_t<
-            detail::all_same_v<Ts...>,
-            std::array<std::expected<detail::first_element_t<Ts...>, detail::first_element_t<Es...>>, sizeof...(Ts)>,
+            traits::all_same_v<Ts...>,
+            std::array<std::expected<traits::first_element_t<Ts...>, traits::first_element_t<Es...>>, sizeof...(Ts)>,
             std::tuple<std::expected<Ts, Es>...>
         >;
 
@@ -878,7 +878,7 @@ namespace zero::async::promise {
     }
 
     template<std::input_iterator I, std::sentinel_for<I> S>
-        requires detail::is_specialization_v<std::iter_value_t<I>, Future>
+        requires traits::is_specialization_v<std::iter_value_t<I>, Future>
     auto any(I first, S last) {
         assert(first != last);
 
@@ -922,7 +922,7 @@ namespace zero::async::promise {
     }
 
     template<std::ranges::input_range R>
-        requires detail::is_specialization_v<std::ranges::range_value_t<R>, Future>
+        requires traits::is_specialization_v<std::ranges::range_value_t<R>, Future>
     auto any(R futures) {
         return any(futures.begin(), futures.end());
     }
@@ -931,13 +931,13 @@ namespace zero::async::promise {
     auto any(std::index_sequence<Is...>, Future<Ts, E>... futures) {
         static_assert(sizeof...(Ts) > 0);
 
-        constexpr auto Same = detail::all_same_v<Ts...>;
+        constexpr auto Same = traits::all_same_v<Ts...>;
 
         struct Context {
             Promise<
                 std::conditional_t<
                     Same,
-                    detail::first_element_t<Ts...>,
+                    traits::first_element_t<Ts...>,
                     std::any
                 >,
                 std::array<E, sizeof...(Ts)>
@@ -985,7 +985,7 @@ namespace zero::async::promise {
     }
 
     template<std::input_iterator I, std::sentinel_for<I> S>
-        requires detail::is_specialization_v<std::iter_value_t<I>, Future>
+        requires traits::is_specialization_v<std::iter_value_t<I>, Future>
     auto race(I first, S last) {
         assert(first != last);
 
@@ -1021,7 +1021,7 @@ namespace zero::async::promise {
     }
 
     template<std::ranges::input_range R>
-        requires detail::is_specialization_v<std::ranges::range_value_t<R>, Future>
+        requires traits::is_specialization_v<std::ranges::range_value_t<R>, Future>
     auto race(R futures) {
         return race(futures.begin(), futures.end());
     }
@@ -1030,10 +1030,10 @@ namespace zero::async::promise {
     auto race(Future<Ts, E>... futures) {
         static_assert(sizeof...(Ts) > 0);
 
-        constexpr auto Same = detail::all_same_v<Ts...>;
+        constexpr auto Same = traits::all_same_v<Ts...>;
 
         struct Context {
-            Promise<std::conditional_t<Same, detail::first_element_t<Ts...>, std::any>, E> promise;
+            Promise<std::conditional_t<Same, traits::first_element_t<Ts...>, std::any>, E> promise;
             std::atomic_flag flag;
         };
 

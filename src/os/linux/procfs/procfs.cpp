@@ -1,5 +1,5 @@
 #include <zero/os/linux/procfs/procfs.h>
-#include <zero/detail/type_traits.h>
+#include <zero/traits/type_traits.h>
 #include <zero/strings/strings.h>
 #include <zero/filesystem/fs.h>
 #include <zero/expect.h>
@@ -15,7 +15,7 @@ namespace {
         auto it = tokens.begin() + 1;
 
         const auto set = [&]<typename T>(T &var) -> std::expected<void, std::error_code> {
-            if constexpr (zero::detail::is_specialization_v<T, std::optional>) {
+            if constexpr (zero::traits::is_specialization_v<T, std::optional>) {
                 if (it == tokens.end())
                     return {};
 
@@ -114,7 +114,7 @@ std::expected<zero::os::linux::procfs::MemoryStat, std::error_code> zero::os::li
     const auto set = [&]<typename T>(T &var, const std::string &key) -> std::expected<void, std::error_code> {
         const auto it = map.find(key);
 
-        if constexpr (zero::detail::is_specialization_v<T, std::optional>) {
+        if constexpr (zero::traits::is_specialization_v<T, std::optional>) {
             if (it == map.end())
                 return {};
 
