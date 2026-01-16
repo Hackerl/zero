@@ -370,8 +370,9 @@ std::expected<std::string, std::error_code> zero::os::windows::process::Process:
         if (result)
             break;
 
-        if (result.error() != std::error_code{ERROR_INSUFFICIENT_BUFFER, std::system_category()})
-            return std::unexpected{result.error()};
+        if (const auto &error = result.error();
+            error != std::error_code{ERROR_INSUFFICIENT_BUFFER, std::system_category()})
+            return std::unexpected{error};
 
         buffer = std::make_unique<std::byte[]>(size);
     }
@@ -393,8 +394,9 @@ std::expected<std::string, std::error_code> zero::os::windows::process::Process:
         if (result)
             break;
 
-        if (result.error() != std::error_code{ERROR_INSUFFICIENT_BUFFER, std::system_category()})
-            return std::unexpected{result.error()};
+        if (const auto &error = result.error();
+            error != std::error_code{ERROR_INSUFFICIENT_BUFFER, std::system_category()})
+            return std::unexpected{error};
 
         name = std::make_unique<WCHAR[]>(nameSize);
         domain = std::make_unique<WCHAR[]>(domainSize);

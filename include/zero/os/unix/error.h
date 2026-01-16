@@ -39,8 +39,8 @@ namespace zero::os::unix {
             if (result)
                 return *result;
 
-            if (result.error() != std::errc::interrupted)
-                return std::unexpected{result.error()};
+            if (const auto &error = result.error(); error != std::errc::interrupted)
+                return std::unexpected{error};
         }
     }
 }

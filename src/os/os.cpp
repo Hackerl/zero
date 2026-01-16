@@ -35,8 +35,8 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
         if (result)
             return strings::encode(buffer.get());
 
-        if (result.error() != std::error_code{ERROR_MORE_DATA, std::system_category()})
-            return std::unexpected{result.error()};
+        if (const auto &error = result.error(); error != std::error_code{ERROR_MORE_DATA, std::system_category()})
+            return std::unexpected{error};
 
         buffer = std::make_unique<WCHAR[]>(size);
     }

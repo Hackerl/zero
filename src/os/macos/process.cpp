@@ -35,8 +35,8 @@ std::expected<std::vector<char>, std::error_code> zero::os::macos::process::Proc
         if (result)
             break;
 
-        if (result.error() != std::errc::not_enough_memory)
-            return std::unexpected{result.error()};
+        if (const auto &error = result.error(); error != std::errc::not_enough_memory)
+            return std::unexpected{error};
 
         size *= 2;
         buffer = std::make_unique<char[]>(size);
