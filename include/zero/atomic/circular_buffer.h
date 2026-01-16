@@ -38,10 +38,8 @@ namespace zero::atomic {
 
             while (true) {
                 if (auto expected = State::IDLE; mState[index].compare_exchange_weak(expected, State::PUTTING))
-                    break;
+                    return index;
             }
-
-            return index;
         }
 
         void commit(const std::size_t index) {
@@ -61,10 +59,8 @@ namespace zero::atomic {
 
             while (true) {
                 if (auto expected = State::VALID; mState[index].compare_exchange_weak(expected, State::TAKING))
-                    break;
+                    return index;
             }
-
-            return index;
         }
 
         void release(const std::size_t index) {

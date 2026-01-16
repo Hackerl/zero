@@ -76,7 +76,7 @@ namespace zero::io {
                 if (const auto it = std::find(first, last, byte); it != last) {
                     data.append_range(std::ranges::subrange{first, it});
                     mHead += std::distance(first, it) + 1;
-                    return data;
+                    break;
                 }
 
                 data.append_range(std::ranges::subrange{first, last});
@@ -92,6 +92,8 @@ namespace zero::io {
 
                 mTail = *n;
             }
+
+            return data;
         }
 
         std::expected<void, std::error_code> peek(const std::span<std::byte> data) override {

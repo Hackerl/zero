@@ -477,7 +477,7 @@ TEST_CASE("channel concurrency testing", "[concurrent::channel]") {
                 if (const auto &error = result.error(); error != zero::concurrent::ReceiveError::Disconnected)
                     return std::unexpected{error};
 
-                return {};
+                break;
             }
 
             if (*result != element)
@@ -485,6 +485,8 @@ TEST_CASE("channel concurrency testing", "[concurrent::channel]") {
 
             ++counter;
         }
+
+        return {};
     };
 
     std::array producers{std::async(produce), std::async(produce)};

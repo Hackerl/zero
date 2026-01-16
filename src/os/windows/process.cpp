@@ -392,7 +392,7 @@ std::expected<std::string, std::error_code> zero::os::windows::process::Process:
         });
 
         if (result)
-            break;
+            return strings::encode(fmt::format(L"{}\\{}", domain.get(), name.get()));
 
         if (const auto &error = result.error();
             error != std::error_code{ERROR_INSUFFICIENT_BUFFER, std::system_category()})
@@ -401,8 +401,6 @@ std::expected<std::string, std::error_code> zero::os::windows::process::Process:
         name = std::make_unique<WCHAR[]>(nameSize);
         domain = std::make_unique<WCHAR[]>(domainSize);
     }
-
-    return strings::encode(fmt::format(L"{}\\{}", domain.get(), name.get()));
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst

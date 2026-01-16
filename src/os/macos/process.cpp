@@ -33,7 +33,7 @@ std::expected<std::vector<char>, std::error_code> zero::os::macos::process::Proc
         });
 
         if (result)
-            break;
+            return std::vector<char>{buffer.get(), buffer.get() + size};
 
         if (const auto &error = result.error(); error != std::errc::not_enough_memory)
             return std::unexpected{error};
@@ -41,8 +41,6 @@ std::expected<std::vector<char>, std::error_code> zero::os::macos::process::Proc
         size *= 2;
         buffer = std::make_unique<char[]>(size);
     }
-
-    return std::vector<char>{buffer.get(), buffer.get() + size};
 }
 
 pid_t zero::os::macos::process::Process::pid() const {

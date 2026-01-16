@@ -83,8 +83,8 @@ namespace zero::io {
         virtual std::expected<void, std::error_code> flush() = 0;
     };
 
-    std::expected<std::size_t, std::error_code> copy(detail::Trait<IReader> auto &reader,
-                                                     detail::Trait<IWriter> auto &writer) {
+    std::expected<std::size_t, std::error_code>
+    copy(detail::Trait<IReader> auto &reader, detail::Trait<IWriter> auto &writer) {
         std::size_t written{0};
 
         while (true) {
