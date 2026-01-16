@@ -36,7 +36,7 @@ TEST_CASE("read exactly", "[io]") {
         std::vector<std::byte> data;
         data.resize(input.size());
 
-        REQUIRE_ERROR(reader.readExactly(data), zero::io::Error::UNEXPECTED_EOF);
+        REQUIRE_ERROR(reader.readExactly(data), zero::io::Error::UnexpectedEOF);
     }
 }
 

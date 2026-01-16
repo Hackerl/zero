@@ -9,13 +9,13 @@
 #include <fmt/xchar.h>
 
 #ifdef _WIN64
-constexpr auto CURRENT_DIRECTORY_OFFSET = 0x38;
-constexpr auto ENVIRONMENT_OFFSET = 0x80;
-constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x03F0;
+constexpr auto CurrentDirectoryOffset = 0x38;
+constexpr auto EnvironmentOffset = 0x80;
+constexpr auto EnvironmentSizeOffset = 0x03F0;
 #elif defined(_WIN32)
-constexpr auto CURRENT_DIRECTORY_OFFSET = 0x24;
-constexpr auto ENVIRONMENT_OFFSET = 0x48;
-constexpr auto ENVIRONMENT_SIZE_OFFSET = 0x0290;
+constexpr auto CurrentDirectoryOffset = 0x24;
+constexpr auto EnvironmentOffset = 0x48;
+constexpr auto EnvironmentSizeOffset = 0x0290;
 #endif
 
 namespace {
@@ -40,7 +40,7 @@ zero::os::windows::process::Process::from(const HANDLE handle) {
 
 std::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Process::parameters() const {
     if (!queryInformationProcess)
-        return std::unexpected{Error::API_NOT_AVAILABLE};
+        return std::unexpected{Error::APINotAvailable};
 
     PROCESS_BASIC_INFORMATION info{};
 
@@ -79,7 +79,7 @@ DWORD zero::os::windows::process::Process::pid() const {
 
 std::expected<DWORD, std::error_code> zero::os::windows::process::Process::ppid() const {
     if (!queryInformationProcess)
-        return std::unexpected{Error::API_NOT_AVAILABLE};
+        return std::unexpected{Error::APINotAvailable};
 
     PROCESS_BASIC_INFORMATION info{};
 
@@ -115,7 +115,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::windows::process
     Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
-            reinterpret_cast<LPCVOID>(*ptr + CURRENT_DIRECTORY_OFFSET),
+            reinterpret_cast<LPCVOID>(*ptr + CurrentDirectoryOffset),
             &str,
             sizeof(str),
             nullptr
@@ -123,7 +123,7 @@ std::expected<std::filesystem::path, std::error_code> zero::os::windows::process
     }));
 
     if (!str.Buffer || str.Length == 0)
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -168,7 +168,7 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
     }));
 
     if (!str.Buffer || str.Length == 0)
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -213,7 +213,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
     Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
-            reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_OFFSET),
+            reinterpret_cast<LPCVOID>(*ptr + EnvironmentOffset),
             &env,
             sizeof(env),
             nullptr
@@ -225,7 +225,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
     Z_EXPECT(expected([&] {
         return ReadProcessMemory(
             *mResource,
-            reinterpret_cast<LPCVOID>(*ptr + ENVIRONMENT_SIZE_OFFSET),
+            reinterpret_cast<LPCVOID>(*ptr + EnvironmentSizeOffset),
             &size,
             sizeof(size),
             nullptr
@@ -256,7 +256,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
         const auto pos = token.find('=');
 
         if (pos == std::string::npos)
-            return std::unexpected{Error::UNEXPECTED_DATA};
+            return std::unexpected{Error::UnexpectedData};
 
         if (pos == 0)
             continue;
@@ -330,7 +330,7 @@ std::expected<DWORD, std::error_code> zero::os::windows::process::Process::exitC
     }));
 
     if (code == STILL_ACTIVE)
-        return std::unexpected{Error::PROCESS_STILL_ACTIVE};
+        return std::unexpected{Error::ProcessStillActive};
 
     return code;
 }
@@ -340,7 +340,7 @@ zero::os::windows::process::Process::wait(const std::optional<std::chrono::milli
     if (const auto result = WaitForSingleObject(*mResource, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
         if (result == WAIT_TIMEOUT)
-            return std::unexpected{Error::WAIT_PROCESS_TIMEOUT};
+            return std::unexpected{Error::WaitProcessTimeout};
 
         return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
     }

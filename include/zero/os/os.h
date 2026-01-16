@@ -11,7 +11,7 @@ namespace zero::os {
     Z_DEFINE_ERROR_CODE(
         GetUsernameError,
         "zero::os::username",
-        NO_SUCH_ENTRY, "No such entry"
+        NoSuchEntry, "No such entry"
     )
 #endif
 

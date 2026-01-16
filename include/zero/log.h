@@ -13,13 +13,13 @@
 #include <fmt/chrono.h>
 
 namespace zero::log {
-    constexpr std::array TAGS = {"ERROR", "WARN", "INFO", "DEBUG"};
+    constexpr std::array Tags = {"ERROR", "WARN", "INFO", "DEBUG"};
 
     enum class Level {
-        ERROR_LEVEL,
-        WARNING_LEVEL,
-        INFO_LEVEL,
-        DEBUG_LEVEL
+        Error,
+        Warning,
+        Info,
+        Debug
     };
 
     struct Record {
@@ -152,7 +152,7 @@ struct fmt::formatter<zero::log::Record, Char> {
             ctx.out(),
             "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
             zero::localTime(std::chrono::system_clock::to_time_t(record.timestamp)),
-            zero::log::TAGS[std::to_underlying(record.level)],
+            zero::log::Tags[std::to_underlying(record.level)],
             record.filename,
             record.line,
             record.content
@@ -164,9 +164,9 @@ struct fmt::formatter<zero::log::Record, Char> {
 #define Z_INIT_CONSOLE_LOG(level)             Z_GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::log::ConsoleProvider>())
 #define Z_INIT_FILE_LOG(level, name, ...)     Z_GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::log::FileProvider>(name, ## __VA_ARGS__))
 
-#define Z_LOG_DEBUG(message, ...)             if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::DEBUG_LEVEL)) logger.log(zero::log::Level::DEBUG_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
-#define Z_LOG_INFO(message, ...)              if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::INFO_LEVEL)) logger.log(zero::log::Level::INFO_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
-#define Z_LOG_WARNING(message, ...)           if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::WARNING_LEVEL)) logger.log(zero::log::Level::WARNING_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
-#define Z_LOG_ERROR(message, ...)             if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::ERROR_LEVEL)) logger.log(zero::log::Level::ERROR_LEVEL, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define Z_LOG_DEBUG(message, ...)             if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Debug)) logger.log(zero::log::Level::Debug, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define Z_LOG_INFO(message, ...)              if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Info)) logger.log(zero::log::Level::Info, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define Z_LOG_WARNING(message, ...)           if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Warning)) logger.log(zero::log::Level::Warning, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+#define Z_LOG_ERROR(message, ...)             if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Error)) logger.log(zero::log::Level::Error, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 
 #endif //ZERO_LOG_H

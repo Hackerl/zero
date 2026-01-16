@@ -31,10 +31,10 @@ namespace zero::os::windows::process {
         Z_DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::windows::process::Process",
-            API_NOT_AVAILABLE, "API not available", std::errc::function_not_supported,
-            PROCESS_STILL_ACTIVE, "Process still active", std::errc::operation_would_block,
-            UNEXPECTED_DATA, "Unexpected data", Z_DEFAULT_ERROR_CONDITION,
-            WAIT_PROCESS_TIMEOUT, "Process wait timed out", std::errc::timed_out
+            APINotAvailable, "API not available", std::errc::function_not_supported,
+            ProcessStillActive, "Process still active", std::errc::operation_would_block,
+            UnexpectedData, "Unexpected data", Z_DEFAULT_ERROR_CONDITION,
+            WaitProcessTimeout, "Process wait timed out", std::errc::timed_out
         )
 
         Process(Resource resource, DWORD pid);

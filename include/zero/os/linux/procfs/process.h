@@ -13,11 +13,11 @@
 
 namespace zero::os::linux::procfs::process {
     enum MemoryPermission {
-        READ,
-        WRITE,
-        EXECUTE,
-        SHARED,
-        PRIVATE
+        Read,
+        Write,
+        Execute,
+        Shared,
+        Private
     };
 
     struct MemoryMapping {

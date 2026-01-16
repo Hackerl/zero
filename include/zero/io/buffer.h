@@ -9,16 +9,16 @@ namespace zero::io {
     Z_DEFINE_ERROR_CODE_EX(
         BufReaderError,
         "zero::io::BufReader",
-        INVALID_ARGUMENT, "Invalid argument", std::errc::invalid_argument,
-        UNEXPECTED_EOF, "Unexpected end of file", Error::UNEXPECTED_EOF
+        InvalidArgument, "Invalid argument", std::errc::invalid_argument,
+        UnexpectedEOF, "Unexpected end of file", Error::UnexpectedEOF
     )
 
     template<detail::Trait<IReader> T>
     class BufReader final : public IBufReader {
-        static constexpr auto DEFAULT_BUFFER_CAPACITY = 8192;
+        static constexpr auto DefaultBufferCapacity = 8192;
 
     public:
-        explicit BufReader(T reader, const std::size_t capacity = DEFAULT_BUFFER_CAPACITY)
+        explicit BufReader(T reader, const std::size_t capacity = DefaultBufferCapacity)
             : mReader{std::move(reader)}, mCapacity{capacity}, mHead{0}, mTail{0},
               mBuffer{std::make_unique<std::byte[]>(capacity)} {
         }
@@ -88,7 +88,7 @@ namespace zero::io {
                 Z_EXPECT(n);
 
                 if (*n == 0)
-                    return std::unexpected{make_error_code(BufReaderError::UNEXPECTED_EOF)};
+                    return std::unexpected{make_error_code(BufReaderError::UnexpectedEOF)};
 
                 mTail = *n;
             }
@@ -96,7 +96,7 @@ namespace zero::io {
 
         std::expected<void, std::error_code> peek(const std::span<std::byte> data) override {
             if (data.size() > mCapacity)
-                return std::unexpected{make_error_code(BufReaderError::INVALID_ARGUMENT)};
+                return std::unexpected{make_error_code(BufReaderError::InvalidArgument)};
 
             if (const auto available = this->available(); available < data.size()) {
                 if (mHead > 0) {
@@ -114,7 +114,7 @@ namespace zero::io {
                     Z_EXPECT(n);
 
                     if (*n == 0)
-                        return std::unexpected{make_error_code(BufReaderError::UNEXPECTED_EOF)};
+                        return std::unexpected{make_error_code(BufReaderError::UnexpectedEOF)};
 
                     mTail += *n;
                 }
@@ -135,10 +135,10 @@ namespace zero::io {
 
     template<detail::Trait<IWriter> T>
     class BufWriter final : public IBufWriter {
-        static constexpr auto DEFAULT_BUFFER_CAPACITY = 8192;
+        static constexpr auto DefaultBufferCapacity = 8192;
 
     public:
-        explicit BufWriter(T writer, const std::size_t capacity = DEFAULT_BUFFER_CAPACITY)
+        explicit BufWriter(T writer, const std::size_t capacity = DefaultBufferCapacity)
             : mWriter{std::move(writer)}, mCapacity{capacity}, mPending{0},
               mBuffer{std::make_unique<std::byte[]>(capacity)} {
         }

@@ -126,7 +126,7 @@ std::expected<std::string, std::error_code> zero::os::linux::process::Process::u
 
         if (n == 0) {
             if (!ptr)
-                return std::unexpected{Error::NO_SUCH_USER};
+                return std::unexpected{Error::NoSuchUser};
 
             return pwd.pw_name;
         }

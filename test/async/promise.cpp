@@ -5,8 +5,8 @@
 #include <list>
 
 namespace {
-    constexpr auto THREAD_NUMBER = 16;
-    constexpr auto CHANNEL_CAPACITY = 32;
+    constexpr auto ThreadNumber = 16;
+    constexpr auto ChannelCapacity = 32;
 
     class ThreadPool {
     public:
@@ -44,7 +44,7 @@ namespace {
         std::list<std::thread> mThreads;
     };
 
-    ThreadPool pool{THREAD_NUMBER, CHANNEL_CAPACITY};
+    ThreadPool pool{ThreadNumber, ChannelCapacity};
 }
 
 template<typename T, typename E, typename U>

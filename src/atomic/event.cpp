@@ -16,8 +16,8 @@
 #include <zero/expect.h>
 #include <zero/os/unix/error.h>
 
-constexpr auto ULF_WAKE_ALL = 0x00000100;
-constexpr auto UL_COMPARE_AND_WAIT = 1;
+constexpr auto ULFWakeAll = 0x00000100;
+constexpr auto ULCompareAndWait = 1;
 
 extern "C" int __ulock_wait(uint32_t operation, void *addr, uint64_t value, uint32_t timeout);
 extern "C" int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value);
@@ -66,7 +66,7 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
 #elif defined(__APPLE__)
         Z_EXPECT(os::unix::ensure([&] {
             return __ulock_wait(
-                UL_COMPARE_AND_WAIT,
+                ULCompareAndWait,
                 &mState,
                 0,
                 !timeout ? 0 : duration_cast<std::chrono::microseconds>(*timeout).count()
@@ -91,7 +91,7 @@ void zero::atomic::Event::set() {
         }));
 #elif defined(__APPLE__)
         error::guard(os::unix::expected([this] {
-            return __ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, &mState, 0);
+            return __ulock_wake(ULCompareAndWait | ULFWakeAll, &mState, 0);
         }).or_else([](const auto &ec) -> std::expected<int, std::error_code> {
             if (ec != std::errc::no_such_file_or_directory)
                 return std::unexpected{ec};

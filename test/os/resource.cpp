@@ -266,17 +266,17 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
         const auto offset = GENERATE_REF(take(1, random<std::size_t>(0, content.size() - 1)));
 
         SECTION("begin") {
-            REQUIRE(resource.seek(offset, zero::io::ISeekable::Whence::BEGIN) == offset);
+            REQUIRE(resource.seek(offset, zero::io::ISeekable::Whence::Begin) == offset);
         }
 
         SECTION("current") {
-            REQUIRE(resource.seek(offset, zero::io::ISeekable::Whence::CURRENT) == offset);
+            REQUIRE(resource.seek(offset, zero::io::ISeekable::Whence::Current) == offset);
         }
 
         SECTION("end") {
             REQUIRE(resource.seek(
                 -(static_cast<std::int64_t>(content.size() - offset)),
-                zero::io::ISeekable::Whence::END
+                zero::io::ISeekable::Whence::End
             ) == offset);
         }
 

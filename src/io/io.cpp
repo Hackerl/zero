@@ -10,7 +10,7 @@ std::expected<void, std::error_code> zero::io::IReader::readExactly(const std::s
         Z_EXPECT(n);
 
         if (*n == 0)
-            return std::unexpected{ReadExactlyError::UNEXPECTED_EOF};
+            return std::unexpected{ReadExactlyError::UnexpectedEOF};
 
         offset += *n;
     }
@@ -51,7 +51,7 @@ std::expected<void, std::error_code> zero::io::IWriter::writeAll(const std::span
 }
 
 std::expected<void, std::error_code> zero::io::ISeekable::rewind() {
-    Z_EXPECT(seek(0, Whence::BEGIN));
+    Z_EXPECT(seek(0, Whence::Begin));
     return {};
 }
 
@@ -59,15 +59,15 @@ std::expected<std::uint64_t, std::error_code> zero::io::ISeekable::length() {
     const auto pos = position();
     Z_EXPECT(pos);
 
-    const auto length = seek(0, Whence::END);
+    const auto length = seek(0, Whence::End);
     Z_EXPECT(length);
 
-    Z_EXPECT(seek(*pos, Whence::BEGIN));
+    Z_EXPECT(seek(*pos, Whence::Begin));
     return *length;
 }
 
 std::expected<std::uint64_t, std::error_code> zero::io::ISeekable::position() {
-    return seek(0, Whence::CURRENT);
+    return seek(0, Whence::Current);
 }
 
 zero::io::StringReader::StringReader(std::string string) : mString{std::move(string)} {

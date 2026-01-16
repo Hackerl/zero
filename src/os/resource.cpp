@@ -13,7 +13,7 @@
 #ifdef _WIN32
 #define INVALID_RESOURCE INVALID_HANDLE_VALUE
 #else
-constexpr auto INVALID_RESOURCE = -1;
+#define INVALID_RESOURCE (-1)
 #endif
 
 zero::os::Resource::Resource(const Native native) : mNative{native} {
@@ -220,7 +220,7 @@ zero::os::IOResource::seek(const std::int64_t offset, const Whence whence) {
             *mResource,
             LARGE_INTEGER{.QuadPart = offset},
             &pos,
-            whence == Whence::BEGIN ? FILE_BEGIN : whence == Whence::CURRENT ? FILE_CURRENT : FILE_END
+            whence == Whence::Begin ? FILE_BEGIN : whence == Whence::Current ? FILE_CURRENT : FILE_END
         );
     }));
 
@@ -234,7 +234,7 @@ zero::os::IOResource::seek(const std::int64_t offset, const Whence whence) {
 #endif
             *mResource,
             offset,
-            whence == Whence::BEGIN ? SEEK_SET : whence == Whence::CURRENT ? SEEK_CUR : SEEK_END
+            whence == Whence::Begin ? SEEK_SET : whence == Whence::Current ? SEEK_CUR : SEEK_END
         );
     });
     Z_EXPECT(pos);

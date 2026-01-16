@@ -17,7 +17,7 @@ namespace zero::io {
     Z_DEFINE_ERROR_CONDITION(
         Error,
         "zero::io",
-        UNEXPECTED_EOF, "Unexpected end of file"
+        UnexpectedEOF, "Unexpected end of file"
     )
 
 #ifdef _WIN32
@@ -41,7 +41,7 @@ namespace zero::io {
         Z_DEFINE_ERROR_CODE_INNER_EX(
             ReadExactlyError,
             "zero::io::IReader",
-            UNEXPECTED_EOF, "Unexpected end of file", make_error_condition(Error::UNEXPECTED_EOF)
+            UnexpectedEOF, "Unexpected end of file", make_error_condition(Error::UnexpectedEOF)
         )
 
         virtual std::expected<std::size_t, std::error_code> read(std::span<std::byte> data) = 0;
@@ -58,9 +58,9 @@ namespace zero::io {
     class ISeekable : public virtual Interface {
     public:
         enum class Whence {
-            BEGIN,
-            CURRENT,
-            END
+            Begin,
+            Current,
+            End
         };
 
         virtual std::expected<std::uint64_t, std::error_code> seek(std::int64_t offset, Whence whence) = 0;

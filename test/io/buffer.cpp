@@ -93,7 +93,7 @@ TEST_CASE("buffer reader", "[io::buffer]") {
 
         SECTION("unexpected eof") {
             zero::io::BufReader reader{zero::io::StringReader{inputString}, capacity};
-            REQUIRE_ERROR(reader.readLine(), zero::io::Error::UNEXPECTED_EOF);
+            REQUIRE_ERROR(reader.readLine(), zero::io::Error::UnexpectedEOF);
         }
     }
 
@@ -113,7 +113,7 @@ TEST_CASE("buffer reader", "[io::buffer]") {
 
         SECTION("unexpected eof") {
             zero::io::BufReader reader{zero::io::StringReader{inputString}, capacity};
-            REQUIRE_ERROR(reader.readUntil(static_cast<std::byte>(c)), zero::io::Error::UNEXPECTED_EOF);
+            REQUIRE_ERROR(reader.readUntil(static_cast<std::byte>(c)), zero::io::Error::UnexpectedEOF);
         }
     }
 }

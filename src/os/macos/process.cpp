@@ -99,13 +99,13 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::macos::proces
     Z_EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     const auto argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     it = std::find_if(
         it,
@@ -116,12 +116,12 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::macos::proces
     );
 
     if (it == arguments->end())
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     auto tokens = strings::split({it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     tokens.pop_back();
     return tokens;
@@ -132,13 +132,13 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
     Z_EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     const auto argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     it = std::find_if(
         it,
@@ -149,12 +149,12 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
     );
 
     if (it == arguments->end())
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     const auto tokens = strings::split({it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return std::unexpected{Error::UNEXPECTED_DATA};
+        return std::unexpected{Error::UnexpectedData};
 
     const auto &str = tokens[argc];
 
@@ -166,7 +166,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
 
     while (true) {
         if (str.length() <= prev)
-            return std::unexpected{Error::UNEXPECTED_DATA};
+            return std::unexpected{Error::UnexpectedData};
 
         if (str[prev] == '\0')
             break;
@@ -174,7 +174,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
         auto pos = str.find('\0', prev);
 
         if (pos == std::string::npos)
-            return std::unexpected{Error::UNEXPECTED_DATA};
+            return std::unexpected{Error::UnexpectedData};
 
         const auto item = str.substr(prev, pos - prev);
         prev = pos + 1;
@@ -265,7 +265,7 @@ std::expected<std::string, std::error_code> zero::os::macos::process::Process::u
 
         if (n == 0) {
             if (!ptr)
-                return std::unexpected{Error::NO_SUCH_USER};
+                return std::unexpected{Error::NoSuchUser};
 
             return pwd.pw_name;
         }

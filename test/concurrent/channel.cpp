@@ -4,57 +4,57 @@
 #include <future>
 
 TEST_CASE("channel error condition", "[concurrent::channel]") {
-    const std::error_condition condition{zero::concurrent::ChannelError::DISCONNECTED};
-    REQUIRE(condition == zero::concurrent::TrySendError::DISCONNECTED);
-    REQUIRE(condition == zero::concurrent::SendError::DISCONNECTED);
-    REQUIRE(condition == zero::concurrent::TryReceiveError::DISCONNECTED);
-    REQUIRE(condition == zero::concurrent::ReceiveError::DISCONNECTED);
+    const std::error_condition condition{zero::concurrent::ChannelError::Disconnected};
+    REQUIRE(condition == zero::concurrent::TrySendError::Disconnected);
+    REQUIRE(condition == zero::concurrent::SendError::Disconnected);
+    REQUIRE(condition == zero::concurrent::TryReceiveError::Disconnected);
+    REQUIRE(condition == zero::concurrent::ReceiveError::Disconnected);
 }
 
 TEST_CASE("channel try send error", "[concurrent::channel]") {
     SECTION("disconnected") {
-        const std::error_code ec{zero::concurrent::TrySendError::DISCONNECTED};
-        REQUIRE(ec == zero::concurrent::ChannelError::DISCONNECTED);
+        const std::error_code ec{zero::concurrent::TrySendError::Disconnected};
+        REQUIRE(ec == zero::concurrent::ChannelError::Disconnected);
     }
 
     SECTION("full") {
-        const std::error_code ec{zero::concurrent::TrySendError::FULL};
+        const std::error_code ec{zero::concurrent::TrySendError::Full};
         REQUIRE(ec == std::errc::operation_would_block);
     }
 }
 
 TEST_CASE("channel send error", "[concurrent::channel]") {
     SECTION("disconnected") {
-        const std::error_code ec{zero::concurrent::SendError::DISCONNECTED};
-        REQUIRE(ec == zero::concurrent::ChannelError::DISCONNECTED);
+        const std::error_code ec{zero::concurrent::SendError::Disconnected};
+        REQUIRE(ec == zero::concurrent::ChannelError::Disconnected);
     }
 
     SECTION("timeout") {
-        const std::error_code ec{zero::concurrent::SendError::TIMEOUT};
+        const std::error_code ec{zero::concurrent::SendError::Timeout};
         REQUIRE(ec == std::errc::timed_out);
     }
 }
 
 TEST_CASE("channel try receive error", "[concurrent::channel]") {
     SECTION("disconnected") {
-        const std::error_code ec{zero::concurrent::TryReceiveError::DISCONNECTED};
-        REQUIRE(ec == zero::concurrent::ChannelError::DISCONNECTED);
+        const std::error_code ec{zero::concurrent::TryReceiveError::Disconnected};
+        REQUIRE(ec == zero::concurrent::ChannelError::Disconnected);
     }
 
     SECTION("empty") {
-        const std::error_code ec{zero::concurrent::TryReceiveError::EMPTY};
+        const std::error_code ec{zero::concurrent::TryReceiveError::Empty};
         REQUIRE(ec == std::errc::operation_would_block);
     }
 }
 
 TEST_CASE("channel receive error", "[concurrent::channel]") {
     SECTION("disconnected") {
-        const std::error_code ec{zero::concurrent::ReceiveError::DISCONNECTED};
-        REQUIRE(ec == zero::concurrent::ChannelError::DISCONNECTED);
+        const std::error_code ec{zero::concurrent::ReceiveError::Disconnected};
+        REQUIRE(ec == zero::concurrent::ChannelError::Disconnected);
     }
 
     SECTION("timeout") {
-        const std::error_code ec{zero::concurrent::ReceiveError::TIMEOUT};
+        const std::error_code ec{zero::concurrent::ReceiveError::Timeout};
         REQUIRE(ec == std::errc::timed_out);
     }
 }
@@ -72,7 +72,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
 
         SECTION("disconnected") {
             sender.close();
-            REQUIRE_ERROR(sender.trySend(element), zero::concurrent::TrySendError::DISCONNECTED);
+            REQUIRE_ERROR(sender.trySend(element), zero::concurrent::TrySendError::Disconnected);
         }
 
         SECTION("full") {
@@ -80,7 +80,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
                 REQUIRE(sender.trySend(element));
             }
 
-            REQUIRE_ERROR(sender.trySend(element), zero::concurrent::TrySendError::FULL);
+            REQUIRE_ERROR(sender.trySend(element), zero::concurrent::TrySendError::Full);
         }
     }
 
@@ -95,7 +95,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
             const auto result = sender.trySendEx(std::string{element});
             REQUIRE_FALSE(result);
             REQUIRE(std::get<0>(result.error()) == element);
-            REQUIRE(std::get<1>(result.error()) == zero::concurrent::TrySendError::DISCONNECTED);
+            REQUIRE(std::get<1>(result.error()) == zero::concurrent::TrySendError::Disconnected);
         }
 
         SECTION("full") {
@@ -106,7 +106,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
             const auto result = sender.trySendEx(std::string{element});
             REQUIRE_FALSE(result);
             REQUIRE(std::get<0>(result.error()) == element);
-            REQUIRE(std::get<1>(result.error()) == zero::concurrent::TrySendError::FULL);
+            REQUIRE(std::get<1>(result.error()) == zero::concurrent::TrySendError::Full);
         }
     }
 
@@ -147,7 +147,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
 
         SECTION("disconnected") {
             sender.close();
-            REQUIRE_ERROR(sender.send(element), zero::concurrent::SendError::DISCONNECTED);
+            REQUIRE_ERROR(sender.send(element), zero::concurrent::SendError::Disconnected);
         }
 
         SECTION("timeout") {
@@ -157,7 +157,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
                 REQUIRE(sender.trySend(element));
             }
 
-            REQUIRE_ERROR(sender.send(element, 10ms), zero::concurrent::SendError::TIMEOUT);
+            REQUIRE_ERROR(sender.send(element, 10ms), zero::concurrent::SendError::Timeout);
         }
     }
 
@@ -202,7 +202,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
             const auto result = sender.sendEx(std::string{element});
             REQUIRE_FALSE(result);
             REQUIRE(std::get<0>(result.error()) == element);
-            REQUIRE(std::get<1>(result.error()) == zero::concurrent::SendError::DISCONNECTED);
+            REQUIRE(std::get<1>(result.error()) == zero::concurrent::SendError::Disconnected);
         }
 
         SECTION("timeout") {
@@ -215,7 +215,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
             const auto result = sender.sendEx(std::string{element}, 10ms);
             REQUIRE_FALSE(result);
             REQUIRE(std::get<0>(result.error()) == element);
-            REQUIRE(std::get<1>(result.error()) == zero::concurrent::SendError::TIMEOUT);
+            REQUIRE(std::get<1>(result.error()) == zero::concurrent::SendError::Timeout);
         }
     }
 
@@ -294,11 +294,11 @@ TEST_CASE("channel receiver", "[concurrent::channel]") {
 
         SECTION("disconnected") {
             sender.close();
-            REQUIRE_ERROR(receiver.tryReceive(), zero::concurrent::TryReceiveError::DISCONNECTED);
+            REQUIRE_ERROR(receiver.tryReceive(), zero::concurrent::TryReceiveError::Disconnected);
         }
 
         SECTION("empty") {
-            REQUIRE_ERROR(receiver.tryReceive(), zero::concurrent::TryReceiveError::EMPTY);
+            REQUIRE_ERROR(receiver.tryReceive(), zero::concurrent::TryReceiveError::Empty);
         }
     }
 
@@ -347,7 +347,7 @@ TEST_CASE("channel receiver", "[concurrent::channel]") {
         SECTION("disconnected") {
             SECTION("after close") {
                 sender.close();
-                REQUIRE_ERROR(receiver.receive(), zero::concurrent::ReceiveError::DISCONNECTED);
+                REQUIRE_ERROR(receiver.receive(), zero::concurrent::ReceiveError::Disconnected);
             }
 
             SECTION("before close") {
@@ -355,13 +355,13 @@ TEST_CASE("channel receiver", "[concurrent::channel]") {
                     return receiver.receive();
                 });
                 sender.close();
-                REQUIRE_ERROR(future.get(), zero::concurrent::ReceiveError::DISCONNECTED);
+                REQUIRE_ERROR(future.get(), zero::concurrent::ReceiveError::Disconnected);
             }
         }
 
         SECTION("timeout") {
             using namespace std::chrono_literals;
-            REQUIRE_ERROR(receiver.receive(10ms), zero::concurrent::ReceiveError::TIMEOUT);
+            REQUIRE_ERROR(receiver.receive(10ms), zero::concurrent::ReceiveError::Timeout);
         }
     }
 
@@ -474,7 +474,7 @@ TEST_CASE("channel concurrency testing", "[concurrent::channel]") {
             const auto result = receiver.receive();
 
             if (!result) {
-                if (result.error() != zero::concurrent::ReceiveError::DISCONNECTED)
+                if (result.error() != zero::concurrent::ReceiveError::Disconnected)
                     return std::unexpected{result.error()};
 
                 return {};

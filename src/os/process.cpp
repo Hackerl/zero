@@ -48,15 +48,15 @@ zero::os::process::ID zero::os::process::currentProcessID() {
 extern char **environ;
 #endif
 
-constexpr auto STDIN_R = 0;
-constexpr auto STDIN_W = 1;
-constexpr auto STDOUT_R = 2;
-constexpr auto STDOUT_W = 3;
-constexpr auto STDERR_R = 4;
-constexpr auto STDERR_W = 5;
+constexpr auto StdinR = 0;
+constexpr auto StdinW = 1;
+constexpr auto StdoutR = 2;
+constexpr auto StdoutW = 3;
+constexpr auto StderrR = 4;
+constexpr auto StderrW = 5;
 
 #ifndef _WIN32
-constexpr auto FD_MAX = 65535;
+constexpr auto FDMax = 65535;
 #endif
 
 #ifdef _WIN32
@@ -328,7 +328,7 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
 std::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
-        return std::unexpected{Error::API_NOT_AVAILABLE};
+        return std::unexpected{Error::APINotAvailable};
 
     auto first = pipe();
     Z_EXPECT(first);
@@ -617,7 +617,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
             return static_cast<int>(sysconf(_SC_OPEN_MAX));
         });
 
-        for (int fd{STDERR_FILENO + 1}; fd < std::min(max, FD_MAX); ++fd) {
+        for (int fd{STDERR_FILENO + 1}; fd < std::min(max, FDMax); ++fd) {
             if (fd == pipe->second.fd())
                 continue;
 
@@ -796,14 +796,14 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 #ifdef _WIN32
     std::array<std::optional<IOResource>, 6> resources;
 
-    constexpr std::array indexMapping{STDIN_R, STDOUT_W, STDERR_W};
+    constexpr std::array indexMapping{StdinR, StdoutW, StderrW};
     constexpr std::array typeMapping{STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE};
     constexpr std::array<DWORD, 3> accessMapping{GENERIC_READ, GENERIC_WRITE, GENERIC_WRITE};
 
     for (int i{0}; i < 3; ++i) {
         const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
 
-        if (type == StdioType::INHERIT) {
+        if (type == StdioType::Inherit) {
             const auto handle = GetStdHandle(typeMapping[i]);
 
             if (handle == INVALID_HANDLE_VALUE)
@@ -830,7 +830,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             continue;
         }
 
-        if (type == StdioType::PIPED) {
+        if (type == StdioType::Piped) {
             auto pipe = os::pipe();
             Z_EXPECT(pipe);
             Z_EXPECT(pipe->first.setInheritable(true));
@@ -968,13 +968,13 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     std::array<std::optional<IOResource>, 3> stdio;
 
-    if (auto &resource = resources[STDIN_W])
+    if (auto &resource = resources[StdinW])
         stdio[0] = *std::move(resource);
 
-    if (auto &resource = resources[STDOUT_R])
+    if (auto &resource = resources[StdoutR])
         stdio[1] = *std::move(resource);
 
-    if (auto &resource = resources[STDERR_R])
+    if (auto &resource = resources[StderrR])
         stdio[2] = *std::move(resource);
 
     return ChildProcess{
@@ -984,16 +984,16 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 #else
     std::array<std::optional<IOResource>, 6> resources{};
 
-    constexpr std::array indexMapping{STDIN_R, STDOUT_W, STDERR_W};
+    constexpr std::array indexMapping{StdinR, StdoutW, StderrW};
     constexpr std::array flagMapping{O_RDONLY, O_WRONLY, O_WRONLY};
 
     for (int i{0}; i < 3; ++i) {
         const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
 
-        if (type == StdioType::INHERIT)
+        if (type == StdioType::Inherit)
             continue;
 
-        if (type == StdioType::PIPED) {
+        if (type == StdioType::Piped) {
             auto pipe = os::pipe();
             Z_EXPECT(pipe);
 
@@ -1110,7 +1110,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         );
 
         if (!posix_spawn_file_actions_addchdir_np)
-            return std::unexpected{Error::API_NOT_AVAILABLE};
+            return std::unexpected{Error::APINotAvailable};
 #endif
         Z_EXPECT(expected([&] {
             return posix_spawn_file_actions_addchdir_np(&actions, mCurrentDirectory->c_str());
@@ -1157,7 +1157,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     Z_EXPECT(max);
 
     // The program assumes that the file descriptor to be inherited is not set FD_CLOEXEC.
-    for (int fd{STDERR_FILENO + 1}; fd < std::min(*max, FD_MAX); ++fd) {
+    for (int fd{STDERR_FILENO + 1}; fd < std::min(*max, FDMax); ++fd) {
         if (std::ranges::find_if(
             mInheritedResources,
             [=](const auto &resource) {
@@ -1203,13 +1203,13 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     std::array<std::optional<IOResource>, 3> stdio;
 
-    if (auto &resource = resources[STDIN_W])
+    if (auto &resource = resources[StdinW])
         stdio[0] = *std::move(resource);
 
-    if (auto &resource = resources[STDOUT_R])
+    if (auto &resource = resources[StdoutR])
         stdio[1] = *std::move(resource);
 
-    if (auto &resource = resources[STDERR_R])
+    if (auto &resource = resources[StderrR])
         stdio[2] = *std::move(resource);
 
     return ChildProcess{*std::move(process), std::move(stdio)};
@@ -1217,16 +1217,16 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 }
 
 std::expected<zero::os::process::ChildProcess, std::error_code> zero::os::process::Command::spawn() const {
-    return spawn({StdioType::INHERIT, StdioType::INHERIT, StdioType::INHERIT});
+    return spawn({StdioType::Inherit, StdioType::Inherit, StdioType::Inherit});
 }
 
 std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::Command::status() const {
-    return spawn({StdioType::INHERIT, StdioType::INHERIT, StdioType::INHERIT}).and_then(&ChildProcess::wait);
+    return spawn({StdioType::Inherit, StdioType::Inherit, StdioType::Inherit}).and_then(&ChildProcess::wait);
 }
 
 std::expected<zero::os::process::Output, std::error_code>
 zero::os::process::Command::output() const {
-    auto child = spawn({StdioType::NUL, StdioType::PIPED, StdioType::PIPED});
+    auto child = spawn({StdioType::Null, StdioType::Piped, StdioType::Piped});
     Z_EXPECT(child);
 
     if (auto input = std::exchange(child->stdInput(), std::nullopt)) {

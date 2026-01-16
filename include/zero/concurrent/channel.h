@@ -69,15 +69,15 @@ namespace zero::concurrent {
     Z_DEFINE_ERROR_CODE_EX(
         TrySendError,
         "zero::concurrent::Sender::trySend",
-        DISCONNECTED, "Sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
-        FULL, "Sending on a full channel", std::errc::operation_would_block
+        Disconnected, "Sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
+        Full, "Sending on a full channel", std::errc::operation_would_block
     )
 
     Z_DEFINE_ERROR_CODE_EX(
         SendError,
         "zero::concurrent::Sender::send",
-        DISCONNECTED, "Sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
-        TIMEOUT, "Send operation timed out", std::errc::timed_out
+        Disconnected, "Sending on a disconnected channel", Z_DEFAULT_ERROR_CONDITION,
+        Timeout, "Send operation timed out", std::errc::timed_out
     )
 
     template<typename T>
@@ -114,12 +114,12 @@ namespace zero::concurrent {
         template<typename U = T>
         std::expected<void, TrySendError> trySend(U &&element) {
             if (mCore->closed)
-                return std::unexpected{TrySendError::DISCONNECTED};
+                return std::unexpected{TrySendError::Disconnected};
 
             const auto index = mCore->buffer.reserve();
 
             if (!index)
-                return std::unexpected{TrySendError::FULL};
+                return std::unexpected{TrySendError::Full};
 
             mCore->buffer[*index] = std::forward<U>(element);
             mCore->buffer.commit(*index);
@@ -130,12 +130,12 @@ namespace zero::concurrent {
 
         std::expected<void, std::pair<T, TrySendError>> trySendEx(T &&element) {
             if (mCore->closed)
-                return std::unexpected{std::pair{std::move(element), TrySendError::DISCONNECTED}};
+                return std::unexpected{std::pair{std::move(element), TrySendError::Disconnected}};
 
             const auto index = mCore->buffer.reserve();
 
             if (!index)
-                return std::unexpected{std::pair{std::move(element), TrySendError::FULL}};
+                return std::unexpected{std::pair{std::move(element), TrySendError::Full}};
 
             mCore->buffer[*index] = std::move(element);
             mCore->buffer.commit(*index);
@@ -148,7 +148,7 @@ namespace zero::concurrent {
         std::expected<void, SendError>
         send(U &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
             if (mCore->closed)
-                return std::unexpected{SendError::DISCONNECTED};
+                return std::unexpected{SendError::Disconnected};
 
             while (true) {
                 const auto index = mCore->buffer.reserve();
@@ -163,7 +163,7 @@ namespace zero::concurrent {
                 std::unique_lock lock{mCore->mutex};
 
                 if (mCore->closed)
-                    return std::unexpected{SendError::DISCONNECTED};
+                    return std::unexpected{SendError::Disconnected};
 
                 if (!mCore->buffer.full())
                     continue;
@@ -176,14 +176,14 @@ namespace zero::concurrent {
                 }
 
                 if (mCore->sender.cv.wait_for(lock, *timeout) == std::cv_status::timeout)
-                    return std::unexpected{SendError::TIMEOUT};
+                    return std::unexpected{SendError::Timeout};
             }
         }
 
         std::expected<void, std::pair<T, SendError>>
         sendEx(T &&element, const std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
             if (mCore->closed)
-                return std::unexpected{std::pair{std::move(element), SendError::DISCONNECTED}};
+                return std::unexpected{std::pair{std::move(element), SendError::Disconnected}};
 
             while (true) {
                 const auto index = mCore->buffer.reserve();
@@ -198,7 +198,7 @@ namespace zero::concurrent {
                 std::unique_lock lock{mCore->mutex};
 
                 if (mCore->closed)
-                    return std::unexpected{std::pair{std::move(element), SendError::DISCONNECTED}};
+                    return std::unexpected{std::pair{std::move(element), SendError::Disconnected}};
 
                 if (!mCore->buffer.full())
                     continue;
@@ -211,7 +211,7 @@ namespace zero::concurrent {
                 }
 
                 if (mCore->sender.cv.wait_for(lock, *timeout) == std::cv_status::timeout)
-                    return std::unexpected{std::pair{std::move(element), SendError::TIMEOUT}};
+                    return std::unexpected{std::pair{std::move(element), SendError::Timeout}};
             }
         }
 
@@ -246,15 +246,15 @@ namespace zero::concurrent {
     Z_DEFINE_ERROR_CODE_EX(
         TryReceiveError,
         "zero::concurrent::Receiver::tryReceive",
-        DISCONNECTED, "Receiving on an empty and disconnected channel", Z_DEFAULT_ERROR_CONDITION,
-        EMPTY, "Receiving on an empty channel", std::errc::operation_would_block
+        Disconnected, "Receiving on an empty and disconnected channel", Z_DEFAULT_ERROR_CONDITION,
+        Empty, "Receiving on an empty channel", std::errc::operation_would_block
     )
 
     Z_DEFINE_ERROR_CODE_EX(
         ReceiveError,
         "zero::concurrent::Receiver::receive",
-        DISCONNECTED, "Receiving on an empty and disconnected channel", Z_DEFAULT_ERROR_CONDITION,
-        TIMEOUT, "Receive operation timed out", std::errc::timed_out
+        Disconnected, "Receiving on an empty and disconnected channel", Z_DEFAULT_ERROR_CONDITION,
+        Timeout, "Receive operation timed out", std::errc::timed_out
     )
 
     template<typename T>
@@ -292,7 +292,7 @@ namespace zero::concurrent {
             const auto index = mCore->buffer.acquire();
 
             if (!index)
-                return std::unexpected{mCore->closed ? TryReceiveError::DISCONNECTED : TryReceiveError::EMPTY};
+                return std::unexpected{mCore->closed ? TryReceiveError::Disconnected : TryReceiveError::Empty};
 
             auto element = std::move(mCore->buffer[*index]);
             mCore->buffer.release(*index);
@@ -318,7 +318,7 @@ namespace zero::concurrent {
                     continue;
 
                 if (mCore->closed)
-                    return std::unexpected{ReceiveError::DISCONNECTED};
+                    return std::unexpected{ReceiveError::Disconnected};
 
                 mCore->receiver.waiting = true;
 
@@ -328,7 +328,7 @@ namespace zero::concurrent {
                 }
 
                 if (mCore->receiver.cv.wait_for(lock, *timeout) == std::cv_status::timeout)
-                    return std::unexpected{ReceiveError::TIMEOUT};
+                    return std::unexpected{ReceiveError::Timeout};
             }
         }
 
@@ -359,13 +359,13 @@ namespace zero::concurrent {
     Z_DEFINE_ERROR_CONDITION_EX(
         ChannelError,
         "zero::concurrent::channel",
-        DISCONNECTED,
+        Disconnected,
         "Channel disconnected",
         [](const std::error_code &ec) {
-            return ec == make_error_code(TrySendError::DISCONNECTED) ||
-                ec == make_error_code(SendError::DISCONNECTED) ||
-                ec == make_error_code(TryReceiveError::DISCONNECTED) ||
-                ec == make_error_code(ReceiveError::DISCONNECTED);
+            return ec == make_error_code(TrySendError::Disconnected) ||
+                ec == make_error_code(SendError::Disconnected) ||
+                ec == make_error_code(TryReceiveError::Disconnected) ||
+                ec == make_error_code(ReceiveError::Disconnected);
         }
     )
 

@@ -6,7 +6,7 @@
 #include <ranges>
 #include <algorithm>
 
-constexpr auto LOGGER_BUFFER_SIZE = 1024;
+constexpr auto LoggerBufferSize = 1024;
 
 std::expected<void, std::error_code> zero::log::ConsoleProvider::init() {
     assert(stderr);
@@ -117,7 +117,7 @@ std::expected<void, std::error_code> zero::log::FileProvider::write(const Record
     return {};
 }
 
-zero::log::Logger::Logger() : mPending{0}, mChannel{concurrent::channel<Record>(LOGGER_BUFFER_SIZE)} {
+zero::log::Logger::Logger() : mPending{0}, mChannel{concurrent::channel<Record>(LoggerBufferSize)} {
 }
 
 zero::log::Logger::~Logger() {
@@ -134,7 +134,7 @@ void zero::log::Logger::consume() {
         std::expected<Record, std::error_code> record = receiver.tryReceive();
 
         if (!record) {
-            if (record.error() == concurrent::TryReceiveError::DISCONNECTED)
+            if (record.error() == concurrent::TryReceiveError::Disconnected)
                 break;
 
             std::list<std::chrono::milliseconds> durations;
@@ -179,7 +179,7 @@ void zero::log::Logger::consume() {
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(Level::ERROR_LEVEL))) {
+            if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(Level::Error))) {
                 if (const auto result = it->provider->write(*record); !result) {
                     fmt::print(stderr, "Failed to write log: {:s} ({})\n", result.error(), result.error());
                     it = mConfigs.erase(it);
@@ -239,7 +239,7 @@ void zero::log::Logger::addProvider(
             };
 
             if (const auto value = getOption("ZERO_LOG_LEVEL")) {
-                if (const auto lv = static_cast<Level>(*value); lv < Level::ERROR_LEVEL || lv > Level::DEBUG_LEVEL)
+                if (const auto lv = static_cast<Level>(*value); lv < Level::Error || lv > Level::Debug)
                     return;
 
                 mMinLogLevel = static_cast<Level>(*value);
@@ -266,7 +266,7 @@ void zero::log::Logger::addProvider(
 
     const std::lock_guard guard{mMutex};
 
-    mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(Level::ERROR_LEVEL));
+    mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(Level::Error));
 
     mConfigs.emplace_back(
         level,

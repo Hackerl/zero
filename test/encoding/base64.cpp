@@ -16,7 +16,7 @@ TEST_CASE("base64 decoding", "[encoding::base64]") {
     }
 
     SECTION("invalid length") {
-        REQUIRE_ERROR(zero::encoding::base64::decode("aGVsbG8"), zero::encoding::base64::DecodeError::INVALID_LENGTH);
+        REQUIRE_ERROR(zero::encoding::base64::decode("aGVsbG8"), zero::encoding::base64::DecodeError::InvalidLength);
     }
 
     SECTION("valid") {

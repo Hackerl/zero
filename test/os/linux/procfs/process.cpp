@@ -19,9 +19,9 @@ TEST_CASE("process - procfs", "[os::linux::procfs::process]") {
     auto child = zero::os::process::Command{program}
                  .args({arguments.begin(), arguments.end()})
                  .env("ZERO_LINUX_PROCFS_PROCESS_TESTS", "1")
-                 .stdInput(zero::os::process::Command::StdioType::NUL)
-                 .stdOutput(zero::os::process::Command::StdioType::NUL)
-                 .stdError(zero::os::process::Command::StdioType::NUL)
+                 .stdInput(zero::os::process::Command::StdioType::Null)
+                 .stdOutput(zero::os::process::Command::StdioType::Null)
+                 .stdError(zero::os::process::Command::StdioType::Null)
                  .spawn();
     REQUIRE(child);
 

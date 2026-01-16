@@ -16,13 +16,13 @@ TEST_CASE("hex decoding", "[encoding::hex]") {
     }
 
     SECTION("invalid length") {
-        REQUIRE_ERROR(zero::encoding::hex::decode("68656c6c6"), zero::encoding::hex::DecodeError::INVALID_LENGTH);
+        REQUIRE_ERROR(zero::encoding::hex::decode("68656c6c6"), zero::encoding::hex::DecodeError::InvalidLength);
     }
 
     SECTION("invalid hex character") {
         REQUIRE_ERROR(
             zero::encoding::hex::decode("68656c6cy6"),
-            zero::encoding::hex::DecodeError::INVALID_HEX_CHARACTER
+            zero::encoding::hex::DecodeError::InvalidHexCharacter
         );
     }
 

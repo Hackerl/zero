@@ -82,7 +82,7 @@ std::expected<std::string, std::error_code> zero::os::username() {
 
         if (n == 0) {
             if (!ptr)
-                return std::unexpected{GetUsernameError::NO_SUCH_ENTRY};
+                return std::unexpected{GetUsernameError::NoSuchEntry};
 
             return pwd.pw_name;
         }

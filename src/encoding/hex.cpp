@@ -22,7 +22,7 @@ std::string zero::encoding::hex::encode(const std::span<const std::byte> data) {
 std::expected<std::vector<std::byte>, zero::encoding::hex::DecodeError>
 zero::encoding::hex::decode(const std::string_view encoded) {
     if (encoded.length() % 2)
-        return std::unexpected{DecodeError::INVALID_LENGTH};
+        return std::unexpected{DecodeError::InvalidLength};
 
     std::vector<std::byte> data;
 
@@ -32,7 +32,7 @@ zero::encoding::hex::decode(const std::string_view encoded) {
 
         if (!n) {
             assert(n.error() == std::errc::invalid_argument);
-            return std::unexpected{DecodeError::INVALID_HEX_CHARACTER};
+            return std::unexpected{DecodeError::InvalidHexCharacter};
         }
 
         data.push_back(static_cast<std::byte>(*n & 0xff));

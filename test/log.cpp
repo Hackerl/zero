@@ -10,10 +10,10 @@
 
 TEST_CASE("logger", "[log]") {
     constexpr std::array levels{
-        zero::log::Level::DEBUG_LEVEL,
-        zero::log::Level::INFO_LEVEL,
-        zero::log::Level::WARNING_LEVEL,
-        zero::log::Level::ERROR_LEVEL
+        zero::log::Level::Debug,
+        zero::log::Level::Info,
+        zero::log::Level::Warning,
+        zero::log::Level::Error
     };
 
     const auto level = GENERATE_REF(from_range(levels));
@@ -94,7 +94,7 @@ TEST_CASE("logger", "[log]") {
 
         REQUIRE(event.wait());
 
-        const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::ERROR_LEVEL) + 1;
+        const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::Error) + 1;
 
         fakeit::Verify(Method(mock, init)).Once();
         fakeit::Verify(Method(mock, rotate)).Exactly(times);
@@ -122,10 +122,10 @@ TEST_CASE("logger", "[log]") {
 
 TEST_CASE("override log level from environment variable", "[log]") {
     constexpr std::array levels{
-        zero::log::Level::DEBUG_LEVEL,
-        zero::log::Level::INFO_LEVEL,
-        zero::log::Level::WARNING_LEVEL,
-        zero::log::Level::ERROR_LEVEL
+        zero::log::Level::Debug,
+        zero::log::Level::Info,
+        zero::log::Level::Warning,
+        zero::log::Level::Error
     };
 
     const auto level = GENERATE_REF(from_range(levels));
@@ -149,14 +149,14 @@ TEST_CASE("override log level from environment variable", "[log]") {
 
     zero::log::Logger logger;
 
-    logger.addProvider(zero::log::Level::ERROR_LEVEL, std::unique_ptr<zero::log::IProvider>{&mock.get()});
+    logger.addProvider(zero::log::Level::Error, std::unique_ptr<zero::log::IProvider>{&mock.get()});
 
     for (const auto &lv: levels)
         logger.log(lv, "", 0, "");
 
     REQUIRE(event.wait());
 
-    const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::ERROR_LEVEL) + 1;
+    const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::Error) + 1;
 
     fakeit::Verify(Method(mock, init)).Once();
     fakeit::Verify(Method(mock, rotate)).Exactly(times);

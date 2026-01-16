@@ -15,11 +15,11 @@
 #endif
 
 #ifdef _WIN32
-constexpr auto PROGRAM = "ping";
-constexpr auto ARGUMENTS = {"localhost", "-n", "2"};
+constexpr auto Program = "ping";
+constexpr auto Arguments = {"localhost", "-n", "2"};
 #else
-constexpr auto PROGRAM = "sleep";
-constexpr auto ARGUMENTS = {"1"};
+constexpr auto Program = "sleep";
+constexpr auto Arguments = {"1"};
 #endif
 
 TEST_CASE("list process ids", "[os::process]") {
@@ -92,24 +92,24 @@ TEST_CASE("process", "[os::process]") {
 
 TEST_CASE("child process", "[os::process]") {
     const auto type = GENERATE(
-        zero::os::process::Command::StdioType::NUL,
-        zero::os::process::Command::StdioType::INHERIT,
-        zero::os::process::Command::StdioType::PIPED
+        zero::os::process::Command::StdioType::Null,
+        zero::os::process::Command::StdioType::Inherit,
+        zero::os::process::Command::StdioType::Piped
     );
 
     // If we don't consume data, the child process will be blocked on writing.
-    auto child = zero::os::process::Command{PROGRAM}
+    auto child = zero::os::process::Command{Program}
                  .stdInput(type)
-                 .stdOutput(zero::os::process::Command::StdioType::NUL)
+                 .stdOutput(zero::os::process::Command::StdioType::Null)
                  .stdError(type)
-                 .args({ARGUMENTS.begin(), ARGUMENTS.end()})
+                 .args({Arguments.begin(), Arguments.end()})
                  .spawn();
     REQUIRE(child);
 
     SECTION("stdio") {
         REQUIRE_FALSE(child->stdOutput());
 
-        if (type == zero::os::process::Command::StdioType::PIPED) {
+        if (type == zero::os::process::Command::StdioType::Piped) {
             REQUIRE(child->stdInput());
             REQUIRE(child->stdError());
         }
@@ -147,22 +147,22 @@ TEST_CASE("child process", "[os::process]") {
     SECTION("name") {
         const auto name = child->name();
         REQUIRE(name);
-        REQUIRE_THAT(*name, Catch::Matchers::ContainsSubstring(PROGRAM, Catch::CaseSensitive::No));
+        REQUIRE_THAT(*name, Catch::Matchers::ContainsSubstring(Program, Catch::CaseSensitive::No));
     }
 
     SECTION("exe") {
         const auto exe = child->exe();
         REQUIRE(exe);
-        REQUIRE_THAT(exe->filename().string(), Catch::Matchers::ContainsSubstring(PROGRAM, Catch::CaseSensitive::No));
+        REQUIRE_THAT(exe->filename().string(), Catch::Matchers::ContainsSubstring(Program, Catch::CaseSensitive::No));
     }
 
     SECTION("cmdline") {
         const auto cmdline = child->cmdline();
         REQUIRE(cmdline);
-        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(PROGRAM, Catch::CaseSensitive::No));
+        REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(Program, Catch::CaseSensitive::No));
         REQUIRE_THAT(
             (std::ranges::subrange{cmdline->begin() + 1, cmdline->end()}),
-            Catch::Matchers::RangeEquals(ARGUMENTS)
+            Catch::Matchers::RangeEquals(Arguments)
         );
     }
 
@@ -286,16 +286,16 @@ TEST_CASE("exit status", "[os::process]") {
 }
 
 TEST_CASE("spawn child process with arguments", "[os::process]") {
-    auto command = zero::os::process::Command{PROGRAM}
-        .stdOutput(zero::os::process::Command::StdioType::NUL);
+    auto command = zero::os::process::Command{Program}
+        .stdOutput(zero::os::process::Command::StdioType::Null);
 
     SECTION("add arg") {
-        for (const auto &arg: ARGUMENTS)
+        for (const auto &arg: Arguments)
             command.arg(arg);
     }
 
     SECTION("add args") {
-        command.args({ARGUMENTS.begin(), ARGUMENTS.end()});
+        command.args({Arguments.begin(), Arguments.end()});
     }
 
     auto child = command.spawn();
@@ -304,7 +304,7 @@ TEST_CASE("spawn child process with arguments", "[os::process]") {
 
     const auto name = child->name();
     REQUIRE(name);
-    REQUIRE_THAT(*name, Catch::Matchers::ContainsSubstring(PROGRAM, Catch::CaseSensitive::No));
+    REQUIRE_THAT(*name, Catch::Matchers::ContainsSubstring(Program, Catch::CaseSensitive::No));
 }
 
 #ifdef _WIN32
@@ -313,9 +313,9 @@ TEST_CASE("spawn child process with complex escape characters", "[os::process]")
 
     auto child = zero::os::process::Command{"findstr"}
                     .args({args.begin(), args.end()})
-                    .stdInput(zero::os::process::Command::StdioType::NUL)
-                    .stdOutput(zero::os::process::Command::StdioType::NUL)
-                    .stdError(zero::os::process::Command::StdioType::NUL)
+                    .stdInput(zero::os::process::Command::StdioType::Null)
+                    .stdOutput(zero::os::process::Command::StdioType::Null)
+                    .stdError(zero::os::process::Command::StdioType::Null)
                     .spawn();
     REQUIRE(child);
     Z_DEFER(REQUIRE(child->wait()));
@@ -334,10 +334,10 @@ TEST_CASE("spawn child process with working directory", "[os::process]") {
     const auto temp = zero::filesystem::temporaryDirectory().and_then(zero::filesystem::canonical);
     REQUIRE(temp);
 
-    auto child = zero::os::process::Command{PROGRAM}
-                 .args({ARGUMENTS.begin(), ARGUMENTS.end()})
+    auto child = zero::os::process::Command{Program}
+                 .args({Arguments.begin(), Arguments.end()})
                  .currentDirectory(*temp)
-                 .stdOutput(zero::os::process::Command::StdioType::NUL)
+                 .stdOutput(zero::os::process::Command::StdioType::Null)
                  .spawn();
     REQUIRE(child);
     Z_DEFER(REQUIRE(child->wait()));
@@ -358,9 +358,9 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         Catch::Matchers::ContainsSubstring("ZERO_PROCESS_TESTS")
     );
 #else
-    auto command = zero::os::process::Command{PROGRAM}
-                   .args({ARGUMENTS.begin(), ARGUMENTS.end()})
-                   .stdOutput(zero::os::process::Command::StdioType::NUL);
+    auto command = zero::os::process::Command{Program}
+                   .args({Arguments.begin(), Arguments.end()})
+                   .stdOutput(zero::os::process::Command::StdioType::Null);
 
     SECTION("inherit") {
         zero::env::set("ZERO_PROCESS_TESTS", "1");
@@ -450,10 +450,10 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
         auto duplicate = writer.duplicate(true);
         REQUIRE(duplicate);
 
-        auto child = zero::os::process::Command{PROGRAM}
-                     .args({ARGUMENTS.begin(), ARGUMENTS.end()})
+        auto child = zero::os::process::Command{Program}
+                     .args({Arguments.begin(), Arguments.end()})
                      .inheritedResource(zero::os::Resource{duplicate->release()})
-                     .stdOutput(zero::os::process::Command::StdioType::NUL)
+                     .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
         Z_DEFER(REQUIRE(child->wait()));
@@ -467,9 +467,9 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
     }
 
     SECTION("without inherit") {
-        auto child = zero::os::process::Command{PROGRAM}
-                     .args({ARGUMENTS.begin(), ARGUMENTS.end()})
-                     .stdOutput(zero::os::process::Command::StdioType::NUL)
+        auto child = zero::os::process::Command{Program}
+                     .args({Arguments.begin(), Arguments.end()})
+                     .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
         Z_DEFER(REQUIRE(child->wait()));
@@ -493,10 +493,10 @@ TEST_CASE("spawn child process with native resource", "[os::process]") {
     REQUIRE(writer.setInheritable(true));
 
     SECTION("inherit") {
-        auto child = zero::os::process::Command{PROGRAM}
-                     .args({ARGUMENTS.begin(), ARGUMENTS.end()})
+        auto child = zero::os::process::Command{Program}
+                     .args({Arguments.begin(), Arguments.end()})
                      .inheritedNativeResource(writer.fd())
-                     .stdOutput(zero::os::process::Command::StdioType::NUL)
+                     .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
         Z_DEFER(REQUIRE(child->wait()));
@@ -510,9 +510,9 @@ TEST_CASE("spawn child process with native resource", "[os::process]") {
     }
 
     SECTION("without inherit") {
-        auto child = zero::os::process::Command{PROGRAM}
-                     .args({ARGUMENTS.begin(), ARGUMENTS.end()})
-                     .stdOutput(zero::os::process::Command::StdioType::NUL)
+        auto child = zero::os::process::Command{Program}
+                     .args({Arguments.begin(), Arguments.end()})
+                     .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
         Z_DEFER(REQUIRE(child->wait()));
@@ -530,13 +530,13 @@ TEST_CASE("spawn child process with piped stdio", "[os::process]") {
 #ifdef _WIN32
     auto child = zero::os::process::Command{"findstr"}
                  .arg("hello")
-                 .stdInput(zero::os::process::Command::StdioType::PIPED)
-                 .stdOutput(zero::os::process::Command::StdioType::PIPED)
+                 .stdInput(zero::os::process::Command::StdioType::Piped)
+                 .stdOutput(zero::os::process::Command::StdioType::Piped)
                  .spawn();
 #else
     auto child = zero::os::process::Command{"cat"}
-                 .stdInput(zero::os::process::Command::StdioType::PIPED)
-                 .stdOutput(zero::os::process::Command::StdioType::PIPED)
+                 .stdInput(zero::os::process::Command::StdioType::Piped)
+                 .stdOutput(zero::os::process::Command::StdioType::Piped)
                  .spawn();
 #endif
     REQUIRE(child);
@@ -560,9 +560,9 @@ TEST_CASE("spawn child process with piped stdio", "[os::process]") {
 }
 
 TEST_CASE("spawn child process and collect status", "[os::process]") {
-    const auto status = zero::os::process::Command{PROGRAM}
-                        .args({ARGUMENTS.begin(), ARGUMENTS.end()})
-                        .stdOutput(zero::os::process::Command::StdioType::NUL)
+    const auto status = zero::os::process::Command{Program}
+                        .args({Arguments.begin(), Arguments.end()})
+                        .stdOutput(zero::os::process::Command::StdioType::Null)
                         .status();
     REQUIRE(status);
     REQUIRE(status->success());

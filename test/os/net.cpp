@@ -11,14 +11,14 @@
 #include <zero/os/process.h>
 
 TEST_CASE("network components", "[os::net]") {
-    REQUIRE(zero::os::net::stringify(zero::os::net::UNSPECIFIED_IPV4) == "0.0.0.0");
-    REQUIRE(zero::os::net::stringify(zero::os::net::LOCALHOST_IPV4) == "127.0.0.1");
-    REQUIRE(zero::os::net::stringify(zero::os::net::BROADCAST_IPV4) == "255.255.255.255");
-    REQUIRE(zero::os::net::stringify(zero::os::net::UNSPECIFIED_IPV6) == "::");
-    REQUIRE(zero::os::net::stringify(zero::os::net::LOCALHOST_IPV6) == "::1");
+    REQUIRE(zero::os::net::stringify(zero::os::net::UnspecifiedIPv4) == "0.0.0.0");
+    REQUIRE(zero::os::net::stringify(zero::os::net::LocalhostIPv4) == "127.0.0.1");
+    REQUIRE(zero::os::net::stringify(zero::os::net::BroadcastIPv4) == "255.255.255.255");
+    REQUIRE(zero::os::net::stringify(zero::os::net::UnspecifiedIPv6) == "::");
+    REQUIRE(zero::os::net::stringify(zero::os::net::LocalhostIPv6) == "::1");
 
-    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{zero::os::net::LOCALHOST_IPV4, 8}) == "127.0.0.1/8");
-    REQUIRE(fmt::to_string(zero::os::net::IfAddress6{zero::os::net::LOCALHOST_IPV6, 128}) == "::1/128");
+    REQUIRE(fmt::to_string(zero::os::net::IfAddress4{zero::os::net::LocalhostIPv4, 8}) == "127.0.0.1/8");
+    REQUIRE(fmt::to_string(zero::os::net::IfAddress6{zero::os::net::LocalhostIPv6, 128}) == "::1/128");
 
     REQUIRE(
         fmt::to_string(
@@ -26,8 +26,8 @@ TEST_CASE("network components", "[os::net]") {
                 "lo",
                 {std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}},
                 {
-                    zero::os::net::IfAddress4{zero::os::net::LOCALHOST_IPV4, 8},
-                    zero::os::net::IfAddress6{zero::os::net::LOCALHOST_IPV6, 128}
+                    zero::os::net::IfAddress4{zero::os::net::LocalhostIPv4, 8},
+                    zero::os::net::IfAddress6{zero::os::net::LocalhostIPv6, 128}
                 }
             }
         ) == R"({ name: "lo", mac: "00:00:00:00:00:00", addresses: ["127.0.0.1/8", "::1/128"] })"

@@ -18,9 +18,9 @@ TEST_CASE("process - Windows", "[os::windows::process]") {
     auto child = zero::os::process::Command{program}
                  .args({arguments.begin(), arguments.end()})
                  .env("ZERO_WINDOWS_PROCESS_TESTS", "1")
-                 .stdInput(zero::os::process::Command::StdioType::NUL)
-                 .stdOutput(zero::os::process::Command::StdioType::NUL)
-                 .stdError(zero::os::process::Command::StdioType::NUL)
+                 .stdInput(zero::os::process::Command::StdioType::Null)
+                 .stdOutput(zero::os::process::Command::StdioType::Null)
+                 .stdError(zero::os::process::Command::StdioType::Null)
                  .spawn();
     REQUIRE(child);
 
@@ -108,7 +108,7 @@ TEST_CASE("process - Windows", "[os::windows::process]") {
 
     SECTION("exit code") {
         SECTION("running") {
-            REQUIRE_ERROR(process->exitCode(), zero::os::windows::process::Process::Error::PROCESS_STILL_ACTIVE);
+            REQUIRE_ERROR(process->exitCode(), zero::os::windows::process::Process::Error::ProcessStillActive);
         }
 
         SECTION("exited") {
