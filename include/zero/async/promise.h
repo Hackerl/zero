@@ -83,20 +83,20 @@ namespace zero::async::promise {
             return Future<T, E>{mCore};
         }
 
-        template<typename... Ts>
-        void resolve(Ts &&... args) {
+        template<typename... Args>
+        void resolve(Args &&... args) {
             assert(mCore);
             assert(!mCore->result);
             assert(mCore->state != State::ONLY_RESULT);
             assert(mCore->state != State::DONE);
 
             if constexpr (std::is_void_v<T>) {
-                static_assert(sizeof...(Ts) == 0);
+                static_assert(sizeof...(Args) == 0);
                 mCore->result.emplace();
             }
             else {
-                static_assert(sizeof...(Ts) > 0);
-                mCore->result.emplace(std::in_place, std::forward<Ts>(args)...);
+                static_assert(sizeof...(Args) > 0);
+                mCore->result.emplace(std::in_place, std::forward<Args>(args)...);
             }
 
             auto state = mCore->state.load();
@@ -113,15 +113,15 @@ namespace zero::async::promise {
             mCore->trigger();
         }
 
-        template<typename... Ts>
-        void reject(Ts &&... args) {
-            static_assert(sizeof...(Ts) > 0);
+        template<typename... Args>
+        void reject(Args &&... args) {
+            static_assert(sizeof...(Args) > 0);
             assert(mCore);
             assert(!mCore->result);
             assert(mCore->state != State::ONLY_RESULT);
             assert(mCore->state != State::DONE);
 
-            mCore->result.emplace(std::unexpected<E>(std::in_place, std::forward<Ts>(args)...));
+            mCore->result.emplace(std::unexpected<E>(std::in_place, std::forward<Args>(args)...));
             auto state = mCore->state.load();
 
             if (state == State::PENDING && mCore->state.compare_exchange_strong(state, State::ONLY_RESULT)) {
@@ -149,10 +149,10 @@ namespace zero::async::promise {
         return future;
     }
 
-    template<typename T, typename E, typename... Ts>
-    Future<T, E> reject(Ts &&... args) {
+    template<typename T, typename E, typename... Args>
+    Future<T, E> reject(Args &&... args) {
         Promise<T, E> promise;
-        promise.reject(std::forward<Ts>(args)...);
+        promise.reject(std::forward<Args>(args)...);
         return promise.getFuture();
     }
 
@@ -164,11 +164,11 @@ namespace zero::async::promise {
         return promise.getFuture();
     }
 
-    template<typename T, typename E, typename... Ts>
-        requires (!std::is_void_v<T> && sizeof...(Ts) > 0)
-    Future<T, E> resolve(Ts &&... args) {
+    template<typename T, typename E, typename... Args>
+        requires (!std::is_void_v<T> && sizeof...(Args) > 0)
+    Future<T, E> resolve(Args &&... args) {
         Promise<T, E> promise;
-        promise.resolve(std::forward<Ts>(args)...);
+        promise.resolve(std::forward<Args>(args)...);
         return promise.getFuture();
     }
 
@@ -282,8 +282,8 @@ namespace zero::async::promise {
                     return;
                 }
 
-                std::move(*next).then([=]<typename... Ts>(Ts &&... args) {
-                    promise->resolve(std::forward<Ts>(args)...);
+                std::move(*next).then([=]<typename... Args>(Args &&... args) {
+                    promise->resolve(std::forward<Args>(args)...);
                 }).fail([=](E &&error) {
                     promise->reject(std::move(error));
                 });
@@ -363,9 +363,9 @@ namespace zero::async::promise {
 
             const auto fallthrough = std::make_shared<bool>();
 
-            auto future = std::move(*this).then([=, f = std::forward<F1>(f1)]<typename... Ts>(Ts &&... args) mutable {
+            auto future = std::move(*this).then([=, f = std::forward<F1>(f1)]<typename... Args>(Args &&... args) mutable {
                 *fallthrough = true;
-                return f(std::forward<Ts>(args)...);
+                return f(std::forward<Args>(args)...);
             });
 
             using NextValue = decltype(future)::value_type;
@@ -393,8 +393,8 @@ namespace zero::async::promise {
 
             setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
                 if (!result) {
-                    std::invoke(f, std::move(result).error()).then([=]<typename... Ts>(Ts &&... args) {
-                        promise->resolve(std::forward<Ts>(args)...);
+                    std::invoke(f, std::move(result).error()).then([=]<typename... Args>(Args &&... args) {
+                        promise->resolve(std::forward<Args>(args)...);
                     }).fail([=](NextError &&error) {
                         promise->reject(std::move(error));
                     });
