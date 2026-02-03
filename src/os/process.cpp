@@ -1244,12 +1244,14 @@ zero::os::process::Command::output() const {
                     .value_or(std::vector<std::byte>{});
 
     if (!out) {
-        error::guard(child->kill().or_else([](const auto &ec) -> std::expected<void, std::error_code> {
-            if (ec != std::errc::no_such_process)
-                return std::unexpected{ec};
+        error::guard(
+            child->kill().or_else([](const auto &ec) -> std::expected<void, std::error_code> {
+                if (ec != std::errc::no_such_process)
+                    return std::unexpected{ec};
 
-            return {};
-        }));
+                return {};
+            })
+        );
         error::guard(child->wait());
         return std::unexpected{out.error()};
     }
@@ -1257,12 +1259,14 @@ zero::os::process::Command::output() const {
     auto err = future.get();
 
     if (!err) {
-        error::guard(child->kill().or_else([](const auto &ec) -> std::expected<void, std::error_code> {
-            if (ec != std::errc::no_such_process)
-                return std::unexpected{ec};
+        error::guard(
+            child->kill().or_else([](const auto &ec) -> std::expected<void, std::error_code> {
+                if (ec != std::errc::no_such_process)
+                    return std::unexpected{ec};
 
-            return {};
-        }));
+                return {};
+            })
+        );
         error::guard(child->wait());
         return std::unexpected{err.error()};
     }

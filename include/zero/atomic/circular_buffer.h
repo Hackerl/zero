@@ -12,10 +12,10 @@ namespace zero::atomic {
     template<typename T>
     class CircularBuffer {
         enum class State {
-            IDLE,
-            PUTTING,
-            VALID,
-            TAKING
+            Idle,
+            Putting,
+            Valid,
+            Taking
         };
 
     public:
@@ -37,13 +37,13 @@ namespace zero::atomic {
             index %= mCapacity;
 
             while (true) {
-                if (auto expected = State::IDLE; mState[index].compare_exchange_weak(expected, State::PUTTING))
+                if (auto expected = State::Idle; mState[index].compare_exchange_weak(expected, State::Putting))
                     return index;
             }
         }
 
         void commit(const std::size_t index) {
-            mState[index] = State::VALID;
+            mState[index] = State::Valid;
         }
 
         std::optional<std::size_t> acquire() {
@@ -58,13 +58,13 @@ namespace zero::atomic {
             index %= mCapacity;
 
             while (true) {
-                if (auto expected = State::VALID; mState[index].compare_exchange_weak(expected, State::TAKING))
+                if (auto expected = State::Valid; mState[index].compare_exchange_weak(expected, State::Taking))
                     return index;
             }
         }
 
         void release(const std::size_t index) {
-            mState[index] = State::IDLE;
+            mState[index] = State::Idle;
         }
 
         T &operator[](const std::size_t index) {
