@@ -32,7 +32,7 @@ std::optional<std::string> zero::env::get(const std::string &name) {
 
         if (result == 0) {
             if (const auto error = GetLastError(); error != ERROR_ENVVAR_NOT_FOUND)
-                throw error::SystemError{static_cast<int>(error), std::system_category()};
+                throw error::StacktraceError<std::system_error>{static_cast<int>(error), std::system_category()};
 
             return std::nullopt;
         }
@@ -85,7 +85,7 @@ std::map<std::string, std::string> zero::env::list() {
     };
 
     if (!ptr)
-        throw error::SystemError{static_cast<int>(GetLastError()), std::system_category()};
+        throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
     std::map<std::string, std::string> envs;
 

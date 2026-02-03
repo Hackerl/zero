@@ -37,9 +37,9 @@ std::string zero::os::net::stringify(const std::span<const std::byte, 4> ip) {
 
     if (!inet_ntop(AF_INET, ip.data(), address.data(), address.size())) {
 #ifdef _WIN32
-        throw error::SystemError{WSAGetLastError(), std::system_category()};
+        throw error::StacktraceError<std::system_error>{WSAGetLastError(), std::system_category()};
 #else
-        throw error::SystemError{errno, std::system_category()};
+        throw error::StacktraceError<std::system_error>{errno, std::system_category()};
 #endif
     }
 
@@ -51,9 +51,9 @@ std::string zero::os::net::stringify(const std::span<const std::byte, 16> ip) {
 
     if (!inet_ntop(AF_INET6, ip.data(), address.data(), address.size())) {
 #ifdef _WIN32
-        throw error::SystemError{WSAGetLastError(), std::system_category()};
+        throw error::StacktraceError<std::system_error>{WSAGetLastError(), std::system_category()};
 #else
-        throw error::SystemError{errno, std::system_category()};
+        throw error::StacktraceError<std::system_error>{errno, std::system_category()};
 #endif
     }
 

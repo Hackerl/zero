@@ -39,7 +39,7 @@ std::filesystem::path zero::filesystem::applicationPath() {
 
     if (const auto length = GetModuleFileNameW(nullptr, buffer.data(), buffer.size());
         length == 0 || length == buffer.size())
-        throw error::SystemError{static_cast<int>(GetLastError()), std::system_category()};
+        throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
     return buffer.data();
 #elif defined(__linux__)

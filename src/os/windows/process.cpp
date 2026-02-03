@@ -190,7 +190,7 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
 
     Z_DEFER(
         if (LocalFree(args))
-            throw error::SystemError{static_cast<int>(GetLastError()), std::system_category()};
+            throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
     );
 
     std::vector<std::string> cmdline;

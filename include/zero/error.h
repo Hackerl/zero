@@ -653,12 +653,14 @@ namespace zero::error {
 
 namespace zero::error {
 #if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
-    class SystemError final : public std::system_error {
+    template<typename T>
+        requires std::derived_from<T, std::exception>
+    class StacktraceError final : public T {
     public:
         template<typename... Args>
-        explicit SystemError(Args &&... args)
-            : std::system_error{std::forward<Args>(args)...},
-              mMessage{fmt::format("{} {}", std::system_error::what(), std::to_string(std::stacktrace::current(1)))} {
+        explicit StacktraceError(Args &&... args)
+            : T{std::forward<Args>(args)...},
+              mMessage{fmt::format("{} {}", T::what(), std::to_string(std::stacktrace::current(1)))} {
         }
 
         [[nodiscard]] const char *what() const noexcept override {
@@ -669,14 +671,15 @@ namespace zero::error {
         std::string mMessage;
     };
 #else
-    using SystemError = std::system_error;
+    template<typename T>
+    using StacktraceError = T;
 #endif
 
     template<typename T, typename E>
         requires std::is_convertible_v<E, std::error_code>
     T guard(std::expected<T, E> &&expected) {
         if (!expected)
-            throw SystemError{expected.error()};
+            throw StacktraceError<std::system_error>{expected.error()};
 
         if constexpr (std::is_void_v<T>)
             return;

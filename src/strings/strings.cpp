@@ -139,7 +139,7 @@ zero::strings::encode(const std::wstring_view str, const std::string &encoding) 
 
     Z_DEFER(
         if (iconv_close(cd) != 0)
-            throw error::SystemError{errno, std::generic_category()};
+            throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
     );
 
     std::string output;
@@ -171,7 +171,7 @@ zero::strings::decode(const std::string_view str, const std::string &encoding) {
 
     Z_DEFER(
         if (iconv_close(cd) != 0)
-            throw error::SystemError{errno, std::generic_category()};
+            throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
     );
 
     std::wstring output;

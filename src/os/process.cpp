@@ -807,7 +807,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             const auto handle = GetStdHandle(typeMapping[i]);
 
             if (handle == INVALID_HANDLE_VALUE)
-                throw error::SystemError{static_cast<int>(GetLastError()), std::system_category()};
+                throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
             if (!handle)
                 continue;
