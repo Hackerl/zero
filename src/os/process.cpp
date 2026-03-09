@@ -1246,7 +1246,11 @@ zero::os::process::Command::output() const {
     if (!out) {
         error::guard(
             child->kill().or_else([](const auto &ec) -> std::expected<void, std::error_code> {
+#ifdef _WIN32
+                if (ec != std::errc::permission_denied)
+#else
                 if (ec != std::errc::no_such_process)
+#endif
                     return std::unexpected{ec};
 
                 return {};
@@ -1261,7 +1265,11 @@ zero::os::process::Command::output() const {
     if (!err) {
         error::guard(
             child->kill().or_else([](const auto &ec) -> std::expected<void, std::error_code> {
+#ifdef _WIN32
+                if (ec != std::errc::permission_denied)
+#else
                 if (ec != std::errc::no_such_process)
+#endif
                     return std::unexpected{ec};
 
                 return {};
