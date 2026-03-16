@@ -672,6 +672,7 @@ namespace zero::error {
     };
 #else
     template<typename T>
+        requires std::derived_from<T, std::exception>
     using StacktraceError = T;
 #endif
 
