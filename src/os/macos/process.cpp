@@ -23,24 +23,19 @@ zero::os::macos::process::Process &zero::os::macos::process::Process::operator=(
 
 std::expected<std::vector<char>, std::error_code> zero::os::macos::process::Process::arguments() const {
     std::array mib{CTL_KERN, KERN_PROCARGS2, mPID};
-    std::size_t size{10240};
+    std::size_t size{};
 
-    auto buffer = std::make_unique<char[]>(size);
+    Z_EXPECT(unix::expected([&] {
+        return sysctl(mib.data(), mib.size(), nullptr, &size, nullptr, 0);
+    }));
 
-    while (true) {
-        const auto result = unix::expected([&] {
-            return sysctl(mib.data(), mib.size(), buffer.get(), &size, nullptr, 0);
-        });
+    const auto buffer = std::make_unique<char[]>(size);
 
-        if (result)
-            return std::vector<char>{buffer.get(), buffer.get() + size};
+    Z_EXPECT(unix::expected([&] {
+        return sysctl(mib.data(), mib.size(), buffer.get(), &size, nullptr, 0);
+    }));
 
-        if (const auto &error = result.error(); error != std::errc::not_enough_memory)
-            return std::unexpected{error};
-
-        size *= 2;
-        buffer = std::make_unique<char[]>(size);
-    }
+    return std::vector<char>{buffer.get(), buffer.get() + size};
 }
 
 pid_t zero::os::macos::process::Process::pid() const {
