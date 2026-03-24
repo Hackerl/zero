@@ -19,7 +19,7 @@ TEST_CASE("flatten std::expected", "[utility]") {
         }
 
         SECTION("has error") {
-            REQUIRE_ERROR(zero::flatten(std::expected<std::expected<void, short>, int>{std::unexpected{-1}}), -1);
+            REQUIRE_ERROR(zero::flatten(std::expected<std::expected<void, short>, int>{std::unexpect, -1}), -1);
         }
     }
 
@@ -29,7 +29,7 @@ TEST_CASE("flatten std::expected", "[utility]") {
         }
 
         SECTION("has error") {
-            REQUIRE_ERROR(zero::flatten(std::expected<std::expected<int, short>, int>{std::unexpected{-1}}), -1);
+            REQUIRE_ERROR(zero::flatten(std::expected<std::expected<int, short>, int>{std::unexpect, -1}), -1);
         }
     }
 }
@@ -42,7 +42,7 @@ TEST_CASE("flatten std::expected with error type", "[utility]") {
 
         SECTION("has error") {
             REQUIRE_ERROR(
-                zero::flattenWith<long>(std::expected<std::expected<void, short>, int>{std::unexpected{-1}}),
+                zero::flattenWith<long>(std::expected<std::expected<void, short>, int>{std::unexpect, -1}),
                 -1
             );
         }
@@ -55,9 +55,7 @@ TEST_CASE("flatten std::expected with error type", "[utility]") {
 
         SECTION("has error") {
             REQUIRE_ERROR(
-                zero::flattenWith<long>(std::expected<std::expected<int, short>, int>{
-                    std::unexpected{-1}
-                }),
+                zero::flattenWith<long>(std::expected<std::expected<int, short>, int>{std::unexpect, -1}),
                 -1
             );
         }
@@ -70,7 +68,7 @@ TEST_CASE("extract std::expected", "[utility]") {
     }
 
     SECTION("has error") {
-        REQUIRE_FALSE(zero::extract(std::expected<int, int>{std::unexpected{-1}}));
+        REQUIRE_FALSE(zero::extract(std::expected<int, int>{std::unexpect, -1}));
     }
 }
 
@@ -86,7 +84,7 @@ TEST_CASE("transpose std::expected", "[utility]") {
     }
 
     SECTION("has error") {
-        REQUIRE(zero::transpose(std::expected<std::optional<int>, int>{std::unexpected{-1}}) == std::unexpected{-1});
+        REQUIRE(zero::transpose(std::expected<std::optional<int>, int>{std::unexpect, -1}) == std::unexpected{-1} );
     }
 }
 

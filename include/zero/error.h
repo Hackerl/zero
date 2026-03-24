@@ -4,6 +4,7 @@
 #include <array>
 #include <utility>
 #include <expected>
+#include <exception>
 #include <system_error>
 
 #if __has_include(<stacktrace>)
@@ -686,6 +687,25 @@ namespace zero::error {
             return;
         else
             return *std::move(expected);
+    }
+
+    template<typename F>
+    std::expected<std::invoke_result_t<F>, std::exception_ptr>
+    capture(F &&f) {
+        using T = std::invoke_result_t<F>;
+
+        try {
+            if constexpr (std::is_void_v<T>) {
+                f();
+                return {};
+            }
+            else {
+                return f();
+            }
+        }
+        catch (const std::exception &) {
+            return std::unexpected{std::current_exception()};
+        }
     }
 }
 

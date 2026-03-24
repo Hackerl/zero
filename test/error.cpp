@@ -1,5 +1,6 @@
 #include "catch_extensions.h"
 #include <zero/error.h>
+#include <catch2/matchers/catch_matchers_all.hpp>
 
 namespace {
     std::string stringify(const int value) {
@@ -445,5 +446,85 @@ TEST_CASE("custom extended error condition defined in class", "[error]") {
         REQUIRE(condition == ErrorCodeExWrapper::ErrorCodeEx::Timeout);
         REQUIRE(condition == static_cast<ErrorTransformerWrapper::ErrorTransformer>(ETIMEDOUT));
         REQUIRE(condition == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(ETIMEDOUT));
+    }
+}
+
+TEST_CASE("guard", "[error]") {
+    SECTION("void") {
+        SECTION("success") {
+            REQUIRE_NOTHROW(zero::error::guard(std::expected<void, std::error_code>{}));
+        }
+
+        SECTION("failure") {
+            REQUIRE_THROWS_MATCHES(
+                zero::error::guard(
+                    std::expected<void, std::error_code>{std::unexpect, make_error_code(std::errc::invalid_argument)}
+                ),
+                std::system_error,
+                Catch::Matchers::Predicate<std::system_error>([](const auto &error) {
+                    return error.code() == std::errc::invalid_argument;
+                })
+            );
+        }
+    }
+
+    SECTION("not void") {
+        SECTION("success") {
+            REQUIRE(zero::error::guard(std::expected<int, std::error_code>{0}) == 0);
+        }
+
+        SECTION("failure") {
+            REQUIRE_THROWS_MATCHES(
+                zero::error::guard(
+                    std::expected<int, std::error_code>{std::unexpect, make_error_code(std::errc::invalid_argument)}
+                ),
+                std::system_error,
+                Catch::Matchers::Predicate<std::system_error>([](const auto &error) {
+                    return error.code() == std::errc::invalid_argument;
+                })
+            );
+        }
+    }
+}
+
+TEST_CASE("capture", "[error]") {
+    SECTION("void") {
+        SECTION("success") {
+            REQUIRE(zero::error::capture([] {}));
+        }
+
+        SECTION("failure") {
+            const auto result = zero::error::capture([] {
+                throw std::system_error{make_error_code(std::errc::invalid_argument)};
+            });
+            REQUIRE_FALSE(result);
+            REQUIRE_THROWS_MATCHES(
+                std::rethrow_exception(result.error()),
+                std::system_error,
+                Catch::Matchers::Predicate<std::system_error>([](const auto &error) {
+                    return error.code() == std::errc::invalid_argument;
+                })
+            );
+        }
+    }
+
+    SECTION("not void") {
+        SECTION("success") {
+            REQUIRE(zero::error::capture([] { return 0; }) == 0);
+        }
+
+        SECTION("failure") {
+            const auto result = zero::error::capture([]() -> int {
+                throw std::system_error{make_error_code(std::errc::invalid_argument)};
+            });
+            REQUIRE_FALSE(result);
+            REQUIRE_THROWS_MATCHES(
+                std::rethrow_exception(result.error()),
+                std::system_error,
+                Catch::Matchers::Predicate<std::system_error>([](const auto &error) {
+                    return error.code() == std::errc::invalid_argument;
+                })
+            );
+        }
     }
 }
