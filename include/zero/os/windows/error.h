@@ -25,7 +25,7 @@ namespace zero::os::windows {
     )
 
     template<typename F>
-        requires (std::is_same_v<std::invoke_result_t<F>, BOOL> || std::is_same_v<std::invoke_result_t<F>, bool>)
+        requires (std::same_as<std::invoke_result_t<F>, BOOL> || std::same_as<std::invoke_result_t<F>, bool>)
     std::expected<void, std::error_code> expected(F &&f) {
         const auto result = f();
 

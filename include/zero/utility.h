@@ -16,7 +16,7 @@ namespace zero {
     }
 
     template<typename T, typename E1, typename E2>
-        requires std::is_convertible_v<E1, E2>
+        requires std::convertible_to<E1, E2>
     std::expected<T, E2> flatten(std::expected<std::expected<T, E1>, E2> expected) {
         return std::move(expected).and_then([](std::expected<T, E1> &&result) -> std::expected<T, E2> {
             return result;

@@ -654,8 +654,7 @@ namespace zero::error {
 
 namespace zero::error {
 #if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
-    template<typename T>
-        requires std::derived_from<T, std::exception>
+    template<std::derived_from<std::exception> T>
     class StacktraceError final : public T {
     public:
         template<typename... Args>
@@ -672,13 +671,11 @@ namespace zero::error {
         std::string mMessage;
     };
 #else
-    template<typename T>
-        requires std::derived_from<T, std::exception>
+    template<std::derived_from<std::exception> T>
     using StacktraceError = T;
 #endif
 
-    template<typename T, typename E>
-        requires std::is_convertible_v<E, std::error_code>
+    template<typename T, std::convertible_to<std::error_code> E>
     T guard(std::expected<T, E> &&expected) {
         if (!expected)
             throw StacktraceError<std::system_error>{expected.error()};

@@ -123,9 +123,9 @@ namespace zero::traits {
     using function_arguments_t = function_arguments<F, function_traits<F>::arity - 1>::type;
 
     template<typename T, typename I>
-    concept Trait = std::is_convertible_v<std::remove_cvref_t<T>, std::shared_ptr<I>> || (
+    concept Trait = std::convertible_to<std::remove_cvref_t<T>, std::shared_ptr<I>> || (
         std::derived_from<std::remove_cvref_t<T>, std::remove_const_t<I>> &&
-        std::is_convertible_v<std::add_lvalue_reference_t<T>, I &>
+        std::convertible_to<std::add_lvalue_reference_t<T>, I &>
     );
 }
 

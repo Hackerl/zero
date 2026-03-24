@@ -9,7 +9,7 @@
 
 namespace zero::os::unix {
     template<typename F>
-        requires std::is_integral_v<std::invoke_result_t<F>>
+        requires std::integral<std::invoke_result_t<F>>
     std::expected<std::invoke_result_t<F>, std::error_code> expected(F &&f) {
         const auto result = f();
 
@@ -31,7 +31,7 @@ namespace zero::os::unix {
     }
 
     template<typename F>
-        requires std::is_integral_v<std::invoke_result_t<F>>
+        requires std::integral<std::invoke_result_t<F>>
     std::expected<std::invoke_result_t<F>, std::error_code> ensure(F &&f) {
         while (true) {
             const auto result = expected(std::forward<F>(f));
