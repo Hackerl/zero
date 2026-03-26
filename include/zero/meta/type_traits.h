@@ -1,0 +1,125 @@
+#ifndef ZERO_META_TYPE_TRAITS_H
+#define ZERO_META_TYPE_TRAITS_H
+
+#include <array>
+#include <tuple>
+#include <type_traits>
+
+namespace zero::meta {
+    template<typename, template<typename...> class>
+    inline constexpr bool IsSpecialization = false;
+
+    template<template<typename...> class Template, typename... Ts>
+    inline constexpr bool IsSpecialization<Template<Ts...>, Template> = true;
+
+    template<typename F, typename T>
+    inline constexpr bool IsApplicable = false;
+
+    template<typename F, typename... Ts>
+    inline constexpr bool IsApplicable<F, std::tuple<Ts...>> = std::is_invocable_v<F, Ts...>;
+
+    template<typename F, typename T1, typename T2>
+    inline constexpr bool IsApplicable<F, std::pair<T1, T2>> = std::is_invocable_v<F, T1, T2>;
+
+    template<typename F, typename T, std::size_t N>
+    inline constexpr bool IsApplicable<F, std::array<T, N>> = IsApplicable<
+        F,
+        decltype(std::tuple_cat(std::declval<std::array<T, N>>()))
+    >;
+
+    template<typename T, typename... Ts>
+    inline constexpr bool IsAllSame = (std::is_same_v<T, Ts> && ...);
+
+    template<std::size_t I, typename... Ts>
+    using Element = std::tuple_element_t<I, std::tuple<Ts...>>;
+
+    template<typename... Ts>
+    using FirstElement = Element<0, Ts...>;
+
+    template<typename F>
+    struct FunctionTraits;
+
+    template<typename R, typename... Args>
+    struct FunctionTraits<R(*)(Args...)> : FunctionTraits<R(Args...)> {
+    };
+
+    template<typename R, typename... Args>
+    struct FunctionTraits<R(*)(Args...) noexcept> : FunctionTraits<R(Args...)> {
+    };
+
+    template<typename R, typename... Args>
+    struct FunctionTraits<R(Args...)> {
+        using ReturnType = R;
+
+        static constexpr auto Arity = sizeof...(Args);
+
+        template<std::size_t N>
+        struct Argument {
+            static_assert(N < Arity, "Invalid parameter index");
+            using Type = Element<N, Args...>;
+        };
+    };
+
+    template<typename C, typename R, typename... Args>
+    struct FunctionTraits<R(C::*)(Args...)> : FunctionTraits<R(C &, Args...)> {
+    };
+
+    template<typename C, typename R, typename... Args>
+    struct FunctionTraits<R(C::*)(Args...) noexcept> : FunctionTraits<R(C &, Args...)> {
+    };
+
+    template<typename C, typename R, typename... Args>
+    struct FunctionTraits<R(C::*)(Args...) const> : FunctionTraits<R(C &, Args...)> {
+    };
+
+    template<typename C, typename R, typename... Args>
+    struct FunctionTraits<R(C::*)(Args...) const noexcept> : FunctionTraits<R(C &, Args...)> {
+    };
+
+    template<typename C, typename R>
+    struct FunctionTraits<R(C::*)> : FunctionTraits<R(C &)> {
+    };
+
+    template<typename F>
+    struct FunctionTraits {
+    private:
+        using CallType = FunctionTraits<decltype(&F::operator())>;
+
+    public:
+        using ReturnType = CallType::ReturnType;
+
+        static constexpr auto Arity = CallType::Arity - 1;
+
+        template<std::size_t N>
+        struct Argument {
+            static_assert(N < Arity, "Invalid parameter index");
+            using Type = CallType::template Argument<N + 1>::Type;
+        };
+    };
+
+    template<typename F>
+    struct FunctionTraits<F &> : FunctionTraits<F> {
+    };
+
+    template<typename F>
+    struct FunctionTraits<F &&> : FunctionTraits<F> {
+    };
+
+    template<typename F, std::size_t N, typename... Ts>
+    struct FunctionArgumentsHelper :
+        FunctionArgumentsHelper<F, N - 1, typename FunctionTraits<F>::template Argument<N>::Type, Ts...> {
+    };
+
+    template<typename F, typename... Ts>
+    struct FunctionArgumentsHelper<F, 0, Ts...> {
+        using Type = std::tuple<typename FunctionTraits<F>::template Argument<0>::Type, Ts...>;
+    };
+
+    template<typename F>
+    using FunctionResult = FunctionTraits<F>::ReturnType;
+
+    template<typename F>
+    using FunctionArguments = FunctionArgumentsHelper<F, FunctionTraits<F>::Arity - 1>::Type;
+}
+
+#endif //ZERO_META_TYPE_TRAITS_H

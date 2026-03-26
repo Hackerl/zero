@@ -4,7 +4,7 @@
 #include <ctime>
 #include <expected>
 #include <optional>
-#include <zero/traits/type_traits.h>
+#include <zero/meta/type_traits.h>
 
 namespace zero {
     template<typename T>
@@ -24,7 +24,7 @@ namespace zero {
     }
 
     template<typename E, typename T>
-        requires traits::is_specialization_v<T, std::expected>
+        requires meta::IsSpecialization<T, std::expected>
     auto flattenWith(T expected) {
         return flatten(std::move(expected).transform_error([](typename T::error_type &&error) -> E {
             return error;

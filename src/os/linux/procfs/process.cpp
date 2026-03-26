@@ -1,6 +1,6 @@
 #include <zero/os/linux/procfs/process.h>
 #include <zero/os/linux/procfs/procfs.h>
-#include <zero/traits/type_traits.h>
+#include <zero/meta/type_traits.h>
 #include <zero/strings/strings.h>
 #include <zero/filesystem/fs.h>
 #include <zero/os/unix/error.h>
@@ -152,7 +152,7 @@ zero::os::linux::procfs::process::Process::stat() const {
     stat.state = it++->at(0);
 
     const auto set = [&]<typename T>(T &var) -> std::expected<void, std::error_code> {
-        if constexpr (traits::is_specialization_v<T, std::optional>) {
+        if constexpr (meta::IsSpecialization<T, std::optional>) {
             if (it == tokens.end())
                 return {};
 
@@ -351,13 +351,13 @@ zero::os::linux::procfs::process::Process::status() const {
         std::optional<V> value
     ) -> std::expected<void, std::error_code> {
         if (!value) {
-            if constexpr (traits::is_specialization_v<T, std::optional>)
+            if constexpr (meta::IsSpecialization<T, std::optional>)
                 return {};
             else
                 return std::unexpected{procfs::Error::UnexpectedData};
         }
 
-        if constexpr (traits::is_specialization_v<V, std::expected>) {
+        if constexpr (meta::IsSpecialization<V, std::expected>) {
             Z_EXPECT(*value);
             var = *std::move(*value);
         }
@@ -372,7 +372,7 @@ zero::os::linux::procfs::process::Process::status() const {
         return set(
             var,
             take(key).transform([=](const auto &value) {
-                if constexpr (traits::is_specialization_v<T, std::optional>)
+                if constexpr (meta::IsSpecialization<T, std::optional>)
                     return strings::toNumber<typename T::value_type>(value, base);
                 else
                     return strings::toNumber<T>(value, base);

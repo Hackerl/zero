@@ -27,7 +27,8 @@ add_executable(
         encoding/base64.cpp
         strings/strings.cpp
         filesystem/fs.cpp
-        traits/type_traits.cpp
+        meta/concepts.cpp
+        meta/type_traits.cpp
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>
         $<$<BOOL:${APPLE}>:os/macos/error.cpp>
         $<$<PLATFORM_ID:Windows>:os/windows/error.cpp os/windows/process.cpp>
