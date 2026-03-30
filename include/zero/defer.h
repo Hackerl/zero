@@ -7,15 +7,15 @@ namespace zero {
     template<typename F>
     class Defer {
     public:
-        explicit Defer(F &&fn) : mFn{std::move(fn)} {
+        explicit Defer(F &&f) : mFunction{std::move(f)} {
         }
 
         ~Defer() {
-            mFn();
+            mFunction();
         }
 
     private:
-        F mFn;
+        F mFunction;
     };
 }
 
