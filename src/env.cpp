@@ -1,6 +1,6 @@
 #include <zero/env.h>
 #include <zero/error.h>
-#include <zero/strings/strings.h>
+#include <zero/strings.h>
 
 #ifdef _WIN32
 #include <memory>

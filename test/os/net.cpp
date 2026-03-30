@@ -5,7 +5,7 @@
 #ifdef _WIN32
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
-#include <zero/strings/strings.h>
+#include <zero/strings.h>
 #endif
 
 #include <zero/os/process.h>

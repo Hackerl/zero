@@ -1,8 +1,8 @@
 #include <zero/log.h>
 #include <zero/env.h>
 #include <zero/expect.h>
-#include <zero/filesystem/fs.h>
-#include <zero/strings/strings.h>
+#include <zero/strings.h>
+#include <zero/filesystem.h>
 #include <ranges>
 #include <algorithm>
 

@@ -24,8 +24,8 @@ zero::os::process::ID zero::os::process::currentProcessID() {
 #include <future>
 
 #ifdef _WIN32
-#include <zero/filesystem/fs.h>
-#include <zero/strings/strings.h>
+#include <zero/filesystem.h>
+#include <zero/strings.h>
 #include <zero/os/windows/error.h>
 #else
 #include <csignal>

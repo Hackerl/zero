@@ -1,5 +1,5 @@
 #include <zero/cmdline.h>
-#include <zero/filesystem/fs.h>
+#include <zero/filesystem.h>
 #include <cassert>
 #include <ranges>
 #include <fmt/std.h>

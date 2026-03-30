@@ -25,6 +25,8 @@ add_library(
         src/env.cpp
         src/cmdline.cpp
         src/utility.cpp
+        src/strings.cpp
+        src/filesystem.cpp
         src/io/io.cpp
         src/io/buffer.cpp
         src/os/os.cpp
@@ -36,8 +38,6 @@ add_library(
         src/concurrent/channel.cpp
         src/encoding/hex.cpp
         src/encoding/base64.cpp
-        src/strings/strings.cpp
-        src/filesystem/fs.cpp
         $<$<BOOL:${APPLE}>:src/os/macos/error.cpp>
         $<$<PLATFORM_ID:Windows>:src/os/windows/error.cpp src/os/windows/process.cpp>
         $<$<PLATFORM_ID:Darwin>:src/os/macos/process.cpp>

@@ -1,7 +1,7 @@
 #include <zero/os/macos/process.h>
 #include <zero/os/macos/error.h>
 #include <zero/os/unix/error.h>
-#include <zero/strings/strings.h>
+#include <zero/strings.h>
 #include <zero/expect.h>
 #include <mach/mach_time.h>
 #include <sys/sysctl.h>

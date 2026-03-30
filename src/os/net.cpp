@@ -7,7 +7,7 @@
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <zero/expect.h>
-#include <zero/strings/strings.h>
+#include <zero/strings.h>
 #elif defined(__linux__)
 #include <cstring>
 #include <net/if.h>

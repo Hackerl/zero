@@ -7,7 +7,7 @@
 #include <windows.h>
 #include <lmcons.h>
 #include <zero/os/windows/error.h>
-#include <zero/strings/strings.h>
+#include <zero/strings.h>
 #elif defined(__linux__)
 #include <pwd.h>
 #include <memory>

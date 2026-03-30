@@ -2,8 +2,8 @@
 #include <zero/log.h>
 #include <zero/env.h>
 #include <zero/defer.h>
+#include <zero/filesystem.h>
 #include <zero/atomic/event.h>
-#include <zero/filesystem/fs.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <fakeit.hpp>
 #include <ranges>

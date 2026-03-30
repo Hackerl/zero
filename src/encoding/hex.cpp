@@ -1,5 +1,5 @@
 #include <zero/encoding/hex.h>
-#include <zero/strings/strings.h>
+#include <zero/strings.h>
 #include <cassert>
 
 std::string zero::encoding::hex::encode(const std::span<const std::byte> data) {

@@ -1,7 +1,7 @@
 #include <catch_extensions.h>
 #include <zero/os/process.h>
 #include <zero/os/os.h>
-#include <zero/filesystem/fs.h>
+#include <zero/filesystem.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
 

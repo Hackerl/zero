@@ -1,5 +1,5 @@
 #include <catch_extensions.h>
-#include <zero/strings/strings.h>
+#include <zero/strings.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 

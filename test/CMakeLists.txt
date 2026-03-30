@@ -11,6 +11,8 @@ add_executable(
         utility.cpp
         cmdline.cpp
         formatter.cpp
+        strings.cpp
+        filesystem.cpp
         io/io.cpp
         io/binary.cpp
         io/buffer.cpp
@@ -25,8 +27,6 @@ add_executable(
         concurrent/channel.cpp
         encoding/hex.cpp
         encoding/base64.cpp
-        strings/strings.cpp
-        filesystem/fs.cpp
         meta/concepts.cpp
         meta/type_traits.cpp
         $<$<BOOL:${UNIX}>:os/unix/error.cpp>

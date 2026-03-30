@@ -1,5 +1,5 @@
-#include <zero/filesystem/fs.h>
-#include <zero/strings/strings.h>
+#include <zero/filesystem.h>
+#include <zero/strings.h>
 #include <zero/error.h>
 #include <fstream>
 
@@ -12,9 +12,6 @@
 #include <sys/param.h>
 #include <zero/expect.h>
 #include <zero/os/unix/error.h>
-#include <zero/filesystem/fs.h>
-#elif defined(__linux__)
-#include <zero/filesystem/fs.h>
 #endif
 
 std::filesystem::path zero::filesystem::path(const std::string_view source) {
