@@ -90,12 +90,12 @@ namespace zero::meta {
     };
 
     template<typename F, std::size_t N, typename... Ts>
-    struct FunctionArgumentsHelper :
-        FunctionArgumentsHelper<F, N - 1, typename FunctionTraits<F>::template Argument<N>::Type, Ts...> {
+    struct FunctionArgumentsImpl :
+        FunctionArgumentsImpl<F, N - 1, typename FunctionTraits<F>::template Argument<N>::Type, Ts...> {
     };
 
     template<typename F, typename... Ts>
-    struct FunctionArgumentsHelper<F, 0, Ts...> {
+    struct FunctionArgumentsImpl<F, 0, Ts...> {
         using Type = std::tuple<typename FunctionTraits<F>::template Argument<0>::Type, Ts...>;
     };
 
@@ -103,7 +103,7 @@ namespace zero::meta {
     using FunctionResult = FunctionTraits<F>::ReturnType;
 
     template<typename F>
-    using FunctionArguments = FunctionArgumentsHelper<F, FunctionTraits<F>::Arity - 1>::Type;
+    using FunctionArguments = FunctionArgumentsImpl<F, FunctionTraits<F>::Arity - 1>::Type;
 }
 
 #endif //ZERO_META_TYPE_TRAITS_H

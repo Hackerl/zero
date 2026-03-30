@@ -568,8 +568,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     if (pid == 0) {
         const auto guard = [fd = pipe->second.fd()]<typename F>(F &&f) {
             static_assert(std::is_integral_v<std::invoke_result_t<F>>);
-
-            const auto result = f();
+            const auto result = std::invoke(std::forward<F>(f));
 
             if (result == -1) {
                 const auto error = errno;
@@ -1070,7 +1069,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     const auto expected = []<typename F>(F &&f) -> std::expected<void, std::error_code> {
         static_assert(std::is_same_v<std::invoke_result_t<F>, int>);
-        const auto result = f();
+        const auto result = std::invoke(std::forward<F>(f));
 
         if (result != 0)
             return std::unexpected{std::error_code{result, std::generic_category()}};

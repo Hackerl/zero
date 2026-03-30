@@ -5,6 +5,7 @@
 #include <utility>
 #include <expected>
 #include <exception>
+#include <functional>
 #include <system_error>
 
 #if __has_include(<stacktrace>)
@@ -693,11 +694,11 @@ namespace zero::error {
 
         try {
             if constexpr (std::is_void_v<T>) {
-                f();
+                std::invoke(std::forward<F>(f));
                 return {};
             }
             else {
-                return f();
+                return std::invoke(std::forward<F>(f));
             }
         }
         catch (const std::exception &) {

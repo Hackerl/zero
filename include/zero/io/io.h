@@ -3,7 +3,6 @@
 
 #include <span>
 #include <vector>
-#include <functional>
 #include <zero/error.h>
 #include <zero/expect.h>
 #include <zero/interface.h>

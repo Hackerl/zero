@@ -34,9 +34,8 @@ namespace {
             }
         }
 
-        template<typename F>
-        void post(F &&f) {
-            zero::error::guard(mChannel.first.send(std::forward<F>(f)));
+        void post(std::function<void()> f) {
+            zero::error::guard(mChannel.first.send(std::move(f)));
         }
 
     private:
