@@ -4,7 +4,7 @@
 #include <utility>
 
 namespace zero {
-    template<typename F>
+    template<std::invocable F>
     class Defer {
     public:
         explicit Defer(F &&f) : mFunction{std::move(f)} {

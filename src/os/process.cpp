@@ -566,7 +566,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     const auto pid = error::guard(unix::expected(fork));
 
     if (pid == 0) {
-        const auto guard = [fd = pipe->second.fd()]<typename F>(F &&f) {
+        const auto guard = [fd = pipe->second.fd()]<std::invocable F>(F &&f) {
             static_assert(std::is_integral_v<std::invoke_result_t<F>>);
             const auto result = std::invoke(std::forward<F>(f));
 
@@ -1067,7 +1067,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         }
     );
 
-    const auto expected = []<typename F>(F &&f) -> std::expected<void, std::error_code> {
+    const auto expected = []<std::invocable F>(F &&f) -> std::expected<void, std::error_code> {
         static_assert(std::is_same_v<std::invoke_result_t<F>, int>);
         const auto result = std::invoke(std::forward<F>(f));
 

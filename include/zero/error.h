@@ -687,7 +687,7 @@ namespace zero::error {
             return *std::move(expected);
     }
 
-    template<typename F>
+    template<std::invocable F>
     std::expected<std::invoke_result_t<F>, std::exception_ptr>
     capture(F &&f) {
         using T = std::invoke_result_t<F>;
