@@ -616,7 +616,8 @@ namespace zero::async::promise {
     template<std::input_iterator I, std::sentinel_for<I> S>
         requires meta::Specialization<std::iter_value_t<I>, Future>
     auto all(I first, S last) {
-        assert(first != last);
+        if (first == last)
+            throw error::StacktraceError<std::invalid_argument>{"Range must not be empty"};
 
         using T = std::iter_value_t<I>::value_type;
         using E = std::iter_value_t<I>::error_type;
@@ -784,7 +785,8 @@ namespace zero::async::promise {
     template<std::input_iterator I, std::sentinel_for<I> S>
         requires meta::Specialization<std::iter_value_t<I>, Future>
     auto allSettled(I first, S last) {
-        assert(first != last);
+        if (first == last)
+            throw error::StacktraceError<std::invalid_argument>{"Range must not be empty"};
 
         using T = std::iter_value_t<I>::value_type;
         using E = std::iter_value_t<I>::error_type;
@@ -900,7 +902,8 @@ namespace zero::async::promise {
     template<std::input_iterator I, std::sentinel_for<I> S>
         requires meta::Specialization<std::iter_value_t<I>, Future>
     auto any(I first, S last) {
-        assert(first != last);
+        if (first == last)
+            throw error::StacktraceError<std::invalid_argument>{"Range must not be empty"};
 
         using T = std::iter_value_t<I>::value_type;
         using E = std::iter_value_t<I>::error_type;
@@ -1007,7 +1010,8 @@ namespace zero::async::promise {
     template<std::input_iterator I, std::sentinel_for<I> S>
         requires meta::Specialization<std::iter_value_t<I>, Future>
     auto race(I first, S last) {
-        assert(first != last);
+        if (first == last)
+            throw error::StacktraceError<std::invalid_argument>{"Range must not be empty"};
 
         using T = std::iter_value_t<I>::value_type;
         using E = std::iter_value_t<I>::error_type;
