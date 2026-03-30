@@ -15,9 +15,6 @@ namespace zero::meta {
     template<typename T, template<typename...> class Template>
     concept Specialization = IsSpecialization<T, Template>;
 
-    template<typename F, typename T>
-    concept Applicable = IsApplicable<F, T>;
-
     template<typename T>
     concept Pointer = std::is_pointer_v<T>;
 }

@@ -1,7 +1,6 @@
 #ifndef ZERO_META_TYPE_TRAITS_H
 #define ZERO_META_TYPE_TRAITS_H
 
-#include <array>
 #include <tuple>
 #include <type_traits>
 
@@ -11,21 +10,6 @@ namespace zero::meta {
 
     template<template<typename...> class Template, typename... Ts>
     inline constexpr bool IsSpecialization<Template<Ts...>, Template> = true;
-
-    template<typename F, typename T>
-    inline constexpr bool IsApplicable = false;
-
-    template<typename F, typename... Ts>
-    inline constexpr bool IsApplicable<F, std::tuple<Ts...>> = std::is_invocable_v<F, Ts...>;
-
-    template<typename F, typename T1, typename T2>
-    inline constexpr bool IsApplicable<F, std::pair<T1, T2>> = std::is_invocable_v<F, T1, T2>;
-
-    template<typename F, typename T, std::size_t N>
-    inline constexpr bool IsApplicable<F, std::array<T, N>> = IsApplicable<
-        F,
-        decltype(std::tuple_cat(std::declval<std::array<T, N>>()))
-    >;
 
     template<typename T, typename... Ts>
     inline constexpr bool IsAllSame = (std::is_same_v<T, Ts> && ...);
