@@ -82,11 +82,11 @@ namespace zero::meta {
     };
 
     template<typename F>
-    struct FunctionTraits<F &> : FunctionTraits<F> {
+    struct FunctionTraits<F &> : FunctionTraits<std::remove_cv_t<F>> {
     };
 
     template<typename F>
-    struct FunctionTraits<F &&> : FunctionTraits<F> {
+    struct FunctionTraits<F &&> : FunctionTraits<std::remove_cv_t<F>> {
     };
 
     template<typename F, std::size_t N, typename... Ts>
