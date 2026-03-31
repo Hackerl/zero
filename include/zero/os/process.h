@@ -207,36 +207,31 @@ namespace zero::os::process {
         [[nodiscard]] const std::vector<Resource> &inheritedResources() const;
         [[nodiscard]] const std::vector<Resource::Native> &inheritedNativeResources() const;
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&arg(this Self &&self, std::string arg) {
             self.mArguments.push_back(std::move(arg));
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&args(this Self &&self, std::vector<std::string> args) {
             self.mArguments = std::move(args);
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&currentDirectory(this Self &&self, std::filesystem::path path) {
             self.mCurrentDirectory = std::move(path);
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&env(this Self &&self, std::string key, std::string value) {
             self.mEnviron[std::move(key)] = std::move(value);
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&envs(this Self &&self, std::map<std::string, std::string> envs) {
             for (auto &[key, value]: envs)
                 self.mEnviron[key] = std::move(value);
@@ -244,16 +239,14 @@ namespace zero::os::process {
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&clearEnv(this Self &&self) {
             self.mInheritEnv = false;
             self.mEnviron.clear();
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&removeEnv(this Self &&self, const std::string &key) {
             if (!self.mInheritEnv) {
                 self.mEnviron.erase(key);
@@ -264,50 +257,43 @@ namespace zero::os::process {
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&inheritedResource(this Self &&self, Resource resource) {
             self.mInheritedResources.push_back(std::move(resource));
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&inheritedResources(this Self &&self, std::vector<Resource> resources) {
             self.mInheritedResources = std::move(resources);
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&inheritedNativeResource(this Self &&self, const Resource::Native resource) {
             self.mInheritedNativeResources.push_back(resource);
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&inheritedNativeResources(this Self &&self, std::vector<Resource::Native> resources) {
             self.mInheritedNativeResources = std::move(resources);
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&stdInput(this Self &&self, const StdioType type) {
             self.mStdioTypes[0] = type;
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&stdOutput(this Self &&self, const StdioType type) {
             self.mStdioTypes[1] = type;
             return std::forward<Self>(self);
         }
 
-        template<typename Self>
-            requires (!std::is_const_v<Self>)
+        template<meta::Mutable Self>
         Self &&stdError(this Self &&self, const StdioType type) {
             self.mStdioTypes[2] = type;
             return std::forward<Self>(self);

@@ -17,6 +17,9 @@ namespace zero::meta {
 
     template<typename T>
     concept Pointer = std::is_pointer_v<T>;
+
+    template<typename T>
+    concept Mutable = !std::is_const_v<std::remove_reference_t<T>>;
 }
 
 #endif //ZERO_META_CONCEPTS_H
