@@ -184,8 +184,8 @@ namespace zero::async::promise {
 
     template<typename F, typename T>
     concept AsyncCallback =
-        (!std::is_void_v<T> && requires(F &&f, T arg) {
-            { std::invoke(std::forward<F>(f), std::move(arg)) } -> meta::Specialization<Future>;
+        (!std::is_void_v<T> && requires(F &&f, T &&arg) {
+            { std::invoke(std::forward<F>(f), std::forward<T>(arg)) } -> meta::Specialization<Future>;
         }) ||
         (std::is_void_v<T> && requires(F &&f) {
             { std::invoke(std::forward<F>(f)) } -> meta::Specialization<Future>;
@@ -193,8 +193,8 @@ namespace zero::async::promise {
 
     template<typename F, typename T>
     concept FallibleCallback =
-        (!std::is_void_v<T> && requires(F &&f, T arg) {
-            { std::invoke(std::forward<F>(f), std::move(arg)) } -> meta::Specialization<std::expected>;
+        (!std::is_void_v<T> && requires(F &&f, T &&arg) {
+            { std::invoke(std::forward<F>(f), std::forward<T>(arg)) } -> meta::Specialization<std::expected>;
         }) ||
         (std::is_void_v<T> && requires(F &&f) {
             { std::invoke(std::forward<F>(f)) } -> meta::Specialization<std::expected>;
@@ -202,8 +202,8 @@ namespace zero::async::promise {
 
     template<typename F, typename T>
     concept FailingCallback =
-        (!std::is_void_v<T> && requires(F &&f, T arg) {
-            { std::invoke(std::forward<F>(f), std::move(arg)) } -> meta::Specialization<std::unexpected>;
+        (!std::is_void_v<T> && requires(F &&f, T &&arg) {
+            { std::invoke(std::forward<F>(f), std::forward<T>(arg)) } -> meta::Specialization<std::unexpected>;
         }) ||
         (std::is_void_v<T> && requires(F &&f) {
             { std::invoke(std::forward<F>(f)) } -> meta::Specialization<std::unexpected>;
