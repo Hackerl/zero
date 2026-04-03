@@ -1050,7 +1050,7 @@ TEST_CASE("promise variadic all concurrency testing", "[async::promise]") {
 }
 
 TEST_CASE("promise allSettled concurrency testing", "[async::promise]") {
-    const auto result = *allSettled(std::array{
+    const auto result = allSettled(std::array{
         resolve<int, std::error_code>(1),
         reject<int, std::error_code>(make_error_code(std::errc::invalid_argument))
     }).get();
@@ -1059,7 +1059,7 @@ TEST_CASE("promise allSettled concurrency testing", "[async::promise]") {
 }
 
 TEST_CASE("promise variadic allSettled concurrency testing", "[async::promise]") {
-    const auto result = *allSettled(
+    const auto result = allSettled(
         resolve<int, std::error_code>(1),
         resolve<void, std::error_code>(),
         reject<long, std::error_code>(make_error_code(std::errc::invalid_argument))

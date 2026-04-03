@@ -20,19 +20,19 @@ namespace zero::meta {
     template<typename... Ts>
     using FirstElement = Element<0, Ts...>;
 
-    template<typename F>
+    template<typename F, typename = void>
     struct FunctionTraits;
 
     template<typename R, typename... Args>
-    struct FunctionTraits<R(*)(Args...)> : FunctionTraits<R(Args...)> {
+    struct FunctionTraits<R(*)(Args...), void> : FunctionTraits<R(Args...)> {
     };
 
     template<typename R, typename... Args>
-    struct FunctionTraits<R(*)(Args...) noexcept> : FunctionTraits<R(Args...)> {
+    struct FunctionTraits<R(*)(Args...) noexcept, void> : FunctionTraits<R(Args...)> {
     };
 
     template<typename R, typename... Args>
-    struct FunctionTraits<R(Args...)> {
+    struct FunctionTraits<R(Args...), void> {
         using ReturnType = R;
 
         static constexpr auto Arity = sizeof...(Args);
@@ -45,27 +45,28 @@ namespace zero::meta {
     };
 
     template<typename C, typename R, typename... Args>
-    struct FunctionTraits<R(C::*)(Args...)> : FunctionTraits<R(C &, Args...)> {
+    struct FunctionTraits<R(C::*)(Args...), void> : FunctionTraits<R(C &, Args...)> {
     };
 
     template<typename C, typename R, typename... Args>
-    struct FunctionTraits<R(C::*)(Args...) noexcept> : FunctionTraits<R(C &, Args...)> {
+    struct FunctionTraits<R(C::*)(Args...) noexcept, void> : FunctionTraits<R(C &, Args...)> {
     };
 
     template<typename C, typename R, typename... Args>
-    struct FunctionTraits<R(C::*)(Args...) const> : FunctionTraits<R(C &, Args...)> {
+    struct FunctionTraits<R(C::*)(Args...) const, void> : FunctionTraits<R(C &, Args...)> {
     };
 
     template<typename C, typename R, typename... Args>
-    struct FunctionTraits<R(C::*)(Args...) const noexcept> : FunctionTraits<R(C &, Args...)> {
+    struct FunctionTraits<R(C::*)(Args...) const noexcept, void> : FunctionTraits<R(C &, Args...)> {
     };
 
     template<typename C, typename R>
-    struct FunctionTraits<R(C::*)> : FunctionTraits<R(C &)> {
+    struct FunctionTraits<R(C::*), void> : FunctionTraits<R(C &)> {
     };
 
     template<typename F>
-    struct FunctionTraits {
+        requires requires { &F::operator(); }
+    struct FunctionTraits<F, void> {
     private:
         using CallType = FunctionTraits<decltype(&F::operator())>;
 
@@ -82,11 +83,11 @@ namespace zero::meta {
     };
 
     template<typename F>
-    struct FunctionTraits<F &> : FunctionTraits<std::remove_cv_t<F>> {
+    struct FunctionTraits<F &, void> : FunctionTraits<std::remove_cv_t<F>> {
     };
 
     template<typename F>
-    struct FunctionTraits<F &&> : FunctionTraits<std::remove_cv_t<F>> {
+    struct FunctionTraits<F &&, void> : FunctionTraits<std::remove_cv_t<F>> {
     };
 
     template<typename F, std::size_t N, typename... Ts>

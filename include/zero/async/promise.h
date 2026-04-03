@@ -39,16 +39,19 @@ namespace zero::async::promise {
         }
     };
 
-    template<typename T, typename E = std::nullptr_t>
+    template<typename T, typename E = std::exception_ptr>
     class Future;
 
-    template<typename T, typename E = std::nullptr_t>
+    template<typename T, typename E = std::exception_ptr>
     class Promise {
     public:
         using value_type = T;
         using error_type = E;
 
         Promise() : mRetrieved{false}, mCore{std::make_shared<Core<T, E>>()} {
+        }
+
+        explicit Promise(std::shared_ptr<Core<T, E>> core) : mRetrieved{false}, mCore{std::move(core)} {
         }
 
         Promise(Promise &&rhs) noexcept
@@ -82,22 +85,13 @@ namespace zero::async::promise {
             return Future<T, E>{mCore};
         }
 
-        template<typename... Args>
-        void resolve(Args &&... args) {
+        void resolve() requires std::is_void_v<T> {
             assert(mCore);
             assert(!mCore->result);
             assert(mCore->state != State::OnlyResult);
             assert(mCore->state != State::Done);
 
-            if constexpr (std::is_void_v<T>) {
-                static_assert(sizeof...(Args) == 0);
-                mCore->result.emplace();
-            }
-            else {
-                static_assert(sizeof...(Args) > 0);
-                mCore->result.emplace(std::in_place, std::forward<Args>(args)...);
-            }
-
+            mCore->result.emplace();
             auto state = mCore->state.load();
 
             if (state == State::Pending && mCore->state.compare_exchange_strong(state, State::OnlyResult)) {
@@ -114,15 +108,15 @@ namespace zero::async::promise {
             mCore->trigger();
         }
 
-        template<typename... Args>
-        void reject(Args &&... args) {
-            static_assert(sizeof...(Args) > 0);
+        template<typename U = T>
+            requires std::constructible_from<T, U>
+        void resolve(U &&value) requires (!std::is_void_v<T>) {
             assert(mCore);
             assert(!mCore->result);
             assert(mCore->state != State::OnlyResult);
             assert(mCore->state != State::Done);
 
-            mCore->result.emplace(std::unexpected<E>(std::in_place, std::forward<Args>(args)...));
+            mCore->result.emplace(std::in_place, std::forward<U>(value));
             auto state = mCore->state.load();
 
             if (state == State::Pending && mCore->state.compare_exchange_strong(state, State::OnlyResult)) {
@@ -137,6 +131,36 @@ namespace zero::async::promise {
 
             mCore->event.set();
             mCore->trigger();
+        }
+
+        template<typename U>
+            requires std::constructible_from<E, U>
+        void reject(U &&error) {
+            assert(mCore);
+            assert(!mCore->result);
+            assert(mCore->state != State::OnlyResult);
+            assert(mCore->state != State::Done);
+
+            mCore->result.emplace(std::unexpect, std::forward<U>(error));
+            auto state = mCore->state.load();
+
+            if (state == State::Pending && mCore->state.compare_exchange_strong(state, State::OnlyResult)) {
+                mCore->event.set();
+                return;
+            }
+
+            if (state != State::OnlyCallback || !mCore->state.compare_exchange_strong(state, State::Done))
+                throw error::StacktraceError<std::logic_error>{
+                    fmt::format("Unexpected promise state: {}", std::to_underlying(state))
+                };
+
+            mCore->event.set();
+            mCore->trigger();
+        }
+
+        void reject(const std::derived_from<std::exception> auto &exception)
+            requires std::same_as<E, std::exception_ptr> {
+            reject(std::make_exception_ptr(exception));
         }
 
     protected:
@@ -144,7 +168,7 @@ namespace zero::async::promise {
         std::shared_ptr<Core<T, E>> mCore;
     };
 
-    template<typename T, typename E>
+    template<typename T, typename E = std::exception_ptr>
     Future<T, E> chain(std::function<void(Promise<T, E>)> f) {
         Promise<T, E> promise;
         auto future = promise.getFuture();
@@ -152,27 +176,72 @@ namespace zero::async::promise {
         return future;
     }
 
-    template<typename T, typename E, typename... Args>
-    Future<T, E> reject(Args &&... args) {
-        Promise<T, E> promise;
-        promise.reject(std::forward<Args>(args)...);
-        return promise.getFuture();
+    template<typename T>
+    struct ResolvedFuture {
+        T value;
+
+        // ReSharper disable once CppNonExplicitConversionOperator
+        template<typename E>
+        operator Future<T, E>() && {
+            Promise<T, E> promise;
+            promise.resolve(std::move(value));
+            return promise.getFuture();
+        }
+    };
+
+    template<>
+    struct ResolvedFuture<void> {
+        // ReSharper disable once CppNonExplicitConversionOperator
+        template<typename E>
+        operator Future<void, E>() && {
+            Promise<void, E> promise;
+            promise.resolve();
+            return promise.getFuture();
+        }
+    };
+
+    template<typename E>
+    struct RejectedFuture {
+        E error;
+
+        // ReSharper disable once CppNonExplicitConversionOperator
+        template<typename T>
+        operator Future<T, E>() && {
+            Promise<T, E> promise;
+            promise.reject(std::move(error));
+            return promise.getFuture();
+        }
+    };
+
+    template<typename E>
+    RejectedFuture<E> reject(E error) {
+        return {std::move(error)};
+    }
+
+    template<typename T, typename E>
+    Future<T, E> reject(auto error) {
+        return reject(std::move(error));
+    }
+
+    inline ResolvedFuture<void> resolve() {
+        return {};
+    }
+
+    template<typename T>
+    ResolvedFuture<T> resolve(T value) {
+        return {std::move(value)};
     }
 
     template<typename T, typename E>
         requires std::is_void_v<T>
     Future<T, E> resolve() {
-        Promise<T, E> promise;
-        promise.resolve();
-        return promise.getFuture();
+        return resolve();
     }
 
-    template<typename T, typename E, typename... Args>
-        requires (!std::is_void_v<T> && sizeof...(Args) > 0)
-    Future<T, E> resolve(Args &&... args) {
-        Promise<T, E> promise;
-        promise.resolve(std::forward<Args>(args)...);
-        return promise.getFuture();
+    template<typename T, typename E>
+        requires (!std::is_void_v<T>)
+    Future<T, E> resolve(auto value) {
+        return resolve(std::move(value));
     }
 
     template<typename F, typename T>
@@ -207,6 +276,15 @@ namespace zero::async::promise {
         }) ||
         (std::is_void_v<T> && requires(F &&f) {
             { std::invoke(std::forward<F>(f)) } -> meta::Specialization<std::unexpected>;
+        });
+
+    template<typename F, typename T>
+    concept Callback =
+        (!std::is_void_v<T> && requires(F &&f, T &&arg) {
+            { std::invoke(std::forward<F>(f), std::forward<T>(arg)) };
+        }) ||
+        (std::is_void_v<T> && requires(F &&f) {
+            { std::invoke(std::forward<F>(f)) };
         });
 
     template<typename T, typename E>
@@ -269,7 +347,19 @@ namespace zero::async::promise {
             return mCore->event.wait(timeout);
         }
 
-        std::expected<T, E> get() && {
+        T get() && requires std::same_as<E, std::exception_ptr> {
+            error::guard(wait());
+
+            if (!*mCore->result)
+                std::rethrow_exception(mCore->result->error());
+
+            if constexpr (std::is_void_v<T>)
+                return;
+            else
+                return *std::move(*mCore->result);
+        }
+
+        std::expected<T, E> get() && requires (!std::same_as<E, std::exception_ptr>) {
             error::guard(wait());
             return std::move(*mCore->result);
         }
@@ -296,6 +386,8 @@ namespace zero::async::promise {
 
         template<AsyncCallback<T> F>
         auto then(F &&f) && {
+            static_assert(std::is_same_v<typename CallbackResult<F, T>::error_type, E>);
+
             assert(mCore);
             assert(!mCore->callback);
             assert(mCore->state != State::OnlyCallback);
@@ -322,8 +414,44 @@ namespace zero::async::promise {
             return future;
         }
 
+        template<Callback<T> F>
+            requires (!AsyncCallback<F, T> && !FallibleCallback<F, T>)
+        auto then(F &&f) && requires std::same_as<E, std::exception_ptr> {
+            using NextValue = CallbackResult<F, T>;
+
+            assert(mCore);
+            assert(!mCore->callback);
+            assert(mCore->state != State::OnlyCallback);
+            assert(mCore->state != State::Done);
+
+            const auto promise = std::make_shared<Promise<NextValue>>();
+            auto future = promise->getFuture();
+
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
+                try {
+                    auto next = std::move(result).transform(std::move(f));
+
+                    if (!next) {
+                        promise->reject(std::move(next).error());
+                        return;
+                    }
+
+                    if constexpr (std::is_void_v<NextValue>)
+                        promise->resolve();
+                    else
+                        promise->resolve(*std::move(next));
+                }
+                catch (const std::exception &) {
+                    promise->reject(std::current_exception());
+                }
+            });
+
+            return future;
+        }
+
         template<FallibleCallback<T> F>
-        auto then(F &&f) && {
+        auto then(F &&f) && requires (!std::same_as<E, std::exception_ptr>) {
+            static_assert(std::is_same_v<typename CallbackResult<F, T>::error_type, E>);
             using NextValue = CallbackResult<F, T>::value_type;
 
             assert(mCore);
@@ -351,9 +479,9 @@ namespace zero::async::promise {
             return future;
         }
 
-        template<typename F>
+        template<Callback<T> F>
             requires (!AsyncCallback<F, T> && !FallibleCallback<F, T>)
-        auto then(F &&f) && {
+        auto then(F &&f) && requires (!std::same_as<E, std::exception_ptr>) {
             using NextValue = CallbackResult<F, T>;
 
             assert(mCore);
@@ -408,6 +536,7 @@ namespace zero::async::promise {
 
         template<AsyncCallback<E> F>
         auto fail(F &&f) && {
+            static_assert(std::is_same_v<typename CallbackResult<F, E>::value_type, T>);
             using NextError = CallbackResult<F, E>::error_type;
 
             assert(mCore);
@@ -438,8 +567,72 @@ namespace zero::async::promise {
             return future;
         }
 
+        template<Callback<E> F>
+            requires (!AsyncCallback<F, E> && !FallibleCallback<F, E> && !FailingCallback<F, E>)
+        auto fail(F &&f) && requires std::same_as<E, std::exception_ptr> {
+            static_assert(std::is_same_v<CallbackResult<F, E>, T>);
+
+            assert(mCore);
+            assert(!mCore->callback);
+            assert(mCore->state != State::OnlyCallback);
+            assert(mCore->state != State::Done);
+
+            const auto promise = std::make_shared<Promise<T>>();
+            auto future = promise->getFuture();
+
+            setCallback([promise = std::move(promise), f = std::forward<F>(f)](std::expected<T, E> &&result) mutable {
+                try {
+                    if (!result) {
+                        if constexpr (std::is_void_v<T>) {
+                            std::invoke(std::move(f), std::move(result).error());
+                            promise->resolve();
+                        }
+                        else {
+                            promise->resolve(std::invoke(std::move(f), std::move(result).error()));
+                        }
+
+                        return;
+                    }
+
+                    if constexpr (std::is_void_v<T>)
+                        promise->resolve();
+                    else
+                        promise->resolve(*std::move(result));
+                }
+                catch (const std::exception &) {
+                    promise->reject(std::current_exception());
+                }
+            });
+
+            return future;
+        }
+
+        template<typename F>
+            requires (
+                meta::FunctionTraits<F>::Arity == 1 &&
+                std::derived_from<
+                    std::remove_cvref_t<typename meta::FunctionTraits<F>::template Argument<0>::Type>,
+                    std::exception
+                >
+            )
+        auto fail(F &&f) && requires std::same_as<E, std::exception_ptr> {
+            using Exception = meta::FunctionTraits<F>::template Argument<0>::Type;
+            static_assert(std::is_lvalue_reference_v<Exception> && std::is_const_v<std::remove_reference_t<Exception>>);
+
+            return std::move(*this).fail([f = std::forward<F>(f)](const std::exception_ptr &ptr) mutable {
+                try {
+                    std::rethrow_exception(ptr);
+                }
+                catch (const std::remove_cvref_t<Exception> &e) {
+                    return std::invoke(std::move(f), e);
+                }
+            });
+        }
+
         template<FallibleCallback<E> F>
-        auto fail(F &&f) && {
+        auto fail(F &&f) && requires (!std::same_as<E, std::exception_ptr>) {
+            static_assert(std::is_same_v<typename CallbackResult<F, E>::value_type, T>);
+
             assert(mCore);
             assert(!mCore->callback);
             assert(mCore->state != State::OnlyCallback);
@@ -466,7 +659,7 @@ namespace zero::async::promise {
         }
 
         template<FailingCallback<E> F>
-        auto fail(F &&f) && {
+        auto fail(F &&f) && requires (!std::same_as<E, std::exception_ptr>) {
             assert(mCore);
             assert(!mCore->callback);
             assert(mCore->state != State::OnlyCallback);
@@ -493,9 +686,11 @@ namespace zero::async::promise {
             return future;
         }
 
-        template<typename F>
+        template<Callback<E> F>
             requires (!AsyncCallback<F, E> && !FallibleCallback<F, E> && !FailingCallback<F, E>)
-        auto fail(F &&f) && {
+        auto fail(F &&f) && requires (!std::same_as<E, std::exception_ptr>) {
+            static_assert(std::is_same_v<CallbackResult<F, E>, T>);
+
             assert(mCore);
             assert(!mCore->callback);
             assert(mCore->state != State::OnlyCallback);
