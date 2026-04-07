@@ -21,13 +21,13 @@ namespace zero::async::promise {
         Done
     };
 
-    class Executor {
+    class IExecutor {
     public:
-        virtual ~Executor() = default;
+        virtual ~IExecutor() = default;
         virtual void post(std::function<void()> f) = 0;
     };
 
-    class InlineExecutor : public Executor {
+    class InlineExecutor : public IExecutor {
     public:
         static std::shared_ptr<InlineExecutor> instance();
 
@@ -40,7 +40,7 @@ namespace zero::async::promise {
         std::atomic<State> state{State::Pending};
         std::optional<std::expected<T, E>> result;
         std::function<void(std::expected<T, E>)> callback;
-        std::shared_ptr<Executor> executor;
+        std::shared_ptr<IExecutor> executor;
 
         void trigger() {
             assert(state == State::Done);
@@ -198,7 +198,7 @@ namespace zero::async::promise {
     using Contract = std::pair<Promise<T, E>, Future<T, E>>;
 
     template<typename T, typename E = std::exception_ptr>
-    Contract<T, E> makeContract(std::shared_ptr<Executor> executor) {
+    Contract<T, E> makeContract(std::shared_ptr<IExecutor> executor) {
         Promise<T, E> promise;
         auto future = promise.getFuture().via(std::move(executor));
         return {std::move(promise), std::move(future)};
@@ -416,7 +416,7 @@ namespace zero::async::promise {
             return promise.getFuture();
         }
 
-        Future<T, E> via(std::shared_ptr<Executor> executor = InlineExecutor::instance()) && {
+        Future<T, E> via(std::shared_ptr<IExecutor> executor = InlineExecutor::instance()) && {
             this->mCore->executor = std::move(executor);
             return Future<T, E>{std::move(this->mCore)};
         }
@@ -441,7 +441,7 @@ namespace zero::async::promise {
             return SemiFuture<T, E>::rejected(std::move(error)).via();
         }
 
-        Future &&via(std::shared_ptr<Executor> executor) && {
+        Future &&via(std::shared_ptr<IExecutor> executor) && {
             this->mCore->executor = std::move(executor);
             return std::move(*this);
         }

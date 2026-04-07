@@ -1,14 +1,14 @@
 #include <zero/meta/concepts.h>
-#include <zero/interface.h>
 #include <vector>
 #include <list>
 
 namespace {
-    class Interface : public zero::Interface {
+    struct Interface {
+        virtual ~Interface() = default;
         virtual void test() = 0;
     };
 
-    class Implement final : public Interface {
+    struct Implement final : Interface {
         void test() override {
         }
     };

@@ -5,7 +5,6 @@
 #include <vector>
 #include <zero/error.h>
 #include <zero/expect.h>
-#include <zero/interface.h>
 #include <zero/meta/concepts.h>
 
 #ifdef _WIN32
@@ -25,17 +24,19 @@ namespace zero::io {
     using FileDescriptor = int;
 #endif
 
-    class IFileDescriptor : public virtual Interface {
+    class IFileDescriptor {
     public:
+        virtual ~IFileDescriptor() = default;
         [[nodiscard]] virtual FileDescriptor fd() const = 0;
     };
 
-    class ICloseable : public virtual Interface {
+    class ICloseable {
     public:
+        virtual ~ICloseable() = default;
         virtual std::expected<void, std::error_code> close() = 0;
     };
 
-    class IReader : public virtual Interface {
+    class IReader {
     public:
         Z_DEFINE_ERROR_CODE_INNER_EX(
             ReadExactlyError,
@@ -43,18 +44,20 @@ namespace zero::io {
             UnexpectedEOF, "Unexpected end of file", make_error_condition(Error::UnexpectedEOF)
         )
 
+        virtual ~IReader() = default;
         virtual std::expected<std::size_t, std::error_code> read(std::span<std::byte> data) = 0;
         virtual std::expected<void, std::error_code> readExactly(std::span<std::byte> data);
         virtual std::expected<std::vector<std::byte>, std::error_code> readAll();
     };
 
-    class IWriter : public virtual Interface {
+    class IWriter {
     public:
+        virtual ~IWriter() = default;
         virtual std::expected<std::size_t, std::error_code> write(std::span<const std::byte> data) = 0;
         virtual std::expected<void, std::error_code> writeAll(std::span<const std::byte> data);
     };
 
-    class ISeekable : public virtual Interface {
+    class ISeekable {
     public:
         enum class Whence {
             Begin,
@@ -62,6 +65,7 @@ namespace zero::io {
             End
         };
 
+        virtual ~ISeekable() = default;
         virtual std::expected<std::uint64_t, std::error_code> seek(std::int64_t offset, Whence whence) = 0;
         virtual std::expected<void, std::error_code> rewind();
         virtual std::expected<std::uint64_t, std::error_code> length();

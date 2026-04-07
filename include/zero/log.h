@@ -2,7 +2,6 @@
 #define ZERO_LOG_H
 
 #include "utility.h"
-#include "interface.h"
 #include "os/process.h"
 #include "concurrent/channel.h"
 #include <thread>
@@ -30,8 +29,9 @@ namespace zero::log {
         std::string content;
     };
 
-    class IProvider : public Interface {
+    class IProvider {
     public:
+        virtual ~IProvider() = default;
         virtual std::expected<void, std::error_code> init() = 0;
         virtual std::expected<void, std::error_code> rotate() = 0;
         virtual std::expected<void, std::error_code> flush() = 0;
