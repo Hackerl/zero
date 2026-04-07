@@ -35,6 +35,7 @@ add_library(
         src/os/process.cpp
         src/os/resource.cpp
         src/atomic/event.cpp
+        src/async/promise.cpp
         src/concurrent/channel.cpp
         src/encoding/hex.cpp
         src/encoding/base64.cpp
