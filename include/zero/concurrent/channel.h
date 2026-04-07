@@ -13,7 +13,7 @@ namespace zero::concurrent {
         struct Context {
             bool waiting{};
             std::condition_variable cv;
-            std::atomic<std::size_t> counter;
+            std::atomic<std::size_t> refCount;
         };
 
         explicit ChannelCore(const std::size_t capacity) : buffer{capacity + 1} {
@@ -84,18 +84,18 @@ namespace zero::concurrent {
     class Sender {
     public:
         explicit Sender(std::shared_ptr<ChannelCore<T>> core) : mCore{std::move(core)} {
-            ++mCore->sender.counter;
+            ++mCore->sender.refCount;
         }
 
         Sender(const Sender &rhs) : mCore{rhs.mCore} {
-            ++mCore->sender.counter;
+            ++mCore->sender.refCount;
         }
 
         Sender(Sender &&rhs) = default;
 
         Sender &operator=(const Sender &rhs) {
             mCore = rhs.mCore;
-            ++mCore->sender.counter;
+            ++mCore->sender.refCount;
             return *this;
         }
 
@@ -105,7 +105,7 @@ namespace zero::concurrent {
             if (!mCore)
                 return;
 
-            if (--mCore->sender.counter > 0)
+            if (--mCore->sender.refCount > 0)
                 return;
 
             mCore->close();
@@ -261,18 +261,18 @@ namespace zero::concurrent {
     class Receiver {
     public:
         explicit Receiver(std::shared_ptr<ChannelCore<T>> core) : mCore{std::move(core)} {
-            ++mCore->receiver.counter;
+            ++mCore->receiver.refCount;
         }
 
         Receiver(const Receiver &rhs) : mCore{rhs.mCore} {
-            ++mCore->receiver.counter;
+            ++mCore->receiver.refCount;
         }
 
         Receiver(Receiver &&rhs) = default;
 
         Receiver &operator=(const Receiver &rhs) {
             mCore = rhs.mCore;
-            ++mCore->receiver.counter;
+            ++mCore->receiver.refCount;
             return *this;
         }
 
@@ -282,7 +282,7 @@ namespace zero::concurrent {
             if (!mCore)
                 return;
 
-            if (--mCore->receiver.counter > 0)
+            if (--mCore->receiver.refCount > 0)
                 return;
 
             mCore->close();

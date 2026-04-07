@@ -52,7 +52,7 @@ namespace zero::log {
             std::string name,
             std::optional<std::filesystem::path> directory = std::nullopt,
             std::size_t limit = 10 * 1024 * 1024,
-            int remain = 10
+            std::size_t maxFiles = 10
         );
 
         std::expected<void, std::error_code> init() override;
@@ -62,12 +62,12 @@ namespace zero::log {
 
     private:
         os::process::ID mPID;
-        int mRemain;
-        std::size_t mLimit;
-        std::size_t mPosition;
-        std::ofstream mStream;
         std::string mName;
         std::filesystem::path mDirectory;
+        std::size_t mLimit;
+        std::size_t mMaxFiles;
+        std::size_t mPosition;
+        std::ofstream mStream;
     };
 
     class Logger {
@@ -103,7 +103,7 @@ namespace zero::log {
                     std::chrono::system_clock::now(),
                     std::move(content)
                 },
-                mTimeout
+                mSendTimeout
             ); !result) {
                 fmt::print(stderr, "Failed to send log: {}\n", std::error_code{result.error()});
                 return;
@@ -117,11 +117,11 @@ namespace zero::log {
     private:
         std::mutex mMutex;
         std::thread mThread;
-        std::once_flag mOnceFlag;
+        std::once_flag mInitFlag;
         std::list<Config> mConfigs;
         std::optional<Level> mMinLogLevel;
         std::optional<Level> mMaxLogLevel;
-        std::optional<std::chrono::milliseconds> mTimeout;
+        std::optional<std::chrono::milliseconds> mSendTimeout;
         std::atomic<std::size_t> mPending;
         concurrent::Channel<Record> mChannel;
     };

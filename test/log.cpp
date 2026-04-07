@@ -216,22 +216,22 @@ TEST_CASE("file log provider", "[log]") {
         Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
 
         const auto limit = GENERATE(take(1, random<std::size_t>(64, 1024)));
-        const auto remain = GENERATE(take(1, random(5, 10)));
+        const auto maxFiles = GENERATE(take(1uz, random(5uz, 10uz)));
 
-        zero::log::FileProvider provider{name, directory, limit, remain};
+        zero::log::FileProvider provider{name, directory, limit, maxFiles};
         REQUIRE(provider.init());
 
         zero::log::Record record{
             .content = GENERATE_REF(take(1, randomAlphanumericString(limit, limit)))
         };
 
-        for (int i{0}; i < remain * 2; ++i) {
+        for (int i{0}; i < maxFiles * 2; ++i) {
             // The log file name is generated based on the timestamp.
             std::this_thread::sleep_for(10ms);
             REQUIRE(provider.write(record));
             REQUIRE(provider.rotate());
         }
 
-        REQUIRE(zero::filesystem::readDirectory(directory).transform(std::ranges::distance) == remain + 1);
+        REQUIRE(zero::filesystem::readDirectory(directory).transform(std::ranges::distance) == maxFiles + 1);
     }
 }

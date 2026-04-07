@@ -37,10 +37,10 @@ zero::log::FileProvider::FileProvider(
     std::string name,
     std::optional<std::filesystem::path> directory,
     const std::size_t limit,
-    const int remain
+    const std::size_t maxFiles
 ) : mPID{os::process::currentProcessID()},
-    mRemain{remain}, mLimit{limit}, mPosition{0}, mName{std::move(name)},
-    mDirectory{std::move(directory).value_or(std::filesystem::temp_directory_path())} {
+    mName{std::move(name)}, mDirectory{std::move(directory).value_or(std::filesystem::temp_directory_path())},
+    mLimit{limit}, mMaxFiles{maxFiles}, mPosition{0} {
 }
 
 std::expected<void, std::error_code> zero::log::FileProvider::init() {
@@ -93,7 +93,7 @@ std::expected<void, std::error_code> zero::log::FileProvider::rotate() {
 
     logs.sort();
 
-    for (const auto &log: logs | std::views::reverse | std::views::drop(mRemain)) {
+    for (const auto &log: logs | std::views::reverse | std::views::drop(mMaxFiles)) {
         Z_EXPECT(filesystem::remove(log));
     }
 
@@ -222,7 +222,7 @@ void zero::log::Logger::addProvider(
     const std::chrono::milliseconds interval
 ) {
     std::call_once(
-        mOnceFlag,
+        mInitFlag,
         [=, this] {
             const auto getOption = [](const std::string &name) -> std::optional<int> {
                 const auto value = env::get(name);
@@ -248,11 +248,11 @@ void zero::log::Logger::addProvider(
 
             if (const auto value = getOption("ZERO_LOG_TIMEOUT")) {
                 if (*value <= 0) {
-                    mTimeout.reset();
+                    mSendTimeout.reset();
                     return;
                 }
 
-                mTimeout = std::chrono::milliseconds{*value};
+                mSendTimeout = std::chrono::milliseconds{*value};
             }
 
             mThread = std::thread{&Logger::consume, this};

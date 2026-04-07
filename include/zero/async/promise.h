@@ -47,7 +47,10 @@ namespace zero::async::promise {
             assert(executor);
 
             executor->post(
-                [callback = std::move(callback), result = std::make_shared<std::expected<T, E>>(std::move(*result))] {
+                [
+                    callback = std::move(callback),
+                    result = std::make_shared<std::expected<T, E>>(*std::exchange(result, std::nullopt))
+                ] {
                     callback(std::move(*result));
                 }
             );
@@ -1198,8 +1201,8 @@ namespace zero::async::promise {
     }
 
     template<typename... Ts, typename... Es>
-    auto allSettled(Future<Ts, Es>... promises) {
-        return allSettled(std::index_sequence_for<Ts...>{}, std::move(promises)...);
+    auto allSettled(Future<Ts, Es>... futures) {
+        return allSettled(std::index_sequence_for<Ts...>{}, std::move(futures)...);
     }
 
     template<std::input_iterator I, std::sentinel_for<I> S>
