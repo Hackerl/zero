@@ -198,7 +198,7 @@ namespace zero::async::promise {
     using Contract = std::pair<Promise<T, E>, Future<T, E>>;
 
     template<typename T, typename E = std::exception_ptr>
-    Contract<T, E> makeContract(std::shared_ptr<IExecutor> executor) {
+    Contract<T, E> contract(std::shared_ptr<IExecutor> executor) {
         Promise<T, E> promise;
         auto future = promise.getFuture().via(std::move(executor));
         return {std::move(promise), std::move(future)};
@@ -476,7 +476,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<NextValue, E>(this->mCore->executor);
+            auto [promise, future] = contract<NextValue, E>(this->mCore->executor);
 
             setCallback(
                 [
@@ -510,7 +510,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<NextValue>(this->mCore->executor);
+            auto [promise, future] = contract<NextValue>(this->mCore->executor);
 
             setCallback(
                 [
@@ -548,7 +548,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<NextValue, E>(this->mCore->executor);
+            auto [promise, future] = contract<NextValue, E>(this->mCore->executor);
 
             setCallback(
                 [
@@ -581,7 +581,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<NextValue, E>(this->mCore->executor);
+            auto [promise, future] = contract<NextValue, E>(this->mCore->executor);
 
             setCallback(
                 [
@@ -639,7 +639,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<T, NextError>(this->mCore->executor);
+            auto [promise, future] = contract<T, NextError>(this->mCore->executor);
 
             setCallback(
                 [
@@ -676,7 +676,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<T>(this->mCore->executor);
+            auto [promise, future] = contract<T>(this->mCore->executor);
 
             setCallback(
                 [
@@ -741,7 +741,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<T, NextError>(this->mCore->executor);
+            auto [promise, future] = contract<T, NextError>(this->mCore->executor);
 
             setCallback(
                 [
@@ -773,7 +773,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<T, NextError>(this->mCore->executor);
+            auto [promise, future] = contract<T, NextError>(this->mCore->executor);
 
             setCallback(
                 [
@@ -804,7 +804,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<T, E>(this->mCore->executor);
+            auto [promise, future] = contract<T, E>(this->mCore->executor);
 
             setCallback(
                 [
@@ -838,7 +838,7 @@ namespace zero::async::promise {
             assert(this->mCore->state != State::OnlyCallback);
             assert(this->mCore->state != State::Done);
 
-            auto [promise, future] = makeContract<T, E>(this->mCore->executor);
+            auto [promise, future] = contract<T, E>(this->mCore->executor);
 
             setCallback(
                 [

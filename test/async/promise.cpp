@@ -48,7 +48,7 @@ namespace {
 
 template<typename T, typename E, typename U>
 zero::async::promise::Future<T, E> rejected(U &&error) {
-    auto [promise, future] = zero::async::promise::makeContract<T, E>(zero::async::promise::InlineExecutor::instance());
+    auto [promise, future] = zero::async::promise::contract<T, E>(zero::async::promise::InlineExecutor::instance());
 
     pool.post(
         [
@@ -66,7 +66,7 @@ zero::async::promise::Future<T, E> rejected(U &&error) {
 template<typename T, typename E>
     requires std::is_void_v<T>
 zero::async::promise::Future<T, E> resolved() {
-    auto [promise, future] = zero::async::promise::makeContract<T, E>(zero::async::promise::InlineExecutor::instance());
+    auto [promise, future] = zero::async::promise::contract<T, E>(zero::async::promise::InlineExecutor::instance());
 
     pool.post([promise = std::make_shared<zero::async::promise::Promise<T, E>>(std::move(promise))] {
         std::this_thread::yield();
@@ -79,7 +79,7 @@ zero::async::promise::Future<T, E> resolved() {
 template<typename T, typename E, typename U>
     requires (!std::is_void_v<T>)
 zero::async::promise::Future<T, E> resolved(U &&value) {
-    auto [promise, future] = zero::async::promise::makeContract<T, E>(zero::async::promise::InlineExecutor::instance());
+    auto [promise, future] = zero::async::promise::contract<T, E>(zero::async::promise::InlineExecutor::instance());
 
     pool.post(
         [
