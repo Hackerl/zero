@@ -1011,7 +1011,7 @@ namespace zero::async::promise {
                 void,
                 std::array<meta::FirstElement<Ts...>, sizeof...(Ts)>
             >,
-            std::tuple<std::conditional_t<std::is_void_v<Ts>, std::nullptr_t, Ts>...>
+            std::tuple<std::conditional_t<std::is_void_v<Ts>, std::monostate, Ts>...>
         >;
 
         if constexpr (std::is_void_v<T>) {
