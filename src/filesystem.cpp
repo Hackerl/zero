@@ -788,19 +788,6 @@ std::expected<std::filesystem::file_status, std::error_code> zero::filesystem::D
     return result;
 }
 
-zero::filesystem::EntryProxy::EntryProxy(std::expected<DirectoryEntry, std::error_code> entry)
-    : mEntry{std::move(entry)} {
-}
-
-const std::expected<zero::filesystem::DirectoryEntry, std::error_code> &
-zero::filesystem::EntryProxy::operator*() const & {
-    return mEntry;
-}
-
-std::expected<zero::filesystem::DirectoryEntry, std::error_code> zero::filesystem::EntryProxy::operator*() && {
-    return std::move(mEntry);
-}
-
 std::expected<zero::filesystem::NoExcept<std::filesystem::directory_iterator>, std::error_code>
 zero::filesystem::readDirectory(const std::filesystem::path &path) {
     std::error_code ec;

@@ -67,23 +67,27 @@ std::expected<void, std::error_code> zero::log::FileProvider::rotate() {
     mStream.close();
     mStream.clear();
 
-    const auto iterator = filesystem::readDirectory(mDirectory);
+    auto iterator = filesystem::readDirectory(mDirectory);
     Z_EXPECT(iterator);
 
     const auto prefix = fmt::format("{}.{}", mName, mPID);
 
     std::list<std::filesystem::path> logs;
 
-    for (const auto &entry: *iterator) {
+    while (true) {
+        const auto entry = iterator->next();
         Z_EXPECT(entry);
 
-        const auto result = entry->isRegularFile();
+        if (!*entry)
+            break;
+
+        const auto result = entry.value()->isRegularFile();
         Z_EXPECT(result);
 
         if (!*result)
             continue;
 
-        const auto &path = entry->path();
+        const auto &path = entry.value()->path();
 
         if (!filesystem::stringify(path.filename()).starts_with(prefix))
             continue;

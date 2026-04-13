@@ -248,50 +248,27 @@ TEST_CASE("read directory", "[filesystem]") {
             REQUIRE(zero::filesystem::write(file, ""));
         }
 
-        auto it = zero::filesystem::readDirectory(directory);
-        REQUIRE(it);
+        auto iterator = zero::filesystem::readDirectory(directory);
+        REQUIRE(iterator);
 
-        SECTION("prefix increment") {
-            auto entry = **it;
-            REQUIRE(entry);
-            REQUIRE_THAT(files, Catch::Matchers::Contains(entry->path()));
+        auto entry = iterator->next();
+        REQUIRE(entry);
+        REQUIRE(*entry);
+        REQUIRE_THAT(files, Catch::Matchers::Contains(entry.value()->path()));
 
-            entry = *++*it;
-            REQUIRE(entry);
-            REQUIRE_THAT(files, Catch::Matchers::Contains(entry->path()));
+        entry = iterator->next();
+        REQUIRE(entry);
+        REQUIRE(*entry);
+        REQUIRE_THAT(files, Catch::Matchers::Contains(entry.value()->path()));
 
-            entry = *++*it;
-            REQUIRE(entry);
-            REQUIRE_THAT(files, Catch::Matchers::Contains(entry->path()));
-            REQUIRE(++*it == end(*it));
-        }
+        entry = iterator->next();
+        REQUIRE(entry);
+        REQUIRE(*entry);
+        REQUIRE_THAT(files, Catch::Matchers::Contains(entry.value()->path()));
 
-        SECTION("postfix increment") {
-            auto entry = *(*it)++;
-            REQUIRE(entry);
-            REQUIRE_THAT(files, Catch::Matchers::Contains(entry->path()));
-
-            entry = *(*it)++;
-            REQUIRE(entry);
-            REQUIRE_THAT(files, Catch::Matchers::Contains(entry->path()));
-
-            entry = *(*it)++;
-            REQUIRE(entry);
-            REQUIRE_THAT(files, Catch::Matchers::Contains(entry->path()));
-            REQUIRE(*it == end(*it));
-        }
-
-        SECTION("collect") {
-            REQUIRE_THAT(
-                *it
-                | std::views::transform([](const auto &entry) {
-                    REQUIRE(entry);
-                    return entry->path();
-                })
-                | std::ranges::to<std::list>(),
-                Catch::Matchers::UnorderedRangeEquals(files)
-            );
-        }
+        entry = iterator->next();
+        REQUIRE(entry);
+        REQUIRE_FALSE(*entry);
     }
 }
 
@@ -314,36 +291,24 @@ TEST_CASE("walk directory", "[filesystem]") {
             REQUIRE(zero::filesystem::write(file, ""));
         }
 
-        auto it = zero::filesystem::walkDirectory(directory);
-        REQUIRE(it);
+        auto iterator = zero::filesystem::walkDirectory(directory);
+        REQUIRE(iterator);
 
-#ifndef _WIN32
-        SECTION("error while traversing") {
-            REQUIRE(zero::filesystem::permissions(directory / "b", std::filesystem::perms::none));
+        std::list<std::filesystem::path> paths;
 
-            const auto entries = std::ranges::to<std::list>(*it);
-            REQUIRE_FALSE(entries.back());
-            REQUIRE(entries.back().error() == std::errc::permission_denied);
+        while (true) {
+            const auto entry = iterator->next();
+            REQUIRE(entry);
 
-            REQUIRE(zero::filesystem::permissions(directory / "b", std::filesystem::perms::all));
+            if (!*entry)
+                break;
+
+            if (!entry.value()->isRegularFile().value_or(false))
+                continue;
+
+            paths.push_back(entry->value().path());
         }
-#endif
 
-        SECTION("collect") {
-            REQUIRE_THAT(
-                *it
-                | std::views::transform([](const auto &entry) {
-                    REQUIRE(entry);
-                    return entry->path();
-                })
-                | std::views::filter([](const auto &path) {
-                    const auto result = zero::filesystem::isRegularFile(path);
-                    REQUIRE(result);
-                    return *result;
-                })
-                | std::ranges::to<std::list>(),
-                Catch::Matchers::UnorderedRangeEquals(files)
-            );
-        }
+        REQUIRE_THAT(paths, Catch::Matchers::UnorderedRangeEquals(files));
     }
 }

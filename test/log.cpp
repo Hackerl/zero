@@ -175,7 +175,14 @@ TEST_CASE("file log provider", "[log]") {
 
         zero::log::FileProvider provider{name, directory};
         REQUIRE(provider.init());
-        REQUIRE(zero::filesystem::readDirectory(directory).transform(std::ranges::distance) == 1);
+
+        std::size_t count{0};
+        auto iterator = zero::error::guard(zero::filesystem::readDirectory(directory));
+
+        while (zero::error::guard(iterator.next()))
+            ++count;
+
+        REQUIRE(count == 1);
     }
 
     SECTION("write and flush") {
@@ -190,19 +197,25 @@ TEST_CASE("file log provider", "[log]") {
         REQUIRE(provider.write(record));
         REQUIRE(provider.flush());
 
-        const auto files = zero::filesystem::readDirectory(directory).transform([](const auto &it) {
-            return it
-                | std::views::transform([](const auto &entry) {
-                    REQUIRE(entry);
-                    return entry->path();
-                })
-                | std::ranges::to<std::list>();
-        });
-        REQUIRE(files);
-        REQUIRE_THAT(*files, Catch::Matchers::SizeIs(1));
+        std::list<std::filesystem::path> files;
+
+        auto iterator = zero::filesystem::readDirectory(directory);
+        REQUIRE(iterator);
+
+        while (true) {
+            const auto entry = iterator->next();
+            REQUIRE(entry);
+
+            if (!*entry)
+                break;
+
+            files.push_back(entry.value()->path());
+        }
+
+        REQUIRE_THAT(files, Catch::Matchers::SizeIs(1));
 
         // On Windows, the file content ends with `/r/n`.
-        const auto content = zero::filesystem::readString(files->front());
+        const auto content = zero::filesystem::readString(files.front());
         REQUIRE(content);
         REQUIRE_THAT(*content, Catch::Matchers::StartsWith(fmt::to_string(record)));
     }
@@ -230,6 +243,12 @@ TEST_CASE("file log provider", "[log]") {
             REQUIRE(provider.rotate());
         }
 
-        REQUIRE(zero::filesystem::readDirectory(directory).transform(std::ranges::distance) == maxFiles + 1);
+        std::size_t count{0};
+        auto iterator = zero::error::guard(zero::filesystem::readDirectory(directory));
+
+        while (zero::error::guard(iterator.next()))
+            ++count;
+
+        REQUIRE(count == maxFiles + 1);
     }
 }

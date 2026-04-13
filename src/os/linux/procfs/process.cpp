@@ -616,11 +616,9 @@ zero::os::linux::procfs::process::open(const pid_t pid) {
 
 std::list<pid_t> zero::os::linux::procfs::process::all() {
     std::list<pid_t> ids;
+    auto iterator = error::guard(filesystem::readDirectory("/proc"));
 
-    for (const auto &entry: error::guard(filesystem::readDirectory("/proc"))) {
-        if (!entry)
-            throw error::StacktraceError<std::system_error>{entry.error()};
-
+    while (const auto entry = error::guard(iterator.next())) {
         if (!error::guard(entry->isDirectory()))
             continue;
 

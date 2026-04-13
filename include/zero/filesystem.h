@@ -3,6 +3,7 @@
 
 #include <span>
 #include <vector>
+#include <optional>
 #include <expected>
 #include <filesystem>
 
@@ -141,17 +142,6 @@ namespace zero::filesystem {
         std::filesystem::directory_entry mEntry;
     };
 
-    class EntryProxy {
-    public:
-        explicit EntryProxy(std::expected<DirectoryEntry, std::error_code> entry);
-
-        [[nodiscard]] const std::expected<DirectoryEntry, std::error_code> &operator*() const &;
-        std::expected<DirectoryEntry, std::error_code> operator*() &&;
-
-    private:
-        std::expected<DirectoryEntry, std::error_code> mEntry;
-    };
-
     template<typename T>
     class NoExcept {
         static_assert(
@@ -160,70 +150,34 @@ namespace zero::filesystem {
         );
 
     public:
-        using iterator_category = std::input_iterator_tag;
-        using value_type = std::expected<DirectoryEntry, std::error_code>;
-        using difference_type = std::ptrdiff_t;
-        using pointer = void;
-        using reference = value_type;
-
-        NoExcept() = default;
-
-        explicit NoExcept(T it) : mIterator{std::move(it)} {
+        explicit NoExcept(T it) : mIterator{std::move(it)}, mStarted{false} {
         }
 
-        [[nodiscard]] value_type operator*() const {
-            if (mErrorCode)
-                return std::unexpected{mErrorCode};
+        std::expected<std::optional<DirectoryEntry>, std::error_code> next() {
+            if (mIterator == std::default_sentinel)
+                return std::nullopt;
+
+            if (!mStarted) {
+                mStarted = true;
+                return DirectoryEntry{*mIterator};
+            }
+
+            std::error_code ec;
+            mIterator.increment(ec);
+
+            if (ec)
+                return std::unexpected{ec};
+
+            if (mIterator == std::default_sentinel)
+                return std::nullopt;
 
             return DirectoryEntry{*mIterator};
         }
 
-        NoExcept &operator++() {
-            if (mErrorCode) {
-                mErrorCode.clear();
-                mIterator = {};
-                return *this;
-            }
-
-            mIterator.increment(mErrorCode);
-            return *this;
-        }
-
-        EntryProxy operator++(int) {
-            EntryProxy proxy{**this};
-
-            if (mErrorCode) {
-                mErrorCode.clear();
-                mIterator = {};
-                return proxy;
-            }
-
-            mIterator.increment(mErrorCode);
-            return proxy;
-        }
-
-        friend bool operator==(const NoExcept &lhs, const NoExcept &rhs) {
-            return lhs.mErrorCode == rhs.mErrorCode && lhs.mIterator == rhs.mIterator;
-        }
-
-        [[nodiscard]] bool operator==(std::default_sentinel_t) const {
-            return *this == NoExcept{};
-        }
-
     private:
-        std::error_code mErrorCode;
         T mIterator;
+        bool mStarted;
     };
-
-    template<typename T>
-    NoExcept<T> begin(NoExcept<T> it) {
-        return it;
-    }
-
-    template<typename T>
-    NoExcept<T> end(NoExcept<T>) {
-        return {};
-    }
 
     std::expected<NoExcept<std::filesystem::directory_iterator>, std::error_code>
     readDirectory(const std::filesystem::path &path);
