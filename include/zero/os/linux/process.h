@@ -52,9 +52,9 @@ namespace zero::os::linux::process {
         procfs::process::Process mProcess;
     };
 
-    std::expected<Process, std::error_code> self();
+    Process self();
     std::expected<Process, std::error_code> open(pid_t pid);
-    std::expected<std::list<pid_t>, std::error_code> all();
+    std::list<pid_t> all();
 }
 
 Z_DECLARE_ERROR_CODE(zero::os::linux::process::Process::Error)

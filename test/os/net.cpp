@@ -37,7 +37,6 @@ TEST_CASE("network components", "[os::net]") {
 #ifndef ZERO_PROCESS_PARTIAL_API
 TEST_CASE("network interfaces", "[os::net]") {
     const auto interfaces = zero::os::net::interfaces();
-    REQUIRE(interfaces);
 
 #ifdef _WIN32
     const auto output = zero::os::process::Command{"ipconfig"}.arg("/all").output();
@@ -62,7 +61,7 @@ TEST_CASE("network interfaces", "[os::net]") {
     const std::string result{reinterpret_cast<const char *>(output->out.data()), output->out.size()};
 #endif
 
-    for (const auto &[name, mac, addresses]: *interfaces | std::views::values) {
+    for (const auto &[name, mac, addresses]: interfaces | std::views::values) {
 #ifdef _WIN32
         NET_LUID id{};
         REQUIRE(ConvertInterfaceNameToLuidA(name.c_str(), &id) == ERROR_SUCCESS);

@@ -193,17 +193,14 @@ std::expected<void, std::error_code> zero::os::process::Process::kill() {
 #endif
 }
 
-std::expected<zero::os::process::Process, std::error_code> zero::os::process::self() {
+zero::os::process::Process zero::os::process::self() {
 #ifdef _WIN32
-    return windows::process::self()
+    return Process{windows::process::self()};
 #elif defined(__APPLE__)
-    return macos::process::self()
+    return Process{macos::process::self()};
 #elif defined(__linux__)
-    return linux::process::self()
+    return Process{linux::process::self()};
 #endif
-        .transform([](ProcessImpl &&process) {
-            return Process{std::move(process)};
-        });
 }
 
 std::expected<zero::os::process::Process, std::error_code> zero::os::process::open(const ID pid) {
@@ -219,7 +216,7 @@ std::expected<zero::os::process::Process, std::error_code> zero::os::process::op
         });
 }
 
-std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::process::all() {
+std::list<zero::os::process::ID> zero::os::process::all() {
 #ifdef _WIN32
     return windows::process::all()
 #elif defined(__APPLE__)
@@ -227,13 +224,10 @@ std::expected<std::list<zero::os::process::ID>, std::error_code> zero::os::proce
 #elif defined(__linux__)
     return linux::process::all()
 #endif
-        .transform([](const auto &ids) {
-            return ids
-                | std::views::transform([](const auto &pid) {
-                    return static_cast<ID>(pid);
-                })
-                | std::ranges::to<std::list>();
-        });
+        | std::views::transform([](const auto &pid) {
+            return static_cast<ID>(pid);
+        })
+        | std::ranges::to<std::list>();
 }
 
 zero::os::process::ExitStatus::ExitStatus(const Native status) : mStatus{status} {
@@ -328,20 +322,17 @@ zero::os::process::PseudoConsole::~PseudoConsole() {
 std::expected<zero::os::process::PseudoConsole, std::error_code>
 zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     if (!createPseudoConsole || !closePseudoConsole || !resizePseudoConsole)
-        return std::unexpected{Error::APINotAvailable};
+        throw error::StacktraceError<std::runtime_error>{"Pseudo console API is not supported on this system"};
 
-    auto first = pipe();
-    Z_EXPECT(first);
-
-    auto second = pipe();
-    Z_EXPECT(second);
+    auto [inReader, inWriter] = pipe();
+    auto [outReader, outWriter] = pipe();
 
     HPCON hPC{};
 
     if (const auto result = createPseudoConsole(
         {columns, rows},
-        first->first.fd(),
-        second->second.fd(),
+        inReader.fd(),
+        outWriter.fd(),
         0,
         &hPC
     ); result != S_OK)
@@ -349,8 +340,8 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
 
     return PseudoConsole{
         hPC,
-        {std::move(second->first), std::move(first->second)},
-        {std::move(first->first), std::move(second->second)}
+        {std::move(outReader), std::move(inWriter)},
+        {std::move(inReader), std::move(outWriter)}
     };
 }
 
@@ -360,11 +351,9 @@ void zero::os::process::PseudoConsole::close() {
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
+void zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
     if (const auto result = resizePseudoConsole(mPC, {columns, rows}); result != S_OK)
-        return std::unexpected{static_cast<windows::ResultHandle>(result)};
-
-    return {};
+        throw error::StacktraceError<std::system_error>{static_cast<windows::ResultHandle>(result)};
 }
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
@@ -384,11 +373,11 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     const auto buffer = std::make_unique<std::byte[]>(size);
     siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 
-    Z_EXPECT(windows::expected([&] {
+    error::guard(windows::expected([&] {
         return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
     }));
 
-    Z_EXPECT(windows::expected([&] {
+    error::guard(windows::expected([&] {
         return UpdateProcThreadAttribute(
             siEx.lpAttributeList,
             0,
@@ -414,35 +403,37 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         envs[key] = *value;
     }
 
-    auto environment = strings::decode(to_string(fmt::join(
-        envs | std::views::transform([](const auto &pair) {
-            auto env = pair.first + "=" + pair.second;
-            env.push_back('\0');
-            return env;
-        }),
-        ""
-    )));
-    Z_EXPECT(environment);
+    auto environment = error::guard(
+        strings::decode(to_string(fmt::join(
+            envs | std::views::transform([](const auto &pair) {
+                auto env = pair.first + "=" + pair.second;
+                env.push_back('\0');
+                return env;
+            }),
+            ""
+        )))
+    );
 
     std::vector arguments{filesystem::stringify(command.mPath)};
     arguments.append_range(command.mArguments);
 
-    auto cmd = strings::decode(to_string(
-        fmt::join(arguments | std::views::transform(quote), " ")
-    ));
-    Z_EXPECT(cmd);
+    auto cmd = error::guard(
+        strings::decode(to_string(
+            fmt::join(arguments | std::views::transform(quote), " ")
+        ))
+    );
 
     PROCESS_INFORMATION info{};
 
     Z_EXPECT(windows::expected([&] {
         return CreateProcessW(
             nullptr,
-            cmd->data(),
+            cmd.data(),
             nullptr,
             nullptr,
             false,
             EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
-            environment->data(),
+            environment.data(),
             command.mCurrentDirectory ? command.mCurrentDirectory->wstring().c_str() : nullptr,
             &siEx.StartupInfo,
             &info
@@ -487,23 +478,21 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     }));
 
     PseudoConsole pc{IOResource{master}, IOResource{slave}};
-    Z_EXPECT(pc.resize(rows, columns));
+    pc.resize(rows, columns);
 
     return pc;
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<void, std::error_code> zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
+void zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
     winsize ws{};
 
     ws.ws_row = rows;
     ws.ws_col = columns;
 
-    Z_EXPECT(unix::expected([&] {
+    error::guard(unix::expected([&] {
         return ioctl(mMaster.fd(), TIOCSWINSZ, &ws);
     }));
-
-    return {};
 }
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
@@ -512,9 +501,8 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     assert(command.mInheritedNativeResources.empty());
     assert(mSlave.fd() > STDERR_FILENO);
 
-    auto pipe = os::pipe();
-    Z_EXPECT(pipe);
-    Z_EXPECT(pipe->second.setInheritable(false));
+    auto [reader, writer] = pipe();
+    writer.setInheritable(false);
 
     const auto &program = command.mPath.native();
 
@@ -566,7 +554,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     const auto pid = error::guard(unix::expected(fork));
 
     if (pid == 0) {
-        const auto guard = [fd = pipe->second.fd()]<std::invocable F>(F &&f) {
+        const auto guard = [fd = writer.fd()]<std::invocable F>(F &&f) {
             static_assert(std::is_integral_v<std::invoke_result_t<F>>);
             const auto result = std::invoke(std::forward<F>(f));
 
@@ -612,12 +600,24 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
             return dup2(mSlave.fd(), STDERR_FILENO);
         });
 
-        const auto max = guard([] {
-            return static_cast<int>(sysconf(_SC_OPEN_MAX));
-        });
+        errno = 0;
+        auto max = sysconf(_SC_OPEN_MAX);
 
-        for (int fd{STDERR_FILENO + 1}; fd < std::min(max, FDMax); ++fd) {
-            if (fd == pipe->second.fd())
+        if (max == -1) {
+            if (const auto error = errno; error != 0) {
+                const auto n = unix::ensure([&] {
+                    return write(writer.fd(), &error, sizeof(error));
+                });
+                assert(n);
+                assert(*n == sizeof(error));
+                std::abort();
+            }
+
+            max = FDMax;
+        }
+
+        for (int fd{STDERR_FILENO + 1}; fd < std::min(static_cast<int>(max), FDMax); ++fd) {
+            if (fd == writer.fd())
                 continue;
 
             std::ignore = unix::expected([&] {
@@ -653,11 +653,11 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
 #endif
     }
 
-    error::guard(pipe->second.close());
+    error::guard(writer.close());
 
     int error{};
 
-    if (const auto n = error::guard(pipe->first.read({reinterpret_cast<std::byte *>(&error), sizeof(error)})); n != 0) {
+    if (const auto n = error::guard(reader.read({reinterpret_cast<std::byte *>(&error), sizeof(error)})); n != 0) {
         assert(n == sizeof(int));
 
         const auto id = error::guard(unix::ensure([&] {
@@ -687,7 +687,7 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
         }));
         assert(id == pid);
 
-        return std::unexpected{process.error()};
+        throw error::StacktraceError<std::system_error>{process.error()};
     }
 
     return ChildProcess{*std::move(process), {}};
@@ -699,30 +699,26 @@ zero::os::process::PseudoConsole::IOResource &zero::os::process::PseudoConsole::
 #endif
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::ChildProcess::wait() {
+zero::os::process::ExitStatus zero::os::process::ChildProcess::wait() {
 #ifdef _WIN32
     const auto &impl = this->impl();
-
-    Z_EXPECT(impl.wait(std::nullopt));
-    return impl.exitCode().transform([](const DWORD code) {
-        return ExitStatus{code};
-    });
+    error::guard(impl.wait(std::nullopt));
+    return ExitStatus{error::guard(impl.exitCode())};
 #else
     int s{};
     const auto pid = this->impl().pid();
 
-    const auto id = unix::ensure([&] {
+    const auto id = error::guard(unix::ensure([&] {
         return waitpid(pid, &s, 0);
-    });
-    Z_EXPECT(id);
-    assert(*id == pid);
+    }));
+    assert(id == pid);
 
     return ExitStatus{s};
 #endif
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<std::optional<zero::os::process::ExitStatus>, std::error_code>
+std::optional<zero::os::process::ExitStatus>
 zero::os::process::ChildProcess::tryWait() {
 #ifdef _WIN32
     using namespace std::chrono_literals;
@@ -731,24 +727,21 @@ zero::os::process::ChildProcess::tryWait() {
 
     if (const auto result = impl.wait(0ms); !result) {
         if (const auto &error = result.error(); error != std::errc::timed_out)
-            return std::unexpected{error};
+            throw error::StacktraceError<std::system_error>{error};
 
         return std::nullopt;
     }
 
-    return impl.exitCode().transform([](const DWORD code) {
-        return ExitStatus{code};
-    });
+    return ExitStatus{error::guard(impl.exitCode())};
 #else
     int s{};
     const auto pid = this->impl().pid();
 
-    const auto id = unix::expected([&] {
+    const auto id = error::guard(unix::expected([&] {
         return waitpid(pid, &s, WNOHANG);
-    });
-    Z_EXPECT(id);
+    }));
 
-    if (*id == 0)
+    if (id == 0)
         return std::nullopt;
 
     return ExitStatus{s};
@@ -813,7 +806,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
             HANDLE duplicate{};
 
-            Z_EXPECT(windows::expected([&] {
+            error::guard(windows::expected([&] {
                 return DuplicateHandle(
                     GetCurrentProcess(),
                     handle,
@@ -830,13 +823,13 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         }
 
         if (type == StdioType::Piped) {
-            auto pipe = os::pipe();
-            Z_EXPECT(pipe);
-            Z_EXPECT(pipe->first.setInheritable(true));
-            Z_EXPECT(pipe->second.setInheritable(true));
+            auto [reader, writer] = pipe();
 
-            resources[i * 2] = std::move(pipe->first);
-            resources[i * 2 + 1] = std::move(pipe->second);
+            reader.setInheritable(true);
+            writer.setInheritable(true);
+
+            resources[i * 2] = std::move(reader);
+            resources[i * 2 + 1] = std::move(writer);
             continue;
         }
 
@@ -857,7 +850,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         );
 
         if (handle == INVALID_HANDLE_VALUE)
-            return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+            throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
         resources[indexMapping[i]].emplace(handle);
     }
@@ -896,11 +889,11 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     const auto buffer = std::make_unique<std::byte[]>(size);
     siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 
-    Z_EXPECT(windows::expected([&] {
+    error::guard(windows::expected([&] {
         return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
     }));
 
-    Z_EXPECT(windows::expected([&] {
+    error::guard(windows::expected([&] {
         return UpdateProcThreadAttribute(
             siEx.lpAttributeList,
             0,
@@ -926,35 +919,37 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         envs[key] = *value;
     }
 
-    auto environment = strings::decode(to_string(fmt::join(
-        envs | std::views::transform([](const auto &pair) {
-            auto env = pair.first + "=" + pair.second;
-            env.push_back('\0');
-            return env;
-        }),
-        ""
-    )));
-    Z_EXPECT(environment);
+    auto environment = error::guard(
+        strings::decode(to_string(fmt::join(
+            envs | std::views::transform([](const auto &pair) {
+                auto env = pair.first + "=" + pair.second;
+                env.push_back('\0');
+                return env;
+            }),
+            ""
+        )))
+    );
 
     std::vector arguments{filesystem::stringify(mPath)};
     arguments.append_range(mArguments);
 
-    auto cmd = strings::decode(to_string(
-        fmt::join(arguments | std::views::transform(quote), " ")
-    ));
-    Z_EXPECT(cmd);
+    auto cmd = error::guard(
+        strings::decode(to_string(
+            fmt::join(arguments | std::views::transform(quote), " ")
+        ))
+    );
 
     PROCESS_INFORMATION info{};
 
     Z_EXPECT(windows::expected([&] {
         return CreateProcessW(
             nullptr,
-            cmd->data(),
+            cmd.data(),
             nullptr,
             nullptr,
             true,
             EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
-            environment->data(),
+            environment.data(),
             mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
             &siEx.StartupInfo,
             &info
@@ -993,22 +988,20 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             continue;
 
         if (type == StdioType::Piped) {
-            auto pipe = os::pipe();
-            Z_EXPECT(pipe);
+            auto [reader, writer] = pipe();
 
-            resources[i * 2] = std::move(pipe->first);
-            resources[i * 2 + 1] = std::move(pipe->second);
+            resources[i * 2] = std::move(reader);
+            resources[i * 2 + 1] = std::move(writer);
             continue;
         }
 
-        auto resource = unix::expected([&] {
-            return ::open("/dev/null", flagMapping[i]);
-        }).transform([](const auto &fd) {
-            return IOResource{fd};
-        });
-        Z_EXPECT(resource);
-
-        resources[indexMapping[i]] = *std::move(resource);
+        resources[indexMapping[i]].emplace(
+            error::guard(
+                unix::expected([&] {
+                    return ::open("/dev/null", flagMapping[i]);
+                })
+            )
+        );
     }
 
     assert(
@@ -1079,21 +1072,23 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     posix_spawn_file_actions_t actions{};
 
-    Z_EXPECT(expected([&] {
+    error::guard(expected([&] {
         return posix_spawn_file_actions_init(&actions);
     }));
 
-    Z_DEFER(posix_spawn_file_actions_destroy(&actions));
+    Z_DEFER(error::guard(expected([&] {
+        return posix_spawn_file_actions_destroy(&actions);
+    })));
 
     for (int i{0}; i < 3; ++i) {
         if (const auto &resource = resources[indexMapping[i]]) {
-            Z_EXPECT(expected([&] {
+            error::guard(expected([&] {
                 return posix_spawn_file_actions_adddup2(&actions, resource->fd(), i);
             }));
         }
 #ifdef __APPLE__
         else {
-            Z_EXPECT(expected([&] {
+            error::guard(expected([&] {
                 return posix_spawn_file_actions_addinherit_np(&actions, i);
             }));
         }
@@ -1109,23 +1104,27 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         );
 
         if (!posix_spawn_file_actions_addchdir_np)
-            return std::unexpected{Error::APINotAvailable};
+            throw error::StacktraceError<std::runtime_error>{
+                "posix_spawn_file_actions_addchdir_np is not supported on this system"
+            };
 #endif
-        Z_EXPECT(expected([&] {
+        error::guard(expected([&] {
             return posix_spawn_file_actions_addchdir_np(&actions, mCurrentDirectory->c_str());
         }));
     }
 
     posix_spawnattr_t attr{};
 
-    Z_EXPECT(expected([&] {
+    error::guard(expected([&] {
         return posix_spawnattr_init(&attr);
     }));
 
-    Z_DEFER(posix_spawnattr_destroy(&attr));
+    Z_DEFER(error::guard(expected([&] {
+        return posix_spawnattr_destroy(&attr);
+    })));
 
 #ifdef __APPLE__
-    Z_EXPECT(expected([&] {
+    error::guard(expected([&] {
         return posix_spawnattr_setflags(
             &attr,
             POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK
@@ -1133,30 +1132,33 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     }));
 
     for (const auto &resource: mInheritedResources) {
-        Z_EXPECT(expected([&] {
+        error::guard(expected([&] {
             return posix_spawn_file_actions_addinherit_np(&actions, *resource);
         }));
     }
 
     for (const auto &resource: mInheritedNativeResources) {
-        Z_EXPECT(expected([&] {
+        error::guard(expected([&] {
             return posix_spawn_file_actions_addinherit_np(&actions, resource);
         }));
     }
 #else
-    Z_EXPECT(expected([&] {
+    error::guard(expected([&] {
         return posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
     }));
 
-    const auto max = unix::expected([&] {
-        return sysconf(_SC_OPEN_MAX);
-    }).transform([](const auto &value) {
-        return static_cast<int>(value);
-    });
-    Z_EXPECT(max);
+    errno = 0;
+    auto max = sysconf(_SC_OPEN_MAX);
+
+    if (max == -1) {
+        if (errno != 0)
+            throw error::StacktraceError<std::system_error>{errno, std::system_category()};
+
+        max = FDMax;
+    }
 
     // The program assumes that the file descriptor to be inherited is not set FD_CLOEXEC.
-    for (int fd{STDERR_FILENO + 1}; fd < std::min(*max, FDMax); ++fd) {
+    for (int fd{STDERR_FILENO + 1}; fd < std::min(static_cast<int>(max), FDMax); ++fd) {
         if (std::ranges::find_if(
             mInheritedResources,
             [=](const auto &resource) {
@@ -1168,7 +1170,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         if (std::ranges::find(mInheritedNativeResources, fd) != mInheritedNativeResources.end())
             continue;
 
-        Z_EXPECT(expected([&] {
+        error::guard(expected([&] {
             return posix_spawn_file_actions_addclose(&actions, fd);
         }));
     }
@@ -1197,7 +1199,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         }));
         assert(id == pid);
 
-        return std::unexpected{process.error()};
+        throw error::StacktraceError<std::system_error>{process.error()};
     }
 
     std::array<std::optional<IOResource>, 3> stdio;
@@ -1220,7 +1222,7 @@ std::expected<zero::os::process::ChildProcess, std::error_code> zero::os::proces
 }
 
 std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::Command::status() const {
-    return spawn({StdioType::Inherit, StdioType::Inherit, StdioType::Inherit}).and_then(&ChildProcess::wait);
+    return spawn({StdioType::Inherit, StdioType::Inherit, StdioType::Inherit}).transform(&ChildProcess::wait);
 }
 
 std::expected<zero::os::process::Output, std::error_code>
@@ -1228,9 +1230,8 @@ zero::os::process::Command::output() const {
     auto child = spawn({StdioType::Null, StdioType::Piped, StdioType::Piped});
     Z_EXPECT(child);
 
-    if (auto input = std::exchange(child->stdInput(), std::nullopt)) {
-        Z_EXPECT(input->close());
-    }
+    if (auto input = std::exchange(child->stdInput(), std::nullopt))
+        error::guard(input->close());
 
     auto future = std::async([&] {
         return child->stdError()
@@ -1255,8 +1256,8 @@ zero::os::process::Command::output() const {
                 return {};
             })
         );
-        error::guard(child->wait());
-        return std::unexpected{out.error()};
+        child->wait();
+        throw error::StacktraceError<std::system_error>{out.error()};
     }
 
     auto err = future.get();
@@ -1274,25 +1275,15 @@ zero::os::process::Command::output() const {
                 return {};
             })
         );
-        error::guard(child->wait());
-        return std::unexpected{err.error()};
+        child->wait();
+        throw error::StacktraceError<std::system_error>{err.error()};
     }
 
-    const auto status = child->wait();
-    Z_EXPECT(status);
-
     return Output{
-        *status,
+        child->wait(),
         *std::move(out),
         *std::move(err)
     };
 }
 
-#ifdef _WIN32
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::PseudoConsole::Error)
-#endif
-
-#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(zero::os::process::Command::Error)
-#endif
 #endif

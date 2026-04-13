@@ -4,17 +4,10 @@
 #include <vector>
 #include <cstdint>
 #include <optional>
-#include <zero/error.h>
 
 #undef linux
 
 namespace zero::os::linux::procfs {
-    Z_DEFINE_ERROR_CODE(
-        Error,
-        "zero::os::linux::procfs",
-        UnexpectedData, "Unexpected data"
-    )
-
     struct CPUTime {
         std::uint64_t user{};
         std::uint64_t nice{};
@@ -38,7 +31,7 @@ namespace zero::os::linux::procfs {
         std::optional<std::uint32_t> processesBlocked;
     };
 
-    std::expected<Stat, std::error_code> stat();
+    Stat stat();
 
     struct MemoryStat {
         std::uint64_t memoryTotal{};
@@ -106,9 +99,7 @@ namespace zero::os::linux::procfs {
         std::optional<std::uint64_t> zSwapped;
     };
 
-    std::expected<MemoryStat, std::error_code> memory();
+    MemoryStat memory();
 }
-
-Z_DECLARE_ERROR_CODE(zero::os::linux::procfs::Error)
 
 #endif //ZERO_OS_LINUX_PROCFS_H

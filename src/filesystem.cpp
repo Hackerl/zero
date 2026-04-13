@@ -127,14 +127,8 @@ zero::filesystem::write(const std::filesystem::path &path, const std::string_vie
     return write(path, std::as_bytes(std::span{content}));
 }
 
-std::expected<std::filesystem::path, std::error_code> zero::filesystem::absolute(const std::filesystem::path &path) {
-    std::error_code ec;
-    auto result = std::filesystem::absolute(path, ec);
-
-    if (ec)
-        return std::unexpected{ec};
-
-    return result;
+std::filesystem::path zero::filesystem::absolute(const std::filesystem::path &path) {
+    return std::filesystem::absolute(path);
 }
 
 std::expected<std::filesystem::path, std::error_code> zero::filesystem::canonical(const std::filesystem::path &path) {
@@ -330,14 +324,8 @@ zero::filesystem::createDirectorySymlink(const std::filesystem::path &target, co
     return {};
 }
 
-std::expected<std::filesystem::path, std::error_code> zero::filesystem::currentPath() {
-    std::error_code ec;
-    auto result = std::filesystem::current_path(ec);
-
-    if (ec)
-        return std::unexpected{ec};
-
-    return result;
+std::filesystem::path zero::filesystem::currentPath() {
+    return std::filesystem::current_path();
 }
 
 std::expected<void, std::error_code> zero::filesystem::currentPath(const std::filesystem::path &path) {
@@ -527,14 +515,8 @@ zero::filesystem::symlinkStatus(const std::filesystem::path &path) {
     return result;
 }
 
-std::expected<std::filesystem::path, std::error_code> zero::filesystem::temporaryDirectory() {
-    std::error_code ec;
-    auto result = std::filesystem::temp_directory_path(ec);
-
-    if (ec)
-        return std::unexpected{ec};
-
-    return result;
+std::filesystem::path zero::filesystem::temporaryDirectory() {
+    return std::filesystem::temp_directory_path();
 }
 
 std::expected<bool, std::error_code> zero::filesystem::isBlockFile(const std::filesystem::path &path) {

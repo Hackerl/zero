@@ -15,9 +15,7 @@
 
 TEST_CASE("operating system resource", "[os::resource]") {
     const auto temp = zero::filesystem::temporaryDirectory();
-    REQUIRE(temp);
-
-    const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
+    const auto path = temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
 
 #ifdef _WIN32
     const auto handle = CreateFileW(
@@ -62,40 +60,38 @@ TEST_CASE("operating system resource", "[os::resource]") {
 
     SECTION("is inheritable") {
         SECTION("inheritable") {
-            REQUIRE(resource.setInheritable(true));
-            REQUIRE(resource.isInheritable() == true);
+            REQUIRE_NOTHROW(resource.setInheritable(true));
+            REQUIRE(resource.isInheritable());
         }
 
         SECTION("not inheritable") {
-            REQUIRE(resource.isInheritable() == false);
+            REQUIRE_FALSE(resource.isInheritable());
         }
     }
 
     SECTION("duplicate") {
         SECTION("inheritable") {
             const auto duplicate = resource.duplicate(true);
-            REQUIRE(duplicate);
-            REQUIRE(duplicate->isInheritable() == true);
+            REQUIRE(duplicate.isInheritable());
         }
 
         SECTION("not inheritable") {
             const auto duplicate = resource.duplicate(false);
-            REQUIRE(duplicate);
-            REQUIRE(duplicate->isInheritable() == false);
+            REQUIRE_FALSE(duplicate.isInheritable());
         }
     }
 
     SECTION("set inheritable") {
         SECTION("inheritable") {
-            REQUIRE(resource.setInheritable(true));
-            REQUIRE(resource.isInheritable() == true);
+            REQUIRE_NOTHROW(resource.setInheritable(true));
+            REQUIRE(resource.isInheritable());
         }
 
-        REQUIRE(resource.setInheritable(true));
+        REQUIRE_NOTHROW(resource.setInheritable(true));
 
         SECTION("not inheritable") {
-            REQUIRE(resource.setInheritable(false));
-            REQUIRE(resource.isInheritable() == false);
+            REQUIRE_NOTHROW(resource.setInheritable(false));
+            REQUIRE_FALSE(resource.isInheritable());
         }
     }
 
@@ -122,9 +118,7 @@ TEST_CASE("operating system resource", "[os::resource]") {
 
 TEST_CASE("operating system i/o resource", "[os::resource]") {
     const auto temp = zero::filesystem::temporaryDirectory();
-    REQUIRE(temp);
-
-    const auto path = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
+    const auto path = temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
     const auto content = GENERATE(take(1, randomBytes(1, 102400)));
 
     REQUIRE(zero::filesystem::write(path, content));
@@ -165,40 +159,38 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
 
     SECTION("is inheritable") {
         SECTION("inheritable") {
-            REQUIRE(resource.setInheritable(true));
-            REQUIRE(resource.isInheritable() == true);
+            REQUIRE_NOTHROW(resource.setInheritable(true));
+            REQUIRE(resource.isInheritable());
         }
 
         SECTION("not inheritable") {
-            REQUIRE(resource.isInheritable() == false);
+            REQUIRE_FALSE(resource.isInheritable());
         }
     }
 
     SECTION("duplicate") {
         SECTION("inheritable") {
             const auto duplicate = resource.duplicate(true);
-            REQUIRE(duplicate);
-            REQUIRE(duplicate->isInheritable() == true);
+            REQUIRE(duplicate.isInheritable() == true);
         }
 
         SECTION("not inheritable") {
             const auto duplicate = resource.duplicate(false);
-            REQUIRE(duplicate);
-            REQUIRE(duplicate->isInheritable() == false);
+            REQUIRE_FALSE(duplicate.isInheritable());
         }
     }
 
     SECTION("set inheritable") {
         SECTION("inheritable") {
-            REQUIRE(resource.setInheritable(true));
-            REQUIRE(resource.isInheritable() == true);
+            REQUIRE_NOTHROW(resource.setInheritable(true));
+            REQUIRE(resource.isInheritable());
         }
 
-        REQUIRE(resource.setInheritable(true));
+        REQUIRE_NOTHROW(resource.setInheritable(true));
 
         SECTION("not inheritable") {
-            REQUIRE(resource.setInheritable(false));
-            REQUIRE(resource.isInheritable() == false);
+            REQUIRE_NOTHROW(resource.setInheritable(false));
+            REQUIRE_FALSE(resource.isInheritable());
         }
     }
 

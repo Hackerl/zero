@@ -6,7 +6,6 @@
 #include <zero/strings.h>
 #include <zero/filesystem.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
-#include <fmt/format.h>
 #include <ranges>
 #include <future>
 
@@ -24,63 +23,60 @@ constexpr auto Arguments = {"1"};
 
 TEST_CASE("list process ids", "[os::process]") {
     const auto ids = zero::os::process::all();
-    REQUIRE(ids);
-    REQUIRE_THAT(*ids, Catch::Matchers::Contains(zero::os::process::currentProcessID()));
+    REQUIRE_THAT(ids, Catch::Matchers::Contains(zero::os::process::currentProcessID()));
 }
 
 TEST_CASE("process", "[os::process]") {
     const auto process = zero::os::process::self();
-    REQUIRE(process);
-
     const auto path = zero::filesystem::applicationPath();
 
     SECTION("name") {
-        REQUIRE(process->name() == path.filename());
+        REQUIRE(process.name() == path.filename());
     }
 
     SECTION("exe") {
-        REQUIRE(process->exe() == path);
+        REQUIRE(process.exe() == path);
     }
 
     SECTION("cmdline") {
-        const auto cmdline = process->cmdline();
+        const auto cmdline = process.cmdline();
         REQUIRE(cmdline);
         REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(path.filename().string()));
     }
 
     SECTION("cwd") {
-        REQUIRE(process->cwd() == zero::filesystem::currentPath());
+        REQUIRE(process.cwd() == zero::filesystem::currentPath());
     }
 
     SECTION("envs") {
-        const auto envs = process->envs();
+        const auto envs = process.envs();
         REQUIRE(envs);
     }
 
     SECTION("start time") {
         using namespace std::chrono_literals;
-        const auto startTime = process->startTime();
+        const auto startTime = process.startTime();
         REQUIRE(startTime);
         REQUIRE(std::chrono::system_clock::now() - *startTime < 10min);
     }
 
     SECTION("memory") {
-        const auto memory = process->memory();
+        const auto memory = process.memory();
         REQUIRE(memory);
     }
 
     SECTION("cpu") {
-        const auto cpu = process->cpu();
+        const auto cpu = process.cpu();
         REQUIRE(cpu);
     }
 
     SECTION("io") {
-        const auto io = process->io();
+        const auto io = process.io();
         REQUIRE(io);
     }
 
     SECTION("user") {
-        const auto user = process->user();
+        const auto user = process.user();
         REQUIRE(user);
 
         const auto username = zero::os::username();
@@ -118,13 +114,13 @@ TEST_CASE("child process", "[os::process]") {
             REQUIRE_FALSE(child->stdError());
         }
 
-        REQUIRE(child->wait());
+        REQUIRE_NOTHROW(child->wait());
     }
 
     SECTION("try wait") {
         SECTION("running") {
             REQUIRE(child->tryWait() == std::nullopt);
-            REQUIRE(child->wait());
+            REQUIRE_NOTHROW(child->wait());
         }
 
         SECTION("exited") {
@@ -133,15 +129,13 @@ TEST_CASE("child process", "[os::process]") {
 
             const auto status = child->tryWait();
             REQUIRE(status);
-            REQUIRE(*status);
-            REQUIRE(status->value().success());
+            REQUIRE(status->success());
         }
     }
 
     SECTION("wait") {
         const auto status = child->wait();
-        REQUIRE(status);
-        REQUIRE(status->success());
+        REQUIRE(status.success());
     }
 
     SECTION("name") {
@@ -300,7 +294,7 @@ TEST_CASE("spawn child process with arguments", "[os::process]") {
 
     auto child = command.spawn();
     REQUIRE(child);
-    Z_DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
     const auto name = child->name();
     REQUIRE(name);
@@ -318,7 +312,7 @@ TEST_CASE("spawn child process with complex escape characters", "[os::process]")
                     .stdError(zero::os::process::Command::StdioType::Null)
                     .spawn();
     REQUIRE(child);
-    Z_DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
     const auto cmdline = child->cmdline();
     REQUIRE(cmdline);
@@ -331,7 +325,7 @@ TEST_CASE("spawn child process with complex escape characters", "[os::process]")
 #endif
 
 TEST_CASE("spawn child process with working directory", "[os::process]") {
-    const auto temp = zero::filesystem::temporaryDirectory().and_then(zero::filesystem::canonical);
+    const auto temp = zero::filesystem::canonical(zero::filesystem::temporaryDirectory());
     REQUIRE(temp);
 
     auto child = zero::os::process::Command{Program}
@@ -340,7 +334,7 @@ TEST_CASE("spawn child process with working directory", "[os::process]") {
                  .stdOutput(zero::os::process::Command::StdioType::Null)
                  .spawn();
     REQUIRE(child);
-    Z_DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
     REQUIRE(child->cwd() == *temp);
 }
 
@@ -368,7 +362,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
         auto child = command.spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
         const auto envs = child->envs();
         REQUIRE(envs);
@@ -380,7 +374,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         SECTION("empty") {
             auto child = command.clearEnv().spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -393,7 +387,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
             auto child = command.clearEnv().spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -403,7 +397,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         SECTION("add env") {
             auto child = command.env("ZERO_PROCESS_TESTS", "1").spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -417,7 +411,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
             auto child = command.removeEnv("ZERO_PROCESS_TESTS").spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -427,7 +421,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         SECTION("set envs") {
             auto child = command.envs({{"ZERO_PROCESS_TESTS", "1"}}).spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE(child->wait()));
+            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -441,22 +435,17 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 TEST_CASE("spawn child process with resource", "[os::process]") {
     using namespace std::chrono_literals;
 
-    auto pipe = zero::os::pipe();
-    REQUIRE(pipe);
-
-    auto &[reader, writer] = *pipe;
+    auto [reader, writer] = zero::os::pipe();
 
     SECTION("inherit") {
         auto duplicate = writer.duplicate(true);
-        REQUIRE(duplicate);
-
         auto child = zero::os::process::Command{Program}
                      .args({Arguments.begin(), Arguments.end()})
-                     .inheritedResource(zero::os::Resource{duplicate->release()})
+                     .inheritedResource(zero::os::Resource{duplicate.release()})
                      .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
@@ -472,7 +461,7 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
@@ -486,11 +475,8 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
 TEST_CASE("spawn child process with native resource", "[os::process]") {
     using namespace std::chrono_literals;
 
-    auto pipe = zero::os::pipe();
-    REQUIRE(pipe);
-
-    auto &[reader, writer] = *pipe;
-    REQUIRE(writer.setInheritable(true));
+    auto [reader, writer] = zero::os::pipe();
+    REQUIRE_NOTHROW(writer.setInheritable(true));
 
     SECTION("inherit") {
         auto child = zero::os::process::Command{Program}
@@ -499,7 +485,7 @@ TEST_CASE("spawn child process with native resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
@@ -515,7 +501,7 @@ TEST_CASE("spawn child process with native resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE(child->wait()));
+        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
         const auto tp = std::chrono::system_clock::now();
         REQUIRE(writer.close());
@@ -540,7 +526,7 @@ TEST_CASE("spawn child process with piped stdio", "[os::process]") {
                  .spawn();
 #endif
     REQUIRE(child);
-    Z_DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
     REQUIRE_FALSE(child->stdError());
 
     auto stdInput = std::exchange(child->stdInput(), std::nullopt);
@@ -570,7 +556,6 @@ TEST_CASE("spawn child process and collect status", "[os::process]") {
 
 TEST_CASE("spawn child process and collect output", "[os::process]") {
     const auto hostname = zero::os::hostname();
-    REQUIRE(hostname);
 
     const auto output = zero::os::process::Command{"hostname"}.output();
     REQUIRE(output);
@@ -579,7 +564,7 @@ TEST_CASE("spawn child process and collect output", "[os::process]") {
     REQUIRE(zero::strings::trim({
         reinterpret_cast<const char *>(output->out.data()),
         output->out.size()
-    }) == *hostname);
+    }) == hostname);
 }
 
 TEST_CASE("spawn child process with pseudo console", "[os::process]") {
@@ -599,12 +584,12 @@ TEST_CASE("spawn child process with pseudo console", "[os::process]") {
     auto future = std::async([&] { return reader.readAll(); });
     REQUIRE(writer.writeAll(std::as_bytes(std::span{"echo hello\rexit\r"sv})));
 
-    REQUIRE(child->wait());
+    REQUIRE_NOTHROW(child->wait());
     pc->close();
 #else
     auto child = pc->spawn(zero::os::process::Command{"sh"});
     REQUIRE(child);
-    Z_DEFER(REQUIRE(child->wait()));
+    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
 
     auto &master = pc->master();
     REQUIRE(master);

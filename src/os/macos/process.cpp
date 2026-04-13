@@ -3,6 +3,7 @@
 #include <zero/os/unix/error.h>
 #include <zero/strings.h>
 #include <zero/expect.h>
+#include <fmt/format.h>
 #include <mach/mach_time.h>
 #include <sys/sysctl.h>
 #include <libproc.h>
@@ -92,13 +93,17 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::macos::proces
     Z_EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Malformed KERN_PROCARGS2 for pid {}: buffer too small for argc", mPID)
+        };
 
     const auto argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Malformed KERN_PROCARGS2 for pid {}: no null terminator after executable path", mPID)
+        };
 
     it = std::find_if(
         it,
@@ -109,12 +114,21 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::macos::proces
     );
 
     if (it == arguments->end())
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Malformed KERN_PROCARGS2 for pid {}: no argv start found after executable path", mPID)
+        };
 
     auto tokens = strings::split({it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format(
+                "Malformed KERN_PROCARGS2 for pid {}: expected {} arguments, got {}",
+                mPID,
+                argc + 1,
+                tokens.size()
+            )
+        };
 
     tokens.pop_back();
     return tokens;
@@ -125,13 +139,17 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
     Z_EXPECT(arguments);
 
     if (arguments->size() < sizeof(int))
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Malformed KERN_PROCARGS2 for pid {}: buffer too small for argc", mPID)
+        };
 
     const auto argc = *reinterpret_cast<const int *>(arguments->data());
     auto it = std::find(arguments->begin() + sizeof(int), arguments->end(), '\0');
 
     if (it == arguments->end())
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Malformed KERN_PROCARGS2 for pid {}: no null terminator after executable path", mPID)
+        };
 
     it = std::find_if(
         it,
@@ -142,12 +160,21 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
     );
 
     if (it == arguments->end())
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Malformed KERN_PROCARGS2 for pid {}: no argv start found after executable path", mPID)
+        };
 
     const auto tokens = strings::split({it, arguments->end()}, {"\0", 1}, argc);
 
     if (tokens.size() != argc + 1)
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format(
+                "Malformed KERN_PROCARGS2 for pid {}: expected {} arguments, got {}",
+                mPID,
+                argc + 1,
+                tokens.size()
+            )
+        };
 
     const auto &str = tokens[argc];
 
@@ -159,7 +186,9 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
 
     while (true) {
         if (str.length() <= prev)
-            return std::unexpected{Error::UnexpectedData};
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed KERN_PROCARGS2 for pid {}: unexpected end of environment data", mPID)
+            };
 
         if (str[prev] == '\0')
             break;
@@ -167,7 +196,9 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
         auto pos = str.find('\0', prev);
 
         if (pos == std::string::npos)
-            return std::unexpected{Error::UnexpectedData};
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed KERN_PROCARGS2 for pid {}: no null terminator in environment entry", mPID)
+            };
 
         const auto item = str.substr(prev, pos - prev);
         prev = pos + 1;
@@ -202,7 +233,7 @@ std::expected<zero::os::macos::process::CPUTime, std::error_code> zero::os::maco
     struct mach_timebase_info tb{};
 
     if (const auto status = mach_timebase_info(&tb); status != KERN_SUCCESS)
-        return std::unexpected{static_cast<macos::Error>(status)};
+        throw error::StacktraceError<std::system_error>{static_cast<macos::Error>(status)};
 
     const auto scale = static_cast<double>(tb.numer) / static_cast<double>(tb.denom);
 
@@ -245,9 +276,17 @@ std::expected<std::string, std::error_code> zero::os::macos::process::Process::u
     if (proc_pidinfo(mPID, PROC_PIDTBSDINFO, 0, &info, PROC_PIDTBSDINFO_SIZE) <= 0)
         return std::unexpected{std::error_code{errno, std::system_category()}};
 
-    const auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
+    errno = 0;
+    auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
 
-    auto size = static_cast<std::size_t>(max != -1 ? max : 1024);
+    if (max == -1) {
+        if (errno != 0)
+            throw error::StacktraceError<std::system_error>{errno, std::system_category()};
+
+        max = 1024;
+    }
+
+    auto size = static_cast<std::size_t>(max);
     auto buffer = std::make_unique<char[]>(size);
 
     passwd pwd{};
@@ -263,8 +302,11 @@ std::expected<std::string, std::error_code> zero::os::macos::process::Process::u
             return pwd.pw_name;
         }
 
+        if (n == EINTR)
+            continue;
+
         if (n != ERANGE)
-            return std::unexpected{std::error_code(n, std::system_category())};
+            throw error::StacktraceError<std::system_error>{n, std::system_category()};
 
         size *= 2;
         buffer = std::make_unique<char[]>(size);
@@ -279,8 +321,8 @@ std::expected<void, std::error_code> zero::os::macos::process::Process::kill(con
     return {};
 }
 
-std::expected<zero::os::macos::process::Process, std::error_code> zero::os::macos::process::self() {
-    return open(getpid());
+zero::os::macos::process::Process zero::os::macos::process::self() {
+    return error::guard(open(getpid()));
 }
 
 std::expected<zero::os::macos::process::Process, std::error_code> zero::os::macos::process::open(const pid_t pid) {
@@ -303,7 +345,7 @@ std::expected<zero::os::macos::process::Process, std::error_code> zero::os::maco
     return Process{pid};
 }
 
-std::expected<std::list<pid_t>, std::error_code> zero::os::macos::process::all() {
+std::list<pid_t> zero::os::macos::process::all() {
     std::size_t size{4096};
     auto buffer = std::make_unique<pid_t[]>(size);
 
@@ -311,7 +353,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::macos::process::all()
         const auto n = proc_listallpids(buffer.get(), static_cast<int>(size * sizeof(pid_t)));
 
         if (n == -1)
-            return std::unexpected{std::error_code{errno, std::system_category()}};
+            throw error::StacktraceError<std::system_error>{errno, std::system_category()};
 
         if (n < size)
             return std::list<pid_t>{buffer.get(), buffer.get() + n};

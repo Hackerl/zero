@@ -8,13 +8,12 @@
 #ifndef ZERO_PROCESS_PARTIAL_API
 TEST_CASE("get hostname", "[os]") {
     const auto hostname = zero::os::hostname();
-    REQUIRE(hostname);
 
     const auto output = zero::os::process::Command{"hostname"}.output();
     REQUIRE(output);
     REQUIRE(output->status.success());
 
-    REQUIRE(zero::strings::trim({reinterpret_cast<const char *>(output->out.data()), output->out.size()}) == *hostname);
+    REQUIRE(zero::strings::trim({reinterpret_cast<const char *>(output->out.data()), output->out.size()}) == hostname);
 }
 
 TEST_CASE("get username", "[os]") {
@@ -33,10 +32,7 @@ TEST_CASE("get username", "[os]") {
 #endif
 
 TEST_CASE("anonymous pipe", "[os]") {
-    auto pipe = zero::os::pipe();
-    REQUIRE(pipe);
-
-    auto &[reader, writer] = *pipe;
+    auto [reader, writer] = zero::os::pipe();
 
     auto future = std::async([&] { return reader.readAll(); });
     const auto input = GENERATE(take(100, randomBytes(1, 102400)));

@@ -31,15 +31,13 @@ namespace zero::os::windows::process {
         Z_DEFINE_ERROR_CODE_INNER_EX(
             Error,
             "zero::os::windows::process::Process",
-            APINotAvailable, "API not available", std::errc::function_not_supported,
             ProcessStillActive, "Process still active", std::errc::operation_would_block,
-            UnexpectedData, "Unexpected data", Z_DEFAULT_ERROR_CONDITION,
             WaitProcessTimeout, "Process wait timed out", std::errc::timed_out
         )
 
         Process(Resource resource, DWORD pid);
 
-        static std::expected<Process, std::error_code> from(HANDLE handle);
+        static Process from(HANDLE handle);
 
     private:
         [[nodiscard]] std::expected<std::uintptr_t, std::error_code> parameters() const;
@@ -73,9 +71,9 @@ namespace zero::os::windows::process {
         DWORD mPID;
     };
 
-    std::expected<Process, std::error_code> self();
+    Process self();
     std::expected<Process, std::error_code> open(DWORD pid);
-    std::expected<std::list<DWORD>, std::error_code> all();
+    std::list<DWORD> all();
 }
 
 Z_DECLARE_ERROR_CODE(zero::os::windows::process::Process::Error)

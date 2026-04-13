@@ -51,57 +51,47 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::lin
 
 std::expected<std::chrono::system_clock::time_point, std::error_code>
 zero::os::linux::process::Process::startTime() const {
-    const auto ticks = unix::expected([] {
+    const auto ticks = static_cast<double>(error::guard(unix::expected([] {
         return sysconf(_SC_CLK_TCK);
-    }).transform([](const auto &value) {
-        return static_cast<double>(value);
-    });
-    Z_EXPECT(ticks);
+    })));
 
     const auto stat = mProcess.stat();
     Z_EXPECT(stat);
 
     const auto kernelStat = procfs::stat();
-    Z_EXPECT(kernelStat);
 
     return std::chrono::system_clock::from_time_t(
         static_cast<std::time_t>(
-            kernelStat->bootTime + static_cast<std::uint64_t>(static_cast<double>(stat->startTime) / *ticks)
+            kernelStat.bootTime + static_cast<std::uint64_t>(static_cast<double>(stat->startTime) / ticks)
         )
     );
 }
 
 std::expected<zero::os::linux::process::CPUTime, std::error_code> zero::os::linux::process::Process::cpu() const {
-    const auto ticks = unix::expected([] {
+    const auto ticks = static_cast<double>(error::guard(unix::expected([] {
         return sysconf(_SC_CLK_TCK);
-    }).transform([](const auto &value) {
-        return static_cast<double>(value);
-    });
-    Z_EXPECT(ticks);
+    })));
 
     const auto stat = mProcess.stat();
     Z_EXPECT(stat);
 
     return CPUTime{
-        static_cast<double>(stat->userTime) / *ticks,
-        static_cast<double>(stat->systemTime) / *ticks
+        static_cast<double>(stat->userTime) / ticks,
+        static_cast<double>(stat->systemTime) / ticks
     };
 }
 
 std::expected<zero::os::linux::process::MemoryStat, std::error_code> zero::os::linux::process::Process::memory() const {
-    const auto pageSize = unix::expected([&] {
+    const auto pageSize = static_cast<std::uint64_t>(error::guard(unix::expected([] {
         return sysconf(_SC_PAGE_SIZE);
-    }).transform([](const auto &value) {
-        return static_cast<std::uint64_t>(value);
-    });
-    Z_EXPECT(pageSize);
+    })));
 
     const auto statM = mProcess.statM();
     Z_EXPECT(statM);
 
     return MemoryStat{
-        statM->residentSetSize * *pageSize,
-        statM->totalSize * *pageSize
+        statM->residentSetSize * pageSize,
+        statM->totalSize * pageSize
     };
 }
 
@@ -113,9 +103,17 @@ std::expected<std::string, std::error_code> zero::os::linux::process::Process::u
     const auto status = mProcess.status();
     Z_EXPECT(status);
 
-    const auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
+    errno = 0;
+    auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
 
-    auto size = static_cast<std::size_t>(max != -1 ? max : 1024);
+    if (max == -1) {
+        if (errno != 0)
+            throw error::StacktraceError<std::system_error>{errno, std::system_category()};
+
+        max = 1024;
+    }
+
+    auto size = static_cast<std::size_t>(max);
     auto buffer = std::make_unique<char[]>(size);
 
     passwd pwd{};
@@ -131,8 +129,11 @@ std::expected<std::string, std::error_code> zero::os::linux::process::Process::u
             return pwd.pw_name;
         }
 
+        if (n == EINTR)
+            continue;
+
         if (n != ERANGE)
-            return std::unexpected{std::error_code(n, std::system_category())};
+            throw error::StacktraceError<std::system_error>{n, std::system_category()};
 
         size *= 2;
         buffer = std::make_unique<char[]>(size);
@@ -147,10 +148,8 @@ std::expected<void, std::error_code> zero::os::linux::process::Process::kill(con
     return {};
 }
 
-std::expected<zero::os::linux::process::Process, std::error_code> zero::os::linux::process::self() {
-    return procfs::process::self().transform([](procfs::process::Process &&process) {
-        return Process{std::move(process)};
-    });
+zero::os::linux::process::Process zero::os::linux::process::self() {
+    return Process{procfs::process::self()};
 }
 
 std::expected<zero::os::linux::process::Process, std::error_code> zero::os::linux::process::open(const pid_t pid) {
@@ -159,7 +158,7 @@ std::expected<zero::os::linux::process::Process, std::error_code> zero::os::linu
     });
 }
 
-std::expected<std::list<pid_t>, std::error_code> zero::os::linux::process::all() {
+std::list<pid_t> zero::os::linux::process::all() {
     return procfs::process::all();
 }
 

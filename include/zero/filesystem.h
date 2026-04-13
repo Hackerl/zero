@@ -25,7 +25,7 @@ namespace zero::filesystem {
     std::expected<void, std::error_code> write(const std::filesystem::path &path, std::span<const std::byte> content);
     std::expected<void, std::error_code> write(const std::filesystem::path &path, std::string_view content);
 
-    std::expected<std::filesystem::path, std::error_code> absolute(const std::filesystem::path &path);
+    std::filesystem::path absolute(const std::filesystem::path &path);
     std::expected<std::filesystem::path, std::error_code> canonical(const std::filesystem::path &path);
     std::expected<std::filesystem::path, std::error_code> weaklyCanonical(const std::filesystem::path &path);
     std::expected<std::filesystem::path, std::error_code> relative(const std::filesystem::path &path);
@@ -67,7 +67,7 @@ namespace zero::filesystem {
     std::expected<void, std::error_code>
     createDirectorySymlink(const std::filesystem::path &target, const std::filesystem::path &link);
 
-    std::expected<std::filesystem::path, std::error_code> currentPath();
+    std::filesystem::path currentPath();
     std::expected<void, std::error_code> currentPath(const std::filesystem::path &path);
 
     std::expected<bool, std::error_code> exists(const std::filesystem::path &path);
@@ -99,7 +99,7 @@ namespace zero::filesystem {
     std::expected<std::filesystem::space_info, std::error_code> space(const std::filesystem::path &path);
     std::expected<std::filesystem::file_status, std::error_code> status(const std::filesystem::path &path);
     std::expected<std::filesystem::file_status, std::error_code> symlinkStatus(const std::filesystem::path &path);
-    std::expected<std::filesystem::path, std::error_code> temporaryDirectory();
+    std::filesystem::path temporaryDirectory();
 
     std::expected<bool, std::error_code> isBlockFile(const std::filesystem::path &path);
     std::expected<bool, std::error_code> isCharacterFile(const std::filesystem::path &path);

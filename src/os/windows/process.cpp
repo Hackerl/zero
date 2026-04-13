@@ -28,19 +28,19 @@ zero::os::windows::process::Process::Process(Resource resource, const DWORD pid)
     : mResource{std::move(resource)}, mPID{pid} {
 }
 
-std::expected<zero::os::windows::process::Process, std::error_code>
+zero::os::windows::process::Process
 zero::os::windows::process::Process::from(const HANDLE handle) {
     const auto pid = GetProcessId(handle);
 
     if (pid == 0)
-        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+        throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
     return Process{Resource{handle}, pid};
 }
 
 std::expected<std::uintptr_t, std::error_code> zero::os::windows::process::Process::parameters() const {
     if (!queryInformationProcess)
-        return std::unexpected{Error::APINotAvailable};
+        throw error::StacktraceError<std::runtime_error>{"NtQueryInformationProcess is not available on this system"};
 
     PROCESS_BASIC_INFORMATION info{};
 
@@ -79,7 +79,7 @@ DWORD zero::os::windows::process::Process::pid() const {
 
 std::expected<DWORD, std::error_code> zero::os::windows::process::Process::ppid() const {
     if (!queryInformationProcess)
-        return std::unexpected{Error::APINotAvailable};
+        throw error::StacktraceError<std::runtime_error>{"NtQueryInformationProcess is not available on this system"};
 
     PROCESS_BASIC_INFORMATION info{};
 
@@ -123,7 +123,9 @@ std::expected<std::filesystem::path, std::error_code> zero::os::windows::process
     }));
 
     if (!str.Buffer || str.Length == 0)
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            "Malformed process parameters: current directory UNICODE_STRING is empty or null"
+        };
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -168,7 +170,9 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
     }));
 
     if (!str.Buffer || str.Length == 0)
-        return std::unexpected{Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            "Malformed process parameters: command line UNICODE_STRING is empty or null"
+        };
 
     const auto buffer = std::make_unique<WCHAR[]>(str.Length / sizeof(WCHAR) + 1);
 
@@ -186,7 +190,7 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
     const auto args = CommandLineToArgvW(buffer.get(), &num);
 
     if (!args)
-        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+        throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
     Z_DEFER(
         if (LocalFree(args))
@@ -195,11 +199,8 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::windows::proc
 
     std::vector<std::string> cmdline;
 
-    for (int i{0}; i < num; ++i) {
-        auto arg = strings::encode(args[i]);
-        Z_EXPECT(arg);
-        cmdline.push_back(*std::move(arg));
-    }
+    for (int i{0}; i < num; ++i)
+        cmdline.push_back(error::guard(strings::encode(args[i])));
 
     return cmdline;
 }
@@ -244,19 +245,19 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::win
         );
     }));
 
-    const auto str = strings::encode(std::wstring_view(buffer.get(), size / sizeof(WCHAR)));
-    Z_EXPECT(str);
-
     std::map<std::string, std::string> envs;
+    const auto str = error::guard(strings::encode(std::wstring_view(buffer.get(), size / sizeof(WCHAR))));
 
-    for (const auto &token: strings::split(*str, {"\0", 1})) {
+    for (const auto &token: strings::split(str, {"\0", 1})) {
         if (token.empty())
             break;
 
         const auto pos = token.find('=');
 
         if (pos == std::string::npos)
-            return std::unexpected{Error::UnexpectedData};
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed environment block: missing '=' separator in entry '{}'", token)
+            };
 
         if (pos == 0)
             continue;
@@ -339,10 +340,10 @@ std::expected<void, std::error_code>
 zero::os::windows::process::Process::wait(const std::optional<std::chrono::milliseconds> timeout) const {
     if (const auto result = WaitForSingleObject(*mResource, timeout ? static_cast<DWORD>(timeout->count()) : INFINITE);
         result != WAIT_OBJECT_0) {
-        if (result == WAIT_TIMEOUT)
-            return std::unexpected{Error::WaitProcessTimeout};
+        if (result != WAIT_TIMEOUT)
+            throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
-        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+        return std::unexpected{Error::WaitProcessTimeout};
     }
 
     return {};
@@ -372,7 +373,7 @@ std::expected<std::string, std::error_code> zero::os::windows::process::Process:
 
         if (const auto &error = result.error();
             error != std::error_code{ERROR_INSUFFICIENT_BUFFER, std::system_category()})
-            return std::unexpected{error};
+            throw error::StacktraceError<std::system_error>{error};
 
         buffer = std::make_unique<std::byte[]>(size);
     }
@@ -392,11 +393,11 @@ std::expected<std::string, std::error_code> zero::os::windows::process::Process:
         });
 
         if (result)
-            return strings::encode(fmt::format(L"{}\\{}", domain.get(), name.get()));
+            return error::guard(strings::encode(fmt::format(L"{}\\{}", domain.get(), name.get())));
 
         if (const auto &error = result.error();
             error != std::error_code{ERROR_INSUFFICIENT_BUFFER, std::system_category()})
-            return std::unexpected{error};
+            throw error::StacktraceError<std::system_error>{error};
 
         name = std::make_unique<WCHAR[]>(nameSize);
         domain = std::make_unique<WCHAR[]>(domainSize);
@@ -410,7 +411,7 @@ std::expected<void, std::error_code> zero::os::windows::process::Process::termin
     });
 }
 
-std::expected<zero::os::windows::process::Process, std::error_code> zero::os::windows::process::self() {
+zero::os::windows::process::Process zero::os::windows::process::self() {
     return Process{Resource{GetCurrentProcess()}, GetCurrentProcessId()};
 }
 
@@ -427,14 +428,14 @@ std::expected<zero::os::windows::process::Process, std::error_code> zero::os::wi
     return Process{Resource{handle}, pid};
 }
 
-std::expected<std::list<DWORD>, std::error_code> zero::os::windows::process::all() {
+std::list<DWORD> zero::os::windows::process::all() {
     std::size_t size{4096};
     auto buffer = std::make_unique<DWORD[]>(size);
 
     while (true) {
         DWORD needed{};
 
-        Z_EXPECT(expected([&] {
+        error::guard(expected([&] {
             return EnumProcesses(buffer.get(), size * sizeof(DWORD), &needed);
         }));
 

@@ -3,7 +3,7 @@
 
 #include <algorithm>
 #include <exception>
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 template<typename Char>
 struct fmt::formatter<std::exception_ptr, Char> {

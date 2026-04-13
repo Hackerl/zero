@@ -7,8 +7,7 @@
 
 TEST_CASE("list process ids - Windows", "[os::windows::process]") {
     const auto ids = zero::os::windows::process::all();
-    REQUIRE(ids);
-    REQUIRE_THAT(*ids, Catch::Matchers::Contains(GetCurrentProcessId()));
+    REQUIRE_THAT(ids, Catch::Matchers::Contains(GetCurrentProcessId()));
 }
 
 TEST_CASE("process - Windows", "[os::windows::process]") {
@@ -134,5 +133,5 @@ TEST_CASE("process - Windows", "[os::windows::process]") {
         REQUIRE(process->exitCode() == EXIT_FAILURE);
     }
 
-    REQUIRE(child->wait());
+    REQUIRE_NOTHROW(child->wait());
 }

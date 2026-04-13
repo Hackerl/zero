@@ -5,7 +5,7 @@
 #include <zero/error.h>
 
 namespace zero::os {
-    std::expected<std::string, std::error_code> hostname();
+    std::string hostname();
 
 #ifndef _WIN32
     Z_DEFINE_ERROR_CODE(
@@ -18,7 +18,7 @@ namespace zero::os {
     std::expected<std::string, std::error_code> username();
 
     // Anonymous pipes on Windows do not support overlapped, so named pipes are used to simulate it.
-    std::expected<std::pair<IOResource, IOResource>, std::error_code> pipe();
+    std::pair<IOResource, IOResource> pipe();
 }
 
 #ifndef _WIN32

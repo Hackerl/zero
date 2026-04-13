@@ -22,7 +22,7 @@
 #include <zero/os/unix/error.h>
 #endif
 
-std::expected<std::string, std::error_code> zero::os::hostname() {
+std::string zero::os::hostname() {
 #ifdef _WIN32
     DWORD size{64};
     auto buffer = std::make_unique<WCHAR[]>(size);
@@ -33,17 +33,17 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
         });
 
         if (result)
-            return strings::encode(buffer.get());
+            return error::guard(strings::encode(buffer.get()));
 
         if (const auto &error = result.error(); error != std::error_code{ERROR_MORE_DATA, std::system_category()})
-            return std::unexpected{error};
+            throw error::StacktraceError<std::system_error>{error};
 
         buffer = std::make_unique<WCHAR[]>(size);
     }
 #elif defined(__linux__)
     std::array<char, HOST_NAME_MAX + 1> buffer{};
 
-    Z_EXPECT(unix::expected([&] {
+    error::guard(unix::expected([&] {
         return gethostname(buffer.data(), buffer.size());
     }));
 
@@ -51,7 +51,7 @@ std::expected<std::string, std::error_code> zero::os::hostname() {
 #elif defined(__APPLE__)
     std::array<char, MAXHOSTNAMELEN> buffer{};
 
-    Z_EXPECT(unix::expected([&] {
+    error::guard(unix::expected([&] {
         return gethostname(buffer.data(), buffer.size());
     }));
 
@@ -66,20 +66,25 @@ std::expected<std::string, std::error_code> zero::os::username() {
     std::array<WCHAR, UNLEN + 1> buffer{};
     auto size = static_cast<DWORD>(buffer.size());
 
-    Z_EXPECT(windows::expected([&] {
+    error::guard(windows::expected([&] {
         return GetUserNameW(buffer.data(), &size);
     }));
 
-    return strings::encode(buffer.data());
+    return error::guard(strings::encode(buffer.data()));
 #elif defined(__linux__) || __APPLE__
     const auto uid = geteuid();
-    const auto max = unix::expected([] {
-        return sysconf(_SC_GETPW_R_SIZE_MAX);
-    }).transform([](const auto &value) {
-        return static_cast<std::size_t>(value);
-    });
 
-    auto size = max.value_or(1024);
+    errno = 0;
+    auto max = sysconf(_SC_GETPW_R_SIZE_MAX);
+
+    if (max == -1) {
+        if (errno != 0)
+            throw error::StacktraceError<std::system_error>{errno, std::system_category()};
+
+        max = 1024;
+    }
+
+    auto size = static_cast<std::size_t>(max);
     auto buffer = std::make_unique<char[]>(size);
 
     passwd pwd{};
@@ -95,8 +100,11 @@ std::expected<std::string, std::error_code> zero::os::username() {
             return pwd.pw_name;
         }
 
+        if (n == EINTR)
+            continue;
+
         if (n != ERANGE)
-            return std::unexpected{std::error_code{n, std::system_category()}};
+            throw error::StacktraceError<std::system_error>{n, std::system_category()};
 
         size *= 2;
         buffer = std::make_unique<char[]>(size);
@@ -106,7 +114,7 @@ std::expected<std::string, std::error_code> zero::os::username() {
 #endif
 }
 
-std::expected<std::pair<zero::os::IOResource, zero::os::IOResource>, std::error_code>
+std::pair<zero::os::IOResource, zero::os::IOResource>
 zero::os::pipe() {
 #ifdef _WIN32
     static std::atomic<std::size_t> number;
@@ -124,7 +132,7 @@ zero::os::pipe() {
     );
 
     if (handle == INVALID_HANDLE_VALUE)
-        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+        throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
     IOResource first{handle};
 
@@ -139,13 +147,13 @@ zero::os::pipe() {
     );
 
     if (handle == INVALID_HANDLE_VALUE)
-        return std::unexpected{std::error_code{static_cast<int>(GetLastError()), std::system_category()}};
+        throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
     return std::pair{std::move(first), IOResource{handle}};
 #else
     std::array<int, 2> fds{};
 
-    Z_EXPECT(unix::expected([&] {
+    error::guard(unix::expected([&] {
         return ::pipe(fds.data());
     }));
 

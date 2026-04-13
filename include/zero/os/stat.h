@@ -2,8 +2,6 @@
 #define ZERO_OS_STAT_H
 
 #include <cstdint>
-#include <expected>
-#include <system_error>
 
 namespace zero::os::stat {
     struct CPUTime {
@@ -20,8 +18,8 @@ namespace zero::os::stat {
         double usedPercent{};
     };
 
-    std::expected<CPUTime, std::error_code> cpu();
-    std::expected<MemoryStat, std::error_code> memory();
+    CPUTime cpu();
+    MemoryStat memory();
 }
 
 #endif //ZERO_OS_STAT_H

@@ -60,7 +60,7 @@ std::string zero::os::net::stringify(const std::span<const std::byte, 16> ip) {
     return address.data();
 }
 
-std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> zero::os::net::interfaces() {
+std::map<std::string, zero::os::net::Interface> zero::os::net::interfaces() {
 #ifdef _WIN32
     ULONG size{10240};
     auto buffer = std::make_unique<std::byte[]>(size);
@@ -78,7 +78,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
             break;
 
         if (result != ERROR_BUFFER_OVERFLOW)
-            return std::unexpected{std::error_code{static_cast<int>(result), std::system_category()}};
+            throw error::StacktraceError<std::system_error>{static_cast<int>(result), std::system_category()};
 
         buffer = std::make_unique<std::byte[]>(size);
     }
@@ -97,10 +97,9 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
 
         if (const auto result = ConvertInterfaceLuidToNameW(&adapter->Luid, buf.data(), buf.size());
             result != ERROR_SUCCESS)
-            return std::unexpected{std::error_code{static_cast<int>(result), std::system_category()}};
+            throw error::StacktraceError<std::system_error>{static_cast<int>(result), std::system_category()};
 
-        const auto name = strings::encode(buf.data());
-        Z_EXPECT(name);
+        const auto name = error::guard(strings::encode(buf.data()));
 
         std::vector<Address> addresses;
 
@@ -140,9 +139,9 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
         }
 
         interfaces.emplace(
-            *name,
+            name,
             Interface{
-                *name,
+                name,
                 {
                     reinterpret_cast<const std::byte *>(adapter->PhysicalAddress),
                     reinterpret_cast<const std::byte *>(adapter->PhysicalAddress) + adapter->PhysicalAddressLength
@@ -156,7 +155,7 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
 #elif defined(__linux__) || __APPLE__
     ifaddrs *addr{};
 
-    Z_EXPECT(unix::expected([&] {
+    error::guard(unix::expected([&] {
         return getifaddrs(&addr);
     }));
     Z_DEFER(freeifaddrs(addr));
@@ -254,12 +253,11 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
     }
 
 #ifdef __ANDROID__
-    const auto resource = unix::expected([&] {
-        return socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-    }).transform([](const auto &fd) {
-        return Resource{fd};
-    });
-    Z_EXPECT(resource);
+    Resource resource{
+        error::guard(unix::expected([&] {
+            return socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+        }))
+    };
 
     for (auto &[name, mac, addresses]: interfaces | std::views::values) {
         ifreq request{};
@@ -267,8 +265,8 @@ std::expected<std::map<std::string, zero::os::net::Interface>, std::error_code> 
         request.ifr_addr.sa_family = AF_INET;
         std::strncpy(request.ifr_name, name.c_str(), IFNAMSIZ);
 
-        Z_EXPECT(unix::expected([&] {
-            return ioctl(resource->get(), SIOCGIFHWADDR, &request);
+        error::guard(unix::expected([&] {
+            return ioctl(*resource, SIOCGIFHWADDR, &request);
         }));
 
         mac.assign(

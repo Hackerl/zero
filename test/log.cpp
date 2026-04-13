@@ -166,9 +166,7 @@ TEST_CASE("override log level from environment variable", "[log]") {
 
 TEST_CASE("file log provider", "[log]") {
     const auto temp = zero::filesystem::temporaryDirectory();
-    REQUIRE(temp);
-
-    const auto directory = *temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
+    const auto directory = temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
     const auto name = GENERATE(take(1, randomAlphanumericString(1, 64)));
 
     SECTION("init") {

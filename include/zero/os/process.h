@@ -10,7 +10,7 @@ namespace zero::os::process {
 }
 
 #ifndef ZERO_PROCESS_PARTIAL_API
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #ifdef _WIN32
 #include "windows/process.h"
@@ -73,9 +73,9 @@ namespace zero::os::process {
         ProcessImpl mImpl;
     };
 
-    std::expected<Process, std::error_code> self();
+    Process self();
     std::expected<Process, std::error_code> open(ID pid);
-    std::expected<std::list<ID>, std::error_code> all();
+    std::list<ID> all();
 
     class ExitStatus {
     public:
@@ -111,8 +111,8 @@ namespace zero::os::process {
         std::optional<IOResource> &stdOutput();
         std::optional<IOResource> &stdError();
 
-        std::expected<ExitStatus, std::error_code> wait();
-        std::expected<std::optional<ExitStatus>, std::error_code> tryWait();
+        ExitStatus wait();
+        std::optional<ExitStatus> tryWait();
 
     private:
         std::array<std::optional<IOResource>, 3> mStdio;
@@ -124,12 +124,6 @@ namespace zero::os::process {
     class PseudoConsole {
     public:
         using IOResource = IOResource;
-
-        Z_DEFINE_ERROR_CODE_INNER_EX(
-            Error,
-            "zero::os::process::PseudoConsole",
-            APINotAvailable, "API not available", std::errc::function_not_supported
-        )
 
         struct Endpoint {
             IOResource reader;
@@ -144,7 +138,7 @@ namespace zero::os::process {
         static std::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
         void close();
-        std::expected<void, std::error_code> resize(short rows, short columns);
+        void resize(short rows, short columns);
         std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
         Endpoint &master();
@@ -166,7 +160,7 @@ namespace zero::os::process {
         PseudoConsole(IOResource master, IOResource slave);
         static std::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
-        std::expected<void, std::error_code> resize(short rows, short columns);
+        void resize(short rows, short columns);
         std::expected<ChildProcess, std::error_code> spawn(const Command &command);
 
         IOResource &master();
@@ -185,13 +179,6 @@ namespace zero::os::process {
 
     class Command {
     public:
-#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
-        Z_DEFINE_ERROR_CODE_INNER_EX(
-            Error,
-            "zero::os::process::Command",
-            APINotAvailable, "API not available", std::errc::function_not_supported
-        )
-#endif
         enum class StdioType {
             Null,
             Inherit,
@@ -319,14 +306,6 @@ namespace zero::os::process {
         friend class PseudoConsole;
     };
 }
-
-#ifdef _WIN32
-Z_DECLARE_ERROR_CODE(zero::os::process::PseudoConsole::Error)
-#endif
-
-#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
-Z_DECLARE_ERROR_CODE(zero::os::process::Command::Error)
-#endif
 
 template<typename Char>
 struct fmt::formatter<zero::os::process::ExitStatus, Char> {

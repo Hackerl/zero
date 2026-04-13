@@ -47,7 +47,7 @@ namespace zero::os::net {
     std::string stringify(std::span<const std::byte, 4> ip);
     std::string stringify(std::span<const std::byte, 16> ip);
 
-    std::expected<std::map<std::string, Interface>, std::error_code> interfaces();
+    std::map<std::string, Interface> interfaces();
 }
 
 template<typename Char>

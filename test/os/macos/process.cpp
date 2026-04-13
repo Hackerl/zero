@@ -9,8 +9,7 @@
 
 TEST_CASE("list process ids - macOS", "[os::macos::process]") {
     const auto ids = zero::os::macos::process::all();
-    REQUIRE(ids);
-    REQUIRE_THAT(*ids, Catch::Matchers::Contains(getpid()));
+    REQUIRE_THAT(ids, Catch::Matchers::Contains(getpid()));
 }
 
 TEST_CASE("process - macOS", "[os::macos::process]") {
@@ -98,7 +97,7 @@ TEST_CASE("process - macOS", "[os::macos::process]") {
         REQUIRE(process->kill(SIGKILL));
     }
 
-    REQUIRE(child->wait());
+    REQUIRE_NOTHROW(child->wait());
 }
 
 TEST_CASE("no such process - macOS", "[os::macos::process]") {

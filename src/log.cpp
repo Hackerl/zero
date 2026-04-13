@@ -39,7 +39,7 @@ zero::log::FileProvider::FileProvider(
     const std::size_t limit,
     const std::size_t maxFiles
 ) : mPID{os::process::currentProcessID()},
-    mName{std::move(name)}, mDirectory{std::move(directory).value_or(std::filesystem::temp_directory_path())},
+    mName{std::move(name)}, mDirectory{std::move(directory).value_or(filesystem::temporaryDirectory())},
     mLimit{limit}, mMaxFiles{maxFiles}, mPosition{0} {
 }
 

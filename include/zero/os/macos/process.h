@@ -29,7 +29,6 @@ namespace zero::os::macos::process {
         Z_DEFINE_ERROR_CODE_INNER(
             Error,
             "zero::os::macos::process::Process",
-            UnexpectedData, "Unexpected data",
             NoSuchUser, "No such user"
         )
 
@@ -64,9 +63,9 @@ namespace zero::os::macos::process {
         pid_t mPID;
     };
 
-    std::expected<Process, std::error_code> self();
+    Process self();
     std::expected<Process, std::error_code> open(pid_t pid);
-    std::expected<std::list<pid_t>, std::error_code> all();
+    std::list<pid_t> all();
 }
 
 Z_DECLARE_ERROR_CODE(zero::os::macos::process::Process::Error)

@@ -54,29 +54,28 @@ zero::os::Resource::operator bool() const {
     return valid();
 }
 
-std::expected<bool, std::error_code> zero::os::Resource::isInheritable() const {
+bool zero::os::Resource::isInheritable() const {
 #ifdef _WIN32
     DWORD flags{};
 
-    Z_EXPECT(windows::expected([&] {
+    error::guard(windows::expected([&] {
         return GetHandleInformation(mNative, &flags);
     }));
 
     return flags & HANDLE_FLAG_INHERIT;
 #else
-    return unix::expected([this] {
+    const auto flags = error::guard(unix::expected([this] {
         return fcntl(mNative, F_GETFD);
-    }).transform([](const auto &flags) {
-        return !(flags & FD_CLOEXEC);
-    });
+    }));
+    return !(flags & FD_CLOEXEC);
 #endif
 }
 
-std::expected<zero::os::Resource, std::error_code> zero::os::Resource::duplicate(const bool inheritable) const {
+zero::os::Resource zero::os::Resource::duplicate(const bool inheritable) const {
 #ifdef _WIN32
     HANDLE handle{};
 
-    Z_EXPECT(windows::expected([&] {
+    error::guard(windows::expected([&] {
         return DuplicateHandle(
             GetCurrentProcess(),
             mNative,
@@ -90,42 +89,38 @@ std::expected<zero::os::Resource, std::error_code> zero::os::Resource::duplicate
 
     return Resource{handle};
 #else
-    auto resource = unix::expected([this] {
-        return dup(mNative);
-    }).transform([](const auto &fd) {
-        return Resource{fd};
-    });
+    Resource resource{
+        error::guard(unix::expected([this] {
+            return dup(mNative);
+        }))
+    };
 
-    if (!inheritable) {
-        Z_EXPECT(resource->setInheritable(false));
-    }
+    if (!inheritable)
+        resource.setInheritable(false);
 
-    return *std::move(resource);
+    return resource;
 #endif
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<void, std::error_code> zero::os::Resource::setInheritable(const bool inheritable) {
+void zero::os::Resource::setInheritable(const bool inheritable) {
 #ifdef _WIN32
-    return windows::expected([&] {
+    error::guard(windows::expected([&] {
         return SetHandleInformation(mNative, HANDLE_FLAG_INHERIT, inheritable ? HANDLE_FLAG_INHERIT : 0);
-    });
+    }));
 #else
-    auto flags = unix::expected([this] {
+    auto flags = error::guard(unix::expected([this] {
         return fcntl(mNative, F_GETFD);
-    });
-    Z_EXPECT(flags);
-
-    if (inheritable)
-        *flags &= ~FD_CLOEXEC;
-    else
-        *flags |= FD_CLOEXEC;
-
-    Z_EXPECT(unix::expected([&] {
-        return fcntl(mNative, F_SETFD, *flags);
     }));
 
-    return {};
+    if (inheritable)
+        flags &= ~FD_CLOEXEC;
+    else
+        flags |= FD_CLOEXEC;
+
+    error::guard(unix::expected([&] {
+        return fcntl(mNative, F_SETFD, flags);
+    }));
 #endif
 }
 
@@ -136,13 +131,20 @@ zero::os::Resource::Native zero::os::Resource::release() {
 // ReSharper disable once CppMemberFunctionMayBeConst
 std::expected<void, std::error_code> zero::os::Resource::close() {
 #ifdef _WIN32
-    return windows::expected([this] {
+    error::guard(windows::expected([this] {
         return CloseHandle(std::exchange(mNative, INVALID_RESOURCE));
-    });
-#else
-    Z_EXPECT(unix::ensure([this] {
-        return ::close(std::exchange(mNative, INVALID_RESOURCE));
     }));
+    return {};
+#else
+    error::guard(unix::expected([this] {
+        return ::close(std::exchange(mNative, INVALID_RESOURCE));
+    }).or_else([](const auto &ec) -> std::expected<int, std::error_code> {
+        if (ec != std::errc::interrupted)
+            return std::unexpected{ec};
+
+        return {};
+    }));
+
     return {};
 #endif
 }
@@ -165,14 +167,12 @@ zero::os::IOResource::operator bool() const {
     return valid();
 }
 
-std::expected<bool, std::error_code> zero::os::IOResource::isInheritable() const {
+bool zero::os::IOResource::isInheritable() const {
     return mResource.isInheritable();
 }
 
-std::expected<zero::os::IOResource, std::error_code> zero::os::IOResource::duplicate(const bool inheritable) const {
-    return mResource.duplicate(inheritable).transform([](Resource resource) {
-        return IOResource{std::move(resource)};
-    });
+zero::os::IOResource zero::os::IOResource::duplicate(const bool inheritable) const {
+    return IOResource{mResource.duplicate(inheritable)};
 }
 
 std::expected<std::size_t, std::error_code> zero::os::IOResource::read(const std::span<std::byte> data) {
@@ -247,8 +247,8 @@ std::expected<void, std::error_code> zero::os::IOResource::close() {
     return mResource.close();
 }
 
-std::expected<void, std::error_code> zero::os::IOResource::setInheritable(const bool inheritable) {
-    return mResource.setInheritable(inheritable);
+void zero::os::IOResource::setInheritable(const bool inheritable) {
+    mResource.setInheritable(inheritable);
 }
 
 zero::io::FileDescriptor zero::os::IOResource::release() {

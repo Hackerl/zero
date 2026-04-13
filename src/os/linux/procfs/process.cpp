@@ -6,6 +6,8 @@
 #include <zero/filesystem.h>
 #include <zero/defer.h>
 #include <zero/expect.h>
+#include <fmt/format.h>
+#include <ranges>
 #include <climits>
 #include <dirent.h>
 #include <fcntl.h>
@@ -76,7 +78,9 @@ std::expected<std::string, std::error_code> zero::os::linux::procfs::process::Pr
     Z_EXPECT(content);
 
     if (content->size() < 2)
-        return std::unexpected{procfs::Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Unexpected content in /proc/{}/comm: too short ({} bytes)", mPID, content->size())
+        };
 
     content->pop_back();
     return *std::move(content);
@@ -93,7 +97,9 @@ std::expected<std::vector<std::string>, std::error_code> zero::os::linux::procfs
     auto tokens = strings::split(*content, {"\0", 1});
 
     if (tokens.empty())
-        return std::unexpected{procfs::Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Failed to parse /proc/{}/cmdline: empty result after split", mPID)
+        };
 
     return tokens;
 }
@@ -113,7 +119,9 @@ zero::os::linux::procfs::process::Process::environ() const {
         auto tokens = strings::split(env, "=", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected<std::error_code>(procfs::Error::UnexpectedData);
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed entry in /proc/{}/environ: missing '=' separator", mPID)
+            };
 
         environ.emplace(std::move(tokens[0]), std::move(tokens[1]));
     }
@@ -130,94 +138,95 @@ zero::os::linux::procfs::process::Process::stat() const {
     const auto end = content->rfind(')');
 
     if (start == std::string::npos || end == std::string::npos)
-        return std::unexpected{procfs::Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Malformed /proc/{}/stat: missing parentheses around process name", mPID)
+        };
 
     Stat stat;
 
-    const auto pid = strings::toNumber<std::int32_t>({
+    stat.pid = error::guard(strings::toNumber<std::int32_t>({
         content->begin(), content->begin() + static_cast<std::ptrdiff_t>(start) - 1
-    });
-    Z_EXPECT(pid);
+    }));
 
-    stat.pid = *pid;
     stat.comm = content->substr(start + 1, end - start - 1);
 
     const auto tokens = strings::split({content->begin() + static_cast<std::ptrdiff_t>(end) + 2, content->end()}, " ");
 
     if (tokens.size() < StatBasicFields - 2)
-        return std::unexpected{procfs::Error::UnexpectedData};
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format(
+                "Malformed /proc/{}/stat: expected >= {} fields, got {}",
+                mPID,
+                StatBasicFields - 2,
+                tokens.size()
+            )
+        };
 
     auto it = tokens.begin();
 
     stat.state = it++->at(0);
 
-    const auto set = [&]<typename T>(T &var) -> std::expected<void, std::error_code> {
+    const auto set = [&]<typename T>(T &var) {
         if constexpr (meta::IsSpecialization<T, std::optional>) {
             if (it == tokens.end())
-                return {};
+                return;
 
-            const auto value = strings::toNumber<typename T::value_type>(*it++);
-            Z_EXPECT(value);
-            var = *value;
+            var = error::guard(strings::toNumber<typename T::value_type>(*it++));
         }
         else {
-            const auto value = strings::toNumber<T>(*it++);
-            Z_EXPECT(value);
-            var = *value;
+            var = error::guard(strings::toNumber<T>(*it++));
         }
-
-        return {};
     };
 
-    Z_EXPECT(set(stat.ppid));
-    Z_EXPECT(set(stat.processGroupID));
-    Z_EXPECT(set(stat.sessionID));
-    Z_EXPECT(set(stat.ttyNumber));
-    Z_EXPECT(set(stat.terminalProcessGroupID));
-    Z_EXPECT(set(stat.flags));
-    Z_EXPECT(set(stat.minorFaults));
-    Z_EXPECT(set(stat.childMinorFaults));
-    Z_EXPECT(set(stat.majorFaults));
-    Z_EXPECT(set(stat.childMajorFaults));
-    Z_EXPECT(set(stat.userTime));
-    Z_EXPECT(set(stat.systemTime));
-    Z_EXPECT(set(stat.childUserTime));
-    Z_EXPECT(set(stat.childSystemTime));
-    Z_EXPECT(set(stat.priority));
-    Z_EXPECT(set(stat.niceValue));
-    Z_EXPECT(set(stat.numThreads));
-    Z_EXPECT(set(stat.intervalRealValue));
-    Z_EXPECT(set(stat.startTime));
-    Z_EXPECT(set(stat.virtualMemorySize));
-    Z_EXPECT(set(stat.rss));
-    Z_EXPECT(set(stat.rssLimit));
-    Z_EXPECT(set(stat.startCode));
-    Z_EXPECT(set(stat.endCode));
-    Z_EXPECT(set(stat.startStack));
-    Z_EXPECT(set(stat.kernelStackPointer));
-    Z_EXPECT(set(stat.kernelInstructionPointer));
-    Z_EXPECT(set(stat.pendingSignals));
-    Z_EXPECT(set(stat.blockedSignals));
-    Z_EXPECT(set(stat.ignoredSignals));
-    Z_EXPECT(set(stat.caughtSignals));
-    Z_EXPECT(set(stat.waitingChannel));
-    Z_EXPECT(set(stat.pagesSwapped));
-    Z_EXPECT(set(stat.childPagesSwapped));
-    Z_EXPECT(set(stat.exitSignal));
-    Z_EXPECT(set(stat.processor));
-    Z_EXPECT(set(stat.realTimePriority));
-    Z_EXPECT(set(stat.schedulingPolicy));
-    Z_EXPECT(set(stat.blockIODelayTicks));
-    Z_EXPECT(set(stat.guestTime));
-    Z_EXPECT(set(stat.childGuestTime));
-    Z_EXPECT(set(stat.startData));
-    Z_EXPECT(set(stat.endData));
-    Z_EXPECT(set(stat.startBrk));
-    Z_EXPECT(set(stat.argStart));
-    Z_EXPECT(set(stat.argEnd));
-    Z_EXPECT(set(stat.envStart));
-    Z_EXPECT(set(stat.envEnd));
-    Z_EXPECT(set(stat.exitCode));
+    set(stat.ppid);
+    set(stat.processGroupID);
+    set(stat.sessionID);
+    set(stat.ttyNumber);
+    set(stat.terminalProcessGroupID);
+    set(stat.flags);
+    set(stat.minorFaults);
+    set(stat.childMinorFaults);
+    set(stat.majorFaults);
+    set(stat.childMajorFaults);
+    set(stat.userTime);
+    set(stat.systemTime);
+    set(stat.childUserTime);
+    set(stat.childSystemTime);
+    set(stat.priority);
+    set(stat.niceValue);
+    set(stat.numThreads);
+    set(stat.intervalRealValue);
+    set(stat.startTime);
+    set(stat.virtualMemorySize);
+    set(stat.rss);
+    set(stat.rssLimit);
+    set(stat.startCode);
+    set(stat.endCode);
+    set(stat.startStack);
+    set(stat.kernelStackPointer);
+    set(stat.kernelInstructionPointer);
+    set(stat.pendingSignals);
+    set(stat.blockedSignals);
+    set(stat.ignoredSignals);
+    set(stat.caughtSignals);
+    set(stat.waitingChannel);
+    set(stat.pagesSwapped);
+    set(stat.childPagesSwapped);
+    set(stat.exitSignal);
+    set(stat.processor);
+    set(stat.realTimePriority);
+    set(stat.schedulingPolicy);
+    set(stat.blockIODelayTicks);
+    set(stat.guestTime);
+    set(stat.childGuestTime);
+    set(stat.startData);
+    set(stat.endData);
+    set(stat.startBrk);
+    set(stat.argStart);
+    set(stat.argEnd);
+    set(stat.envStart);
+    set(stat.envEnd);
+    set(stat.exitCode);
 
     return stat;
 }
@@ -230,91 +239,62 @@ zero::os::linux::procfs::process::Process::statM() const {
     const auto tokens = strings::split(*content, " ");
 
     if (tokens.size() != 7)
-        return std::unexpected{procfs::Error::UnexpectedData};
-
-    const auto size = strings::toNumber<std::uint64_t>(tokens[0]);
-    Z_EXPECT(size);
-
-    const auto resident = strings::toNumber<std::uint64_t>(tokens[1]);
-    Z_EXPECT(resident);
-
-    const auto shared = strings::toNumber<std::uint64_t>(tokens[2]);
-    Z_EXPECT(shared);
-
-    const auto text = strings::toNumber<std::uint64_t>(tokens[3]);
-    Z_EXPECT(text);
-
-    const auto library = strings::toNumber<std::uint64_t>(tokens[4]);
-    Z_EXPECT(library);
-
-    const auto data = strings::toNumber<std::uint64_t>(tokens[5]);
-    Z_EXPECT(data);
-
-    const auto dirty = strings::toNumber<std::uint64_t>(tokens[6]);
-    Z_EXPECT(dirty);
+        throw error::StacktraceError<std::runtime_error>{
+            fmt::format("Malformed /proc/{}/statm: expected 7 fields, got {}", mPID, tokens.size())
+        };
 
     return StatM{
-        *size,
-        *resident,
-        *shared,
-        *text,
-        *library,
-        *data,
-        *dirty
+        error::guard(strings::toNumber<std::uint64_t>(tokens[0])),
+        error::guard(strings::toNumber<std::uint64_t>(tokens[1])),
+        error::guard(strings::toNumber<std::uint64_t>(tokens[2])),
+        error::guard(strings::toNumber<std::uint64_t>(tokens[3])),
+        error::guard(strings::toNumber<std::uint64_t>(tokens[4])),
+        error::guard(strings::toNumber<std::uint64_t>(tokens[5])),
+        error::guard(strings::toNumber<std::uint64_t>(tokens[6]))
     };
 }
 
 template<typename T>
-std::expected<std::vector<T>, std::error_code> parseNumbers(const std::string_view str) {
-    std::vector<T> result;
-
-    for (const auto &token: zero::strings::split(str)) {
-        const auto n = zero::strings::toNumber<T>(token);
-        Z_EXPECT(n);
-        result.emplace_back(*n);
-    }
-
-    return result;
+std::vector<T> parseNumbers(const std::string_view str) {
+    return zero::strings::split(str)
+        | std::views::transform([](const auto &token) {
+            return zero::error::guard(zero::strings::toNumber<T>(token));
+        })
+        | std::ranges::to<std::vector>();
 }
 
 namespace {
-    std::expected<std::vector<std::uint32_t>, std::error_code> parseAllowed(const std::string_view str) {
-        std::vector<std::uint32_t> result;
-
-        for (const auto &token: zero::strings::split(str, ",")) {
-            const auto n = zero::strings::toNumber<std::uint32_t>(token, 16);
-            Z_EXPECT(n);
-            result.emplace_back(*n);
-        }
-
-        return result;
+    std::vector<std::uint32_t> parseAllowed(const std::string_view str) {
+        return zero::strings::split(str, ",")
+            | std::views::transform([](const auto &token) {
+                return zero::error::guard(zero::strings::toNumber<std::uint32_t>(token, 16));
+            })
+            | std::ranges::to<std::vector>();
     }
 }
 
-std::expected<std::vector<std::pair<std::uint32_t, std::uint32_t>>, std::error_code>
+std::vector<std::pair<std::uint32_t, std::uint32_t>>
 parseAllowedList(const std::string_view str) {
     std::vector<std::pair<std::uint32_t, std::uint32_t>> result;
 
     for (const auto &token: zero::strings::split(str, ",")) {
         if (!token.contains('-')) {
-            const auto n = zero::strings::toNumber<std::uint32_t>(token);
-            Z_EXPECT(n);
-            result.emplace_back(*n, *n);
+            const auto n = zero::error::guard(zero::strings::toNumber<std::uint32_t>(token));
+            result.emplace_back(n, n);
             continue;
         }
 
         const auto tokens = zero::strings::split(token, "-", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected{zero::os::linux::procfs::Error::UnexpectedData};
+            throw zero::error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed range in allowed list: '{}'", token)
+            };
 
-        const auto begin = zero::strings::toNumber<std::uint32_t>(tokens[0]);
-        Z_EXPECT(begin);
-
-        const auto end = zero::strings::toNumber<std::uint32_t>(tokens[1]);
-        Z_EXPECT(end);
-
-        result.emplace_back(*begin, *end);
+        result.emplace_back(
+            zero::error::guard(zero::strings::toNumber<std::uint32_t>(tokens[0])),
+            zero::error::guard(zero::strings::toNumber<std::uint32_t>(tokens[1]))
+        );
     }
 
     return result;
@@ -331,7 +311,9 @@ zero::os::linux::procfs::process::Process::status() const {
         auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected{procfs::Error::UnexpectedData};
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed line in /proc/{}/status: missing ':' separator", mPID)
+            };
 
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
@@ -346,26 +328,11 @@ zero::os::linux::procfs::process::Process::status() const {
         return std::move(it->second);
     };
 
-    const auto set = []<typename T, typename V>(
-        T &var,
-        std::optional<V> value
-    ) -> std::expected<void, std::error_code> {
-        if (!value) {
-            if constexpr (meta::IsSpecialization<T, std::optional>)
-                return {};
-            else
-                return std::unexpected{procfs::Error::UnexpectedData};
-        }
+    const auto set = []<typename T, typename V>(T &var, std::optional<V> value) {
+        if (!value)
+            return;
 
-        if constexpr (meta::IsSpecialization<V, std::expected>) {
-            Z_EXPECT(*value);
-            var = *std::move(*value);
-        }
-        else {
-            var = *value;
-        }
-
-        return {};
+        var = *value;
     };
 
     const auto setNumber = [&]<typename T>(T &var, const std::string &key, const int base = 10) {
@@ -373,105 +340,103 @@ zero::os::linux::procfs::process::Process::status() const {
             var,
             take(key).transform([=](const auto &value) {
                 if constexpr (meta::IsSpecialization<T, std::optional>)
-                    return strings::toNumber<typename T::value_type>(value, base);
+                    return error::guard(strings::toNumber<typename T::value_type>(value, base));
                 else
-                    return strings::toNumber<T>(value, base);
+                    return error::guard(strings::toNumber<T>(value, base));
             })
         );
     };
 
     Status status;
 
-    Z_EXPECT(set(status.name, take("Name")));
-    Z_EXPECT(setNumber(status.umask, "Umask", 8));
-    Z_EXPECT(set(status.state, take("State")));
-    Z_EXPECT(setNumber(status.threadGroupID, "Tgid"));
-    Z_EXPECT(setNumber(status.numaGroupID, "Ngid"));
-    Z_EXPECT(setNumber(status.pid, "Pid"));
-    Z_EXPECT(setNumber(status.ppid, "PPid"));
-    Z_EXPECT(setNumber(status.tracerPID, "TracerPid"));
+    set(status.name, take("Name"));
+    setNumber(status.umask, "Umask", 8);
+    set(status.state, take("State"));
+    setNumber(status.threadGroupID, "Tgid");
+    setNumber(status.numaGroupID, "Ngid");
+    setNumber(status.pid, "Pid");
+    setNumber(status.ppid, "PPid");
+    setNumber(status.tracerPID, "TracerPid");
 
-    const auto parseIDs = [](const auto &value) -> std::expected<std::array<std::uint32_t, 4>, std::error_code> {
+    const auto parseIDs = [](const auto &value) {
         const auto numbers = parseNumbers<std::uint32_t>(value);
-        Z_EXPECT(numbers);
 
-        if (numbers->size() != 4)
-            return std::unexpected{procfs::Error::UnexpectedData};
+        if (numbers.size() != 4)
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed UID/GID entry: expected 4 values, got {}", numbers.size())
+            };
 
-        return std::array{numbers->at(0), numbers->at(1), numbers->at(2), numbers->at(3)};
+        return std::array{numbers.at(0), numbers.at(1), numbers.at(2), numbers.at(3)};
     };
 
-    Z_EXPECT(set(status.uid, take("Uid").transform(parseIDs)));
-    Z_EXPECT(set(status.gid, take("Gid").transform(parseIDs)));
+    set(status.uid, take("Uid").transform(parseIDs));
+    set(status.gid, take("Gid").transform(parseIDs));
 
-    Z_EXPECT(setNumber(status.fdSize, "FDSize"));
+    setNumber(status.fdSize, "FDSize");
 
-    Z_EXPECT(set(status.supplementaryGroupIDs, take("Groups").transform(parseNumbers<std::int32_t>)));
-    Z_EXPECT(set(status.namespaceThreadGroupIDs, take("NStgid").transform(parseNumbers<std::int32_t>)));
-    Z_EXPECT(set(status.namespaceProcessIDs, take("NSpid").transform(parseNumbers<std::int32_t>)));
-    Z_EXPECT(set(status.namespaceProcessGroupIDs, take("NSpgid").transform(parseNumbers<std::int32_t>)));
-    Z_EXPECT(set(status.namespaceSessionIDs, take("NSsid").transform(parseNumbers<std::int32_t>)));
+    set(status.supplementaryGroupIDs, take("Groups").transform(parseNumbers<std::int32_t>));
+    set(status.namespaceThreadGroupIDs, take("NStgid").transform(parseNumbers<std::int32_t>));
+    set(status.namespaceProcessIDs, take("NSpid").transform(parseNumbers<std::int32_t>));
+    set(status.namespaceProcessGroupIDs, take("NSpgid").transform(parseNumbers<std::int32_t>));
+    set(status.namespaceSessionIDs, take("NSsid").transform(parseNumbers<std::int32_t>));
 
-    Z_EXPECT(setNumber(status.vmPeak, "VmPeak"));
-    Z_EXPECT(setNumber(status.vmSize, "VmSize"));
-    Z_EXPECT(setNumber(status.vmLocked, "VmLck"));
-    Z_EXPECT(setNumber(status.vmPinned, "VmPin"));
-    Z_EXPECT(setNumber(status.vmHWM, "VmHWM"));
-    Z_EXPECT(setNumber(status.vmRSS, "VmRSS"));
-    Z_EXPECT(setNumber(status.rssAnonymous, "RssAnon"));
-    Z_EXPECT(setNumber(status.rssFile, "RssFile"));
-    Z_EXPECT(setNumber(status.rssSharedMemory, "RssShmem"));
-    Z_EXPECT(setNumber(status.vmData, "VmData"));
-    Z_EXPECT(setNumber(status.vmStack, "VmStk"));
-    Z_EXPECT(setNumber(status.vmExe, "VmExe"));
-    Z_EXPECT(setNumber(status.vmLib, "VmLib"));
-    Z_EXPECT(setNumber(status.vmPTE, "VmPTE"));
-    Z_EXPECT(setNumber(status.vmSwap, "VmSwap"));
-    Z_EXPECT(setNumber(status.hugeTLBPages, "HugetlbPages"));
-    Z_EXPECT(setNumber(status.threads, "Threads"));
+    setNumber(status.vmPeak, "VmPeak");
+    setNumber(status.vmSize, "VmSize");
+    setNumber(status.vmLocked, "VmLck");
+    setNumber(status.vmPinned, "VmPin");
+    setNumber(status.vmHWM, "VmHWM");
+    setNumber(status.vmRSS, "VmRSS");
+    setNumber(status.rssAnonymous, "RssAnon");
+    setNumber(status.rssFile, "RssFile");
+    setNumber(status.rssSharedMemory, "RssShmem");
+    setNumber(status.vmData, "VmData");
+    setNumber(status.vmStack, "VmStk");
+    setNumber(status.vmExe, "VmExe");
+    setNumber(status.vmLib, "VmLib");
+    setNumber(status.vmPTE, "VmPTE");
+    setNumber(status.vmSwap, "VmSwap");
+    setNumber(status.hugeTLBPages, "HugetlbPages");
+    setNumber(status.threads, "Threads");
 
-    Z_EXPECT(set(
+    set(
         status.signalQueue,
-        take("SigQ").transform([](const auto &value) -> std::expected<std::array<std::uint64_t, 2>, std::error_code> {
+        take("SigQ").transform([](const auto &value) {
             const auto tokens = strings::split(value, "/", 1);
 
             if (tokens.size() != 2)
-                return std::unexpected{procfs::Error::UnexpectedData};
+                throw error::StacktraceError<std::runtime_error>{"Malformed SigQ field: expected 'current/max' format"};
 
-            const auto number = strings::toNumber<std::uint64_t>(tokens[0]);
-            Z_EXPECT(number);
-
-            const auto limit = strings::toNumber<std::uint64_t>(tokens[1]);
-            Z_EXPECT(limit);
-
-            return std::array{*number, *limit};
+            return std::array{
+                error::guard(strings::toNumber<std::uint64_t>(tokens[0])),
+                error::guard(strings::toNumber<std::uint64_t>(tokens[1]))
+            };
         })
-    ));
+    );
 
-    Z_EXPECT(setNumber(status.pendingSignals, "SigPnd", 16));
-    Z_EXPECT(setNumber(status.blockedSignals, "SigBlk", 16));
-    Z_EXPECT(setNumber(status.ignoredSignals, "SigIgn", 16));
-    Z_EXPECT(setNumber(status.caughtSignals, "SigCgt", 16));
-    Z_EXPECT(setNumber(status.inheritableCapabilities, "CapInh", 16));
-    Z_EXPECT(setNumber(status.permittedCapabilities, "CapPrm", 16));
-    Z_EXPECT(setNumber(status.effectiveCapabilities, "CapEff", 16));
-    Z_EXPECT(setNumber(status.boundingCapabilities, "CapBnd", 16));
-    Z_EXPECT(setNumber(status.ambientCapabilities, "CapAmb", 16));
-    Z_EXPECT(setNumber(status.noNewPrivileges, "NoNewPrivs"));
-    Z_EXPECT(setNumber(status.seccompMode, "Seccomp"));
+    setNumber(status.pendingSignals, "SigPnd", 16);
+    setNumber(status.blockedSignals, "SigBlk", 16);
+    setNumber(status.ignoredSignals, "SigIgn", 16);
+    setNumber(status.caughtSignals, "SigCgt", 16);
+    setNumber(status.inheritableCapabilities, "CapInh", 16);
+    setNumber(status.permittedCapabilities, "CapPrm", 16);
+    setNumber(status.effectiveCapabilities, "CapEff", 16);
+    setNumber(status.boundingCapabilities, "CapBnd", 16);
+    setNumber(status.ambientCapabilities, "CapAmb", 16);
+    setNumber(status.noNewPrivileges, "NoNewPrivs");
+    setNumber(status.seccompMode, "Seccomp");
 
-    Z_EXPECT(set(status.speculationStoreBypass, take("Speculation_Store_Bypass")));
+    set(status.speculationStoreBypass, take("Speculation_Store_Bypass"));
 
-    Z_EXPECT(set(status.allowedCPUs, take("Cpus_allowed").transform(parseAllowed)));
-    Z_EXPECT(set(status.allowedCPUList, take("Cpus_allowed_list").transform(parseAllowedList)));
-    Z_EXPECT(set(status.allowedMemoryNodes, take("Mems_allowed").transform(parseAllowed)));
-    Z_EXPECT(set(status.allowedMemoryNodeList, take("Mems_allowed_list").transform(parseAllowedList)));
+    set(status.allowedCPUs, take("Cpus_allowed").transform(parseAllowed));
+    set(status.allowedCPUList, take("Cpus_allowed_list").transform(parseAllowedList));
+    set(status.allowedMemoryNodes, take("Mems_allowed").transform(parseAllowed));
+    set(status.allowedMemoryNodeList, take("Mems_allowed_list").transform(parseAllowedList));
 
-    Z_EXPECT(setNumber(status.voluntaryContextSwitches, "voluntary_ctxt_switches"));
-    Z_EXPECT(setNumber(status.nonVoluntaryContextSwitches, "nonvoluntary_ctxt_switches"));
+    setNumber(status.voluntaryContextSwitches, "voluntary_ctxt_switches");
+    setNumber(status.nonVoluntaryContextSwitches, "nonvoluntary_ctxt_switches");
 
-    Z_EXPECT(set(status.coreDumping, take("CoreDumping").transform([](const auto &value) { return value == "1"; })));
-    Z_EXPECT(set(status.thpEnabled, take("THP_enabled").transform([](const auto &value) { return value == "1"; })));
+    set(status.coreDumping, take("CoreDumping").transform([](const auto &value) { return value == "1"; }));
+    set(status.thpEnabled, take("THP_enabled").transform([](const auto &value) { return value == "1"; }));
 
     return status;
 }
@@ -505,7 +470,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
 
         if (!e) {
             if (errno != 0)
-                return std::unexpected{std::error_code{errno, std::system_category()}};
+                throw error::StacktraceError<std::system_error>{errno, std::system_category()};
 
             break;
         }
@@ -513,10 +478,7 @@ std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::proces
         if (e->d_name == "."sv || e->d_name == ".."sv)
             continue;
 
-        const auto id = strings::toNumber<pid_t>(e->d_name);
-        Z_EXPECT(id);
-
-        tasks.push_back(*id);
+        tasks.push_back(error::guard(strings::toNumber<pid_t>(e->d_name)));
     }
 
     return tasks;
@@ -536,31 +498,28 @@ zero::os::linux::procfs::process::Process::maps() const {
         const auto fields = strings::split(line);
 
         if (fields.size() < MappingBasicFields)
-            return std::unexpected{procfs::Error::UnexpectedData};
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format(
+                    "Malformed /proc/{}/maps: expected >= {} fields, got {}",
+                    mPID,
+                    MappingBasicFields,
+                    fields.size()
+                )
+            };
 
         const auto tokens = strings::split(fields[0], "-", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected{procfs::Error::UnexpectedData};
-
-        const auto start = strings::toNumber<std::uint64_t>(tokens[0], 16);
-        Z_EXPECT(start);
-
-        const auto end = strings::toNumber<std::uint64_t>(tokens[1], 16);
-        Z_EXPECT(end);
-
-        const auto offset = strings::toNumber<std::uint64_t>(fields[2], 16);
-        Z_EXPECT(offset);
-
-        const auto inode = strings::toNumber<std::uint64_t>(fields[4]);
-        Z_EXPECT(inode);
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed address range in /proc/{}/maps: '{}'", mPID, fields[0])
+            };
 
         MemoryMapping memoryMapping;
 
-        memoryMapping.start = *start;
-        memoryMapping.end = *end;
-        memoryMapping.offset = *offset;
-        memoryMapping.inode = *inode;
+        memoryMapping.start = error::guard(strings::toNumber<std::uint64_t>(tokens[0], 16));
+        memoryMapping.end = error::guard(strings::toNumber<std::uint64_t>(tokens[1], 16));
+        memoryMapping.offset = error::guard(strings::toNumber<std::uint64_t>(fields[2], 16));
+        memoryMapping.inode = error::guard(strings::toNumber<std::uint64_t>(fields[4]));
         memoryMapping.device = fields[3];
 
         if (fields.size() > MappingBasicFields)
@@ -569,7 +528,9 @@ zero::os::linux::procfs::process::Process::maps() const {
         const auto &permissions = fields[1];
 
         if (permissions.length() < MappingPermissionsLength)
-            return std::unexpected<std::error_code>(procfs::Error::UnexpectedData);
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed permissions in /proc/{}/maps: '{}'", mPID, fields[1])
+            };
 
         if (permissions.at(0) == 'r')
             memoryMapping.permissions.set(Read);
@@ -603,38 +564,39 @@ zero::os::linux::procfs::process::Process::io() const {
         auto tokens = strings::split(line, ":", 1);
 
         if (tokens.size() != 2)
-            return std::unexpected{procfs::Error::UnexpectedData};
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Malformed line in /proc/{}/io: missing ':' separator", mPID)
+            };
 
         map.emplace(std::move(tokens[0]), strings::trim(tokens[1]));
     }
 
-    const auto set = [&]<typename T>(T &var, const std::string &key) -> std::expected<void, std::error_code> {
+    const auto set = [&]<typename T>(T &var, const std::string &key) {
         const auto it = map.find(key);
 
         if (it == map.end())
-            return std::unexpected{procfs::Error::UnexpectedData};
+            throw error::StacktraceError<std::runtime_error>{
+                fmt::format("Missing required field '{}' in /proc/{}/io", key, mPID)
+            };
 
-        const auto value = strings::toNumber<T>(it->second);
-        Z_EXPECT(value);
-        var = *value;
-        return {};
+        var = error::guard(strings::toNumber<T>(it->second));
     };
 
     IOStat stat;
 
-    Z_EXPECT(set(stat.readCharacters, "rchar"));
-    Z_EXPECT(set(stat.writeCharacters, "wchar"));
-    Z_EXPECT(set(stat.readSyscalls, "syscr"));
-    Z_EXPECT(set(stat.writeSyscalls, "syscw"));
-    Z_EXPECT(set(stat.readBytes, "read_bytes"));
-    Z_EXPECT(set(stat.writeBytes, "write_bytes"));
-    Z_EXPECT(set(stat.cancelledWriteBytes, "cancelled_write_bytes"));
+    set(stat.readCharacters, "rchar");
+    set(stat.writeCharacters, "wchar");
+    set(stat.readSyscalls, "syscr");
+    set(stat.writeSyscalls, "syscw");
+    set(stat.readBytes, "read_bytes");
+    set(stat.writeBytes, "write_bytes");
+    set(stat.cancelledWriteBytes, "cancelled_write_bytes");
 
     return stat;
 }
 
-std::expected<zero::os::linux::procfs::process::Process, std::error_code> zero::os::linux::procfs::process::self() {
-    return open(getpid());
+zero::os::linux::procfs::process::Process zero::os::linux::procfs::process::self() {
+    return error::guard(open(getpid()));
 }
 
 std::expected<zero::os::linux::procfs::process::Process, std::error_code>
@@ -652,19 +614,14 @@ zero::os::linux::procfs::process::open(const pid_t pid) {
     return Process{Resource{*fd}, pid};
 }
 
-std::expected<std::list<pid_t>, std::error_code> zero::os::linux::procfs::process::all() {
-    const auto iterator = filesystem::readDirectory("/proc");
-    Z_EXPECT(iterator);
-
+std::list<pid_t> zero::os::linux::procfs::process::all() {
     std::list<pid_t> ids;
 
-    for (const auto &entry: *iterator) {
-        Z_EXPECT(entry);
+    for (const auto &entry: error::guard(filesystem::readDirectory("/proc"))) {
+        if (!entry)
+            throw error::StacktraceError<std::system_error>{entry.error()};
 
-        const auto result = entry->isDirectory();
-        Z_EXPECT(result);
-
-        if (!*result)
+        if (!error::guard(entry->isDirectory()))
             continue;
 
         const auto id = strings::toNumber<pid_t>(entry->path().filename().native());

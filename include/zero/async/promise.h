@@ -8,7 +8,7 @@
 #include <utility>
 #include <optional>
 #include <stdexcept>
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include <zero/error.h>
 #include <zero/atomic/event.h>
 #include <zero/meta/concepts.h>

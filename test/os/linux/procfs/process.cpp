@@ -8,8 +8,7 @@
 
 TEST_CASE("list process ids - procfs", "[os::linux::procfs::process]") {
     const auto ids = zero::os::linux::procfs::process::all();
-    REQUIRE(ids);
-    REQUIRE_THAT(*ids, Catch::Matchers::Contains(getpid()));
+    REQUIRE_THAT(ids, Catch::Matchers::Contains(getpid()));
 }
 
 TEST_CASE("process - procfs", "[os::linux::procfs::process]") {
@@ -100,7 +99,7 @@ TEST_CASE("process - procfs", "[os::linux::procfs::process]") {
         REQUIRE(io);
     }
 
-    REQUIRE(child->wait());
+    REQUIRE_NOTHROW(child->wait());
 }
 
 TEST_CASE("no such process - procfs", "[os::linux::procfs::process]") {

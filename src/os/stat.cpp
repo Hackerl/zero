@@ -1,4 +1,5 @@
 #include <zero/os/stat.h>
+#include <zero/error.h>
 #include <zero/expect.h>
 
 #ifdef _WIN32
@@ -16,11 +17,11 @@
 #include <zero/os/macos/error.h>
 #endif
 
-std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
+zero::os::stat::CPUTime zero::os::stat::cpu() {
 #ifdef _WIN32
     FILETIME idle{}, kernel{}, user{};
 
-    Z_EXPECT(windows::expected([&] {
+    error::guard(windows::expected([&] {
         return GetSystemTimes(&idle, &kernel, &user);
     }));
 
@@ -34,19 +35,14 @@ std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
     return time;
 #elif defined(__linux__)
     const auto stat = linux::procfs::stat();
-    Z_EXPECT(stat);
-
-    const auto ticks = unix::expected([] {
+    const auto ticks = static_cast<double>(error::guard(unix::expected([] {
         return sysconf(_SC_CLK_TCK);
-    }).transform([](const auto &value) {
-        return static_cast<double>(value);
-    });
-    Z_EXPECT(ticks);
+    })));
 
     return CPUTime{
-        static_cast<double>(stat->total.user) / *ticks,
-        static_cast<double>(stat->total.system) / *ticks,
-        static_cast<double>(stat->total.idle) / *ticks
+        static_cast<double>(stat.total.user) / ticks,
+        static_cast<double>(stat.total.system) / ticks,
+        static_cast<double>(stat.total.idle) / ticks
     };
 #elif defined(__APPLE__)
     host_cpu_load_info_data_t data{};
@@ -58,29 +54,26 @@ std::expected<zero::os::stat::CPUTime, std::error_code> zero::os::stat::cpu() {
         reinterpret_cast<host_info_t>(&data),
         &count
     ); status != KERN_SUCCESS)
-        return std::unexpected{static_cast<macos::Error>(status)};
+        throw error::StacktraceError<std::system_error>{static_cast<macos::Error>(status)};
 
-    const auto ticks = unix::expected([] {
+    const auto ticks = static_cast<double>(error::guard(unix::expected([] {
         return sysconf(_SC_CLK_TCK);
-    }).transform([](const auto &value) {
-        return static_cast<double>(value);
-    });
-    Z_EXPECT(ticks);
+    })));
 
     return CPUTime{
-        data.cpu_ticks[CPU_STATE_USER] / *ticks,
-        data.cpu_ticks[CPU_STATE_SYSTEM] / *ticks,
-        data.cpu_ticks[CPU_STATE_IDLE] / *ticks
+        data.cpu_ticks[CPU_STATE_USER] / ticks,
+        data.cpu_ticks[CPU_STATE_SYSTEM] / ticks,
+        data.cpu_ticks[CPU_STATE_IDLE] / ticks
     };
 #endif
 }
 
-std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memory() {
+zero::os::stat::MemoryStat zero::os::stat::memory() {
 #ifdef _WIN32
     MEMORYSTATUSEX status{};
     status.dwLength = sizeof(status);
 
-    Z_EXPECT(windows::expected([&] {
+    error::guard(windows::expected([&] {
         return GlobalMemoryStatusEx(&status);
     }));
 
@@ -93,20 +86,19 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
     };
 #elif defined(__linux__)
     const auto memory = linux::procfs::memory();
-    Z_EXPECT(memory);
 
     MemoryStat stat;
 
-    stat.total = memory->memoryTotal * 1024;
-    stat.free = memory->memoryFree * 1024;
+    stat.total = memory.memoryTotal * 1024;
+    stat.free = memory.memoryFree * 1024;
 
-    const auto buffers = memory->buffers * 1024;
-    const auto cached = memory->cached * 1024;
+    const auto buffers = memory.buffers * 1024;
+    const auto cached = memory.cached * 1024;
 
     stat.used = stat.total - stat.free - buffers - cached;
     stat.usedPercent = static_cast<double>(stat.used) / static_cast<double>(stat.total) * 100.0;
 
-    if (const auto &available = memory->memoryAvailable) {
+    if (const auto &available = memory.memoryAvailable) {
         stat.available = *available * 1024;
         return stat;
     }
@@ -123,12 +115,12 @@ std::expected<zero::os::stat::MemoryStat, std::error_code> zero::os::stat::memor
         reinterpret_cast<host_info_t>(&data),
         &count
     ); status != KERN_SUCCESS)
-        return std::unexpected{static_cast<macos::Error>(status)};
+        throw error::StacktraceError<std::system_error>{static_cast<macos::Error>(status)};
 
     std::uint64_t total{};
     auto size = sizeof(total);
 
-    Z_EXPECT(unix::expected([&] {
+    error::guard(unix::expected([&] {
         std::array mib{CTL_HW, HW_MEMSIZE};
         return sysctl(mib.data(), mib.size(), &total, &size, nullptr, 0);
     }));
