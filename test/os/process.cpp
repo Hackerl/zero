@@ -349,7 +349,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
                    .args({Arguments.begin(), Arguments.end()})
                    .stdOutput(zero::os::process::Command::StdioType::Null);
 
-    SECTION("inherit") {
+    SECTION("default") {
         zero::env::set("ZERO_PROCESS_TESTS", "1");
         Z_DEFER(zero::env::unset("ZERO_PROCESS_TESTS"));
 
@@ -363,64 +363,52 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
     }
 
-    SECTION("without inherit") {
-        SECTION("empty") {
-            auto child = command.clearEnv().spawn();
-            REQUIRE(child);
-            Z_DEFER(child->wait());
+    SECTION("add") {
+        auto child = command.env("ZERO_PROCESS_TESTS", "1").spawn();
+        REQUIRE(child);
+        Z_DEFER(child->wait());
 
-            const auto envs = child->envs();
-            REQUIRE(envs);
-            REQUIRE_THAT(*envs, Catch::Matchers::IsEmpty());
-        }
+        const auto envs = child->envs();
+        REQUIRE(envs);
+        REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
+        REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
+    }
 
-        SECTION("not empty") {
-            zero::env::set("ZERO_PROCESS_TESTS", "1");
-            Z_DEFER(zero::env::unset("ZERO_PROCESS_TESTS"));
+    SECTION("remove") {
+        zero::env::set("ZERO_PROCESS_TESTS", "1");
+        Z_DEFER(zero::env::unset("ZERO_PROCESS_TESTS"));
 
-            auto child = command.clearEnv().spawn();
-            REQUIRE(child);
-            Z_DEFER(child->wait());
+        auto child = command.removeEnv("ZERO_PROCESS_TESTS").spawn();
+        REQUIRE(child);
+        Z_DEFER(child->wait());
 
-            const auto envs = child->envs();
-            REQUIRE(envs);
-            REQUIRE_THAT(*envs | std::views::keys, !Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
-        }
+        const auto envs = child->envs();
+        REQUIRE(envs);
+        REQUIRE_THAT(*envs | std::views::keys, !Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
+    }
 
-        SECTION("add env") {
-            auto child = command.env("ZERO_PROCESS_TESTS", "1").spawn();
-            REQUIRE(child);
-            Z_DEFER(child->wait());
+    SECTION("clear") {
+        zero::env::set("ZERO_PROCESS_TESTS", "1");
+        Z_DEFER(zero::env::unset("ZERO_PROCESS_TESTS"));
 
-            const auto envs = child->envs();
-            REQUIRE(envs);
-            REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
-            REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
-        }
+        auto child = command.clearEnv().spawn();
+        REQUIRE(child);
+        Z_DEFER(child->wait());
 
-        SECTION("remove env") {
-            zero::env::set("ZERO_PROCESS_TESTS", "1");
-            Z_DEFER(zero::env::unset("ZERO_PROCESS_TESTS"));
+        const auto envs = child->envs();
+        REQUIRE(envs);
+        REQUIRE_THAT(*envs | std::views::keys, !Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
+    }
 
-            auto child = command.removeEnv("ZERO_PROCESS_TESTS").spawn();
-            REQUIRE(child);
-            Z_DEFER(child->wait());
+    SECTION("set") {
+        auto child = command.envs({{"ZERO_PROCESS_TESTS", "1"}}).spawn();
+        REQUIRE(child);
+        Z_DEFER(child->wait());
 
-            const auto envs = child->envs();
-            REQUIRE(envs);
-            REQUIRE_THAT(*envs | std::views::keys, !Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
-        }
-
-        SECTION("set envs") {
-            auto child = command.envs({{"ZERO_PROCESS_TESTS", "1"}}).spawn();
-            REQUIRE(child);
-            Z_DEFER(child->wait());
-
-            const auto envs = child->envs();
-            REQUIRE(envs);
-            REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
-            REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
-        }
+        const auto envs = child->envs();
+        REQUIRE(envs);
+        REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_PROCESS_TESTS"));
+        REQUIRE(envs->at("ZERO_PROCESS_TESTS") == "1");
     }
 #endif
 }
@@ -553,8 +541,8 @@ TEST_CASE("spawn child process and collect output", "[os::process]") {
     REQUIRE(output->status.success());
 
     REQUIRE(
-        zero::strings::trim({reinterpret_cast<const char *>(output->out.data()),output->out.size()})
-        == zero::os::hostname()
+        zero::strings::trim({reinterpret_cast<const char *>(output->out.data()),output->out.size()}) ==
+        zero::os::hostname()
     );
 }
 
