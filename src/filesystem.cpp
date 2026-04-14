@@ -799,10 +799,32 @@ zero::filesystem::readDirectory(const std::filesystem::path &path) {
     return NoExcept{std::move(it)};
 }
 
+std::expected<zero::filesystem::NoExcept<std::filesystem::directory_iterator>, std::error_code>
+zero::filesystem::readDirectory(const std::filesystem::path &path, const std::filesystem::directory_options options) {
+    std::error_code ec;
+    std::filesystem::directory_iterator it{path, options, ec};
+
+    if (ec)
+        return std::unexpected{ec};
+
+    return NoExcept{std::move(it)};
+}
+
 std::expected<zero::filesystem::NoExcept<std::filesystem::recursive_directory_iterator>, std::error_code>
 zero::filesystem::walkDirectory(const std::filesystem::path &path) {
     std::error_code ec;
     std::filesystem::recursive_directory_iterator it{path, ec};
+
+    if (ec)
+        return std::unexpected{ec};
+
+    return NoExcept{std::move(it)};
+}
+
+std::expected<zero::filesystem::NoExcept<std::filesystem::recursive_directory_iterator>, std::error_code>
+zero::filesystem::walkDirectory(const std::filesystem::path &path, const std::filesystem::directory_options options) {
+    std::error_code ec;
+    std::filesystem::recursive_directory_iterator it{path, options, ec};
 
     if (ec)
         return std::unexpected{ec};

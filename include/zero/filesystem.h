@@ -182,8 +182,14 @@ namespace zero::filesystem {
     std::expected<NoExcept<std::filesystem::directory_iterator>, std::error_code>
     readDirectory(const std::filesystem::path &path);
 
+    std::expected<NoExcept<std::filesystem::directory_iterator>, std::error_code>
+    readDirectory(const std::filesystem::path &path, std::filesystem::directory_options options);
+
     std::expected<NoExcept<std::filesystem::recursive_directory_iterator>, std::error_code>
     walkDirectory(const std::filesystem::path &path);
+
+    std::expected<NoExcept<std::filesystem::recursive_directory_iterator>, std::error_code>
+    walkDirectory(const std::filesystem::path &path, std::filesystem::directory_options options);
 }
 
 #endif //ZERO_FILESYSTEM_H
