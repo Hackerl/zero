@@ -1,7 +1,6 @@
 #ifndef ZERO_CMDLINE_H
 #define ZERO_CMDLINE_H
 
-#include "expect.h"
 #include "strings.h"
 #include "meta/type_traits.h"
 #include <any>
@@ -19,13 +18,16 @@
 
 namespace zero {
     template<typename T>
-    std::expected<T, std::error_code> scan(std::string_view input) = delete;
+    T scan(std::string_view input) = delete;
 
     template<typename T>
-    std::expected<std::any, std::error_code> parseValue(const std::string_view input) {
+    std::any parseValue(const std::string_view input) {
         if constexpr (std::is_arithmetic_v<T>) {
             const auto value = strings::toNumber<T>(input);
-            Z_EXPECT(value);
+
+            if (!value)
+                throw std::system_error{value.error()};
+
             return *value;
         }
         else if constexpr (std::is_same_v<T, std::string>) {
@@ -35,20 +37,19 @@ namespace zero {
             return std::filesystem::path{input};
         }
         else if constexpr (meta::IsSpecialization<T, std::vector>) {
+            using ValueType = T::value_type;
+
             T value;
 
             for (const auto &token: strings::split(input, ",")) {
-                auto element = parseValue<typename T::value_type>(strings::trim(token));
-                Z_EXPECT(element);
-                value.push_back(std::move(std::any_cast<typename T::value_type>(*element)));
+                auto element = parseValue<ValueType>(strings::trim(token));
+                value.push_back(std::move(std::any_cast<ValueType>(element)));
             }
 
             return value;
         }
         else {
-            auto value = scan<T>(input);
-            Z_EXPECT(value);
-            return *std::move(value);
+            return scan<T>(input);
         }
     }
 
@@ -94,7 +95,7 @@ namespace zero {
     class Cmdline {
         struct TypeInfo {
             std::string name;
-            std::function<std::expected<std::any, std::error_code>(std::string_view)> parse;
+            std::function<std::any(std::string_view)> parse;
         };
 
         struct Optional {

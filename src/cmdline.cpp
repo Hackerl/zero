@@ -128,20 +128,15 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
                 continue;
             }
 
-            auto result = it->typeInfo.parse(argument);
-
-            if (!result)
+            try {
+                it++->value = it->typeInfo.parse(argument);
+            }
+            catch (const std::exception &e) {
                 throw std::runtime_error{
-                    fmt::format(
-                        "Invalid value '{}' for positional argument '{}' [{:s} ({})]",
-                        argument,
-                        it->name,
-                        result.error(),
-                        result.error()
-                    )
+                    fmt::format("Invalid value '{}' for positional argument '{}': {}", argument, it->name, e)
                 };
+            }
 
-            it++->value = *std::move(result);
             continue;
         }
 
@@ -159,20 +154,15 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
                     fmt::format("Optional argument '{}' requires a value", argument)
                 };
 
-            auto result = typeInfo->parse(arguments[++i]);
-
-            if (!result)
+            try {
+                value = typeInfo->parse(arguments[++i]);
+            }
+            catch (const std::exception &e) {
                 throw std::runtime_error{
-                    fmt::format(
-                        "Invalid value '{}' for optional argument '{}' [{:s} ({})]",
-                        arguments[i],
-                        argument,
-                        result.error(),
-                        result.error()
-                    )
+                    fmt::format("Invalid value '{}' for optional argument '{}': {}", arguments[i], argument, e)
                 };
+            }
 
-            value = *std::move(result);
             continue;
         }
 
@@ -213,20 +203,19 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
                 )
             };
 
-        auto result = typeInfo->parse(argument.substr(pos + 1));
-
-        if (!result)
+        try {
+            value = typeInfo->parse(argument.substr(pos + 1));
+        }
+        catch (const std::exception &e) {
             throw std::runtime_error{
                 fmt::format(
-                    "Invalid value '{}' for optional argument '{}' [{:s} ({})]",
+                    "Invalid value '{}' for optional argument '{}': {}",
                     argument.substr(pos + 1),
                     argument.substr(0, pos),
-                    result.error(),
-                    result.error()
+                    e
                 )
             };
-
-        value = *std::move(result);
+        }
     }
 
     if (exist("help")) {
@@ -253,7 +242,7 @@ void zero::Cmdline::parse(const int argc, const char *const *argv) {
         parse(std::vector<std::string_view>{argv + 1, argv + argc});
     }
     catch (const std::runtime_error &e) {
-        fmt::print(stderr, "Error:\n\t{}\n", e.what());
+        fmt::print(stderr, "Error:\n\t{}\n", e);
         help();
         std::exit(EXIT_FAILURE);
     }
