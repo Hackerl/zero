@@ -1,6 +1,5 @@
 #include <zero/log.h>
 #include <zero/env.h>
-#include <zero/expect.h>
 #include <zero/strings.h>
 #include <zero/filesystem.h>
 #include <ranges>
@@ -8,29 +7,24 @@
 
 constexpr auto LoggerBufferSize = 1024;
 
-std::expected<void, std::error_code> zero::log::ConsoleProvider::init() {
-    assert(stderr);
-    return {};
+void zero::log::ConsoleProvider::init() {
+    if (!stderr)
+        throw error::StacktraceError<std::runtime_error>{"Standard error stream is not available"};
 }
 
-std::expected<void, std::error_code> zero::log::ConsoleProvider::rotate() {
-    return {};
+void zero::log::ConsoleProvider::rotate() {
 }
 
-std::expected<void, std::error_code> zero::log::ConsoleProvider::flush() {
+void zero::log::ConsoleProvider::flush() {
     if (fflush(stderr) != 0)
-        return std::unexpected{std::error_code{errno, std::generic_category()}};
-
-    return {};
+        throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
 }
 
-std::expected<void, std::error_code> zero::log::ConsoleProvider::write(const Record &record) {
+void zero::log::ConsoleProvider::write(const Record &record) {
     const auto message = fmt::format("{}\n", record);
 
     if (fwrite(message.data(), 1, message.size(), stderr) != message.size())
-        return std::unexpected{std::error_code{errno, std::generic_category()}};
-
-    return {};
+        throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
 }
 
 zero::log::FileProvider::FileProvider(
@@ -43,7 +37,7 @@ zero::log::FileProvider::FileProvider(
     mLimit{limit}, mMaxFiles{maxFiles}, mPosition{0} {
 }
 
-std::expected<void, std::error_code> zero::log::FileProvider::init() {
+void zero::log::FileProvider::init() {
     const auto name = fmt::format(
         "{}.{}.{}.log",
         mName,
@@ -54,40 +48,27 @@ std::expected<void, std::error_code> zero::log::FileProvider::init() {
     mStream.open(mDirectory / filesystem::path(name));
 
     if (!mStream.is_open())
-        return std::unexpected{std::error_code{errno, std::generic_category()}};
-
-    return {};
+        throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
 }
 
-std::expected<void, std::error_code> zero::log::FileProvider::rotate() {
+void zero::log::FileProvider::rotate() {
     if (mPosition < mLimit)
-        return {};
+        return;
 
     mPosition = 0;
     mStream.close();
     mStream.clear();
 
-    auto iterator = filesystem::readDirectory(mDirectory);
-    Z_EXPECT(iterator);
-
     const auto prefix = fmt::format("{}.{}", mName, mPID);
 
     std::list<std::filesystem::path> logs;
+    auto iterator = error::guard(filesystem::readDirectory(mDirectory));
 
-    while (true) {
-        const auto entry = iterator->next();
-        Z_EXPECT(entry);
-
-        if (!*entry)
-            break;
-
-        const auto result = entry.value()->isRegularFile();
-        Z_EXPECT(result);
-
-        if (!*result)
+    while (const auto entry = error::guard(iterator.next())) {
+        if (!error::guard(entry->isRegularFile()))
             continue;
 
-        const auto &path = entry.value()->path();
+        const auto &path = entry->path();
 
         if (!filesystem::stringify(path.filename()).starts_with(prefix))
             continue;
@@ -97,28 +78,24 @@ std::expected<void, std::error_code> zero::log::FileProvider::rotate() {
 
     logs.sort();
 
-    for (const auto &log: logs | std::views::reverse | std::views::drop(mMaxFiles)) {
-        Z_EXPECT(filesystem::remove(log));
-    }
+    for (const auto &log: logs | std::views::reverse | std::views::drop(mMaxFiles))
+        error::guard(filesystem::remove(log));
 
     return init();
 }
 
-std::expected<void, std::error_code> zero::log::FileProvider::flush() {
+void zero::log::FileProvider::flush() {
     if (!mStream.flush().good())
-        return std::unexpected{std::error_code{errno, std::generic_category()}};
-
-    return {};
+        throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
 }
 
-std::expected<void, std::error_code> zero::log::FileProvider::write(const Record &record) {
+void zero::log::FileProvider::write(const Record &record) {
     const auto message = fmt::format("{}\n", record);
 
     if (!mStream.write(message.c_str(), static_cast<std::streamsize>(message.size())))
-        return std::unexpected{std::error_code{errno, std::generic_category()}};
+        throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
 
     mPosition += message.size();
-    return {};
 }
 
 zero::log::Logger::Logger() : mPending{0}, mChannel{concurrent::channel<Record>(LoggerBufferSize)} {
@@ -153,8 +130,11 @@ void zero::log::Logger::consume() {
                     const auto duration = duration_cast<std::chrono::milliseconds>(it->flushDeadline - now);
 
                     if (duration.count() <= 0) {
-                        if (const auto result = it->provider->flush(); !result) {
-                            fmt::print(stderr, "Failed to flush log: {:s} ({})\n", result.error(), result.error());
+                        try {
+                            it->provider->flush();
+                        }
+                        catch (const std::exception &e) {
+                            fmt::print(stderr, "Failed to flush log: {}\n", e);
                             it = mConfigs.erase(it);
                             continue;
                         }
@@ -184,22 +164,31 @@ void zero::log::Logger::consume() {
 
         while (it != mConfigs.end()) {
             if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(Level::Error))) {
-                if (const auto result = it->provider->write(*record); !result) {
-                    fmt::print(stderr, "Failed to write log: {:s} ({})\n", result.error(), result.error());
+                try {
+                    it->provider->write(*record);
+                }
+                catch (const std::exception &e) {
+                    fmt::print(stderr, "Failed to write log: {}\n", e);
                     it = mConfigs.erase(it);
                     continue;
                 }
 
-                if (const auto result = it->provider->rotate(); !result) {
-                    fmt::print(stderr, "Failed to rotate log: {:s} ({})\n", result.error(), result.error());
+                try {
+                    it->provider->rotate();
+                }
+                catch (const std::exception &e) {
+                    fmt::print(stderr, "Failed to rotate log: {}\n", e);
                     it = mConfigs.erase(it);
                     continue;
                 }
             }
 
             if (it->flushDeadline <= now) {
-                if (const auto result = it->provider->flush(); !result) {
-                    fmt::print(stderr, "Failed to flush log: {:s} ({})\n", result.error(), result.error());
+                try {
+                    it->provider->flush();
+                }
+                catch (const std::exception &e) {
+                    fmt::print(stderr, "Failed to flush log: {}\n", e);
                     it = mConfigs.erase(it);
                     continue;
                 }
@@ -263,8 +252,11 @@ void zero::log::Logger::addProvider(
         }
     );
 
-    if (const auto result = provider->init(); !result) {
-        fmt::print(stderr, "Failed to initialize log provider: {:s} ({})\n", result.error(), result.error());
+    try {
+        provider->init();
+    }
+    catch (const std::exception &e) {
+        fmt::print(stderr, "Failed to initialize log provider: {}\n", e);
         return;
     }
 
@@ -293,8 +285,11 @@ void zero::log::Logger::sync() {
     const std::lock_guard guard{mMutex};
 
     for (const auto &config: mConfigs) {
-        if (const auto result = config.provider->flush(); !result) {
-            fmt::print(stderr, "Failed to flush log: {:s} ({})\n", result.error(), result.error());
+        try {
+            config.provider->flush();
+        }
+        catch (const std::exception &e) {
+            fmt::print(stderr, "Failed to flush log: {}\n", e);
         }
     }
 }

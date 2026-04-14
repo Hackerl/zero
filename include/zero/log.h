@@ -32,18 +32,18 @@ namespace zero::log {
     class IProvider {
     public:
         virtual ~IProvider() = default;
-        virtual std::expected<void, std::error_code> init() = 0;
-        virtual std::expected<void, std::error_code> rotate() = 0;
-        virtual std::expected<void, std::error_code> flush() = 0;
-        virtual std::expected<void, std::error_code> write(const Record &record) = 0;
+        virtual void init() = 0;
+        virtual void rotate() = 0;
+        virtual void flush() = 0;
+        virtual void write(const Record &record) = 0;
     };
 
     class ConsoleProvider final : public IProvider {
     public:
-        std::expected<void, std::error_code> init() override;
-        std::expected<void, std::error_code> rotate() override;
-        std::expected<void, std::error_code> flush() override;
-        std::expected<void, std::error_code> write(const Record &record) override;
+        void init() override;
+        void rotate() override;
+        void flush() override;
+        void write(const Record &record) override;
     };
 
     class FileProvider final : public IProvider {
@@ -55,10 +55,10 @@ namespace zero::log {
             std::size_t maxFiles = 10
         );
 
-        std::expected<void, std::error_code> init() override;
-        std::expected<void, std::error_code> rotate() override;
-        std::expected<void, std::error_code> flush() override;
-        std::expected<void, std::error_code> write(const Record &record) override;
+        void init() override;
+        void rotate() override;
+        void flush() override;
+        void write(const Record &record) override;
 
     private:
         os::process::ID mPID;

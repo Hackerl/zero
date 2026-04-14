@@ -174,7 +174,7 @@ TEST_CASE("file log provider", "[log]") {
         Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
         zero::log::FileProvider provider{name, directory};
-        REQUIRE(provider.init());
+        REQUIRE_NOTHROW(provider.init());
 
         std::size_t count{0};
         auto iterator = zero::error::guard(zero::filesystem::readDirectory(directory));
@@ -190,12 +190,12 @@ TEST_CASE("file log provider", "[log]") {
         Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
         zero::log::FileProvider provider{name, directory};
-        zero::error::guard(provider.init());
+        provider.init();
 
         zero::log::Record record;
 
-        REQUIRE(provider.write(record));
-        REQUIRE(provider.flush());
+        REQUIRE_NOTHROW(provider.write(record));
+        REQUIRE_NOTHROW(provider.flush());
 
         std::list<std::filesystem::path> files;
 
@@ -223,7 +223,7 @@ TEST_CASE("file log provider", "[log]") {
         const auto maxFiles = GENERATE(take(1uz, random(5uz, 10uz)));
 
         zero::log::FileProvider provider{name, directory, limit, maxFiles};
-        zero::error::guard(provider.init());
+        provider.init();
 
         zero::log::Record record{
             .content = GENERATE_REF(take(1, randomAlphanumericString(limit, limit)))
@@ -232,8 +232,8 @@ TEST_CASE("file log provider", "[log]") {
         for (int i{0}; i < maxFiles * 2; ++i) {
             // The log file name is generated based on the timestamp.
             std::this_thread::sleep_for(10ms);
-            zero::error::guard(provider.write(record));
-            REQUIRE(provider.rotate());
+            provider.write(record);
+            REQUIRE_NOTHROW(provider.rotate());
         }
 
         std::size_t count{0};
