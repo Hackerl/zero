@@ -35,15 +35,15 @@ namespace zero {
             return std::filesystem::path{input};
         }
         else if constexpr (meta::IsSpecialization<T, std::vector>) {
-            T v;
+            T value;
 
             for (const auto &token: strings::split(input, ",")) {
-                auto value = parseValue<typename T::value_type>(strings::trim(token));
-                Z_EXPECT(value);
-                v.push_back(std::move(std::any_cast<typename T::value_type>(*value)));
+                auto element = parseValue<typename T::value_type>(strings::trim(token));
+                Z_EXPECT(element);
+                value.push_back(std::move(std::any_cast<typename T::value_type>(*element)));
             }
 
-            return v;
+            return value;
         }
         else {
             auto value = scan<T>(input);
