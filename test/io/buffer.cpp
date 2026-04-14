@@ -20,7 +20,7 @@ TEST_CASE("buffer reader", "[io::buffer]") {
 
         SECTION("not empty") {
             std::vector<std::byte> data;
-            REQUIRE(reader.read(data) == 0);
+            REQUIRE(zero::error::guard(reader.read(data)) == 0);
             REQUIRE(reader.available() == (std::min)(input.size(), capacity));
         }
     }
@@ -42,7 +42,7 @@ TEST_CASE("buffer reader", "[io::buffer]") {
         }
 
         SECTION("eof") {
-            REQUIRE(reader.readAll());
+            zero::error::guard(reader.readAll());
             std::array<std::byte, 64> data{};
             REQUIRE(reader.read(data) == 0);
         }
@@ -135,7 +135,7 @@ TEST_CASE("buffer writer", "[io::buffer]") {
         }
 
         SECTION("not empty") {
-            REQUIRE(writer.writeAll(input));
+            zero::error::guard(writer.writeAll(input));
             REQUIRE(writer.pending() > 0);
         }
     }
@@ -146,7 +146,7 @@ TEST_CASE("buffer writer", "[io::buffer]") {
     }
 
     SECTION("flush") {
-        REQUIRE(writer.writeAll(input));
+        zero::error::guard(writer.writeAll(input));
         REQUIRE(writer.flush());
         REQUIRE(writer.pending() == 0);
         REQUIRE(bytesWriter->data() == input);

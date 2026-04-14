@@ -106,9 +106,7 @@ TEST_CASE("promise and future", "[async::promise]") {
 
         SECTION("resolve") {
             promise.resolve();
-            REQUIRE(promise.valid());
             REQUIRE(promise.isFulfilled());
-            REQUIRE(future.valid());
             REQUIRE(future.isReady());
             REQUIRE(future.wait());
             REQUIRE(future.result());
@@ -116,9 +114,7 @@ TEST_CASE("promise and future", "[async::promise]") {
 
         SECTION("reject") {
             promise.reject(make_error_code(std::errc::invalid_argument));
-            REQUIRE(promise.valid());
             REQUIRE(promise.isFulfilled());
-            REQUIRE(future.valid());
             REQUIRE(future.isReady());
             REQUIRE(future.wait());
             REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
@@ -136,9 +132,7 @@ TEST_CASE("promise and future", "[async::promise]") {
 
         SECTION("resolve") {
             promise.resolve(1);
-            REQUIRE(promise.valid());
             REQUIRE(promise.isFulfilled());
-            REQUIRE(future.valid());
             REQUIRE(future.isReady());
             REQUIRE(future.wait());
             REQUIRE(future.result() == 1);
@@ -146,9 +140,7 @@ TEST_CASE("promise and future", "[async::promise]") {
 
         SECTION("reject") {
             promise.reject(make_error_code(std::errc::invalid_argument));
-            REQUIRE(promise.valid());
             REQUIRE(promise.isFulfilled());
-            REQUIRE(future.valid());
             REQUIRE(future.isReady());
             REQUIRE(future.wait());
             REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
@@ -491,14 +483,14 @@ TEST_CASE("promise all", "[async::promise]") {
         SECTION("success") {
             promise1.resolve();
             promise2.resolve();
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE(future.result());
         }
 
         SECTION("failure") {
             promise1.resolve();
             promise2.reject(make_error_code(std::errc::invalid_argument));
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
@@ -515,7 +507,7 @@ TEST_CASE("promise all", "[async::promise]") {
         SECTION("success") {
             promise1.resolve(1);
             promise2.resolve(2);
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
 
             const auto result = future.result();
             REQUIRE(result);
@@ -526,7 +518,7 @@ TEST_CASE("promise all", "[async::promise]") {
         SECTION("failure") {
             promise1.resolve(1);
             promise2.reject(make_error_code(std::errc::invalid_argument));
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
@@ -546,14 +538,14 @@ TEST_CASE("promise variadic all", "[async::promise]") {
             SECTION("success") {
                 promise1.resolve();
                 promise2.resolve();
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
                 REQUIRE(future.result());
             }
 
             SECTION("failure") {
                 promise1.resolve();
                 promise2.reject(make_error_code(std::errc::invalid_argument));
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
                 REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
             }
         }
@@ -570,7 +562,7 @@ TEST_CASE("promise variadic all", "[async::promise]") {
             SECTION("success") {
                 promise1.resolve(1);
                 promise2.resolve(2);
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
 
                 const auto result = future.result();
                 REQUIRE(result);
@@ -581,7 +573,7 @@ TEST_CASE("promise variadic all", "[async::promise]") {
             SECTION("failure") {
                 promise1.resolve(1);
                 promise2.reject(make_error_code(std::errc::invalid_argument));
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
                 REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
             }
         }
@@ -602,7 +594,7 @@ TEST_CASE("promise variadic all", "[async::promise]") {
             promise1.resolve(1);
             promise2.resolve();
             promise3.resolve(2);
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
 
             const auto result = future.result();
             REQUIRE(result);
@@ -614,7 +606,7 @@ TEST_CASE("promise variadic all", "[async::promise]") {
             promise1.resolve(1);
             promise2.resolve();
             promise3.reject(make_error_code(std::errc::invalid_argument));
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
@@ -632,7 +624,7 @@ TEST_CASE("promise allSettled", "[async::promise]") {
 
         promise1.resolve();
         promise2.reject(make_error_code(std::errc::invalid_argument));
-        REQUIRE(future.wait());
+        zero::error::guard(future.wait());
 
         const auto result = *future.result();
         REQUIRE(result[0]);
@@ -650,7 +642,7 @@ TEST_CASE("promise allSettled", "[async::promise]") {
 
         promise1.resolve(1);
         promise2.reject(make_error_code(std::errc::invalid_argument));
-        REQUIRE(future.wait());
+        zero::error::guard(future.wait());
 
         const auto result = *future.result();
         REQUIRE(result[0] == 1);
@@ -672,7 +664,7 @@ TEST_CASE("promise variadic allSettled", "[async::promise]") {
     promise1.resolve(1);
     promise2.resolve();
     promise3.reject(make_error_code(std::errc::invalid_argument));
-    REQUIRE(future.wait());
+    zero::error::guard(future.wait());
 
     const auto result = *future.result();
     REQUIRE(std::get<0>(result) == 1);
@@ -693,14 +685,14 @@ TEST_CASE("promise any", "[async::promise]") {
         SECTION("success") {
             promise1.reject(make_error_code(std::errc::invalid_argument));
             promise2.resolve();
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE(future.result());
         }
 
         SECTION("failure") {
             promise1.reject(make_error_code(std::errc::invalid_argument));
             promise2.reject(make_error_code(std::errc::io_error));
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
 
             const auto result = future.result();
             REQUIRE_FALSE(result);
@@ -721,14 +713,14 @@ TEST_CASE("promise any", "[async::promise]") {
         SECTION("success") {
             promise1.reject(make_error_code(std::errc::invalid_argument));
             promise2.resolve(1);
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE(future.result() == 1);
         }
 
         SECTION("failure") {
             promise1.reject(make_error_code(std::errc::invalid_argument));
             promise2.reject(make_error_code(std::errc::io_error));
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
 
             const auto result = future.result();
             REQUIRE_FALSE(result);
@@ -752,14 +744,14 @@ TEST_CASE("promise variadic any", "[async::promise]") {
             SECTION("success") {
                 promise1.reject(make_error_code(std::errc::invalid_argument));
                 promise2.resolve();
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
                 REQUIRE(future.result());
             }
 
             SECTION("failure") {
                 promise1.reject(make_error_code(std::errc::invalid_argument));
                 promise2.reject(make_error_code(std::errc::io_error));
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
 
                 const auto result = future.result();
                 REQUIRE_FALSE(result);
@@ -780,14 +772,14 @@ TEST_CASE("promise variadic any", "[async::promise]") {
             SECTION("success") {
                 promise1.reject(make_error_code(std::errc::invalid_argument));
                 promise2.resolve(1);
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
                 REQUIRE(future.result() == 1);
             }
 
             SECTION("failure") {
                 promise1.reject(make_error_code(std::errc::invalid_argument));
                 promise2.reject(make_error_code(std::errc::io_error));
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
 
                 const auto result = future.result();
                 REQUIRE_FALSE(result);
@@ -813,7 +805,7 @@ TEST_CASE("promise variadic any", "[async::promise]") {
             SECTION("no value") {
                 promise1.reject(make_error_code(std::errc::invalid_argument));
                 promise2.resolve();
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
 
                 const auto result = future.result();
                 REQUIRE(result);
@@ -824,7 +816,7 @@ TEST_CASE("promise variadic any", "[async::promise]") {
                 promise1.reject(make_error_code(std::errc::invalid_argument));
                 promise2.reject(make_error_code(std::errc::io_error));
                 promise3.resolve(1);
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
 
                 const auto result = future.result();
                 REQUIRE(result);
@@ -841,7 +833,7 @@ TEST_CASE("promise variadic any", "[async::promise]") {
             promise1.reject(make_error_code(std::errc::invalid_argument));
             promise2.reject(make_error_code(std::errc::io_error));
             promise3.reject(make_error_code(std::errc::bad_message));
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
 
             const auto result = future.result();
             REQUIRE_FALSE(result);
@@ -865,13 +857,13 @@ TEST_CASE("promise race", "[async::promise]") {
 
         SECTION("success") {
             promise1.resolve();
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE(future.result());
         }
 
         SECTION("failure") {
             promise1.reject(make_error_code(std::errc::invalid_argument));
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
@@ -887,13 +879,13 @@ TEST_CASE("promise race", "[async::promise]") {
 
         SECTION("success") {
             promise1.resolve(1);
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE(future.result() == 1);
         }
 
         SECTION("failure") {
             promise1.reject(make_error_code(std::errc::invalid_argument));
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }
@@ -912,13 +904,13 @@ TEST_CASE("promise variadic race", "[async::promise]") {
 
             SECTION("success") {
                 promise1.resolve();
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
                 REQUIRE(future.result());
             }
 
             SECTION("failure") {
                 promise1.reject(make_error_code(std::errc::invalid_argument));
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
                 REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
             }
         }
@@ -934,13 +926,13 @@ TEST_CASE("promise variadic race", "[async::promise]") {
 
             SECTION("success") {
                 promise1.resolve(1);
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
                 REQUIRE(future.result() == 1);
             }
 
             SECTION("failure") {
                 promise1.reject(make_error_code(std::errc::invalid_argument));
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
                 REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
             }
         }
@@ -961,7 +953,7 @@ TEST_CASE("promise variadic race", "[async::promise]") {
         SECTION("success") {
             SECTION("no value") {
                 promise2.resolve();
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
 
                 const auto result = future.result();
                 REQUIRE(result);
@@ -970,7 +962,7 @@ TEST_CASE("promise variadic race", "[async::promise]") {
 
             SECTION("has value") {
                 promise1.resolve(1);
-                REQUIRE(future.wait());
+                zero::error::guard(future.wait());
 
                 const auto result = future.result();
                 REQUIRE(result);
@@ -985,7 +977,7 @@ TEST_CASE("promise variadic race", "[async::promise]") {
 
         SECTION("failure") {
             promise1.reject(make_error_code(std::errc::invalid_argument));
-            REQUIRE(future.wait());
+            zero::error::guard(future.wait());
             REQUIRE_ERROR(future.result(), std::errc::invalid_argument);
         }
     }

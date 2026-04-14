@@ -55,7 +55,7 @@ TEST_CASE("logger", "[log]") {
         logger.addProvider(level, std::unique_ptr<zero::log::IProvider>{&mock.get()}, interval);
         logger.log(level, filename, line, content);
 
-        REQUIRE(event.wait());
+        zero::error::guard(event.wait());
         REQUIRE(std::chrono::system_clock::now() - tp > interval - 5ms);
 
         fakeit::Verify(Method(mock, init)).Once();
@@ -92,7 +92,7 @@ TEST_CASE("logger", "[log]") {
         for (const auto &lv: levels)
             logger.log(lv, filename, line, content);
 
-        REQUIRE(event.wait());
+        zero::error::guard(event.wait());
 
         const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::Error) + 1;
 
@@ -154,7 +154,7 @@ TEST_CASE("override log level from environment variable", "[log]") {
     for (const auto &lv: levels)
         logger.log(lv, "", 0, "");
 
-    REQUIRE(event.wait());
+    zero::error::guard(event.wait());
 
     const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::Error) + 1;
 
@@ -170,8 +170,8 @@ TEST_CASE("file log provider", "[log]") {
     const auto name = GENERATE(take(1, randomAlphanumericString(1, 64)));
 
     SECTION("init") {
-        REQUIRE(zero::filesystem::createDirectory(directory));
-        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+        zero::error::guard(zero::filesystem::createDirectory(directory));
+        Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
         zero::log::FileProvider provider{name, directory};
         REQUIRE(provider.init());
@@ -186,11 +186,11 @@ TEST_CASE("file log provider", "[log]") {
     }
 
     SECTION("write and flush") {
-        REQUIRE(zero::filesystem::createDirectory(directory));
-        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+        zero::error::guard(zero::filesystem::createDirectory(directory));
+        Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
         zero::log::FileProvider provider{name, directory};
-        REQUIRE(provider.init());
+        zero::error::guard(provider.init());
 
         zero::log::Record record;
 
@@ -199,38 +199,31 @@ TEST_CASE("file log provider", "[log]") {
 
         std::list<std::filesystem::path> files;
 
-        auto iterator = zero::filesystem::readDirectory(directory);
-        REQUIRE(iterator);
+        auto iterator = zero::error::guard(zero::filesystem::readDirectory(directory));
 
-        while (true) {
-            const auto entry = iterator->next();
-            REQUIRE(entry);
-
-            if (!*entry)
-                break;
-
-            files.push_back(entry.value()->path());
-        }
+        while (const auto entry = zero::error::guard(iterator.next()))
+            files.push_back(entry->path());
 
         REQUIRE_THAT(files, Catch::Matchers::SizeIs(1));
 
         // On Windows, the file content ends with `/r/n`.
-        const auto content = zero::filesystem::readString(files.front());
-        REQUIRE(content);
-        REQUIRE_THAT(*content, Catch::Matchers::StartsWith(fmt::to_string(record)));
+        REQUIRE_THAT(
+            zero::error::guard(zero::filesystem::readString(files.front())),
+            Catch::Matchers::StartsWith(fmt::to_string(record))
+        );
     }
 
     SECTION("rotate") {
         using namespace std::chrono_literals;
 
-        REQUIRE(zero::filesystem::createDirectory(directory));
-        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+        zero::error::guard(zero::filesystem::createDirectory(directory));
+        Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
         const auto limit = GENERATE(take(1, random<std::size_t>(64, 1024)));
         const auto maxFiles = GENERATE(take(1uz, random(5uz, 10uz)));
 
         zero::log::FileProvider provider{name, directory, limit, maxFiles};
-        REQUIRE(provider.init());
+        zero::error::guard(provider.init());
 
         zero::log::Record record{
             .content = GENERATE_REF(take(1, randomAlphanumericString(limit, limit)))
@@ -239,7 +232,7 @@ TEST_CASE("file log provider", "[log]") {
         for (int i{0}; i < maxFiles * 2; ++i) {
             // The log file name is generated based on the timestamp.
             std::this_thread::sleep_for(10ms);
-            REQUIRE(provider.write(record));
+            zero::error::guard(provider.write(record));
             REQUIRE(provider.rotate());
         }
 

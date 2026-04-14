@@ -27,18 +27,20 @@ TEST_CASE("operating system resource", "[os::resource]") {
         FILE_ATTRIBUTE_NORMAL,
         nullptr
     );
-    REQUIRE(handle != INVALID_HANDLE_VALUE);
-    Z_DEFER(REQUIRE(zero::filesystem::remove(path)));
+
+    if (handle == INVALID_HANDLE_VALUE)
+        throw zero::error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
+
+    Z_DEFER(zero::error::guard(zero::filesystem::remove(path)));
 
     const auto raw = handle;
 #else
-    const auto fd = zero::os::unix::expected([&] {
+    const auto fd = zero::error::guard(zero::os::unix::expected([&] {
         return open(path.c_str(), O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, S_IRUSR | S_IWUSR);
-    });
-    REQUIRE(fd);
-    Z_DEFER(REQUIRE(zero::filesystem::remove(path)));
+    }));
+    Z_DEFER(zero::error::guard(zero::filesystem::remove(path)));
 
-    const auto raw = *fd;
+    const auto raw = fd;
 #endif
     zero::os::Resource resource{raw};
 
@@ -60,7 +62,7 @@ TEST_CASE("operating system resource", "[os::resource]") {
 
     SECTION("is inheritable") {
         SECTION("inheritable") {
-            REQUIRE_NOTHROW(resource.setInheritable(true));
+            resource.setInheritable(true);
             REQUIRE(resource.isInheritable());
         }
 
@@ -87,9 +89,8 @@ TEST_CASE("operating system resource", "[os::resource]") {
             REQUIRE(resource.isInheritable());
         }
 
-        REQUIRE_NOTHROW(resource.setInheritable(true));
-
         SECTION("not inheritable") {
+            resource.setInheritable(true);
             REQUIRE_NOTHROW(resource.setInheritable(false));
             REQUIRE_FALSE(resource.isInheritable());
         }
@@ -121,8 +122,8 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     const auto path = temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
     const auto content = GENERATE(take(1, randomBytes(1, 102400)));
 
-    REQUIRE(zero::filesystem::write(path, content));
-    Z_DEFER(REQUIRE(zero::filesystem::remove(path)));
+    zero::error::guard(zero::filesystem::write(path, content));
+    Z_DEFER(zero::error::guard(zero::filesystem::remove(path)));
 
 #ifdef _WIN32
     const auto handle = CreateFileW(
@@ -134,14 +135,16 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
         FILE_ATTRIBUTE_NORMAL,
         nullptr
     );
-    REQUIRE(handle != INVALID_HANDLE_VALUE);
+
+    if (handle == INVALID_HANDLE_VALUE)
+        throw zero::error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
+
     const auto raw = handle;
 #else
-    const auto fd = zero::os::unix::expected([&] {
+    const auto fd = zero::error::guard(zero::os::unix::expected([&] {
         return open(path.c_str(), O_RDWR | O_CLOEXEC);
-    });
-    REQUIRE(fd);
-    const auto raw = *fd;
+    }));
+    const auto raw = fd;
 #endif
     zero::os::IOResource resource{raw};
 
@@ -159,7 +162,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
 
     SECTION("is inheritable") {
         SECTION("inheritable") {
-            REQUIRE_NOTHROW(resource.setInheritable(true));
+            resource.setInheritable(true);
             REQUIRE(resource.isInheritable());
         }
 
@@ -171,7 +174,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     SECTION("duplicate") {
         SECTION("inheritable") {
             const auto duplicate = resource.duplicate(true);
-            REQUIRE(duplicate.isInheritable() == true);
+            REQUIRE(duplicate.isInheritable());
         }
 
         SECTION("not inheritable") {
@@ -186,9 +189,8 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
             REQUIRE(resource.isInheritable());
         }
 
-        REQUIRE_NOTHROW(resource.setInheritable(true));
-
         SECTION("not inheritable") {
+            resource.setInheritable(true);
             REQUIRE_NOTHROW(resource.setInheritable(false));
             REQUIRE_FALSE(resource.isInheritable());
         }
@@ -224,7 +226,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
         }
 
         SECTION("eof") {
-            REQUIRE(resource.readAll());
+            zero::error::guard(resource.readAll());
 
             std::array<std::byte, 64> data{};
             REQUIRE(resource.read(data) == 0);
@@ -234,12 +236,12 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     SECTION("write") {
         const auto reversed = content | std::views::reverse | std::ranges::to<std::vector>();
         REQUIRE(resource.write(reversed) == reversed.size());
-        REQUIRE(zero::filesystem::read(path) == reversed);
+        REQUIRE(zero::error::guard(zero::filesystem::read(path)) == reversed);
     }
 
     SECTION("position") {
         REQUIRE(resource.position() == 0);
-        REQUIRE(resource.readAll());
+        zero::error::guard(resource.readAll());
         REQUIRE(resource.position() == content.size());
     }
 
@@ -248,7 +250,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     }
 
     SECTION("rewind") {
-        REQUIRE(resource.readAll());
+        zero::error::guard(resource.readAll());
         REQUIRE(resource.position() == content.size());
         REQUIRE(resource.rewind());
         REQUIRE(resource.position() == 0);

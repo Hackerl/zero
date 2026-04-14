@@ -7,46 +7,45 @@
 #include <unistd.h>
 
 TEST_CASE("list process ids - procfs", "[os::linux::procfs::process]") {
-    const auto ids = zero::os::linux::procfs::process::all();
-    REQUIRE_THAT(ids, Catch::Matchers::Contains(getpid()));
+    REQUIRE_THAT(zero::os::linux::procfs::process::all(), Catch::Matchers::Contains(getpid()));
 }
 
 TEST_CASE("process - procfs", "[os::linux::procfs::process]") {
     constexpr auto program{"sleep"};
     constexpr std::array arguments{"1"};
 
-    auto child = zero::os::process::Command{program}
-                 .args({arguments.begin(), arguments.end()})
-                 .env("ZERO_LINUX_PROCFS_PROCESS_TESTS", "1")
-                 .stdInput(zero::os::process::Command::StdioType::Null)
-                 .stdOutput(zero::os::process::Command::StdioType::Null)
-                 .stdError(zero::os::process::Command::StdioType::Null)
-                 .spawn();
-    REQUIRE(child);
+    auto child = zero::error::guard(
+        zero::os::process::Command{program}
+        .args({arguments.begin(), arguments.end()})
+        .env("ZERO_LINUX_PROCFS_PROCESS_TESTS", "1")
+        .stdInput(zero::os::process::Command::StdioType::Null)
+        .stdOutput(zero::os::process::Command::StdioType::Null)
+        .stdError(zero::os::process::Command::StdioType::Null)
+        .spawn()
+    );
 
-    auto process = zero::os::linux::procfs::process::open(static_cast<pid_t>(child->pid()));
-    REQUIRE(process);
+    auto process = zero::error::guard(zero::os::linux::procfs::process::open(static_cast<pid_t>(child.pid())));
 
     SECTION("pid") {
-        REQUIRE(process->pid() == child->pid());
+        REQUIRE(process.pid() == child.pid());
     }
 
     SECTION("exe") {
-        const auto exe = process->exe();
+        const auto exe = process.exe();
         REQUIRE(exe);
         REQUIRE(exe->filename() == program);
     }
 
     SECTION("cwd") {
-        REQUIRE(process->cwd() == zero::filesystem::currentPath());
+        REQUIRE(process.cwd() == zero::filesystem::currentPath());
     }
 
     SECTION("comm") {
-        REQUIRE(process->comm() == program);
+        REQUIRE(process.comm() == program);
     }
 
     SECTION("cmdline") {
-        const auto cmdline = process->cmdline();
+        const auto cmdline = process.cmdline();
         REQUIRE(cmdline);
         REQUIRE_THAT(cmdline->at(0), Catch::Matchers::EndsWith(program));
         REQUIRE_THAT(
@@ -56,50 +55,50 @@ TEST_CASE("process - procfs", "[os::linux::procfs::process]") {
     }
 
     SECTION("environ") {
-        const auto envs = process->environ();
+        const auto envs = process.environ();
         REQUIRE(envs);
         REQUIRE_THAT(*envs | std::views::keys, Catch::Matchers::Contains("ZERO_LINUX_PROCFS_PROCESS_TESTS"));
         REQUIRE(envs->at("ZERO_LINUX_PROCFS_PROCESS_TESTS") == "1");
     }
 
     SECTION("stat") {
-        const auto stat = process->stat();
+        const auto stat = process.stat();
         REQUIRE(stat);
-        REQUIRE(stat->pid == child->pid());
+        REQUIRE(stat->pid == child.pid());
         REQUIRE(stat->comm == program);
         REQUIRE(stat->ppid == getpid());
     }
 
     SECTION("statM") {
-        const auto statM = process->statM();
+        const auto statM = process.statM();
         REQUIRE(statM);
     }
 
     SECTION("status") {
-        const auto status = process->status();
+        const auto status = process.status();
         REQUIRE(status);
-        REQUIRE(status->pid == child->pid());
+        REQUIRE(status->pid == child.pid());
         REQUIRE(status->name == program);
         REQUIRE(status->ppid == getpid());
     }
 
     SECTION("tasks") {
-        const auto tasks = process->tasks();
+        const auto tasks = process.tasks();
         REQUIRE(tasks);
-        REQUIRE_THAT(*tasks, Catch::Matchers::Contains(child->pid()));
+        REQUIRE_THAT(*tasks, Catch::Matchers::Contains(child.pid()));
     }
 
     SECTION("maps") {
-        const auto mappings = process->maps();
+        const auto mappings = process.maps();
         REQUIRE(mappings);
     }
 
     SECTION("io") {
-        const auto io = process->io();
+        const auto io = process.io();
         REQUIRE(io);
     }
 
-    REQUIRE_NOTHROW(child->wait());
+    child.wait();
 }
 
 TEST_CASE("no such process - procfs", "[os::linux::procfs::process]") {

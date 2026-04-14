@@ -9,23 +9,21 @@
 TEST_CASE("get hostname", "[os]") {
     const auto hostname = zero::os::hostname();
 
-    const auto output = zero::os::process::Command{"hostname"}.output();
-    REQUIRE(output);
-    REQUIRE(output->status.success());
+    const auto output = zero::error::guard(zero::os::process::Command{"hostname"}.output());
+    REQUIRE(output.status.success());
 
-    REQUIRE(zero::strings::trim({reinterpret_cast<const char *>(output->out.data()), output->out.size()}) == hostname);
+    REQUIRE(zero::strings::trim({reinterpret_cast<const char *>(output.out.data()), output.out.size()}) == hostname);
 }
 
 TEST_CASE("get username", "[os]") {
     const auto username = zero::os::username();
     REQUIRE(username);
 
-    const auto output = zero::os::process::Command{"whoami"}.output();
-    REQUIRE(output);
-    REQUIRE(output->status.success());
+    const auto output = zero::error::guard(zero::os::process::Command{"whoami"}.output());
+    REQUIRE(output.status.success());
 
     REQUIRE_THAT(
-        (std::string{reinterpret_cast<const char *>(output->out.data()), output->out.size()}),
+        (std::string{reinterpret_cast<const char *>(output.out.data()), output.out.size()}),
         Catch::Matchers::ContainsSubstring(*username)
     );
 }

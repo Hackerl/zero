@@ -22,8 +22,7 @@ constexpr auto Arguments = {"1"};
 #endif
 
 TEST_CASE("list process ids", "[os::process]") {
-    const auto ids = zero::os::process::all();
-    REQUIRE_THAT(ids, Catch::Matchers::Contains(zero::os::process::currentProcessID()));
+    REQUIRE_THAT(zero::os::process::all(), Catch::Matchers::Contains(zero::os::process::currentProcessID()));
 }
 
 TEST_CASE("process", "[os::process]") {
@@ -78,11 +77,7 @@ TEST_CASE("process", "[os::process]") {
     SECTION("user") {
         const auto user = process.user();
         REQUIRE(user);
-
-        const auto username = zero::os::username();
-        REQUIRE(username);
-
-        REQUIRE_THAT(*user, Catch::Matchers::EndsWith(*username));
+        REQUIRE_THAT(*user, Catch::Matchers::EndsWith(zero::error::guard(zero::os::username())));
     }
 }
 
@@ -94,64 +89,65 @@ TEST_CASE("child process", "[os::process]") {
     );
 
     // If we don't consume data, the child process will be blocked on writing.
-    auto child = zero::os::process::Command{Program}
-                 .stdInput(type)
-                 .stdOutput(zero::os::process::Command::StdioType::Null)
-                 .stdError(type)
-                 .args({Arguments.begin(), Arguments.end()})
-                 .spawn();
-    REQUIRE(child);
+    auto child = zero::error::guard(
+        zero::os::process::Command{Program}
+        .stdInput(type)
+        .stdOutput(zero::os::process::Command::StdioType::Null)
+        .stdError(type)
+        .args({Arguments.begin(), Arguments.end()})
+        .spawn()
+    );
 
     SECTION("stdio") {
-        REQUIRE_FALSE(child->stdOutput());
+        REQUIRE_FALSE(child.stdOutput());
 
         if (type == zero::os::process::Command::StdioType::Piped) {
-            REQUIRE(child->stdInput());
-            REQUIRE(child->stdError());
+            REQUIRE(child.stdInput());
+            REQUIRE(child.stdError());
         }
         else {
-            REQUIRE_FALSE(child->stdInput());
-            REQUIRE_FALSE(child->stdError());
+            REQUIRE_FALSE(child.stdInput());
+            REQUIRE_FALSE(child.stdError());
         }
 
-        REQUIRE_NOTHROW(child->wait());
+        child.wait();
     }
 
     SECTION("try wait") {
         SECTION("running") {
-            REQUIRE(child->tryWait() == std::nullopt);
-            REQUIRE_NOTHROW(child->wait());
+            REQUIRE_FALSE(child.tryWait());
+            child.wait();
         }
 
         SECTION("exited") {
             using namespace std::chrono_literals;
             std::this_thread::sleep_for(2s);
 
-            const auto status = child->tryWait();
+            const auto status = child.tryWait();
             REQUIRE(status);
             REQUIRE(status->success());
         }
     }
 
     SECTION("wait") {
-        const auto status = child->wait();
+        const auto status = child.wait();
         REQUIRE(status.success());
     }
 
     SECTION("name") {
-        const auto name = child->name();
+        const auto name = child.name();
         REQUIRE(name);
         REQUIRE_THAT(*name, Catch::Matchers::ContainsSubstring(Program, Catch::CaseSensitive::No));
     }
 
     SECTION("exe") {
-        const auto exe = child->exe();
+        const auto exe = child.exe();
         REQUIRE(exe);
         REQUIRE_THAT(exe->filename().string(), Catch::Matchers::ContainsSubstring(Program, Catch::CaseSensitive::No));
     }
 
     SECTION("cmdline") {
-        const auto cmdline = child->cmdline();
+        const auto cmdline = child.cmdline();
         REQUIRE(cmdline);
         REQUIRE_THAT(cmdline->at(0), Catch::Matchers::ContainsSubstring(Program, Catch::CaseSensitive::No));
         REQUIRE_THAT(
@@ -161,33 +157,33 @@ TEST_CASE("child process", "[os::process]") {
     }
 
     SECTION("cwd") {
-        REQUIRE(child->cwd() == zero::filesystem::currentPath());
+        REQUIRE(child.cwd() == zero::filesystem::currentPath());
     }
 
     SECTION("envs") {
-        const auto envs = child->envs();
+        const auto envs = child.envs();
         REQUIRE(envs);
     }
 
     SECTION("start time") {
         using namespace std::chrono_literals;
-        const auto startTime = child->startTime();
+        const auto startTime = child.startTime();
         REQUIRE(startTime);
         REQUIRE(std::chrono::system_clock::now() - *startTime < 1min);
     }
 
     SECTION("memory") {
-        const auto memory = child->memory();
+        const auto memory = child.memory();
         REQUIRE(memory);
     }
 
     SECTION("cpu") {
-        const auto cpu = child->cpu();
+        const auto cpu = child.cpu();
         REQUIRE(cpu);
     }
 
     SECTION("io") {
-        const auto io = child->io();
+        const auto io = child.io();
         REQUIRE(io);
     }
 }
@@ -223,7 +219,7 @@ TEST_CASE("exit status", "[os::process]") {
                 SIGHUP, SIGINT, SIGTERM, SIGQUIT, SIGKILL,
                 SIGABRT, SIGSEGV, SIGILL, SIGFPE, SIGBUS
             );
-            REQUIRE(zero::os::process::ExitStatus{sig & 0x7f}.code() == std::nullopt);
+            REQUIRE_FALSE(zero::os::process::ExitStatus{sig & 0x7f}.code());
         }
 #endif
     }
@@ -237,7 +233,7 @@ TEST_CASE("exit status", "[os::process]") {
         }
 
         SECTION("no") {
-            REQUIRE(zero::os::process::ExitStatus{0}.signal() == std::nullopt);
+            REQUIRE_FALSE(zero::os::process::ExitStatus{0}.signal());
         }
     }
 
@@ -247,7 +243,7 @@ TEST_CASE("exit status", "[os::process]") {
         }
 
         SECTION("no") {
-            REQUIRE(zero::os::process::ExitStatus{0}.stoppedSignal() == std::nullopt);
+            REQUIRE_FALSE(zero::os::process::ExitStatus{0}.stoppedSignal());
         }
     }
 
@@ -294,11 +290,9 @@ TEST_CASE("spawn child process with arguments", "[os::process]") {
 
     auto child = command.spawn();
     REQUIRE(child);
-    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+    Z_DEFER(child->wait());
 
-    const auto name = child->name();
-    REQUIRE(name);
-    REQUIRE_THAT(*name, Catch::Matchers::ContainsSubstring(Program, Catch::CaseSensitive::No));
+    REQUIRE_THAT(zero::os::process::all(), Catch::Matchers::Contains(child->pid()));
 }
 
 #ifdef _WIN32
@@ -312,7 +306,7 @@ TEST_CASE("spawn child process with complex escape characters", "[os::process]")
                     .stdError(zero::os::process::Command::StdioType::Null)
                     .spawn();
     REQUIRE(child);
-    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+    Z_DEFER(child->wait());
 
     const auto cmdline = child->cmdline();
     REQUIRE(cmdline);
@@ -325,17 +319,16 @@ TEST_CASE("spawn child process with complex escape characters", "[os::process]")
 #endif
 
 TEST_CASE("spawn child process with working directory", "[os::process]") {
-    const auto temp = zero::filesystem::canonical(zero::filesystem::temporaryDirectory());
-    REQUIRE(temp);
+    const auto temp = zero::error::guard(zero::filesystem::canonical(zero::filesystem::temporaryDirectory()));
 
     auto child = zero::os::process::Command{Program}
                  .args({Arguments.begin(), Arguments.end()})
-                 .currentDirectory(*temp)
+                 .currentDirectory(temp)
                  .stdOutput(zero::os::process::Command::StdioType::Null)
                  .spawn();
     REQUIRE(child);
-    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
-    REQUIRE(child->cwd() == *temp);
+    Z_DEFER(child->wait());
+    REQUIRE(child->cwd() == temp);
 }
 
 TEST_CASE("spawn child process with environment", "[os::process]") {
@@ -362,7 +355,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
         auto child = command.spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+        Z_DEFER(child->wait());
 
         const auto envs = child->envs();
         REQUIRE(envs);
@@ -374,7 +367,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         SECTION("empty") {
             auto child = command.clearEnv().spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+            Z_DEFER(child->wait());
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -387,7 +380,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
             auto child = command.clearEnv().spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+            Z_DEFER(child->wait());
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -397,7 +390,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         SECTION("add env") {
             auto child = command.env("ZERO_PROCESS_TESTS", "1").spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+            Z_DEFER(child->wait());
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -411,7 +404,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
 
             auto child = command.removeEnv("ZERO_PROCESS_TESTS").spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+            Z_DEFER(child->wait());
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -421,7 +414,7 @@ TEST_CASE("spawn child process with environment", "[os::process]") {
         SECTION("set envs") {
             auto child = command.envs({{"ZERO_PROCESS_TESTS", "1"}}).spawn();
             REQUIRE(child);
-            Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+            Z_DEFER(child->wait());
 
             const auto envs = child->envs();
             REQUIRE(envs);
@@ -445,10 +438,10 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+        Z_DEFER(child->wait());
 
         const auto tp = std::chrono::system_clock::now();
-        REQUIRE(writer.close());
+        zero::error::guard(writer.close());
 
         std::array<std::byte, 64> data{};
         REQUIRE(reader.read(data) == 0);
@@ -461,10 +454,10 @@ TEST_CASE("spawn child process with resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+        Z_DEFER(child->wait());
 
         const auto tp = std::chrono::system_clock::now();
-        REQUIRE(writer.close());
+        zero::error::guard(writer.close());
 
         std::array<std::byte, 64> data{};
         REQUIRE(reader.read(data) == 0);
@@ -476,7 +469,7 @@ TEST_CASE("spawn child process with native resource", "[os::process]") {
     using namespace std::chrono_literals;
 
     auto [reader, writer] = zero::os::pipe();
-    REQUIRE_NOTHROW(writer.setInheritable(true));
+    writer.setInheritable(true);
 
     SECTION("inherit") {
         auto child = zero::os::process::Command{Program}
@@ -485,10 +478,10 @@ TEST_CASE("spawn child process with native resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+        Z_DEFER(child->wait());
 
         const auto tp = std::chrono::system_clock::now();
-        REQUIRE(writer.close());
+        zero::error::guard(writer.close());
 
         std::array<std::byte, 64> data{};
         REQUIRE(reader.read(data) == 0);
@@ -501,10 +494,10 @@ TEST_CASE("spawn child process with native resource", "[os::process]") {
                      .stdOutput(zero::os::process::Command::StdioType::Null)
                      .spawn();
         REQUIRE(child);
-        Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+        Z_DEFER(child->wait());
 
         const auto tp = std::chrono::system_clock::now();
-        REQUIRE(writer.close());
+        zero::error::guard(writer.close());
 
         std::array<std::byte, 64> data{};
         REQUIRE(reader.read(data) == 0);
@@ -526,7 +519,7 @@ TEST_CASE("spawn child process with piped stdio", "[os::process]") {
                  .spawn();
 #endif
     REQUIRE(child);
-    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+    Z_DEFER(child->wait());
     REQUIRE_FALSE(child->stdError());
 
     auto stdInput = std::exchange(child->stdInput(), std::nullopt);
@@ -555,16 +548,14 @@ TEST_CASE("spawn child process and collect status", "[os::process]") {
 }
 
 TEST_CASE("spawn child process and collect output", "[os::process]") {
-    const auto hostname = zero::os::hostname();
-
     const auto output = zero::os::process::Command{"hostname"}.output();
     REQUIRE(output);
     REQUIRE(output->status.success());
 
-    REQUIRE(zero::strings::trim({
-        reinterpret_cast<const char *>(output->out.data()),
-        output->out.size()
-    }) == hostname);
+    REQUIRE(
+        zero::strings::trim({reinterpret_cast<const char *>(output->out.data()),output->out.size()})
+        == zero::os::hostname()
+    );
 }
 
 TEST_CASE("spawn child process with pseudo console", "[os::process]") {
@@ -584,12 +575,12 @@ TEST_CASE("spawn child process with pseudo console", "[os::process]") {
     auto future = std::async([&] { return reader.readAll(); });
     REQUIRE(writer.writeAll(std::as_bytes(std::span{"echo hello\rexit\r"sv})));
 
-    REQUIRE_NOTHROW(child->wait());
+    child->wait();
     pc->close();
 #else
     auto child = pc->spawn(zero::os::process::Command{"sh"});
     REQUIRE(child);
-    Z_DEFER(REQUIRE_NOTHROW(child->wait()));
+    Z_DEFER(child->wait());
 
     auto &master = pc->master();
     REQUIRE(master);

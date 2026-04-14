@@ -20,9 +20,8 @@ TEST_CASE("LRU cache", "[cache::lru]") {
     SECTION("size") {
         const auto size = GENERATE_REF(take(1, random(0uz, 1024uz)));
 
-        for (std::size_t i{0}; i < size; ++i) {
+        for (std::size_t i{0}; i < size; ++i)
             cache.set(i, std::to_string(i));
-        }
 
         REQUIRE(cache.size() == (std::min)(size, capacity));
     }
@@ -72,9 +71,8 @@ TEST_CASE("LRU cache", "[cache::lru]") {
         }
 
         SECTION("evict") {
-            for (std::size_t i{0}; i < capacity; ++i) {
+            for (std::size_t i{0}; i < capacity; ++i)
                 cache.set(i, std::to_string(i));
-            }
 
             REQUIRE(cache.size() == capacity);
             cache.set(capacity, std::to_string(capacity));

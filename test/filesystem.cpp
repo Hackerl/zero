@@ -1,7 +1,8 @@
 #include <catch_extensions.h>
 #include <zero/filesystem.h>
-#include <zero/strings.h>
+#include <zero/error.h>
 #include <zero/defer.h>
+#include <zero/strings.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
 #include <list>
@@ -39,9 +40,9 @@ TEST_CASE("read bytes from file", "[filesystem]") {
 
     SECTION("file exists") {
         const auto content = GENERATE(take(1, randomBytes(1, 102400)));
-        REQUIRE(zero::filesystem::write(path, content));
+        zero::error::guard(zero::filesystem::write(path, content));
+        Z_DEFER(zero::error::guard(zero::filesystem::remove(path)));
         REQUIRE(zero::filesystem::read(path) == content);
-        REQUIRE(zero::filesystem::remove(path));
     }
 }
 
@@ -55,9 +56,9 @@ TEST_CASE("read string from file", "[filesystem]") {
 
     SECTION("file exists") {
         const auto content = GENERATE(take(1, randomString(1, 102400)));
-        REQUIRE(zero::filesystem::write(path, content));
+        zero::error::guard(zero::filesystem::write(path, content));
+        Z_DEFER(zero::error::guard(zero::filesystem::remove(path)));
         REQUIRE(zero::filesystem::readString(path) == content);
-        REQUIRE(zero::filesystem::remove(path));
     }
 }
 
@@ -67,8 +68,9 @@ TEST_CASE("write bytes to file", "[filesystem]") {
     const auto content = GENERATE(take(1, randomBytes(1, 102400)));
 
     REQUIRE(zero::filesystem::write(path, content));
-    Z_DEFER(REQUIRE(zero::filesystem::remove(path)));
-    REQUIRE(zero::filesystem::read(path) == content);
+    Z_DEFER(zero::error::guard(zero::filesystem::remove(path)));
+    REQUIRE(zero::error::guard(zero::filesystem::exists(path)));
+    REQUIRE(zero::error::guard(zero::filesystem::read(path)) == content);
 }
 
 TEST_CASE("write string to file", "[filesystem]") {
@@ -77,8 +79,9 @@ TEST_CASE("write string to file", "[filesystem]") {
     const auto content = GENERATE(take(1, randomString(1, 102400)));
 
     REQUIRE(zero::filesystem::write(path, content));
-    Z_DEFER(REQUIRE(zero::filesystem::remove(path)));
-    REQUIRE(zero::filesystem::readString(path) == content);
+    Z_DEFER(zero::error::guard(zero::filesystem::remove(path)));
+    REQUIRE(zero::error::guard(zero::filesystem::exists(path)));
+    REQUIRE(zero::error::guard(zero::filesystem::readString(path)) == content);
 }
 
 TEST_CASE("copy file", "[filesystem]") {
@@ -92,21 +95,22 @@ TEST_CASE("copy file", "[filesystem]") {
     }
 
     SECTION("destination file does not exist") {
-        REQUIRE(zero::filesystem::write(from, content));
-        Z_DEFER(REQUIRE(zero::filesystem::remove(from)));
+        zero::error::guard(zero::filesystem::write(from, content));
+        Z_DEFER(zero::error::guard(zero::filesystem::remove(from)));
 
         REQUIRE(zero::filesystem::copyFile(from, to));
-        Z_DEFER(REQUIRE(zero::filesystem::remove(to)));
+        Z_DEFER(zero::error::guard(zero::filesystem::remove(to)));
 
-        REQUIRE(zero::filesystem::read(to) == content);
+        REQUIRE(zero::error::guard(zero::filesystem::exists(to)));
+        REQUIRE(zero::error::guard(zero::filesystem::read(to)) == content);
     }
 
     SECTION("destination file exists") {
-        REQUIRE(zero::filesystem::write(from, content));
-        Z_DEFER(REQUIRE(zero::filesystem::remove(from)));
+        zero::error::guard(zero::filesystem::write(from, content));
+        Z_DEFER(zero::error::guard(zero::filesystem::remove(from)));
 
-        REQUIRE(zero::filesystem::write(to, ""));
-        Z_DEFER(REQUIRE(zero::filesystem::remove(to)));
+        zero::error::guard(zero::filesystem::write(to, ""));
+        Z_DEFER(zero::error::guard(zero::filesystem::remove(to)));
 
         SECTION("default") {
             REQUIRE_ERROR(zero::filesystem::copyFile(from, to), std::errc::file_exists);
@@ -114,7 +118,8 @@ TEST_CASE("copy file", "[filesystem]") {
 
         SECTION("overwrite") {
             REQUIRE(zero::filesystem::copyFile(from, to, std::filesystem::copy_options::overwrite_existing));
-            REQUIRE(zero::filesystem::read(to) == content);
+            REQUIRE(zero::error::guard(zero::filesystem::exists(to)));
+            REQUIRE(zero::error::guard(zero::filesystem::read(to)) == content);
         }
     }
 }
@@ -125,13 +130,13 @@ TEST_CASE("create directory", "[filesystem]") {
 
     SECTION("directory does not exist") {
         REQUIRE(zero::filesystem::createDirectory(directory));
-        Z_DEFER(REQUIRE(zero::filesystem::remove(directory)));
-        REQUIRE(zero::filesystem::exists(directory) == true);
+        Z_DEFER(zero::error::guard(zero::filesystem::remove(directory)));
+        REQUIRE(zero::error::guard(zero::filesystem::exists(directory)));
     }
 
     SECTION("directory exists") {
-        REQUIRE(zero::filesystem::createDirectory(directory));
-        Z_DEFER(REQUIRE(zero::filesystem::remove(directory)));
+        zero::error::guard(zero::filesystem::createDirectory(directory));
+        Z_DEFER(zero::error::guard(zero::filesystem::remove(directory)));
         REQUIRE_ERROR(zero::filesystem::createDirectory(directory), std::errc::file_exists);
     }
 }
@@ -142,27 +147,22 @@ TEST_CASE("create directories", "[filesystem]") {
 
     SECTION("directory does not exist") {
         REQUIRE(zero::filesystem::createDirectories(directory / "sub"));
-        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
-        REQUIRE(zero::filesystem::exists(directory) == true);
-        REQUIRE(zero::filesystem::exists(directory / "sub") == true);
+        Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
+        REQUIRE(zero::error::guard(zero::filesystem::exists(directory / "sub")));
     }
 
     SECTION("directory exists") {
+        zero::error::guard(zero::filesystem::createDirectories(directory / "sub"));
+        Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
         REQUIRE(zero::filesystem::createDirectories(directory / "sub"));
-        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
-
-        REQUIRE(zero::filesystem::createDirectories(directory / "sub"));
-        REQUIRE(zero::filesystem::exists(directory) == true);
-        REQUIRE(zero::filesystem::exists(directory / "sub") == true);
+        REQUIRE(zero::error::guard(zero::filesystem::exists(directory / "sub")));
     }
 
     SECTION("parent directory exists") {
-        REQUIRE(zero::filesystem::createDirectories(directory));
-        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
-
+        zero::error::guard(zero::filesystem::createDirectories(directory));
+        Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
         REQUIRE(zero::filesystem::createDirectories(directory / "sub"));
-        REQUIRE(zero::filesystem::exists(directory) == true);
-        REQUIRE(zero::filesystem::exists(directory / "sub") == true);
+        REQUIRE(zero::error::guard(zero::filesystem::exists(directory / "sub")));
     }
 }
 
@@ -176,9 +176,9 @@ TEST_CASE("remove", "[filesystem]") {
         }
 
         SECTION("exists") {
-            REQUIRE(zero::filesystem::write(path, ""));
+            zero::error::guard(zero::filesystem::write(path, ""));
             REQUIRE(zero::filesystem::remove(path));
-            REQUIRE(zero::filesystem::exists(path) == false);
+            REQUIRE_FALSE(zero::error::guard(zero::filesystem::exists(path)));
         }
     }
 
@@ -188,14 +188,14 @@ TEST_CASE("remove", "[filesystem]") {
         }
 
         SECTION("exists") {
-            REQUIRE(zero::filesystem::createDirectory(path));
+            zero::error::guard(zero::filesystem::createDirectory(path));
             REQUIRE(zero::filesystem::remove(path));
-            REQUIRE(zero::filesystem::exists(path) == false);
+            REQUIRE_FALSE(zero::error::guard(zero::filesystem::exists(path)));
         }
 
         SECTION("not empty") {
-            REQUIRE(zero::filesystem::createDirectories(path / "sub"));
-            Z_DEFER(REQUIRE(zero::filesystem::removeAll(path)));
+            zero::error::guard(zero::filesystem::createDirectories(path / "sub"));
+            Z_DEFER(zero::error::guard(zero::filesystem::removeAll(path)));
             REQUIRE_ERROR(zero::filesystem::remove(path), std::errc::directory_not_empty);
         }
     }
@@ -211,9 +211,9 @@ TEST_CASE("remove all", "[filesystem]") {
         }
 
         SECTION("exists") {
-            REQUIRE(zero::filesystem::write(path, ""));
+            zero::error::guard(zero::filesystem::write(path, ""));
             REQUIRE(zero::filesystem::removeAll(path) == 1);
-            REQUIRE(zero::filesystem::exists(path) == false);
+            REQUIRE_FALSE(zero::error::guard(zero::filesystem::exists(path)));
         }
     }
 
@@ -223,9 +223,9 @@ TEST_CASE("remove all", "[filesystem]") {
         }
 
         SECTION("exists") {
-            REQUIRE(zero::filesystem::createDirectories(path / "sub"));
+            zero::error::guard(zero::filesystem::createDirectories(path / "sub"));
             REQUIRE(zero::filesystem::removeAll(path) == 2);
-            REQUIRE(zero::filesystem::exists(path) == false);
+            REQUIRE_FALSE(zero::error::guard(zero::filesystem::exists(path)));
         }
     }
 }
@@ -239,14 +239,13 @@ TEST_CASE("read directory", "[filesystem]") {
     }
 
     SECTION("directory exists") {
-        REQUIRE(zero::filesystem::createDirectory(directory));
-        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+        zero::error::guard(zero::filesystem::createDirectory(directory));
+        Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
         const std::list files{directory / "a", directory / "b", directory / "c"};
 
-        for (const auto &file: files) {
-            REQUIRE(zero::filesystem::write(file, ""));
-        }
+        for (const auto &file: files)
+            zero::error::guard(zero::filesystem::write(file, ""));
 
         auto iterator = zero::filesystem::readDirectory(directory);
         REQUIRE(iterator);
@@ -281,14 +280,14 @@ TEST_CASE("walk directory", "[filesystem]") {
     }
 
     SECTION("directory exists") {
-        REQUIRE(zero::filesystem::createDirectory(directory));
-        Z_DEFER(REQUIRE(zero::filesystem::removeAll(directory)));
+        zero::error::guard(zero::filesystem::createDirectory(directory));
+        Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
         const std::list files{directory / "a", directory / "b" / "c", directory / "d" / "e" / "f"};
 
         for (const auto &file: files) {
-            REQUIRE(zero::filesystem::createDirectories(file.parent_path()));
-            REQUIRE(zero::filesystem::write(file, ""));
+            zero::error::guard(zero::filesystem::createDirectories(file.parent_path()));
+            zero::error::guard(zero::filesystem::write(file, ""));
         }
 
         auto iterator = zero::filesystem::walkDirectory(directory);
@@ -303,7 +302,7 @@ TEST_CASE("walk directory", "[filesystem]") {
             if (!*entry)
                 break;
 
-            if (!entry.value()->isRegularFile().value_or(false))
+            if (!zero::error::guard(entry.value()->isRegularFile()))
                 continue;
 
             paths.push_back(entry->value().path());

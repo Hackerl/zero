@@ -76,9 +76,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
         }
 
         SECTION("full") {
-            for (std::size_t i{0}; i < capacity; ++i) {
-                REQUIRE(sender.trySend(element));
-            }
+            for (std::size_t i{0}; i < capacity; ++i)
+                zero::error::guard(sender.trySend(element));
 
             REQUIRE_ERROR(sender.trySend(element), zero::concurrent::TrySendError::Full);
         }
@@ -99,9 +98,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
         }
 
         SECTION("full") {
-            for (std::size_t i{0}; i < capacity; ++i) {
-                REQUIRE(sender.trySend(element));
-            }
+            for (std::size_t i{0}; i < capacity; ++i)
+                zero::error::guard(sender.trySend(element));
 
             const auto result = sender.trySendEx(std::string{element});
             REQUIRE_FALSE(result);
@@ -117,9 +115,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
             }
 
             SECTION("wait") {
-                for (std::size_t i{0}; i < capacity; ++i) {
-                    REQUIRE(sender.trySend(element));
-                }
+                for (std::size_t i{0}; i < capacity; ++i)
+                    zero::error::guard(sender.trySend(element));
 
                 auto future = std::async([&] {
                     return sender.send(element);
@@ -131,9 +128,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
             SECTION("wait with timeout") {
                 using namespace std::chrono_literals;
 
-                for (std::size_t i{0}; i < capacity; ++i) {
-                    REQUIRE(sender.trySend(element));
-                }
+                for (std::size_t i{0}; i < capacity; ++i)
+                    zero::error::guard(sender.trySend(element));
 
                 auto future = std::async([&] {
                     return sender.send(element, 1s);
@@ -153,9 +149,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
         SECTION("timeout") {
             using namespace std::chrono_literals;
 
-            for (std::size_t i{0}; i < capacity; ++i) {
-                REQUIRE(sender.trySend(element));
-            }
+            for (std::size_t i{0}; i < capacity; ++i)
+                zero::error::guard(sender.trySend(element));
 
             REQUIRE_ERROR(sender.send(element, 10ms), zero::concurrent::SendError::Timeout);
         }
@@ -168,9 +163,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
             }
 
             SECTION("wait") {
-                for (std::size_t i{0}; i < capacity; ++i) {
-                    REQUIRE(sender.trySend(element));
-                }
+                for (std::size_t i{0}; i < capacity; ++i)
+                    zero::error::guard(sender.trySend(element));
 
                 auto future = std::async([&] {
                     return sender.sendEx(std::string{element});
@@ -182,9 +176,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
             SECTION("wait with timeout") {
                 using namespace std::chrono_literals;
 
-                for (std::size_t i{0}; i < capacity; ++i) {
-                    REQUIRE(sender.trySend(element));
-                }
+                for (std::size_t i{0}; i < capacity; ++i)
+                    zero::error::guard(sender.trySend(element));
 
                 auto future = std::async([&] {
                     return sender.sendEx(std::string{element}, 1s);
@@ -208,9 +201,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
         SECTION("timeout") {
             using namespace std::chrono_literals;
 
-            for (std::size_t i{0}; i < capacity; ++i) {
-                REQUIRE(sender.trySend(element));
-            }
+            for (std::size_t i{0}; i < capacity; ++i)
+                zero::error::guard(sender.trySend(element));
 
             const auto result = sender.sendEx(std::string{element}, 10ms);
             REQUIRE_FALSE(result);
@@ -227,9 +219,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
     SECTION("size") {
         const auto size = GENERATE_REF(take(1, random(0uz, capacity)));
 
-        for (std::size_t i{0}; i < size; ++i) {
-            REQUIRE(sender.trySend(element));
-        }
+        for (std::size_t i{0}; i < size; ++i)
+            zero::error::guard(sender.trySend(element));
 
         REQUIRE(sender.size() == size);
     }
@@ -244,7 +235,7 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
         }
 
         SECTION("not empty") {
-            REQUIRE(sender.trySend(element));
+            zero::error::guard(sender.trySend(element));
             REQUIRE_FALSE(sender.empty());
         }
     }
@@ -255,9 +246,8 @@ TEST_CASE("channel sender", "[concurrent::channel]") {
         }
 
         SECTION("full") {
-            for (std::size_t i{0}; i < capacity; ++i) {
-                REQUIRE(sender.trySend(element));
-            }
+            for (std::size_t i{0}; i < capacity; ++i)
+                zero::error::guard(sender.trySend(element));
 
             REQUIRE(sender.full());
         }
@@ -283,7 +273,7 @@ TEST_CASE("channel receiver", "[concurrent::channel]") {
 
     SECTION("try receive") {
         SECTION("success") {
-            REQUIRE(sender.trySend(element));
+            zero::error::guard(sender.trySend(element));
 
             SECTION("closed") {
                 sender.close();
@@ -305,7 +295,7 @@ TEST_CASE("channel receiver", "[concurrent::channel]") {
     SECTION("receive") {
         SECTION("success") {
             SECTION("no wait") {
-                REQUIRE(sender.trySend(element));
+                zero::error::guard(sender.trySend(element));
 
                 SECTION("closed") {
                     sender.close();
@@ -368,9 +358,8 @@ TEST_CASE("channel receiver", "[concurrent::channel]") {
     SECTION("size") {
         const auto size = GENERATE_REF(take(1, random(0uz, capacity)));
 
-        for (std::size_t i{0}; i < size; ++i) {
-            REQUIRE(sender.trySend(element));
-        }
+        for (std::size_t i{0}; i < size; ++i)
+            zero::error::guard(sender.trySend(element));
 
         REQUIRE(receiver.size() == size);
     }
@@ -385,7 +374,7 @@ TEST_CASE("channel receiver", "[concurrent::channel]") {
         }
 
         SECTION("not empty") {
-            REQUIRE(sender.trySend(element));
+            zero::error::guard(sender.trySend(element));
             REQUIRE_FALSE(receiver.empty());
         }
     }
@@ -396,9 +385,8 @@ TEST_CASE("channel receiver", "[concurrent::channel]") {
         }
 
         SECTION("full") {
-            for (std::size_t i{0}; i < capacity; ++i) {
-                REQUIRE(sender.trySend(element));
-            }
+            for (std::size_t i{0}; i < capacity; ++i)
+                zero::error::guard(sender.trySend(element));
 
             REQUIRE(receiver.full());
         }
@@ -461,45 +449,40 @@ TEST_CASE("channel concurrency testing", "[concurrent::channel]") {
 
     std::atomic<int> counter;
 
-    const auto produce = [&]() -> std::expected<void, std::error_code> {
-        for (int i{0}; i < times; ++i) {
-            Z_EXPECT(sender.send(element));
-        }
-
-        return {};
+    const auto produce = [&] {
+        for (int i{0}; i < times; ++i)
+            zero::error::guard(sender.send(element));
     };
 
-    const auto consume = [&]() -> std::expected<void, std::error_code> {
+    const auto consume = [&] {
         while (true) {
             const auto result = receiver.receive();
 
             if (!result) {
                 if (const auto &error = result.error(); error != zero::concurrent::ReceiveError::Disconnected)
-                    return std::unexpected{error};
+                    throw zero::error::StacktraceError<std::system_error>{error};
 
                 break;
             }
 
             if (*result != element)
-                return std::unexpected{make_error_code(std::errc::bad_message)};
+                throw zero::error::StacktraceError<std::runtime_error>{"Received incorrect element"};
 
             ++counter;
         }
-
-        return {};
     };
 
     std::array producers{std::async(produce), std::async(produce)};
     std::array consumers{std::async(consume), std::async(consume)};
 
     for (auto &future: producers) {
-        REQUIRE(future.get());
+        REQUIRE_NOTHROW(future.get());
     }
 
     sender.close();
 
     for (auto &future: consumers) {
-        REQUIRE(future.get());
+        REQUIRE_NOTHROW(future.get());
     }
 
     REQUIRE(counter == times * 2);

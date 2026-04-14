@@ -8,7 +8,7 @@ TEST_CASE("get environment variable", "[env]") {
     const auto name = GENERATE(take(1, randomAlphanumericString(8, 64)));
 
     SECTION("environment variable does not exist") {
-        REQUIRE(zero::env::get(name) == std::nullopt);
+        REQUIRE_FALSE(zero::env::get(name));
     }
 
     SECTION("environment variable exist") {
@@ -47,9 +47,8 @@ TEST_CASE("unset environment variable", "[env]") {
     SECTION("environment variable exist") {
         const auto value = GENERATE(take(1, randomAlphanumericString(8, 64)));
         zero::env::set(name, value);
-        REQUIRE(zero::env::get(name) == value);
         zero::env::unset(name);
-        REQUIRE(zero::env::get(name) == std::nullopt);
+        REQUIRE_FALSE(zero::env::get(name));
     }
 }
 

@@ -781,7 +781,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         std::ranges::all_of(
             mInheritedResources,
             [](const auto &resource) {
-                return resource.isInheritable() == true;
+                return resource.isInheritable();
             }
         )
     );

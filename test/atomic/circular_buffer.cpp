@@ -1,5 +1,6 @@
 #include <catch_extensions.h>
 #include <zero/atomic/circular_buffer.h>
+#include <zero/error.h>
 
 TEST_CASE("lock-free circular buffer", "[atomic::circular_buffer]") {
     const auto capacity = GENERATE(2uz, take(1, random(3uz, 1024uz)));
@@ -12,7 +13,10 @@ TEST_CASE("lock-free circular buffer", "[atomic::circular_buffer]") {
 
         for (std::size_t i{0}; i < size; ++i) {
             const auto index = buffer.reserve();
-            REQUIRE(index);
+
+            if (!index)
+                throw zero::error::StacktraceError<std::runtime_error>{"Failed to reserve buffer slot"};
+
             buffer[*index] = element;
             buffer.commit(*index);
         }
@@ -31,7 +35,10 @@ TEST_CASE("lock-free circular buffer", "[atomic::circular_buffer]") {
 
         SECTION("not empty") {
             const auto index = buffer.reserve();
-            REQUIRE(index);
+
+            if (!index)
+                throw zero::error::StacktraceError<std::runtime_error>{"Failed to reserve buffer slot"};
+
             buffer[*index] = element;
             buffer.commit(*index);
             REQUIRE_FALSE(buffer.empty());
@@ -46,7 +53,10 @@ TEST_CASE("lock-free circular buffer", "[atomic::circular_buffer]") {
         SECTION("full") {
             for (std::size_t i{0}; i < capacity - 1; ++i) {
                 const auto index = buffer.reserve();
-                REQUIRE(index);
+
+                if (!index)
+                    throw zero::error::StacktraceError<std::runtime_error>{"Failed to reserve buffer slot"};
+
                 buffer[*index] = element;
                 buffer.commit(*index);
             }
@@ -58,7 +68,10 @@ TEST_CASE("lock-free circular buffer", "[atomic::circular_buffer]") {
     SECTION("subscript access") {
         {
             const auto index = buffer.reserve();
-            REQUIRE(index);
+
+            if (!index)
+                throw zero::error::StacktraceError<std::runtime_error>{"Failed to reserve buffer slot"};
+
             buffer[*index] = element;
             buffer.commit(*index);
         }
@@ -76,8 +89,8 @@ TEST_CASE("lock-free circular buffer", "[atomic::circular_buffer]") {
 
         SECTION("failure") {
             for (std::size_t i{0}; i < capacity - 1; ++i) {
-                const auto index = buffer.reserve();
-                REQUIRE(index);
+                if (!buffer.reserve())
+                    throw zero::error::StacktraceError<std::runtime_error>{"Failed to reserve buffer slot"};
             }
 
             REQUIRE_FALSE(buffer.reserve());
@@ -86,14 +99,15 @@ TEST_CASE("lock-free circular buffer", "[atomic::circular_buffer]") {
 
     SECTION("acquire") {
         SECTION("success") {
-            {
-                const auto index = buffer.reserve();
-                REQUIRE(index);
-                buffer[*index] = element;
-                buffer.commit(*index);
-            }
+            const auto index = buffer.reserve();
 
-            REQUIRE(buffer.acquire());
+            if (!index)
+                throw zero::error::StacktraceError<std::runtime_error>{"Failed to reserve buffer slot"};
+
+            buffer[*index] = element;
+            buffer.commit(*index);
+
+            REQUIRE(buffer.acquire() == index);
         }
 
         SECTION("failure") {
