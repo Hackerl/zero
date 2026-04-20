@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.25)
 project(zero)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -45,7 +45,7 @@ add_library(
         $<$<PLATFORM_ID:Linux,Android>:src/os/linux/process.cpp src/os/linux/procfs/procfs.cpp src/os/linux/procfs/process.cpp>
 )
 
-if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+if (IOS)
     target_compile_definitions(zero PUBLIC ZERO_PROCESS_PARTIAL_API)
 endif ()
 
@@ -69,7 +69,7 @@ target_link_libraries(
         $<$<CXX_COMPILER_ID:GNU>:stdc++exp>
 )
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if (WIN32)
     set(
             EXCLUDE_HEADERS
             ${EXCLUDE_HEADERS}
@@ -79,7 +79,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     )
 endif ()
 
-if (CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
+if (LINUX OR ANDROID)
     set(
             EXCLUDE_HEADERS
             ${EXCLUDE_HEADERS}
@@ -88,7 +88,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
     )
 endif ()
 
-if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+if (APPLE)
     set(
             EXCLUDE_HEADERS
             ${EXCLUDE_HEADERS}
