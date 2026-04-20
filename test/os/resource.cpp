@@ -251,9 +251,9 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
 
     SECTION("rewind") {
         zero::error::guard(resource.readAll());
-        REQUIRE(resource.position() == content.size());
+        REQUIRE(zero::error::guard(resource.position()) == content.size());
         REQUIRE(resource.rewind());
-        REQUIRE(resource.position() == 0);
+        REQUIRE(zero::error::guard(resource.position()) == 0);
     }
 
     SECTION("seek") {
@@ -274,8 +274,9 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
             ) == offset);
         }
 
-        const auto data = resource.readAll();
-        REQUIRE(data);
-        REQUIRE_THAT(*data, Catch::Matchers::RangeEquals(std::span{content.begin() + offset, content.end()}));
+        REQUIRE_THAT(
+            zero::error::guard(resource.readAll()),
+            Catch::Matchers::RangeEquals(std::span{content.begin() + offset, content.end()})
+        );
     }
 }
