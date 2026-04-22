@@ -24,19 +24,26 @@ zero::os::macos::process::Process &zero::os::macos::process::Process::operator=(
 
 std::expected<std::vector<char>, std::error_code> zero::os::macos::process::Process::arguments() const {
     std::array mib{CTL_KERN, KERN_PROCARGS2, mPID};
-    std::size_t size{};
 
-    Z_EXPECT(unix::expected([&] {
-        return sysctl(mib.data(), mib.size(), nullptr, &size, nullptr, 0);
-    }));
+    while (true) {
+        std::size_t estimated{};
 
-    const auto buffer = std::make_unique<char[]>(size);
+        Z_EXPECT(unix::expected([&] {
+            return sysctl(mib.data(), mib.size(), nullptr, &estimated, nullptr, 0);
+        }));
 
-    Z_EXPECT(unix::expected([&] {
-        return sysctl(mib.data(), mib.size(), buffer.get(), &size, nullptr, 0);
-    }));
+        auto size = estimated + 1;
+        const auto buffer = std::make_unique<char[]>(size);
 
-    return std::vector<char>{buffer.get(), buffer.get() + size};
+        Z_EXPECT(unix::expected([&] {
+            return sysctl(mib.data(), mib.size(), buffer.get(), &size, nullptr, 0);
+        }));
+
+        if (size == estimated + 1)
+            continue;
+
+        return std::vector<char>{buffer.get(), buffer.get() + size};
+    }
 }
 
 pid_t zero::os::macos::process::Process::pid() const {
