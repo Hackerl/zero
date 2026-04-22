@@ -3,7 +3,7 @@ project(zero)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-set(ZERO_VERSION 1.1.0)
+set(ZERO_VERSION 1.2.0)
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 
