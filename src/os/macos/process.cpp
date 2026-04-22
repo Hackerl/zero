@@ -192,12 +192,7 @@ std::expected<std::map<std::string, std::string>, std::error_code> zero::os::mac
     std::map<std::string, std::string> envs;
 
     while (true) {
-        if (str.length() <= prev)
-            throw error::StacktraceError<std::runtime_error>{
-                fmt::format("Malformed KERN_PROCARGS2 for pid {}: unexpected end of environment data", mPID)
-            };
-
-        if (str[prev] == '\0')
+        if (str.length() == prev || str[prev] == '\0')
             break;
 
         auto pos = str.find('\0', prev);
