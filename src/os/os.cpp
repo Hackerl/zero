@@ -25,9 +25,10 @@
 std::string zero::os::hostname() {
 #ifdef _WIN32
     DWORD size{64};
-    auto buffer = std::make_unique<WCHAR[]>(size);
 
     while (true) {
+        const auto buffer = std::make_unique<WCHAR[]>(size);
+
         const auto result = windows::expected([&] {
             return GetComputerNameExW(ComputerNameDnsHostname, buffer.get(), &size);
         });
@@ -37,8 +38,6 @@ std::string zero::os::hostname() {
 
         if (const auto &error = result.error(); error != std::error_code{ERROR_MORE_DATA, std::system_category()})
             throw error::StacktraceError<std::system_error>{error};
-
-        buffer = std::make_unique<WCHAR[]>(size);
     }
 #elif defined(__linux__)
     std::array<char, HOST_NAME_MAX + 1> buffer{};
@@ -85,12 +84,12 @@ std::expected<std::string, std::error_code> zero::os::username() {
     }
 
     auto size = static_cast<std::size_t>(max);
-    auto buffer = std::make_unique<char[]>(size);
 
     passwd pwd{};
     passwd *ptr{};
 
     while (true) {
+        const auto buffer = std::make_unique<char[]>(size);
         const auto n = getpwuid_r(uid, &pwd, buffer.get(), size, &ptr);
 
         if (n == 0) {
@@ -107,7 +106,6 @@ std::expected<std::string, std::error_code> zero::os::username() {
             throw error::StacktraceError<std::system_error>{n, std::system_category()};
 
         size *= 2;
-        buffer = std::make_unique<char[]>(size);
     }
 #else
 #error "unsupported platform"

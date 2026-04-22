@@ -294,12 +294,12 @@ std::expected<std::string, std::error_code> zero::os::macos::process::Process::u
     }
 
     auto size = static_cast<std::size_t>(max);
-    auto buffer = std::make_unique<char[]>(size);
 
     passwd pwd{};
     passwd *ptr{};
 
     while (true) {
+        const auto buffer = std::make_unique<char[]>(size);
         const auto n = getpwuid_r(info.pbi_uid, &pwd, buffer.get(), size, &ptr);
 
         if (n == 0) {
@@ -316,7 +316,6 @@ std::expected<std::string, std::error_code> zero::os::macos::process::Process::u
             throw error::StacktraceError<std::system_error>{n, std::system_category()};
 
         size *= 2;
-        buffer = std::make_unique<char[]>(size);
     }
 }
 
@@ -354,9 +353,9 @@ std::expected<zero::os::macos::process::Process, std::error_code> zero::os::maco
 
 std::list<pid_t> zero::os::macos::process::all() {
     std::size_t size{4096};
-    auto buffer = std::make_unique<pid_t[]>(size);
 
     while (true) {
+        const auto buffer = std::make_unique<pid_t[]>(size);
         const auto n = proc_listallpids(buffer.get(), static_cast<int>(size * sizeof(pid_t)));
 
         if (n == -1)
@@ -366,7 +365,6 @@ std::list<pid_t> zero::os::macos::process::all() {
             return std::list<pid_t>{buffer.get(), buffer.get() + n};
 
         size *= 2;
-        buffer = std::make_unique<pid_t[]>(size);
     }
 }
 

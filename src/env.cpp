@@ -21,9 +21,10 @@ std::optional<std::string> zero::env::get(const std::string &name) {
     const auto str = error::guard(strings::decode(name));
 
     DWORD size{1024};
-    auto buffer = std::make_unique<WCHAR[]>(size);
 
     while (true) {
+        const auto buffer = std::make_unique<WCHAR[]>(size);
+
         const auto result = GetEnvironmentVariableW(str.c_str(), buffer.get(), size);
         assert(result != size);
 
@@ -38,7 +39,6 @@ std::optional<std::string> zero::env::get(const std::string &name) {
         }
 
         size = result;
-        buffer = std::make_unique<WCHAR[]>(size);
     }
 #else
     const auto *env = std::getenv(name.c_str());

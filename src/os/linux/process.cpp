@@ -114,12 +114,12 @@ std::expected<std::string, std::error_code> zero::os::linux::process::Process::u
     }
 
     auto size = static_cast<std::size_t>(max);
-    auto buffer = std::make_unique<char[]>(size);
 
     passwd pwd{};
     passwd *ptr{};
 
     while (true) {
+        const auto buffer = std::make_unique<char[]>(size);
         const auto n = getpwuid_r(status->uid[0], &pwd, buffer.get(), size, &ptr);
 
         if (n == 0) {
@@ -136,7 +136,6 @@ std::expected<std::string, std::error_code> zero::os::linux::process::Process::u
             throw error::StacktraceError<std::system_error>{n, std::system_category()};
 
         size *= 2;
-        buffer = std::make_unique<char[]>(size);
     }
 }
 

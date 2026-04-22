@@ -430,9 +430,9 @@ std::expected<zero::os::windows::process::Process, std::error_code> zero::os::wi
 
 std::list<DWORD> zero::os::windows::process::all() {
     std::size_t size{4096};
-    auto buffer = std::make_unique<DWORD[]>(size);
 
     while (true) {
+        const auto buffer = std::make_unique<DWORD[]>(size);
         DWORD needed{};
 
         error::guard(expected([&] {
@@ -443,7 +443,6 @@ std::list<DWORD> zero::os::windows::process::all() {
             return std::list<DWORD>{buffer.get(), buffer.get() + needed / sizeof(DWORD)};
 
         size *= 2;
-        buffer = std::make_unique<DWORD[]>(size);
     }
 }
 
