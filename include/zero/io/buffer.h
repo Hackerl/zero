@@ -190,6 +190,7 @@ namespace zero::io {
         }
 
         std::expected<void, std::error_code> flush() override {
+            std::expected<void, std::error_code> result;
             std::size_t offset{0};
 
             while (offset < mPending) {
@@ -198,7 +199,11 @@ namespace zero::io {
                     mWriter,
                     std::span{mBuffer.get() + offset, mPending - offset}
                 );
-                Z_EXPECT(n);
+
+                if (!n) {
+                    result = std::unexpected{n.error()};
+                    break;
+                }
 
                 offset += *n;
             }
@@ -207,7 +212,7 @@ namespace zero::io {
                 std::copy(mBuffer.get() + offset, mBuffer.get() + mPending, mBuffer.get());
 
             mPending -= offset;
-            return {};
+            return result;
         }
 
     private:
