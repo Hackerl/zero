@@ -315,7 +315,7 @@ struct fmt::formatter<zero::os::process::ExitStatus, Char> {
     }
 
     template<typename FmtContext>
-    auto format(const zero::os::process::ExitStatus &status, FmtContext &ctx) const {
+    static auto format(const zero::os::process::ExitStatus &status, FmtContext &ctx) {
 #ifdef _WIN32
         if (const auto raw = status.raw(); raw & 0x80000000)
             return fmt::format_to(ctx.out(), "exit code({:#x})", raw);
