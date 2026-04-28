@@ -96,8 +96,8 @@ struct fmt::formatter<zero::os::net::Interface, Char> {
                 ":"
             ),
             i.addresses | std::views::transform([](const auto &address) {
-                if (std::holds_alternative<zero::os::net::IfAddress4>(address))
-                    return fmt::to_string(std::get<zero::os::net::IfAddress4>(address));
+                if (const auto addr = std::get_if<zero::os::net::IfAddress4>(&address))
+                    return fmt::to_string(*addr);
 
                 return fmt::to_string(std::get<zero::os::net::IfAddress6>(address));
             })

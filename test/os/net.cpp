@@ -100,8 +100,8 @@ TEST_CASE("network interfaces", "[os::net]") {
         REQUIRE_THAT(
             addresses
             | std::views::transform([](const auto &address) {
-                if (std::holds_alternative<zero::os::net::IfAddress4>(address))
-                    return zero::os::net::stringify(std::get<zero::os::net::IfAddress4>(address).ip);
+                if (const auto addr = std::get_if<zero::os::net::IfAddress4>(&address))
+                    return zero::os::net::stringify(addr->ip);
 
                 return zero::os::net::stringify(std::get<zero::os::net::IfAddress6>(address).ip);
             })
