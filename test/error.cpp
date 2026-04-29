@@ -449,7 +449,7 @@ TEST_CASE("custom extended error condition defined in class", "[error]") {
     }
 }
 
-TEST_CASE("guard", "[error]") {
+TEST_CASE("throw on std::expected error", "[error]") {
     SECTION("void") {
         SECTION("success") {
             REQUIRE_NOTHROW(zero::error::guard(std::expected<void, std::error_code>{}));
@@ -487,7 +487,7 @@ TEST_CASE("guard", "[error]") {
     }
 }
 
-TEST_CASE("capture", "[error]") {
+TEST_CASE("catch thrown exception as std::expected error", "[error]") {
     SECTION("void") {
         SECTION("success") {
             REQUIRE(zero::error::capture([] {}));

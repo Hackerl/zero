@@ -28,7 +28,7 @@ TEST_CASE("lock-free circular buffer", "[atomic::circular_buffer]") {
         REQUIRE(buffer.capacity() == capacity);
     }
 
-    SECTION("empty") {
+    SECTION("is empty") {
         SECTION("empty") {
             REQUIRE(buffer.empty());
         }
@@ -45,7 +45,7 @@ TEST_CASE("lock-free circular buffer", "[atomic::circular_buffer]") {
         }
     }
 
-    SECTION("full") {
+    SECTION("is full") {
         SECTION("not full") {
             REQUIRE_FALSE(buffer.full());
         }

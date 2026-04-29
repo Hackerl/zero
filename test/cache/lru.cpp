@@ -30,7 +30,7 @@ TEST_CASE("LRU cache", "[cache::lru]") {
         REQUIRE(cache.capacity() == capacity);
     }
 
-    SECTION("empty") {
+    SECTION("is empty") {
         SECTION("empty") {
             REQUIRE(cache.empty());
         }

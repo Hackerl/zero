@@ -1,7 +1,7 @@
 #include <catch_extensions.h>
 #include <zero/os/linux/procfs/procfs.h>
 
-TEST_CASE("stat", "[os::linux::procfs]") {
+TEST_CASE("system stat", "[os::linux::procfs]") {
     const auto stat = zero::os::linux::procfs::stat();
     REQUIRE(stat.bootTime > 0);
     REQUIRE(!stat.cpuTimes.empty());

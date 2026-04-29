@@ -35,7 +35,7 @@ TEST_CASE("network components", "[os::net]") {
 }
 
 #ifndef ZERO_PROCESS_PARTIAL_API
-TEST_CASE("network interfaces", "[os::net]") {
+TEST_CASE("list network interfaces", "[os::net]") {
     const auto interfaces = zero::os::net::interfaces();
 
 #ifdef _WIN32

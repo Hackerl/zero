@@ -1,7 +1,7 @@
 #include <catch_extensions.h>
 #include <zero/io/io.h>
 
-TEST_CASE("copy", "[io]") {
+TEST_CASE("copy bytes from reader to writer", "[io]") {
     const auto input = GENERATE(take(10, randomBytes(1, 102400)));
 
     zero::io::BytesReader reader{input};

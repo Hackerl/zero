@@ -10,7 +10,7 @@ namespace {
     }
 }
 
-TEST_CASE("expect macro", "[expect]") {
+TEST_CASE("propagate std::expected error with early return", "[expect]") {
     const auto calculate = [](const int input) -> std::expected<int, std::error_code> {
         auto value = twice(input);
         Z_EXPECT(value);
@@ -31,7 +31,7 @@ TEST_CASE("expect macro", "[expect]") {
 }
 
 #ifdef __GNUC__
-TEST_CASE("try macro", "[expect]") {
+TEST_CASE("unwrap value or propagate error", "[expect]") {
     const auto calculate = [](const int input) -> std::expected<int, std::error_code> {
         auto value = Z_TRY(twice(input));
         value = Z_TRY(twice(value));
