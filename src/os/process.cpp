@@ -404,23 +404,29 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     }
 
     auto environment = error::guard(
-        strings::decode(to_string(fmt::join(
-            envs | std::views::transform([](const auto &pair) {
-                auto env = pair.first + "=" + pair.second;
-                env.push_back('\0');
-                return env;
-            }),
-            ""
-        )))
+        strings::decode(
+            to_string(
+                fmt::join(
+                    envs | std::views::transform([](const auto &pair) {
+                        auto env = pair.first + "=" + pair.second;
+                        env.push_back('\0');
+                        return env;
+                    }),
+                    ""
+                )
+            )
+        )
     );
 
     std::vector arguments{filesystem::stringify(command.mPath)};
     arguments.append_range(command.mArguments);
 
     auto cmd = error::guard(
-        strings::decode(to_string(
-            fmt::join(arguments | std::views::transform(quote), " ")
-        ))
+        strings::decode(
+            to_string(
+                fmt::join(arguments | std::views::transform(quote), " ")
+            )
+        )
     );
 
     PROCESS_INFORMATION info{};
@@ -799,7 +805,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             const auto handle = GetStdHandle(typeMapping[i]);
 
             if (handle == INVALID_HANDLE_VALUE)
-                throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
+                throw error::StacktraceError<std::system_error>{
+                    static_cast<int>(GetLastError()), std::system_category()
+                };
 
             if (!handle)
                 continue;
@@ -920,23 +928,29 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     }
 
     auto environment = error::guard(
-        strings::decode(to_string(fmt::join(
-            envs | std::views::transform([](const auto &pair) {
-                auto env = pair.first + "=" + pair.second;
-                env.push_back('\0');
-                return env;
-            }),
-            ""
-        )))
+        strings::decode(
+            to_string(
+                fmt::join(
+                    envs | std::views::transform([](const auto &pair) {
+                        auto env = pair.first + "=" + pair.second;
+                        env.push_back('\0');
+                        return env;
+                    }),
+                    ""
+                )
+            )
+        )
     );
 
     std::vector arguments{filesystem::stringify(mPath)};
     arguments.append_range(mArguments);
 
     auto cmd = error::guard(
-        strings::decode(to_string(
-            fmt::join(arguments | std::views::transform(quote), " ")
-        ))
+        strings::decode(
+            to_string(
+                fmt::join(arguments | std::views::transform(quote), " ")
+            )
+        )
     );
 
     PROCESS_INFORMATION info{};
