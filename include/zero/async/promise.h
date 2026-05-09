@@ -209,15 +209,15 @@ namespace zero::async::promise {
         T value;
 
         // ReSharper disable once CppNonExplicitConversionOperator
-        template<typename E>
-        operator SemiFuture<T, E>() && {
-            return SemiFuture<T, E>::resolved(std::move(value));
+        template<std::constructible_from<T> U, typename E>
+        operator SemiFuture<U, E>() && {
+            return SemiFuture<U, E>::resolved(std::move(value));
         }
 
         // ReSharper disable once CppNonExplicitConversionOperator
-        template<typename E>
-        operator Future<T, E>() && {
-            return Future<T, E>::resolved(std::move(value));
+        template<std::constructible_from<T> U, typename E>
+        operator Future<U, E>() && {
+            return Future<U, E>::resolved(std::move(value));
         }
     };
 
@@ -241,15 +241,15 @@ namespace zero::async::promise {
         E error;
 
         // ReSharper disable once CppNonExplicitConversionOperator
-        template<typename T>
-        operator SemiFuture<T, E>() && {
-            return SemiFuture<T, E>::rejected(std::move(error));
+        template<typename T, std::constructible_from<E> U>
+        operator SemiFuture<T, U>() && {
+            return SemiFuture<T, U>::rejected(std::move(error));
         }
 
         // ReSharper disable once CppNonExplicitConversionOperator
-        template<typename T>
-        operator Future<T, E>() && {
-            return Future<T, E>::rejected(std::move(error));
+        template<typename T, std::constructible_from<E> U>
+        operator Future<T, U>() && {
+            return Future<T, U>::rejected(std::move(error));
         }
     };
 
