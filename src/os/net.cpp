@@ -6,7 +6,6 @@
 #include <cassert>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
-#include <zero/expect.h>
 #include <zero/strings.h>
 #elif defined(__linux__)
 #include <cstring>
@@ -15,7 +14,6 @@
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
 #include <zero/defer.h>
-#include <zero/expect.h>
 #include <zero/os/unix/error.h>
 #ifdef __ANDROID__
 #include <unistd.h>
@@ -28,7 +26,6 @@
 #include <arpa/inet.h>
 #include <net/if_dl.h>
 #include <zero/defer.h>
-#include <zero/expect.h>
 #include <zero/os/unix/error.h>
 #endif
 
