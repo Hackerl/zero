@@ -241,13 +241,21 @@ namespace zero::async::promise {
         E error;
 
         // ReSharper disable once CppNonExplicitConversionOperator
-        template<typename T, std::constructible_from<E> U>
+        template<typename T, typename U>
+            requires (
+                std::constructible_from<U, E> ||
+                (std::same_as<U, std::exception_ptr> && std::derived_from<E, std::exception>)
+            )
         operator SemiFuture<T, U>() && {
             return SemiFuture<T, U>::rejected(std::move(error));
         }
 
         // ReSharper disable once CppNonExplicitConversionOperator
-        template<typename T, std::constructible_from<E> U>
+        template<typename T, typename U>
+            requires (
+                std::constructible_from<U, E> ||
+                (std::same_as<U, std::exception_ptr> && std::derived_from<E, std::exception>)
+            )
         operator Future<T, U>() && {
             return Future<T, U>::rejected(std::move(error));
         }
@@ -410,7 +418,12 @@ namespace zero::async::promise {
             return promise.getFuture();
         }
 
-        static SemiFuture rejected(E error) {
+        template<typename U = E>
+            requires (
+                std::constructible_from<E, U> ||
+                (std::same_as<E, std::exception_ptr> && std::derived_from<U, std::exception>)
+            )
+        static SemiFuture rejected(U error) {
             Promise<T, E> promise;
             promise.reject(std::move(error));
             return promise.getFuture();
@@ -437,13 +450,23 @@ namespace zero::async::promise {
             return SemiFuture<T, E>::resolved(std::move(value)).via();
         }
 
-        static Future rejected(E error) {
+        template<typename U = E>
+            requires (
+                std::constructible_from<E, U> ||
+                (std::same_as<E, std::exception_ptr> && std::derived_from<U, std::exception>)
+            )
+        static Future rejected(U error) {
             return SemiFuture<T, E>::rejected(std::move(error)).via();
         }
 
         Future &&via(std::shared_ptr<IExecutor> executor) && {
             this->mCore->executor = std::move(executor);
             return std::move(*this);
+        }
+
+        SemiFuture<T, E> semi() && {
+            this->mCore->executor = nullptr;
+            return SemiFuture<T, E>{std::move(this->mCore)};
         }
 
         void setCallback(std::function<void(std::expected<T, E>)> callback) {
@@ -501,7 +524,7 @@ namespace zero::async::promise {
         }
 
         template<Callback<T> F>
-            requires (!AsyncCallback<F, T> && !FallibleCallback<F, T>)
+            requires (!AsyncCallback<F, T>)
         auto then(F &&f) && requires std::same_as<E, std::exception_ptr> {
             using NextValue = CallbackResult<F, T>;
 
@@ -666,8 +689,38 @@ namespace zero::async::promise {
             return std::move(future);
         }
 
+        template<FailingCallback<E> F>
+        auto fail(F &&f) && {
+            using NextError = std::remove_cvref_t<decltype(std::declval<CallbackResult<F, E>>().error())>;
+
+            assert(this->mCore);
+            assert(!this->mCore->callback);
+            assert(this->mCore->state != State::OnlyCallback);
+            assert(this->mCore->state != State::Done);
+
+            auto [promise, future] = contract<T, NextError>(this->mCore->executor);
+
+            setCallback(
+                [
+                    promise = std::make_shared<Promise<T, NextError>>(std::move(promise)), f = std::forward<F>(f)
+                ](std::expected<T, E> &&result) mutable {
+                    if (!result) {
+                        promise->reject(std::invoke(std::move(f), std::move(result).error()).error());
+                        return;
+                    }
+
+                    if constexpr (std::is_void_v<T>)
+                        promise->resolve();
+                    else
+                        promise->resolve(*std::move(result));
+                }
+            );
+
+            return std::move(future);
+        }
+
         template<Callback<E> F>
-            requires (!AsyncCallback<F, E> && !FallibleCallback<F, E> && !FailingCallback<F, E>)
+            requires (!AsyncCallback<F, E> && !FailingCallback<F, E>)
         auto fail(F &&f) && requires std::same_as<E, std::exception_ptr> {
             static_assert(std::is_same_v<CallbackResult<F, E>, T>);
 
@@ -758,36 +811,6 @@ namespace zero::async::promise {
                         promise->resolve();
                     else
                         promise->resolve(*std::move(next));
-                }
-            );
-
-            return std::move(future);
-        }
-
-        template<FailingCallback<E> F>
-        auto fail(F &&f) && requires (!std::same_as<E, std::exception_ptr>) {
-            using NextError = std::remove_cvref_t<decltype(std::declval<CallbackResult<F, E>>().error())>;
-
-            assert(this->mCore);
-            assert(!this->mCore->callback);
-            assert(this->mCore->state != State::OnlyCallback);
-            assert(this->mCore->state != State::Done);
-
-            auto [promise, future] = contract<T, NextError>(this->mCore->executor);
-
-            setCallback(
-                [
-                    promise = std::make_shared<Promise<T, NextError>>(std::move(promise)), f = std::forward<F>(f)
-                ](std::expected<T, E> &&result) mutable {
-                    if (!result) {
-                        promise->reject(std::invoke(std::move(f), std::move(result).error()).error());
-                        return;
-                    }
-
-                    if constexpr (std::is_void_v<T>)
-                        promise->resolve();
-                    else
-                        promise->resolve(*std::move(result));
                 }
             );
 

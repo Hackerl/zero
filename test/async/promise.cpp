@@ -5,7 +5,7 @@
 #include <list>
 
 namespace {
-    constexpr auto ThreadNumber = 16;
+    constexpr auto ThreadNumber = 4;
     constexpr auto ChannelCapacity = 32;
 
     class ThreadPool {
