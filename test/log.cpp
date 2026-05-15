@@ -22,11 +22,9 @@ TEST_CASE("logger", "[log]") {
     const auto content = GENERATE(take(1, randomString(1, 102400)));
 
     zero::atomic::Event event;
-    fakeit::Mock<zero::log::IProvider> mock;
+    fakeit::Mock<zero::log::ISink> mock;
 
     fakeit::Fake(Dtor(mock));
-    fakeit::When(Method(mock, init)).Return();
-    fakeit::When(Method(mock, rotate)).AlwaysReturn();
     fakeit::When(
         Method(mock, write)
         .Matching([&](const auto &record) {
@@ -38,83 +36,247 @@ TEST_CASE("logger", "[log]") {
     ).AlwaysReturn();
 
     fakeit::When(Method(mock, flush))
-        .Do([&]() -> std::expected<void, std::error_code> {
+        .Do([&] {
             event.set();
-            return {};
         })
         .AlwaysReturn();
 
     zero::log::Logger logger;
 
-    SECTION("add provider") {
+    SECTION("add") {
+        SECTION("normal") {
+            using namespace std::chrono_literals;
+
+            const auto name = GENERATE(take(2, optional(randomAlphanumericString(8, 64))));
+            const auto tag = GENERATE(take(2, optional(randomAlphanumericString(8, 64))));
+            const auto interval = GENERATE(50ms, 100ms, 150ms, 200ms, 250ms);
+            const auto tp = std::chrono::system_clock::now();
+
+            std::vector<std::string> tags;
+
+            if (tag)
+                tags.push_back(*tag);
+
+            REQUIRE_NOTHROW(logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, name, tags, interval));
+            logger.log(level, filename, line, content, tag);
+
+            zero::error::guard(event.wait());
+            REQUIRE(std::chrono::system_clock::now() - tp > interval - 5ms);
+
+            fakeit::Verify(Method(mock, write)).Once();
+            fakeit::Verify(Method(mock, flush)).AtLeastOnce();
+        }
+
+        SECTION("duplicate name") {
+            const auto name = GENERATE(take(1, randomAlphanumericString(8, 64)));
+            logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, name);
+
+            REQUIRE_THROWS_AS(
+                logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, name),
+                std::runtime_error
+            );
+        }
+    }
+
+    SECTION("remove") {
+        const auto name = GENERATE(take(1, randomAlphanumericString(8, 64)));
+
+        SECTION("normal") {
+            logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, name);
+            REQUIRE_NOTHROW(logger.remove(name));
+            REQUIRE_FALSE(logger.enabled(level));
+
+            for (const auto &lv: levels)
+                logger.log(lv, filename, line, content);
+
+            logger.sync();
+
+            fakeit::Verify(Method(mock, write)).Never();
+        }
+
+        SECTION("non-existent") {
+            REQUIRE_THROWS_AS(logger.remove(name), std::runtime_error);
+        }
+    }
+
+    SECTION("set level") {
+        const auto name = GENERATE(take(1, randomAlphanumericString(8, 64)));
+
+        SECTION("normal") {
+            logger.add(zero::log::Level::Error, std::unique_ptr<zero::log::ISink>{&mock.get()}, name);
+            REQUIRE_NOTHROW(logger.setLevel(name, level));
+
+            for (const auto &lv: levels) {
+                if (lv > level) {
+                    REQUIRE_FALSE(logger.enabled(lv));
+                }
+                else {
+                    REQUIRE(logger.enabled(lv));
+                }
+            }
+
+            for (const auto &lv: levels)
+                logger.log(lv, filename, line, content);
+
+            logger.sync();
+
+            const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::Error) + 1;
+            fakeit::Verify(Method(mock, write)).Exactly(times);
+        }
+
+        SECTION("non-existent") {
+            REQUIRE_THROWS_AS(logger.setLevel(name, zero::log::Level::Debug), std::runtime_error);
+        }
+    }
+
+    SECTION("set flush interval") {
         using namespace std::chrono_literals;
 
-        const auto interval = GENERATE(50ms, 100ms, 150ms, 200ms, 250ms);
-        const auto tp = std::chrono::system_clock::now();
+        const auto name = GENERATE(take(1, randomAlphanumericString(8, 64)));
 
-        logger.addProvider(level, std::unique_ptr<zero::log::IProvider>{&mock.get()}, interval);
-        logger.log(level, filename, line, content);
+        SECTION("normal") {
+            const auto interval = GENERATE(50ms, 100ms, 150ms, 200ms, 250ms);
+            const auto tp = std::chrono::system_clock::now();
 
-        zero::error::guard(event.wait());
-        REQUIRE(std::chrono::system_clock::now() - tp > interval - 5ms);
+            logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, name);
+            REQUIRE_NOTHROW(logger.setFlushInterval(name, interval));
 
-        fakeit::Verify(Method(mock, init)).Once();
-        fakeit::Verify(Method(mock, rotate)).Once();
-        fakeit::Verify(Method(mock, write)).Once();
-        fakeit::Verify(Method(mock, flush)).AtLeastOnce();
+            logger.log(level, filename, line, content);
+
+            zero::error::guard(event.wait());
+            REQUIRE(std::chrono::system_clock::now() - tp > interval - 5ms);
+
+            fakeit::Verify(Method(mock, write)).Once();
+            fakeit::Verify(Method(mock, flush)).AtLeastOnce();
+        }
+
+        SECTION("non-existent") {
+            REQUIRE_THROWS_AS(logger.setFlushInterval(name, 50ms), std::runtime_error);
+        }
     }
 
     SECTION("enabled") {
-        for (const auto &lv: levels) {
-            REQUIRE_FALSE(logger.enabled(lv));
-        }
-
-        logger.addProvider(level, std::unique_ptr<zero::log::IProvider>{&mock.get()});
-
-        for (const auto &lv: levels) {
-            if (lv > level) {
+        SECTION("by level") {
+            for (const auto &lv: levels) {
                 REQUIRE_FALSE(logger.enabled(lv));
             }
-            else {
-                REQUIRE(logger.enabled(lv));
+
+            logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()});
+
+            for (const auto &lv: levels) {
+                if (lv > level) {
+                    REQUIRE_FALSE(logger.enabled(lv));
+                }
+                else {
+                    REQUIRE(logger.enabled(lv));
+                }
             }
         }
 
-        fakeit::Verify(Method(mock, init)).Once();
-        fakeit::Verify(Method(mock, rotate)).Never();
-        fakeit::Verify(Method(mock, write)).Never();
-        fakeit::Verify(Method(mock, flush)).Any();
+        SECTION("by level and tag") {
+            const auto tag = GENERATE(take(1, randomAlphanumericString(8, 64)));
+
+            SECTION("without any sink") {
+                for (const auto &lv: levels) {
+                    REQUIRE_FALSE(logger.enabled(lv, tag));
+                }
+            }
+
+            SECTION("with unmatched tag") {
+                const auto tags = GENERATE(take(1, chunk(5, randomAlphanumericString(8, 64))));
+                logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, std::nullopt, tags);
+
+                for (const auto &lv: levels) {
+                    REQUIRE_FALSE(logger.enabled(lv, tag));
+                }
+            }
+
+            SECTION("with matched tag") {
+                logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, std::nullopt, {tag});
+
+                for (const auto &lv: levels) {
+                    if (lv > level) {
+                        REQUIRE_FALSE(logger.enabled(lv, tag));
+                    }
+                    else {
+                        REQUIRE(logger.enabled(lv, tag));
+                    }
+                }
+            }
+        }
     }
 
     SECTION("log") {
-        logger.addProvider(level, std::unique_ptr<zero::log::IProvider>{&mock.get()});
+        SECTION("untagged message") {
+            SECTION("with untagged sink") {
+                logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()});
 
-        for (const auto &lv: levels)
-            logger.log(lv, filename, line, content);
+                for (const auto &lv: levels)
+                    logger.log(lv, filename, line, content);
 
-        zero::error::guard(event.wait());
+                logger.sync();
 
-        const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::Error) + 1;
+                const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::Error) + 1;
+                fakeit::Verify(Method(mock, write)).Exactly(times);
+            }
 
-        fakeit::Verify(Method(mock, init)).Once();
-        fakeit::Verify(Method(mock, rotate)).Exactly(times);
-        fakeit::Verify(Method(mock, write)).Exactly(times);
-        fakeit::Verify(Method(mock, flush)).AtLeastOnce();
+            SECTION("with tagged sink") {
+                const auto tag = GENERATE(take(1, randomAlphanumericString(8, 64)));
+
+                logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, std::nullopt, {tag});
+
+                for (const auto &lv: levels)
+                    logger.log(lv, filename, line, content);
+
+                logger.sync();
+                fakeit::Verify(Method(mock, write)).Never();
+            }
+        }
+
+        SECTION("tagged message") {
+            const auto tag = GENERATE(take(1, randomAlphanumericString(8, 64)));
+
+            SECTION("with matched tag") {
+                logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, std::nullopt, {tag});
+
+                for (const auto &lv: levels)
+                    logger.log(lv, filename, line, content, tag);
+
+                logger.sync();
+
+                const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::Error) + 1;
+                fakeit::Verify(Method(mock, write)).Exactly(times);
+            }
+
+            SECTION("without matched tag") {
+                SECTION("with untagged sink") {
+                    logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()});
+                }
+
+                SECTION("with unmatched sink") {
+                    const auto tags = GENERATE(take(1, chunk(5, randomAlphanumericString(8, 64))));
+                    logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()}, std::nullopt, tags);
+                }
+
+                for (const auto &lv: levels)
+                    logger.log(lv, filename, line, content, tag);
+
+                logger.sync();
+                fakeit::Verify(Method(mock, write)).Never();
+            }
+        }
     }
 
     SECTION("sync") {
         const auto times = GENERATE(take(1, random(1, 1024)));
 
-        logger.addProvider(level, std::unique_ptr<zero::log::IProvider>{&mock.get()});
+        logger.add(level, std::unique_ptr<zero::log::ISink>{&mock.get()});
 
         for (int i{0}; i < times; ++i)
             logger.log(level, filename, line, content);
 
         logger.sync();
-        REQUIRE(event.isSet());
 
-        fakeit::Verify(Method(mock, init)).Once();
-        fakeit::Verify(Method(mock, rotate)).Exactly(times);
         fakeit::Verify(Method(mock, write)).Exactly(times);
         fakeit::Verify(Method(mock, flush)).AtLeastOnce();
     }
@@ -129,52 +291,54 @@ TEST_CASE("override log level from environment variable", "[log]") {
     };
 
     const auto level = GENERATE_REF(from_range(levels));
+    const auto tag = GENERATE(take(2, optional(randomAlphanumericString(8, 64))));
+
+    std::vector<std::string> tags;
+
+    if (tag)
+        tags.push_back(*tag);
 
     zero::env::set("ZERO_LOG_LEVEL", std::to_string(std::to_underlying(level)));
     Z_DEFER(zero::env::unset("ZERO_LOG_LEVEL"));
 
-    zero::atomic::Event event;
-    fakeit::Mock<zero::log::IProvider> mock;
+    fakeit::Mock<zero::log::ISink> mock;
 
     fakeit::Fake(Dtor(mock));
-    fakeit::When(Method(mock, init)).Return();
-    fakeit::When(Method(mock, rotate)).AlwaysReturn();
     fakeit::When(Method(mock, write)).AlwaysReturn();
-    fakeit::When(Method(mock, flush))
-        .Do([&]() -> std::expected<void, std::error_code> {
-            event.set();
-            return {};
-        })
-        .AlwaysReturn();
+    fakeit::When(Method(mock, flush)).AlwaysReturn();
 
     zero::log::Logger logger;
 
-    logger.addProvider(zero::log::Level::Error, std::unique_ptr<zero::log::IProvider>{&mock.get()});
+    logger.add(zero::log::Level::Error, std::unique_ptr<zero::log::ISink>{&mock.get()}, std::nullopt, tags);
+
+    for (const auto &lv: levels) {
+        if (lv > level) {
+            REQUIRE_FALSE(logger.enabled(lv));
+        }
+        else {
+            REQUIRE(logger.enabled(lv));
+        }
+    }
 
     for (const auto &lv: levels)
-        logger.log(lv, "", 0, "");
+        logger.log(lv, "", 0, "", tag);
 
-    zero::error::guard(event.wait());
+    logger.sync();
 
     const auto times = std::to_underlying(level) - std::to_underlying(zero::log::Level::Error) + 1;
-
-    fakeit::Verify(Method(mock, init)).Once();
-    fakeit::Verify(Method(mock, rotate)).Exactly(times);
     fakeit::Verify(Method(mock, write)).Exactly(times);
-    fakeit::Verify(Method(mock, flush)).AtLeastOnce();
 }
 
-TEST_CASE("file log provider", "[log]") {
+TEST_CASE("file log sink", "[log]") {
     const auto temp = zero::filesystem::temporaryDirectory();
     const auto directory = temp / GENERATE(take(1, randomAlphanumericString(8, 64)));
     const auto name = GENERATE(take(1, randomAlphanumericString(1, 64)));
 
-    SECTION("init") {
+    SECTION("construct") {
         zero::error::guard(zero::filesystem::createDirectory(directory));
         Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
-        zero::log::FileProvider provider{name, directory};
-        REQUIRE_NOTHROW(provider.init());
+        zero::log::FileSink sink{name, directory};
 
         std::size_t count{0};
         auto iterator = zero::error::guard(zero::filesystem::readDirectory(directory));
@@ -189,13 +353,11 @@ TEST_CASE("file log provider", "[log]") {
         zero::error::guard(zero::filesystem::createDirectory(directory));
         Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
-        zero::log::FileProvider provider{name, directory};
-        provider.init();
-
+        zero::log::FileSink sink{name, directory};
         zero::log::Record record;
 
-        REQUIRE_NOTHROW(provider.write(record));
-        REQUIRE_NOTHROW(provider.flush());
+        REQUIRE_NOTHROW(sink.write(record));
+        REQUIRE_NOTHROW(sink.flush());
 
         std::list<std::filesystem::path> files;
 
@@ -222,8 +384,7 @@ TEST_CASE("file log provider", "[log]") {
         const auto limit = GENERATE(take(1, random<std::size_t>(64, 1024)));
         const auto maxFiles = GENERATE(take(1uz, random(5uz, 10uz)));
 
-        zero::log::FileProvider provider{name, directory, limit, maxFiles};
-        provider.init();
+        zero::log::FileSink sink{name, directory, limit, maxFiles};
 
         zero::log::Record record{
             .content = GENERATE_REF(take(1, randomAlphanumericString(limit, limit)))
@@ -232,8 +393,7 @@ TEST_CASE("file log provider", "[log]") {
         for (int i{0}; i < maxFiles * 2; ++i) {
             // The log file name is generated based on the timestamp.
             std::this_thread::sleep_for(10ms);
-            provider.write(record);
-            REQUIRE_NOTHROW(provider.rotate());
+            sink.write(record);
         }
 
         std::size_t count{0};

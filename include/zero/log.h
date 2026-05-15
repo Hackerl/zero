@@ -12,7 +12,7 @@
 #include <fmt/chrono.h>
 
 namespace zero::log {
-    constexpr std::array Tags = {"ERROR", "WARN", "INFO", "DEBUG"};
+    constexpr std::array LevelNames = {"ERROR", "WARN", "INFO", "DEBUG"};
 
     enum class Level {
         Error,
@@ -27,38 +27,38 @@ namespace zero::log {
         std::string_view filename;
         std::chrono::system_clock::time_point timestamp;
         std::string content;
+        std::optional<std::string_view> tag;
     };
 
-    class IProvider {
+    class ISink {
     public:
-        virtual ~IProvider() = default;
-        virtual void init() = 0;
-        virtual void rotate() = 0;
-        virtual void flush() = 0;
+        virtual ~ISink() = default;
         virtual void write(const Record &record) = 0;
+        virtual void flush() = 0;
     };
 
-    class ConsoleProvider final : public IProvider {
+    class ConsoleSink final : public ISink {
     public:
-        void init() override;
-        void rotate() override;
-        void flush() override;
         void write(const Record &record) override;
+        void flush() override;
     };
 
-    class FileProvider final : public IProvider {
+    class FileSink final : public ISink {
     public:
-        explicit FileProvider(
+        explicit FileSink(
             std::string name,
             std::optional<std::filesystem::path> directory = std::nullopt,
             std::size_t limit = 10 * 1024 * 1024,
             std::size_t maxFiles = 10
         );
 
-        void init() override;
-        void rotate() override;
-        void flush() override;
+    private:
+        void init();
+        void rotate();
+
+    public:
         void write(const Record &record) override;
+        void flush() override;
 
     private:
         os::process::ID mPID;
@@ -71,9 +71,13 @@ namespace zero::log {
     };
 
     class Logger {
+        static constexpr auto DefaultFlushInterval = std::chrono::seconds{1};
+
         struct Config {
             Level level{};
-            std::unique_ptr<IProvider> provider;
+            std::unique_ptr<ISink> sink;
+            std::optional<std::string> name;
+            std::vector<std::string> tags;
             std::chrono::milliseconds flushInterval{};
             std::chrono::system_clock::time_point flushDeadline;
         };
@@ -84,43 +88,42 @@ namespace zero::log {
 
     private:
         void consume();
+        void refreshMaxLogLevel();
 
     public:
         [[nodiscard]] bool enabled(Level level) const;
+        [[nodiscard]] bool enabled(Level level, std::string_view tag) const;
 
-        void addProvider(
+        void add(
             Level level,
-            std::unique_ptr<IProvider> provider,
-            std::chrono::milliseconds interval = std::chrono::seconds{1}
+            std::unique_ptr<ISink> sink,
+            std::optional<std::string> name = std::nullopt,
+            std::vector<std::string> tags = {},
+            std::chrono::milliseconds interval = DefaultFlushInterval
         );
 
-        void log(const Level level, const std::string_view filename, const int line, std::string content) {
-            if (const auto result = mChannel.first.send(
-                {
-                    level,
-                    line,
-                    filename,
-                    std::chrono::system_clock::now(),
-                    std::move(content)
-                },
-                mSendTimeout
-            ); !result) {
-                fmt::print(stderr, "Failed to send log: {}\n", std::error_code{result.error()});
-                return;
-            }
+        void remove(std::string_view name);
 
-            ++mPending;
-        }
+        void setLevel(std::string_view name, Level level);
+        void setFlushInterval(std::string_view name, std::chrono::milliseconds interval);
 
-        void sync();
+        void log(
+            Level level,
+            std::string_view filename,
+            int line,
+            std::string content,
+            const std::optional<std::string_view> &tag = std::nullopt
+        );
+
+        void sync() const;
 
     private:
-        std::mutex mMutex;
+        mutable std::mutex mMutex;
         std::thread mThread;
         std::once_flag mInitFlag;
         std::list<Config> mConfigs;
         std::optional<Level> mMinLogLevel;
-        std::optional<Level> mMaxLogLevel;
+        std::atomic<int> mMaxLogLevel;
         std::optional<std::chrono::milliseconds> mSendTimeout;
         std::atomic<std::size_t> mPending;
         concurrent::Channel<Record> mChannel;
@@ -152,7 +155,7 @@ struct fmt::formatter<zero::log::Record, Char> {
             ctx.out(),
             "{:%Y-%m-%d %H:%M:%S} | {:<5} | {:>20}:{:<4}] {}",
             zero::localTime(std::chrono::system_clock::to_time_t(record.timestamp)),
-            zero::log::Tags[std::to_underlying(record.level)],
+            zero::log::LevelNames[std::to_underlying(record.level)],
             record.filename,
             record.line,
             record.content
@@ -161,12 +164,17 @@ struct fmt::formatter<zero::log::Record, Char> {
 };
 
 #define Z_GLOBAL_LOGGER                       zero::log::globalLogger()
-#define Z_INIT_CONSOLE_LOG(level)             Z_GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::log::ConsoleProvider>())
-#define Z_INIT_FILE_LOG(level, name, ...)     Z_GLOBAL_LOGGER.addProvider(level, std::make_unique<zero::log::FileProvider>(name, ## __VA_ARGS__))
+#define Z_INIT_CONSOLE_LOG(level)             Z_GLOBAL_LOGGER.add(level, std::make_unique<zero::log::ConsoleSink>())
+#define Z_INIT_FILE_LOG(level, name, ...)     Z_GLOBAL_LOGGER.add(level, std::make_unique<zero::log::FileSink>(name, ## __VA_ARGS__))
 
 #define Z_LOG_DEBUG(message, ...)             if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Debug)) logger.log(zero::log::Level::Debug, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 #define Z_LOG_INFO(message, ...)              if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Info)) logger.log(zero::log::Level::Info, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 #define Z_LOG_WARNING(message, ...)           if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Warning)) logger.log(zero::log::Level::Warning, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
 #define Z_LOG_ERROR(message, ...)             if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Error)) logger.log(zero::log::Level::Error, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__))
+
+#define Z_LOG_DEBUG_T(tag, message, ...)      if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Debug, tag)) logger.log(zero::log::Level::Debug, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__), tag)
+#define Z_LOG_INFO_T(tag, message, ...)       if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Info, tag)) logger.log(zero::log::Level::Info, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__), tag)
+#define Z_LOG_WARNING_T(tag, message, ...)    if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Warning, tag)) logger.log(zero::log::Level::Warning, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__), tag)
+#define Z_LOG_ERROR_T(tag, message, ...)      if (auto &logger = Z_GLOBAL_LOGGER; logger.enabled(zero::log::Level::Error, tag)) logger.log(zero::log::Level::Error, zero::log::sourceFilename(__FILE__), __LINE__, fmt::format(message, ## __VA_ARGS__), tag)
 
 #endif //ZERO_LOG_H

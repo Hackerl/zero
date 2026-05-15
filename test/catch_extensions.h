@@ -133,6 +133,31 @@ private:
     std::string mString;
 };
 
+template<typename T>
+class OptionalGenerator final : public Catch::Generators::IGenerator<std::optional<T>> {
+public:
+    explicit OptionalGenerator(Catch::Generators::GeneratorWrapper<T> generator) : mGenerator{std::move(generator)} {
+    }
+
+private:
+    bool next() override {
+        if (!mGenerator.next())
+            return false;
+
+        mValue = mGenerator.get();
+        return true;
+    }
+
+public:
+    [[nodiscard]] const std::optional<T> &get() const override {
+        return mValue;
+    }
+
+private:
+    std::optional<T> mValue;
+    Catch::Generators::GeneratorWrapper<T> mGenerator;
+};
+
 inline Catch::Generators::GeneratorWrapper<std::string>
 randomString(const std::size_t minLength, const std::size_t maxLength) {
     return {
@@ -161,6 +186,12 @@ randomAlphanumericString(const std::size_t minLength, const std::size_t maxLengt
             Catch::Generators::Detail::getSeed()
         )
     };
+}
+
+template<typename T>
+Catch::Generators::GeneratorWrapper<std::optional<T>>
+optional(Catch::Generators::GeneratorWrapper<T> &&generator) {
+    return {Catch::Detail::make_unique<OptionalGenerator<T>>(std::move(generator))};
 }
 
 #endif //CATCH_EXTENSIONS_H

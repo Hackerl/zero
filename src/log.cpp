@@ -6,28 +6,21 @@
 #include <algorithm>
 
 constexpr auto LoggerBufferSize = 1024;
+constexpr auto NoSinkSentinel = -1;
 
-void zero::log::ConsoleProvider::init() {
-    if (!stderr)
-        throw error::StacktraceError<std::runtime_error>{"Standard error stream is not available"};
-}
-
-void zero::log::ConsoleProvider::rotate() {
-}
-
-void zero::log::ConsoleProvider::flush() {
-    if (fflush(stderr) != 0)
-        throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
-}
-
-void zero::log::ConsoleProvider::write(const Record &record) {
+void zero::log::ConsoleSink::write(const Record &record) {
     const auto message = fmt::format("{}\n", record);
 
     if (fwrite(message.data(), 1, message.size(), stderr) != message.size())
         throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
 }
 
-zero::log::FileProvider::FileProvider(
+void zero::log::ConsoleSink::flush() {
+    if (fflush(stderr) != 0)
+        throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
+}
+
+zero::log::FileSink::FileSink(
     std::string name,
     std::optional<std::filesystem::path> directory,
     const std::size_t limit,
@@ -35,9 +28,10 @@ zero::log::FileProvider::FileProvider(
 ) : mPID{os::process::currentProcessID()},
     mName{std::move(name)}, mDirectory{std::move(directory).value_or(filesystem::temporaryDirectory())},
     mLimit{limit}, mMaxFiles{maxFiles}, mPosition{0} {
+    init();
 }
 
-void zero::log::FileProvider::init() {
+void zero::log::FileSink::init() {
     const auto name = fmt::format(
         "{}.{}.{}.log",
         mName,
@@ -51,10 +45,7 @@ void zero::log::FileProvider::init() {
         throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
 }
 
-void zero::log::FileProvider::rotate() {
-    if (mPosition < mLimit)
-        return;
-
+void zero::log::FileSink::rotate() {
     mPosition = 0;
     mStream.close();
     mStream.clear();
@@ -81,24 +72,28 @@ void zero::log::FileProvider::rotate() {
     for (const auto &log: logs | std::views::reverse | std::views::drop(mMaxFiles))
         error::guard(filesystem::remove(log));
 
-    return init();
+    init();
 }
 
-void zero::log::FileProvider::flush() {
-    if (!mStream.flush().good())
-        throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
-}
-
-void zero::log::FileProvider::write(const Record &record) {
+void zero::log::FileSink::write(const Record &record) {
     const auto message = fmt::format("{}\n", record);
 
     if (!mStream.write(message.c_str(), static_cast<std::streamsize>(message.size())))
         throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
 
     mPosition += message.size();
+
+    if (mPosition >= mLimit)
+        rotate();
 }
 
-zero::log::Logger::Logger() : mPending{0}, mChannel{concurrent::channel<Record>(LoggerBufferSize)} {
+void zero::log::FileSink::flush() {
+    if (!mStream.flush().good())
+        throw error::StacktraceError<std::system_error>{errno, std::generic_category()};
+}
+
+zero::log::Logger::Logger() : mMaxLogLevel{NoSinkSentinel}, mPending{0},
+                              mChannel{concurrent::channel<Record>(LoggerBufferSize)} {
 }
 
 zero::log::Logger::~Logger() {
@@ -131,7 +126,7 @@ void zero::log::Logger::consume() {
 
                     if (duration.count() <= 0) {
                         try {
-                            it->provider->flush();
+                            it->sink->flush();
                         }
                         catch (const std::exception &e) {
                             fmt::print(stderr, "Failed to flush log: {}\n", e);
@@ -163,21 +158,15 @@ void zero::log::Logger::consume() {
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(Level::Error))) {
+            if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(Level::Error)) &&
+                (it->tags.empty()
+                     ? !record->tag
+                     : record->tag.has_value() && std::ranges::contains(it->tags, *record->tag))) {
                 try {
-                    it->provider->write(*record);
+                    it->sink->write(*record);
                 }
                 catch (const std::exception &e) {
                     fmt::print(stderr, "Failed to write log: {}\n", e);
-                    it = mConfigs.erase(it);
-                    continue;
-                }
-
-                try {
-                    it->provider->rotate();
-                }
-                catch (const std::exception &e) {
-                    fmt::print(stderr, "Failed to rotate log: {}\n", e);
                     it = mConfigs.erase(it);
                     continue;
                 }
@@ -185,7 +174,7 @@ void zero::log::Logger::consume() {
 
             if (it->flushDeadline <= now) {
                 try {
-                    it->provider->flush();
+                    it->sink->flush();
                 }
                 catch (const std::exception &e) {
                     fmt::print(stderr, "Failed to flush log: {}\n", e);
@@ -205,20 +194,56 @@ void zero::log::Logger::consume() {
     }
 }
 
-bool zero::log::Logger::enabled(const Level level) const {
-    return mMaxLogLevel && *mMaxLogLevel >= level;
+void zero::log::Logger::refreshMaxLogLevel() {
+    if (mConfigs.empty()) {
+        mMaxLogLevel = NoSinkSentinel;
+        return;
+    }
+
+    mMaxLogLevel = std::ranges::max(
+        mConfigs | std::views::transform([](const auto &config) {
+            return std::to_underlying(config.level);
+        })
+    );
+
+    if (mMinLogLevel)
+        mMaxLogLevel = (std::max)(std::to_underlying(*mMinLogLevel), mMaxLogLevel.load());
 }
 
-void zero::log::Logger::addProvider(
+bool zero::log::Logger::enabled(const Level level) const {
+    const auto maxLevel = mMaxLogLevel.load();
+    return maxLevel != NoSinkSentinel && level <= static_cast<Level>(maxLevel);
+}
+
+bool zero::log::Logger::enabled(const Level level, const std::string_view tag) const {
+    if (!enabled(level))
+        return false;
+
+    const std::lock_guard guard{mMutex};
+
+    return std::ranges::any_of(
+        mConfigs,
+        [&](const auto &config) {
+            if (mMinLogLevel)
+                return (std::max)(config.level, *mMinLogLevel) >= level && std::ranges::contains(config.tags, tag);
+
+            return config.level >= level && std::ranges::contains(config.tags, tag);
+        }
+    );
+}
+
+void zero::log::Logger::add(
     const Level level,
-    std::unique_ptr<IProvider> provider,
+    std::unique_ptr<ISink> sink,
+    std::optional<std::string> name,
+    std::vector<std::string> tags,
     const std::chrono::milliseconds interval
 ) {
     std::call_once(
         mInitFlag,
-        [=, this] {
-            const auto getOption = [](const std::string &name) -> std::optional<int> {
-                const auto value = env::get(name);
+        [this] {
+            const auto getOption = [](const std::string &key) -> std::optional<int> {
+                const auto value = env::get(key);
 
                 if (!value)
                     return std::nullopt;
@@ -236,7 +261,6 @@ void zero::log::Logger::addProvider(
                     return;
 
                 mMinLogLevel = static_cast<Level>(*value);
-                mMaxLogLevel = mMinLogLevel;
             }
 
             if (const auto value = getOption("ZERO_LOG_TIMEOUT")) {
@@ -252,27 +276,96 @@ void zero::log::Logger::addProvider(
         }
     );
 
-    try {
-        provider->init();
-    }
-    catch (const std::exception &e) {
-        fmt::print(stderr, "Failed to initialize log provider: {}\n", e);
-        return;
-    }
-
     const std::lock_guard guard{mMutex};
 
-    mMaxLogLevel = (std::max)(level, mMaxLogLevel.value_or(Level::Error));
+    if (name && std::ranges::any_of(
+        mConfigs,
+        [&](const auto &config) {
+            return config.name == *name;
+        }))
+        throw std::runtime_error{fmt::format("Sink '{}' already exists", *name)};
 
     mConfigs.emplace_back(
         level,
-        std::move(provider),
+        std::move(sink),
+        std::move(name),
+        std::move(tags),
         interval,
         std::chrono::system_clock::now() + interval
     );
+
+    refreshMaxLogLevel();
 }
 
-void zero::log::Logger::sync() {
+void zero::log::Logger::remove(const std::string_view name) {
+    const std::lock_guard guard{mMutex};
+
+    if (mConfigs.remove_if([&](const auto &config) {
+        return config.name == name;
+    }) == 0)
+        throw std::runtime_error{fmt::format("Sink '{}' not found", name)};
+
+    refreshMaxLogLevel();
+}
+
+void zero::log::Logger::setLevel(const std::string_view name, const Level level) {
+    const std::lock_guard guard{mMutex};
+    const auto it = std::ranges::find_if(
+        mConfigs,
+        [&](const auto &config) {
+            return config.name == name;
+        }
+    );
+
+    if (it == mConfigs.end())
+        throw std::runtime_error{fmt::format("Sink '{}' not found", name)};
+
+    it->level = level;
+    refreshMaxLogLevel();
+}
+
+void zero::log::Logger::setFlushInterval(const std::string_view name, const std::chrono::milliseconds interval) {
+    const std::lock_guard guard{mMutex};
+    const auto it = std::ranges::find_if(
+        mConfigs,
+        [&](const auto &config) {
+            return config.name == name;
+        }
+    );
+
+    if (it == mConfigs.end())
+        throw std::runtime_error{fmt::format("Sink '{}' not found", name)};
+
+    it->flushInterval = interval;
+    it->flushDeadline = std::chrono::system_clock::now() + interval;
+}
+
+void zero::log::Logger::log(
+    const Level level,
+    const std::string_view filename,
+    const int line,
+    std::string content,
+    const std::optional<std::string_view> &tag
+) {
+    if (const auto result = mChannel.first.send(
+        {
+            level,
+            line,
+            filename,
+            std::chrono::system_clock::now(),
+            std::move(content),
+            tag
+        },
+        mSendTimeout
+    ); !result) {
+        fmt::print(stderr, "Failed to send log: {}\n", std::error_code{result.error()});
+        return;
+    }
+
+    ++mPending;
+}
+
+void zero::log::Logger::sync() const {
     while (true) {
         const auto pending = mPending.load();
 
@@ -286,7 +379,7 @@ void zero::log::Logger::sync() {
 
     for (const auto &config: mConfigs) {
         try {
-            config.provider->flush();
+            config.sink->flush();
         }
         catch (const std::exception &e) {
             fmt::print(stderr, "Failed to flush log: {}\n", e);
