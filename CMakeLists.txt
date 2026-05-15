@@ -45,6 +45,10 @@ add_library(
         $<$<PLATFORM_ID:Linux,Android>:src/os/linux/process.cpp src/os/linux/procfs/procfs.cpp src/os/linux/procfs/process.cpp>
 )
 
+if (WIN32)
+    target_compile_definitions(zero PUBLIC NOMINMAX)
+endif ()
+
 if (IOS)
     target_compile_definitions(zero PUBLIC ZERO_PROCESS_PARTIAL_API)
 endif ()

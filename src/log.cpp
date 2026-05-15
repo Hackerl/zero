@@ -158,7 +158,7 @@ void zero::log::Logger::consume() {
         auto it = mConfigs.begin();
 
         while (it != mConfigs.end()) {
-            if (record->level <= (std::max)(it->level, mMinLogLevel.value_or(Level::Error)) &&
+            if (record->level <= std::max(it->level, mMinLogLevel.value_or(Level::Error)) &&
                 (it->tags.empty()
                      ? !record->tag
                      : record->tag.has_value() && std::ranges::contains(it->tags, *record->tag))) {
@@ -207,7 +207,7 @@ void zero::log::Logger::refreshMaxLogLevel() {
     );
 
     if (mMinLogLevel)
-        mMaxLogLevel = (std::max)(std::to_underlying(*mMinLogLevel), mMaxLogLevel.load());
+        mMaxLogLevel = std::max(std::to_underlying(*mMinLogLevel), mMaxLogLevel.load());
 }
 
 bool zero::log::Logger::enabled(const Level level) const {
@@ -225,7 +225,7 @@ bool zero::log::Logger::enabled(const Level level, const std::string_view tag) c
         mConfigs,
         [&](const auto &config) {
             if (mMinLogLevel)
-                return (std::max)(config.level, *mMinLogLevel) >= level && std::ranges::contains(config.tags, tag);
+                return std::max(config.level, *mMinLogLevel) >= level && std::ranges::contains(config.tags, tag);
 
             return config.level >= level && std::ranges::contains(config.tags, tag);
         }

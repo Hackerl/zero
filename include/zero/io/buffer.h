@@ -44,7 +44,7 @@ namespace zero::io {
                 mTail = *n;
             }
 
-            const auto size = (std::min)(available(), data.size());
+            const auto size = std::min(available(), data.size());
 
             std::copy_n(mBuffer.get() + mHead, size, data.begin());
             mHead += size;
@@ -153,7 +153,7 @@ namespace zero::io {
                 Z_EXPECT(flush());
             }
 
-            const auto size = (std::min)(mCapacity - mPending, data.size());
+            const auto size = std::min(mCapacity - mPending, data.size());
             std::copy_n(data.begin(), size, mBuffer.get() + mPending);
 
             mPending += size;

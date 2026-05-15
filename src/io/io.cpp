@@ -77,7 +77,7 @@ std::expected<std::size_t, std::error_code> zero::io::StringReader::read(const s
     if (mString.empty())
         return 0;
 
-    const auto n = (std::min)(data.size(), mString.size());
+    const auto n = std::min(data.size(), mString.size());
 
     std::copy_n(mString.begin(), n, reinterpret_cast<char *>(data.data()));
     mString.erase(0, n);
@@ -97,7 +97,7 @@ std::expected<std::size_t, std::error_code> zero::io::BytesReader::read(const st
     if (mBytes.empty())
         return 0;
 
-    const auto n = (std::min)(data.size(), mBytes.size());
+    const auto n = std::min(data.size(), mBytes.size());
 
     std::copy_n(mBytes.begin(), n, data.begin());
     mBytes.erase(mBytes.begin(), mBytes.begin() + static_cast<std::ptrdiff_t>(n));

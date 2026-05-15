@@ -23,7 +23,7 @@ TEST_CASE("LRU cache", "[cache::lru]") {
         for (std::size_t i{0}; i < size; ++i)
             cache.set(i, std::to_string(i));
 
-        REQUIRE(cache.size() == (std::min)(size, capacity));
+        REQUIRE(cache.size() == std::min(size, capacity));
     }
 
     SECTION("capacity") {
