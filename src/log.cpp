@@ -75,8 +75,12 @@ void zero::log::FileSink::rotate() {
     init();
 }
 
+std::string zero::log::FileSink::encode(const Record &record) const {
+    return fmt::format("{}\n", record);
+}
+
 void zero::log::FileSink::write(const Record &record) {
-    const auto message = fmt::format("{}\n", record);
+    const auto message = encode(record);
 
     if (!mStream.write(message.c_str(), static_cast<std::streamsize>(message.size())))
         throw error::StacktraceError<std::system_error>{errno, std::generic_category()};

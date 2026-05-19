@@ -43,7 +43,7 @@ namespace zero::log {
         void flush() override;
     };
 
-    class FileSink final : public ISink {
+    class FileSink : public ISink {
     public:
         explicit FileSink(
             std::string name,
@@ -55,6 +55,9 @@ namespace zero::log {
     private:
         void init();
         void rotate();
+
+    protected:
+        virtual std::string encode(const Record &record) const;
 
     public:
         void write(const Record &record) override;
