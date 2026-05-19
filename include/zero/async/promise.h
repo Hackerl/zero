@@ -189,7 +189,7 @@ namespace zero::async::promise {
             reject(std::make_exception_ptr(exception));
         }
 
-    protected:
+    private:
         bool mRetrieved;
         std::shared_ptr<Core<T, E>> mCore;
     };
