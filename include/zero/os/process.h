@@ -14,19 +14,19 @@ namespace zero::os::process {
 
 #ifdef _WIN32
 #include "windows/process.h"
-#elif defined(__APPLE__)
+#elifdef __APPLE__
 #include "resource.h"
 #include "macos/process.h"
-#elif defined(__linux__)
+#elifdef __linux__
 #include "linux/process.h"
 #endif
 
 namespace zero::os::process {
 #ifdef _WIN32
     using ProcessImpl = windows::process::Process;
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     using ProcessImpl = macos::process::Process;
-#elif defined(__linux__)
+#elifdef __linux__
     using ProcessImpl = linux::process::Process;
 #endif
     struct CPUTime {

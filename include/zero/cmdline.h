@@ -68,7 +68,7 @@ namespace zero {
 #if defined(_CPPRTTI) || defined(__GXX_RTTI)
 #ifdef _MSC_VER
             return typeid(T).name();
-#elif defined(__GNUC__)
+#elifdef __GNUC__
             int status{};
 
             const std::unique_ptr<char, decltype(&free)> buffer{

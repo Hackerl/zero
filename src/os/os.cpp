@@ -8,13 +8,13 @@
 #include <lmcons.h>
 #include <zero/os/windows/error.h>
 #include <zero/strings.h>
-#elif defined(__linux__)
+#elifdef __linux__
 #include <pwd.h>
 #include <memory>
 #include <climits>
 #include <unistd.h>
 #include <zero/os/unix/error.h>
-#elif defined(__APPLE__)
+#elifdef __APPLE__
 #include <pwd.h>
 #include <memory>
 #include <unistd.h>
@@ -39,7 +39,7 @@ std::string zero::os::hostname() {
         if (const auto &error = result.error(); error != std::error_code{ERROR_MORE_DATA, std::system_category()})
             throw error::StacktraceError<std::system_error>{error};
     }
-#elif defined(__linux__)
+#elifdef __linux__
     std::array<char, HOST_NAME_MAX + 1> buffer{};
 
     error::guard(unix::expected([&] {
@@ -47,7 +47,7 @@ std::string zero::os::hostname() {
     }));
 
     return buffer.data();
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     std::array<char, MAXHOSTNAMELEN> buffer{};
 
     error::guard(unix::expected([&] {
@@ -70,7 +70,7 @@ std::expected<std::string, std::error_code> zero::os::username() {
     }));
 
     return error::guard(strings::encode(buffer.data()));
-#elif defined(__linux__) || __APPLE__
+#elif defined(__linux__) || defined(__APPLE__)
     const auto uid = geteuid();
 
     errno = 0;

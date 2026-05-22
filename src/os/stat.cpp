@@ -5,11 +5,11 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <zero/os/windows/error.h>
-#elif defined(__linux__)
+#elifdef __linux__
 #include <unistd.h>
 #include <zero/os/unix/error.h>
 #include <zero/os/linux/procfs/procfs.h>
-#elif defined(__APPLE__)
+#elifdef __APPLE__
 #include <unistd.h>
 #include <sys/sysctl.h>
 #include <mach/mach.h>
@@ -33,7 +33,7 @@ zero::os::stat::CPUTime zero::os::stat::cpu() {
 
     time.system = time.system - time.idle;
     return time;
-#elif defined(__linux__)
+#elifdef __linux__
     const auto stat = linux::procfs::stat();
     const auto ticks = static_cast<double>(error::guard(unix::expected([] {
         return sysconf(_SC_CLK_TCK);
@@ -44,7 +44,7 @@ zero::os::stat::CPUTime zero::os::stat::cpu() {
         static_cast<double>(stat.total.system) / ticks,
         static_cast<double>(stat.total.idle) / ticks
     };
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     host_cpu_load_info_data_t data{};
     mach_msg_type_number_t count{HOST_CPU_LOAD_INFO_COUNT};
 
@@ -84,7 +84,7 @@ zero::os::stat::MemoryStat zero::os::stat::memory() {
         status.ullAvailPhys,
         static_cast<double>(status.dwMemoryLoad)
     };
-#elif defined(__linux__)
+#elifdef __linux__
     const auto memory = linux::procfs::memory();
 
     MemoryStat stat;
@@ -105,7 +105,7 @@ zero::os::stat::MemoryStat zero::os::stat::memory() {
 
     stat.available = cached + stat.free;
     return stat;
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     vm_statistics_data_t data{};
     mach_msg_type_number_t count{HOST_VM_INFO_COUNT};
 

@@ -12,7 +12,7 @@
 constexpr auto CurrentDirectoryOffset = 0x38;
 constexpr auto EnvironmentOffset = 0x80;
 constexpr auto EnvironmentSizeOffset = 0x03F0;
-#elif defined(_WIN32)
+#elifdef _WIN32
 constexpr auto CurrentDirectoryOffset = 0x24;
 constexpr auto EnvironmentOffset = 0x48;
 constexpr auto EnvironmentSizeOffset = 0x0290;

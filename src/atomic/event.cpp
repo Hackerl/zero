@@ -4,14 +4,14 @@
 #ifdef _WIN32
 #include <zero/expect.h>
 #include <zero/os/windows/error.h>
-#elif defined(__linux__)
+#elifdef __linux__
 #include <climits>
 #include <unistd.h>
 #include <syscall.h>
 #include <linux/futex.h>
 #include <zero/error.h>
 #include <zero/os/unix/error.h>
-#elif defined(__APPLE__)
+#elifdef __APPLE__
 #include <zero/error.h>
 #include <zero/expect.h>
 #include <zero/os/unix/error.h>
@@ -50,7 +50,7 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
                 timeout ? static_cast<DWORD>(timeout->count()) : INFINITE
             );
         }));
-#elif defined(__linux__)
+#elifdef __linux__
         std::optional<timespec> ts;
 
         if (timeout)
@@ -63,7 +63,7 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
             return syscall(SYS_futex, &mState, FUTEX_WAIT, 0, ts ? &*ts : nullptr, nullptr, 0);
         }); !result && result.error() != std::errc::resource_unavailable_try_again)
             return std::unexpected{result.error()};
-#elif defined(__APPLE__)
+#elifdef __APPLE__
         Z_EXPECT(os::unix::ensure([&] {
             return __ulock_wait(
                 ULCompareAndWait,
@@ -85,11 +85,11 @@ void zero::atomic::Event::set() {
 
 #ifdef _WIN32
         WakeByAddressAll(&mState);
-#elif defined(__linux__)
+#elifdef __linux__
         error::guard(os::unix::expected([this] {
             return syscall(SYS_futex, &mState, FUTEX_WAKE, INT_MAX, nullptr, nullptr, 0);
         }));
-#elif defined(__APPLE__)
+#elifdef __APPLE__
         error::guard(os::unix::expected([this] {
             return __ulock_wake(ULCompareAndWait | ULFWakeAll, &mState, 0);
         }).or_else([](const auto &ec) -> std::expected<int, std::error_code> {

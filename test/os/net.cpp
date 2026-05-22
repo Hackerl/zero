@@ -40,7 +40,7 @@ TEST_CASE("list network interfaces", "[os::net]") {
 
 #ifdef _WIN32
     const auto output = zero::error::guard(zero::os::process::Command{"ipconfig"}.arg("/all").output());
-#elif defined(__linux__)
+#elifdef __linux__
     const auto output = zero::error::guard(zero::os::process::Command{"ip"}.arg("a").output());
 #else
     const auto output = zero::error::guard(zero::os::process::Command{"ifconfig"}.output());

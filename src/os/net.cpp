@@ -7,7 +7,7 @@
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <zero/strings.h>
-#elif defined(__linux__)
+#elifdef __linux__
 #include <cstring>
 #include <net/if.h>
 #include <ifaddrs.h>
@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <zero/os/resource.h>
 #endif
-#elif defined(__APPLE__)
+#elifdef __APPLE__
 #include <cstring>
 #include <net/if.h>
 #include <ifaddrs.h>
@@ -149,7 +149,7 @@ std::map<std::string, zero::os::net::Interface> zero::os::net::interfaces() {
     }
 
     return interfaces;
-#elif defined(__linux__) || __APPLE__
+#elif defined(__linux__) || defined(__APPLE__)
     ifaddrs *addr{};
 
     error::guard(unix::expected([&] {

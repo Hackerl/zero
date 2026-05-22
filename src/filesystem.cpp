@@ -6,7 +6,7 @@
 #ifdef _WIN32
 #include <array>
 #include <windows.h>
-#elif defined(__APPLE__)
+#elifdef __APPLE__
 #include <array>
 #include <mach-o/dyld.h>
 #include <sys/param.h>
@@ -39,9 +39,9 @@ std::filesystem::path zero::filesystem::applicationPath() {
         throw error::StacktraceError<std::system_error>{static_cast<int>(GetLastError()), std::system_category()};
 
     return buffer.data();
-#elif defined(__linux__)
+#elifdef __linux__
     return error::guard(readSymlink("/proc/self/exe"));
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     std::array<char, MAXPATHLEN> buffer{};
     auto size = static_cast<std::uint32_t>(buffer.size());
 

@@ -196,9 +196,9 @@ std::expected<void, std::error_code> zero::os::process::Process::kill() {
 zero::os::process::Process zero::os::process::self() {
 #ifdef _WIN32
     return Process{windows::process::self()};
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     return Process{macos::process::self()};
-#elif defined(__linux__)
+#elifdef __linux__
     return Process{linux::process::self()};
 #endif
 }
@@ -206,9 +206,9 @@ zero::os::process::Process zero::os::process::self() {
 std::expected<zero::os::process::Process, std::error_code> zero::os::process::open(const ID pid) {
 #ifdef _WIN32
     return windows::process::open(pid)
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     return macos::process::open(static_cast<pid_t>(pid))
-#elif defined(__linux__)
+#elifdef __linux__
     return linux::process::open(static_cast<pid_t>(pid))
 #endif
         .transform([](ProcessImpl &&process) {
@@ -219,9 +219,9 @@ std::expected<zero::os::process::Process, std::error_code> zero::os::process::op
 std::list<zero::os::process::ID> zero::os::process::all() {
 #ifdef _WIN32
     return windows::process::all()
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     return macos::process::all()
-#elif defined(__linux__)
+#elifdef __linux__
     return linux::process::all()
 #endif
         | std::views::transform([](const auto &pid) {
