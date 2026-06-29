@@ -22,20 +22,14 @@ TEST_CASE("read exactly", "[io]") {
 
     SECTION("normal") {
         zero::io::BytesReader reader{input};
-
-        std::vector<std::byte> data;
-        data.resize(input.size());
-
+        std::vector<std::byte> data(input.size());
         REQUIRE(reader.readExactly(data));
         REQUIRE(data == input);
     }
 
     SECTION("unexpected eof") {
         zero::io::BytesReader reader{{}};
-
-        std::vector<std::byte> data;
-        data.resize(input.size());
-
+        std::vector<std::byte> data(input.size());
         REQUIRE_ERROR(reader.readExactly(data), zero::io::Error::UnexpectedEOF);
     }
 }
@@ -67,9 +61,7 @@ TEST_CASE("bytes reader", "[io]") {
     const auto input = GENERATE(take(10, randomBytes(1, 102400)));
 
     zero::io::BytesReader reader{input};
-
-    std::vector<std::byte> data;
-    data.resize(input.size());
+    std::vector<std::byte> data(input.size());
 
     REQUIRE(reader.read(data) == input.size());
     REQUIRE(data == input);

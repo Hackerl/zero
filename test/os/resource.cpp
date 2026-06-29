@@ -218,9 +218,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
 
     SECTION("read") {
         SECTION("normal") {
-            std::vector<std::byte> data;
-            data.resize(content.size());
-
+            std::vector<std::byte> data(content.size());
             REQUIRE(resource.read(data) == content.size());
             REQUIRE(data == content);
         }
