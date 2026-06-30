@@ -17,7 +17,7 @@ TEST_CASE("logger", "[log]") {
     };
 
     const auto level = GENERATE_REF(from_range(levels));
-    const auto line = GENERATE(take(1, random(0, 102400)));
+    const auto line = GENERATE(take(1, random(0u, 102400u)));
     const auto filename = GENERATE("a", "b", "c", "d");
     const auto content = GENERATE(take(1, randomString(1, 102400)));
 
@@ -381,13 +381,13 @@ TEST_CASE("file log sink", "[log]") {
         zero::error::guard(zero::filesystem::createDirectory(directory));
         Z_DEFER(zero::error::guard(zero::filesystem::removeAll(directory)));
 
-        const auto limit = GENERATE(take(1, random<std::size_t>(64, 1024)));
-        const auto maxFiles = GENERATE(take(1uz, random(5uz, 10uz)));
+        const auto maxFileSize = GENERATE(take(1, random(64uz, 1024uz)));
+        const auto maxFiles = GENERATE(take(1, random(5uz, 10uz)));
 
-        zero::log::FileSink sink{name, directory, limit, maxFiles};
+        zero::log::FileSink sink{name, directory, maxFileSize, maxFiles};
 
         zero::log::Record record{
-            .content = GENERATE_REF(take(1, randomAlphanumericString(limit, limit)))
+            .content = GENERATE_REF(take(1, randomAlphanumericString(maxFileSize, maxFileSize)))
         };
 
         for (int i{0}; i < maxFiles * 2; ++i) {

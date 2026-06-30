@@ -255,7 +255,7 @@ TEST_CASE("operating system i/o resource", "[os::resource]") {
     }
 
     SECTION("seek") {
-        const auto offset = GENERATE_REF(take(1, random<std::size_t>(0, content.size() - 1)));
+        const auto offset = GENERATE_REF(take(1, random(0uz, content.size() - 1)));
 
         SECTION("begin") {
             REQUIRE(resource.seek(offset, zero::io::ISeekable::Whence::Begin) == offset);

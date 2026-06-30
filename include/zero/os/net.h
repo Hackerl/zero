@@ -28,12 +28,12 @@ namespace zero::os::net {
 
     struct IfAddress4 {
         IPv4 ip{};
-        int prefix{};
+        std::uint8_t prefix{};
     };
 
     struct IfAddress6 {
         IPv6 ip{};
-        int prefix{};
+        std::uint8_t prefix{};
     };
 
     using Address = std::variant<IfAddress4, IfAddress6>;

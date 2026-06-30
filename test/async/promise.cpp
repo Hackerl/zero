@@ -12,7 +12,7 @@ namespace {
     public:
         ThreadPool(const std::size_t number, const std::size_t capacity)
             : mChannel{zero::concurrent::channel<std::function<void()>>(capacity)} {
-            for (int i{0}; i < number; i++)
+            for (std::size_t i{0}; i < number; i++)
                 mThreads.emplace_back(&ThreadPool::dispatch, this);
         }
 

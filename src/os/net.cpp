@@ -181,7 +181,7 @@ std::map<std::string, zero::os::net::Interface> zero::os::net::interfaces() {
             IPv4 mask{};
             std::memcpy(mask.data(), &reinterpret_cast<const sockaddr_in *>(p->ifa_netmask)->sin_addr, 4);
 
-            int prefix{0};
+            std::uint8_t prefix{0};
 
             for (auto b: mask) {
                 while (std::to_integer<int>(b)) {
@@ -204,7 +204,7 @@ std::map<std::string, zero::os::net::Interface> zero::os::net::interfaces() {
             IPv6 mask{};
             std::memcpy(mask.data(), &reinterpret_cast<const sockaddr_in6 *>(p->ifa_netmask)->sin6_addr, 16);
 
-            int prefix{0};
+            std::uint8_t prefix{0};
 
             for (auto b: mask) {
                 while (std::to_integer<int>(b)) {

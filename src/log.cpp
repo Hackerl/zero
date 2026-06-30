@@ -23,11 +23,11 @@ void zero::log::ConsoleSink::flush() {
 zero::log::FileSink::FileSink(
     std::string name,
     std::optional<std::filesystem::path> directory,
-    const std::size_t limit,
+    const std::size_t maxFileSize,
     const std::size_t maxFiles
 ) : mPID{os::process::currentProcessID()},
     mName{std::move(name)}, mDirectory{std::move(directory).value_or(filesystem::temporaryDirectory())},
-    mLimit{limit}, mMaxFiles{maxFiles}, mPosition{0} {
+    mMaxFileSize{maxFileSize}, mMaxFiles{maxFiles}, mPosition{0} {
     init();
 }
 
@@ -87,7 +87,7 @@ void zero::log::FileSink::write(const Record &record) {
 
     mPosition += message.size();
 
-    if (mPosition >= mLimit)
+    if (mPosition >= mMaxFileSize)
         rotate();
 }
 
@@ -347,7 +347,7 @@ void zero::log::Logger::setFlushInterval(const std::string_view name, const std:
 void zero::log::Logger::log(
     const Level level,
     const std::string_view filename,
-    const int line,
+    const unsigned int line,
     std::string content,
     const std::optional<std::string_view> &tag
 ) {

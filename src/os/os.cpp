@@ -115,7 +115,7 @@ std::expected<std::string, std::error_code> zero::os::username() {
 std::pair<zero::os::IOResource, zero::os::IOResource>
 zero::os::pipe() {
 #ifdef _WIN32
-    static std::atomic<std::size_t> number;
+    static std::atomic<unsigned int> number;
     const auto name = fmt::format(R"(\\?\pipe\zero\anonymous\{}-{})", GetCurrentProcessId(), number++);
 
     auto handle = CreateNamedPipeA(

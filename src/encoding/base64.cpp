@@ -24,10 +24,10 @@ std::string zero::encoding::base64::encode(const std::span<const std::byte> data
         b4[2] = (b3[1] & std::byte{0x0f}) << 2 | (b3[2] & std::byte{0xc0}) >> 6;
         b4[3] = b3[2] & std::byte{0x3f};
 
-        encoded.push_back(mapping[std::to_integer<unsigned char>(b4[0])]);
-        encoded.push_back(mapping[std::to_integer<unsigned char>(b4[1])]);
-        encoded.push_back(mapping[std::to_integer<unsigned char>(b4[2])]);
-        encoded.push_back(mapping[std::to_integer<unsigned char>(b4[3])]);
+        encoded.push_back(mapping[std::to_integer<std::size_t>(b4[0])]);
+        encoded.push_back(mapping[std::to_integer<std::size_t>(b4[1])]);
+        encoded.push_back(mapping[std::to_integer<std::size_t>(b4[2])]);
+        encoded.push_back(mapping[std::to_integer<std::size_t>(b4[3])]);
     }
 
     for (std::size_t i{0}; i < missing; ++i)

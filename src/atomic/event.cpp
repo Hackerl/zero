@@ -1,5 +1,6 @@
 #include <zero/atomic/event.h>
 #include <zero/defer.h>
+#include <cassert>
 
 #ifdef _WIN32
 #include <zero/expect.h>
@@ -27,6 +28,8 @@ zero::atomic::Event::Event(const bool manual, const bool initialState) : mManual
 }
 
 std::expected<void, std::error_code> zero::atomic::Event::wait(const std::optional<std::chrono::milliseconds> timeout) {
+    assert(mWaiterCount >= 0);
+
     while (true) {
         if (mManual) {
             if (mState)

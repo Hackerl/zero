@@ -22,12 +22,12 @@ namespace zero::atomic {
 
         void set();
         void reset();
-        bool isSet() const;
+        [[nodiscard]] bool isSet() const;
 
     private:
         bool mManual;
         std::atomic<Value> mState;
-        std::atomic<std::size_t> mWaiterCount;
+        std::atomic<int> mWaiterCount;
     };
 }
 

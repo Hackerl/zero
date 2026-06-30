@@ -23,7 +23,7 @@ namespace zero::log {
 
     struct Record {
         Level level{};
-        int line{};
+        unsigned int line{};
         std::string_view filename;
         std::chrono::system_clock::time_point timestamp;
         std::string content;
@@ -48,7 +48,7 @@ namespace zero::log {
         explicit FileSink(
             std::string name,
             std::optional<std::filesystem::path> directory = std::nullopt,
-            std::size_t limit = 10 * 1024 * 1024,
+            std::size_t maxFileSize = 10 * 1024 * 1024,
             std::size_t maxFiles = 10
         );
 
@@ -67,7 +67,7 @@ namespace zero::log {
         os::process::ID mPID;
         std::string mName;
         std::filesystem::path mDirectory;
-        std::size_t mLimit;
+        std::size_t mMaxFileSize;
         std::size_t mMaxFiles;
         std::size_t mPosition;
         std::ofstream mStream;
@@ -113,7 +113,7 @@ namespace zero::log {
         void log(
             Level level,
             std::string_view filename,
-            int line,
+            unsigned int line,
             std::string content,
             const std::optional<std::string_view> &tag = std::nullopt
         );
