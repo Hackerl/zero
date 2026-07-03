@@ -21,6 +21,15 @@ namespace zero::meta {
         std::same_as<std::remove_const_t<typename std::remove_cvref_t<T>::element_type>, std::remove_const_t<U>>
     ));
 
+    template<typename T, typename U>
+    concept ExclusiveOwnerOf = !std::is_reference_v<T> && ((
+        std::same_as<std::remove_const_t<T>, std::remove_const_t<U>> &&
+        std::convertible_to<T &, U &>
+    ) || (
+        std::convertible_to<std::remove_reference_t<T>, std::unique_ptr<U>> &&
+        std::same_as<std::remove_const_t<typename std::remove_cvref_t<T>::element_type>, std::remove_const_t<U>>
+    ));
+
     template<typename T, template<typename...> class Template>
     concept Specialization = IsSpecialization<T, Template>;
 
