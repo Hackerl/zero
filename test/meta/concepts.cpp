@@ -48,6 +48,30 @@ static_assert(!zero::meta::Implements<Base, Interface>);
 static_assert(!zero::meta::Implements<std::shared_ptr<Base>, Interface>);
 static_assert(!zero::meta::Implements<std::unique_ptr<Base>, Interface>);
 
+static_assert(zero::meta::OwnerOf<Base, Base>);
+static_assert(zero::meta::OwnerOf<std::shared_ptr<Base>, Base>);
+static_assert(zero::meta::OwnerOf<std::unique_ptr<Base>, Base>);
+
+static_assert(zero::meta::OwnerOf<Base, const Base>);
+static_assert(zero::meta::OwnerOf<std::shared_ptr<Base>, const Base>);
+static_assert(zero::meta::OwnerOf<std::unique_ptr<Base>, const Base>);
+
+static_assert(zero::meta::OwnerOf<const Base, const Base>);
+static_assert(zero::meta::OwnerOf<std::shared_ptr<const Base>, const Base>);
+static_assert(zero::meta::OwnerOf<std::unique_ptr<const Base>, const Base>);
+
+static_assert(!zero::meta::OwnerOf<const Base, Base>);
+static_assert(!zero::meta::OwnerOf<std::shared_ptr<const Base>, Base>);
+static_assert(!zero::meta::OwnerOf<std::unique_ptr<const Base>, Base>);
+
+static_assert(!zero::meta::OwnerOf<Base &, Base>);
+static_assert(!zero::meta::OwnerOf<std::shared_ptr<Base> &, Base>);
+static_assert(!zero::meta::OwnerOf<std::unique_ptr<Base> &, Base>);
+
+static_assert(!zero::meta::OwnerOf<Derived, Base>);
+static_assert(!zero::meta::OwnerOf<std::shared_ptr<Derived>, Base>);
+static_assert(!zero::meta::OwnerOf<std::unique_ptr<Derived>, Base>);
+
 static_assert(zero::meta::Specialization<std::vector<int>, std::vector>);
 static_assert(zero::meta::Specialization<std::tuple<short, int, long>, std::tuple>);
 static_assert(!zero::meta::Specialization<std::vector<int>, std::list>);
