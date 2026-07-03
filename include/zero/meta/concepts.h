@@ -7,7 +7,7 @@
 
 namespace zero::meta {
     template<typename T, typename I>
-    concept Trait = std::convertible_to<std::remove_cvref_t<T>, std::shared_ptr<I>> || (
+    concept Implements = std::convertible_to<std::remove_cvref_t<T>, std::shared_ptr<I>> || (
         std::derived_from<std::remove_cvref_t<T>, std::remove_const_t<I>> &&
         std::convertible_to<std::add_lvalue_reference_t<T>, I &>
     );

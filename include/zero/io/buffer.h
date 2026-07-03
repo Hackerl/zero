@@ -13,7 +13,7 @@ namespace zero::io {
         UnexpectedEOF, "Unexpected end of file", Error::UnexpectedEOF
     )
 
-    template<meta::Trait<IReader> T>
+    template<meta::Implements<IReader> T>
     class BufReader final : public IBufReader {
         static constexpr auto DefaultBufferCapacity = 8192;
 
@@ -135,7 +135,7 @@ namespace zero::io {
         std::unique_ptr<std::byte[]> mBuffer;
     };
 
-    template<meta::Trait<IWriter> T>
+    template<meta::Implements<IWriter> T>
     class BufWriter final : public IBufWriter {
         static constexpr auto DefaultBufferCapacity = 8192;
 

@@ -87,7 +87,7 @@ namespace zero::io {
     };
 
     std::expected<std::size_t, std::error_code>
-    copy(meta::Trait<IReader> auto &reader, meta::Trait<IWriter> auto &writer) {
+    copy(meta::Implements<IReader> auto &reader, meta::Implements<IWriter> auto &writer) {
         std::size_t written{0};
 
         while (true) {
