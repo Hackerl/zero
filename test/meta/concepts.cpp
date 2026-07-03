@@ -12,6 +12,12 @@ namespace {
         void test() override {
         }
     };
+
+    struct Base {
+    };
+
+    struct Derived final : Base {
+    };
 }
 
 static_assert(zero::meta::Implements<Implement, Interface>);
@@ -19,6 +25,12 @@ static_assert(zero::meta::Implements<std::shared_ptr<Interface>, Interface>);
 static_assert(zero::meta::Implements<std::unique_ptr<Interface>, Interface>);
 static_assert(zero::meta::Implements<std::shared_ptr<Implement>, Interface>);
 static_assert(zero::meta::Implements<std::unique_ptr<Implement>, Interface>);
+
+static_assert(zero::meta::Implements<Implement, const Interface>);
+static_assert(zero::meta::Implements<std::shared_ptr<Interface>, const Interface>);
+static_assert(zero::meta::Implements<std::unique_ptr<Interface>, const Interface>);
+static_assert(zero::meta::Implements<std::shared_ptr<Implement>, const Interface>);
+static_assert(zero::meta::Implements<std::unique_ptr<Implement>, const Interface>);
 
 static_assert(zero::meta::Implements<const Implement, const Interface>);
 static_assert(zero::meta::Implements<std::shared_ptr<const Interface>, const Interface>);
@@ -31,6 +43,10 @@ static_assert(!zero::meta::Implements<std::shared_ptr<const Interface>, Interfac
 static_assert(!zero::meta::Implements<std::unique_ptr<const Interface>, Interface>);
 static_assert(!zero::meta::Implements<std::shared_ptr<const Implement>, Interface>);
 static_assert(!zero::meta::Implements<std::unique_ptr<const Implement>, Interface>);
+
+static_assert(!zero::meta::Implements<Base, Interface>);
+static_assert(!zero::meta::Implements<std::shared_ptr<Base>, Interface>);
+static_assert(!zero::meta::Implements<std::unique_ptr<Base>, Interface>);
 
 static_assert(zero::meta::Specialization<std::vector<int>, std::vector>);
 static_assert(zero::meta::Specialization<std::tuple<short, int, long>, std::tuple>);
