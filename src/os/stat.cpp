@@ -39,7 +39,7 @@ zero::os::stat::CPUTime zero::os::stat::cpu() {
         return sysconf(_SC_CLK_TCK);
     })));
 
-    return CPUTime{
+    return {
         static_cast<double>(stat.total.user) / ticks,
         static_cast<double>(stat.total.system) / ticks,
         static_cast<double>(stat.total.idle) / ticks
@@ -60,7 +60,7 @@ zero::os::stat::CPUTime zero::os::stat::cpu() {
         return sysconf(_SC_CLK_TCK);
     })));
 
-    return CPUTime{
+    return {
         data.cpu_ticks[CPU_STATE_USER] / ticks,
         data.cpu_ticks[CPU_STATE_SYSTEM] / ticks,
         data.cpu_ticks[CPU_STATE_IDLE] / ticks
@@ -77,7 +77,7 @@ zero::os::stat::MemoryStat zero::os::stat::memory() {
         return GlobalMemoryStatusEx(&status);
     }));
 
-    return MemoryStat{
+    return {
         status.ullTotalPhys,
         status.ullTotalPhys - status.ullAvailPhys,
         status.ullAvailPhys,

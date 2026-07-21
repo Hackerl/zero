@@ -440,7 +440,7 @@ std::list<DWORD> zero::os::windows::process::all() {
         }));
 
         if (needed / sizeof(DWORD) < size)
-            return std::list<DWORD>{buffer.get(), buffer.get() + needed / sizeof(DWORD)};
+            return {buffer.get(), buffer.get() + needed / sizeof(DWORD)};
 
         size *= 2;
     }

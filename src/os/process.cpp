@@ -340,8 +340,8 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
 
     return PseudoConsole{
         hPC,
-        {std::move(outReader), std::move(inWriter)},
-        {std::move(inReader), std::move(outWriter)}
+        Endpoint{std::move(outReader), std::move(inWriter)},
+        Endpoint{std::move(inReader), std::move(outWriter)}
     };
 }
 
