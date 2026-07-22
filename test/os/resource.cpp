@@ -42,6 +42,10 @@ TEST_CASE("operating system resource", "[os::resource]") {
 
     const auto raw = fd;
 #endif
+    SECTION("duplicate from") {
+        REQUIRE_NOTHROW(zero::os::Resource::duplicateFrom(raw));
+    }
+
     zero::os::Resource resource{raw};
 
     SECTION("get") {

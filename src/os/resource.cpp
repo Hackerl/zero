@@ -1,5 +1,6 @@
 #include <zero/os/resource.h>
 #include <zero/expect.h>
+#include <zero/defer.h>
 #include <utility>
 
 #ifdef _WIN32
@@ -32,6 +33,12 @@ zero::os::Resource::~Resource() {
         return;
 
     error::guard(close());
+}
+
+zero::os::Resource zero::os::Resource::duplicateFrom(const Native native) {
+    Resource resource{native};
+    Z_DEFER(std::ignore = resource.release());
+    return resource.duplicate();
 }
 
 zero::os::Resource::Native zero::os::Resource::get() const {

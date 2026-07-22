@@ -17,6 +17,8 @@ namespace zero::os {
         Resource &operator=(Resource &&rhs) noexcept;
         ~Resource();
 
+        static Resource duplicateFrom(Native native);
+
         [[nodiscard]] Native get() const;
         [[nodiscard]] Native operator*() const;
         [[nodiscard]] bool valid() const;
