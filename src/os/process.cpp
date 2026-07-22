@@ -1132,6 +1132,30 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         return posix_spawnattr_destroy(&attr);
     })));
 
+    {
+        sigset_t set{};
+
+        error::guard(expected([&] {
+            return sigfillset(&set);
+        }));
+
+        error::guard(expected([&] {
+            return posix_spawnattr_setsigdefault(&attr, &set);
+        }));
+    }
+
+    {
+        sigset_t set{};
+
+        error::guard(expected([&] {
+            return sigemptyset(&set);
+        }));
+
+        error::guard(expected([&] {
+            return posix_spawnattr_setsigmask(&attr, &set);
+        }));
+    }
+
 #ifdef __APPLE__
     error::guard(expected([&] {
         return posix_spawnattr_setflags(
