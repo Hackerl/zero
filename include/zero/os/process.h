@@ -192,7 +192,6 @@ namespace zero::os::process {
         [[nodiscard]] const std::optional<std::filesystem::path> &currentDirectory() const;
         [[nodiscard]] const std::map<std::string, std::optional<std::string>> &envs() const;
         [[nodiscard]] const std::vector<Resource> &inheritedResources() const;
-        [[nodiscard]] const std::vector<Resource::Native> &inheritedNativeResources() const;
 
         template<meta::Mutable Self>
         Self &&arg(this Self &&self, std::string arg) {
@@ -257,18 +256,6 @@ namespace zero::os::process {
         }
 
         template<meta::Mutable Self>
-        Self &&inheritedNativeResource(this Self &&self, const Resource::Native resource) {
-            self.mInheritedNativeResources.push_back(resource);
-            return std::forward<Self>(self);
-        }
-
-        template<meta::Mutable Self>
-        Self &&inheritedNativeResources(this Self &&self, std::vector<Resource::Native> resources) {
-            self.mInheritedNativeResources = std::move(resources);
-            return std::forward<Self>(self);
-        }
-
-        template<meta::Mutable Self>
         Self &&stdInput(this Self &&self, const StdioType type) {
             self.mStdioTypes[0] = type;
             return std::forward<Self>(self);
@@ -301,7 +288,6 @@ namespace zero::os::process {
         std::optional<std::filesystem::path> mCurrentDirectory;
         std::array<std::optional<StdioType>, 3> mStdioTypes;
         std::vector<Resource> mInheritedResources;
-        std::vector<Resource::Native> mInheritedNativeResources;
 
         friend class PseudoConsole;
     };
