@@ -562,19 +562,22 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
     if (pid == 0) {
         const auto guard = [fd = writer.fd()]<std::invocable F>(F &&f) {
             static_assert(std::is_integral_v<std::invoke_result_t<F>>);
-            const auto result = std::invoke(std::forward<F>(f));
 
-            if (result == -1) {
-                const auto error = errno;
-                const auto n = unix::ensure([&] {
-                    return write(fd, &error, sizeof(error));
-                });
-                assert(n);
-                assert(*n == sizeof(error));
-                std::abort();
+            while (true) {
+                const auto result = std::invoke(std::forward<F>(f));
+
+                if (result != -1)
+                    return result;
+
+                if (const auto error = errno; error != EINTR) {
+                    const auto n = unix::ensure([&] {
+                        return write(fd, &error, sizeof(error));
+                    });
+                    assert(n);
+                    assert(*n == sizeof(error));
+                    std::abort();
+                }
             }
-
-            return result;
         };
 
         for (int n{1}; n < 32; ++n) {
