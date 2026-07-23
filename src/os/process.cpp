@@ -364,6 +364,10 @@ zero::os::process::PseudoConsole::spawn(const Command &command) {
 
     STARTUPINFOEXW siEx{};
     siEx.StartupInfo.cb = sizeof(siEx);
+
+    // The exact reason is unclear, but omitting this flag causes issues in practice:
+    // the child's stdio gets redirected to our process's PTY. ConptyConnection in Windows
+    // Terminal sets this flag too (see ConptyConnection.cpp in microsoft/terminal).
     siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
     SIZE_T size{};
