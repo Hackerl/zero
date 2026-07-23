@@ -10,6 +10,7 @@ namespace zero::os::process {
 }
 
 #ifndef ZERO_PROCESS_PARTIAL_API
+#include <variant>
 #include <fmt/format.h>
 
 #ifdef _WIN32
@@ -139,7 +140,7 @@ namespace zero::os::process {
 
         void close();
         void resize(short rows, short columns);
-        std::expected<ChildProcess, std::error_code> spawn(const Command &command);
+        std::expected<ChildProcess, std::error_code> spawn(Command command);
 
         Endpoint &master();
 
@@ -179,10 +180,30 @@ namespace zero::os::process {
 
     class Command {
     public:
-        enum class StdioType {
-            Null,
-            Inherit,
-            Piped
+        class Stdio {
+            struct Null {
+            };
+
+            struct Inherit {
+            };
+
+            struct Piped {
+            };
+
+            using Core = std::variant<Null, Inherit, Piped, IOResource>;
+
+            explicit Stdio(Core core);
+
+        public:
+            static Stdio null();
+            static Stdio inherit();
+            static Stdio piped();
+            static Stdio from(IOResource resource);
+
+        private:
+            Core mCore;
+
+            friend class Command;
         };
 
         explicit Command(std::filesystem::path path);
@@ -256,20 +277,20 @@ namespace zero::os::process {
         }
 
         template<meta::Mutable Self>
-        Self &&stdInput(this Self &&self, const StdioType type) {
-            self.mStdioTypes[0] = type;
+        Self &&stdInput(this Self &&self, Stdio stdio) {
+            self.mStdioTypes[0] = std::move(stdio);
             return std::forward<Self>(self);
         }
 
         template<meta::Mutable Self>
-        Self &&stdOutput(this Self &&self, const StdioType type) {
-            self.mStdioTypes[1] = type;
+        Self &&stdOutput(this Self &&self, Stdio stdio) {
+            self.mStdioTypes[1] = std::move(stdio);
             return std::forward<Self>(self);
         }
 
         template<meta::Mutable Self>
-        Self &&stdError(this Self &&self, const StdioType type) {
-            self.mStdioTypes[2] = type;
+        Self &&stdError(this Self &&self, Stdio stdio) {
+            self.mStdioTypes[2] = std::move(stdio);
             return std::forward<Self>(self);
         }
 
@@ -294,7 +315,7 @@ namespace zero::os::process {
 #endif
 
         [[nodiscard]] std::expected<ChildProcess, std::error_code>
-        spawn(const std::array<StdioType, 3> &defaultTypes) const;
+        spawn(const std::array<Stdio, 3> &defaultStdio) const;
 
         [[nodiscard]] std::expected<ChildProcess, std::error_code> spawn() const;
         [[nodiscard]] std::expected<ExitStatus, std::error_code> status() const;
@@ -306,7 +327,7 @@ namespace zero::os::process {
         std::vector<std::string> mArguments;
         std::map<std::string, std::optional<std::string>> mEnviron;
         std::optional<std::filesystem::path> mCurrentDirectory;
-        std::array<std::optional<StdioType>, 3> mStdioTypes;
+        std::array<std::optional<Stdio>, 3> mStdioTypes;
         std::vector<Resource> mInheritedResources;
 #ifdef _WIN32
         DWORD mCreationFlags{};

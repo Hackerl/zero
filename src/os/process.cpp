@@ -357,106 +357,22 @@ void zero::os::process::PseudoConsole::resize(const short rows, const short colu
 }
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
-zero::os::process::PseudoConsole::spawn(const Command &command) {
+zero::os::process::PseudoConsole::spawn(Command command) {
     assert(mSlave.reader);
     assert(mSlave.writer);
-    assert(command.mInheritedResources.empty());
 
-    STARTUPINFOEXW siEx{};
-    siEx.StartupInfo.cb = sizeof(siEx);
-
-    // The exact reason is unclear, but omitting this flag causes issues in practice:
-    // the child's stdio gets redirected to our process's PTY. ConptyConnection in Windows
-    // Terminal sets this flag too (see ConptyConnection.cpp in microsoft/terminal).
-    siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
-
-    SIZE_T size{};
-    InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
-
-    const auto buffer = std::make_unique<std::byte[]>(size);
-    siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
-
-    error::guard(windows::expected([&] {
-        return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
-    }));
-
-    error::guard(windows::expected([&] {
-        return UpdateProcThreadAttribute(
-            siEx.lpAttributeList,
-            0,
-            PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
-            mPC,
-            sizeof(mPC),
-            nullptr,
-            nullptr
-        );
-    }));
-
-    std::map<std::string, std::string> envs;
-
-    if (command.mInheritEnv)
-        envs = env::list();
-
-    for (const auto &[key, value]: command.mEnviron) {
-        if (!value) {
-            envs.erase(key);
-            continue;
-        }
-
-        envs[key] = *value;
-    }
-
-    auto environment = error::guard(
-        strings::decode(
-            to_string(
-                fmt::join(
-                    envs | std::views::transform([](const auto &pair) {
-                        auto env = pair.first + "=" + pair.second;
-                        env.push_back('\0');
-                        return env;
-                    }),
-                    ""
-                )
-            )
-        )
-    );
-
-    std::vector arguments{filesystem::stringify(command.mPath)};
-    arguments.append_range(command.mArguments);
-
-    auto cmd = error::guard(
-        strings::decode(
-            to_string(
-                fmt::join(arguments | std::views::transform(quote), " ")
-            )
-        )
-    );
-
-    PROCESS_INFORMATION info{};
-
-    Z_EXPECT(windows::expected([&] {
-        return CreateProcessW(
-            nullptr,
-            cmd.data(),
-            nullptr,
-            nullptr,
-            false,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
-            environment.data(),
-            command.mCurrentDirectory ? command.mCurrentDirectory->wstring().c_str() : nullptr,
-            &siEx.StartupInfo,
-            &info
-        );
-    }));
-
-    error::guard(windows::expected([&] {
-        return CloseHandle(info.hThread);
-    }));
+    auto child = command
+                 .stdInput(Command::Stdio::from(IOResource{nullptr}))
+                 .stdOutput(Command::Stdio::from(IOResource{nullptr}))
+                 .stdError(Command::Stdio::from(IOResource{nullptr}))
+                 .rawAttribute(PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, mPC, sizeof(mPC))
+                 .spawn();
+    Z_EXPECT(child);
 
     error::guard(mSlave.reader.close());
     error::guard(mSlave.writer.close());
 
-    return ChildProcess{Process{windows::process::Process{Resource{info.hProcess}, info.dwProcessId}}, {}};
+    return child;
 }
 
 zero::os::process::PseudoConsole::Endpoint &zero::os::process::PseudoConsole::master() {
@@ -759,6 +675,25 @@ zero::os::process::ChildProcess::tryWait() {
 #endif
 }
 
+zero::os::process::Command::Stdio::Stdio(Core core) : mCore{std::move(core)} {
+}
+
+zero::os::process::Command::Stdio zero::os::process::Command::Stdio::null() {
+    return Stdio{Null{}};
+}
+
+zero::os::process::Command::Stdio zero::os::process::Command::Stdio::inherit() {
+    return Stdio{Inherit{}};
+}
+
+zero::os::process::Command::Stdio zero::os::process::Command::Stdio::piped() {
+    return Stdio{Piped{}};
+}
+
+zero::os::process::Command::Stdio zero::os::process::Command::Stdio::from(IOResource resource) {
+    return Stdio{std::move(resource)};
+}
+
 zero::os::process::Command::Command(std::filesystem::path path) : mInheritEnv{true}, mPath{std::move(path)} {
 }
 
@@ -783,7 +718,7 @@ const std::vector<zero::os::Resource> &zero::os::process::Command::inheritedReso
 }
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
-zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) const {
+zero::os::process::Command::spawn(const std::array<Stdio, 3> &defaultStdio) const {
     assert(
         std::ranges::all_of(
             mInheritedResources,
@@ -800,9 +735,9 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     constexpr std::array<DWORD, 3> accessMapping{GENERIC_READ, GENERIC_WRITE, GENERIC_WRITE};
 
     for (int i{0}; i < 3; ++i) {
-        const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
+        const auto &stdio = mStdioTypes[i] ? *mStdioTypes[i] : defaultStdio[i];
 
-        if (type == StdioType::Inherit) {
+        if (std::holds_alternative<Stdio::Inherit>(stdio.mCore)) {
             const auto handle = GetStdHandle(typeMapping[i]);
 
             if (handle == INVALID_HANDLE_VALUE)
@@ -813,25 +748,14 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             if (!handle)
                 continue;
 
-            HANDLE duplicate{};
+            IOResource resource{handle};
+            Z_DEFER(std::ignore = resource.release());
 
-            error::guard(windows::expected([&] {
-                return DuplicateHandle(
-                    GetCurrentProcess(),
-                    handle,
-                    GetCurrentProcess(),
-                    &duplicate,
-                    0,
-                    true,
-                    DUPLICATE_SAME_ACCESS
-                );
-            }));
-
-            resources[indexMapping[i]].emplace(duplicate);
+            resources[indexMapping[i]] = resource.duplicate(true);
             continue;
         }
 
-        if (type == StdioType::Piped) {
+        if (std::holds_alternative<Stdio::Piped>(stdio.mCore)) {
             auto [reader, writer] = pipe();
 
             reader.setInheritable(true);
@@ -839,6 +763,16 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
             resources[i * 2] = std::move(reader);
             resources[i * 2 + 1] = std::move(writer);
+            continue;
+        }
+
+        if (const auto *resource = std::get_if<IOResource>(&stdio.mCore)) {
+            // NULL stdio handles are allowed when STARTF_USESTDHANDLES is set. This also covers
+            // the PseudoConsole case, which requires the flag but does not need stdio handles.
+            if (!*resource)
+                continue;
+
+            resources[indexMapping[i]] = resource->duplicate(true);
             continue;
         }
 
@@ -907,17 +841,18 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
         return InitializeProcThreadAttributeList(siEx.lpAttributeList, attributeCount, 0, &size);
     }));
 
-    error::guard(windows::expected([&] {
-        return UpdateProcThreadAttribute(
-            siEx.lpAttributeList,
-            0,
-            PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-            inheritedHandles.data(),
-            inheritedHandles.size() * sizeof(HANDLE),
-            nullptr,
-            nullptr
-        );
-    }));
+    if (!inheritedHandles.empty())
+        error::guard(windows::expected([&] {
+            return UpdateProcThreadAttribute(
+                siEx.lpAttributeList,
+                0,
+                PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+                inheritedHandles.data(),
+                inheritedHandles.size() * sizeof(HANDLE),
+                nullptr,
+                nullptr
+            );
+        }));
 
     for (const auto &[attribute, value, attrSize]: mRawAttributes) {
         error::guard(windows::expected([&] {
@@ -981,7 +916,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             cmd.data(),
             nullptr,
             nullptr,
-            true,
+            !inheritedHandles.empty(),
             EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | mCreationFlags,
             environment.data(),
             mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
@@ -1016,16 +951,21 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
     constexpr std::array flagMapping{O_RDONLY, O_WRONLY, O_WRONLY};
 
     for (int i{0}; i < 3; ++i) {
-        const auto type = mStdioTypes[i].value_or(defaultTypes[i]);
+        const auto &stdio = mStdioTypes[i] ? *mStdioTypes[i] : defaultStdio[i];
 
-        if (type == StdioType::Inherit)
+        if (std::holds_alternative<Stdio::Inherit>(stdio.mCore))
             continue;
 
-        if (type == StdioType::Piped) {
+        if (std::holds_alternative<Stdio::Piped>(stdio.mCore)) {
             auto [reader, writer] = pipe();
 
             resources[i * 2] = std::move(reader);
             resources[i * 2 + 1] = std::move(writer);
+            continue;
+        }
+
+        if (const auto *resource = std::get_if<IOResource>(&stdio.mCore)) {
+            resources[indexMapping[i]] = resource->duplicate(true);
             continue;
         }
 
@@ -1267,16 +1207,16 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 }
 
 std::expected<zero::os::process::ChildProcess, std::error_code> zero::os::process::Command::spawn() const {
-    return spawn({StdioType::Inherit, StdioType::Inherit, StdioType::Inherit});
+    return spawn({Stdio::inherit(), Stdio::inherit(), Stdio::inherit()});
 }
 
 std::expected<zero::os::process::ExitStatus, std::error_code> zero::os::process::Command::status() const {
-    return spawn({StdioType::Inherit, StdioType::Inherit, StdioType::Inherit}).transform(&ChildProcess::wait);
+    return spawn({Stdio::inherit(), Stdio::inherit(), Stdio::inherit()}).transform(&ChildProcess::wait);
 }
 
 std::expected<zero::os::process::Output, std::error_code>
 zero::os::process::Command::output() const {
-    auto child = spawn({StdioType::Null, StdioType::Piped, StdioType::Piped});
+    auto child = spawn({Stdio::null(), Stdio::piped(), Stdio::piped()});
     Z_EXPECT(child);
 
     if (auto input = std::exchange(child->stdInput(), std::nullopt))

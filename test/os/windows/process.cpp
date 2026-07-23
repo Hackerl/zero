@@ -17,9 +17,9 @@ TEST_CASE("process - Windows", "[os::windows::process]") {
         zero::os::process::Command{program}
         .args({arguments.begin(), arguments.end()})
         .env("ZERO_WINDOWS_PROCESS_TESTS", "1")
-        .stdInput(zero::os::process::Command::StdioType::Null)
-        .stdOutput(zero::os::process::Command::StdioType::Null)
-        .stdError(zero::os::process::Command::StdioType::Null)
+        .stdInput(zero::os::process::Command::Stdio::null())
+        .stdOutput(zero::os::process::Command::Stdio::null())
+        .stdError(zero::os::process::Command::Stdio::null())
         .spawn()
     );
 
