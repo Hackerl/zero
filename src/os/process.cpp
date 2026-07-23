@@ -890,14 +890,21 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
 
     siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
+    if (mShowWindow) {
+        siEx.StartupInfo.dwFlags |= STARTF_USESHOWWINDOW;
+        siEx.StartupInfo.wShowWindow = *mShowWindow;
+    }
+
+    const auto attributeCount = static_cast<DWORD>(1 + mRawAttributes.size());
+
     SIZE_T size{};
-    InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
+    InitializeProcThreadAttributeList(nullptr, attributeCount, 0, &size);
 
     const auto buffer = std::make_unique<std::byte[]>(size);
     siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 
     error::guard(windows::expected([&] {
-        return InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
+        return InitializeProcThreadAttributeList(siEx.lpAttributeList, attributeCount, 0, &size);
     }));
 
     error::guard(windows::expected([&] {
@@ -911,6 +918,20 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             nullptr
         );
     }));
+
+    for (const auto &[attribute, value, attrSize]: mRawAttributes) {
+        error::guard(windows::expected([&] {
+            return UpdateProcThreadAttribute(
+                siEx.lpAttributeList,
+                0,
+                attribute,
+                value,
+                attrSize,
+                nullptr,
+                nullptr
+            );
+        }));
+    }
 
     std::map<std::string, std::string> envs;
 
@@ -961,7 +982,7 @@ zero::os::process::Command::spawn(const std::array<StdioType, 3> &defaultTypes) 
             nullptr,
             nullptr,
             true,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | mCreationFlags,
             environment.data(),
             mCurrentDirectory ? mCurrentDirectory->wstring().c_str() : nullptr,
             &siEx.StartupInfo,

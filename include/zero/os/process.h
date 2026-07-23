@@ -273,6 +273,26 @@ namespace zero::os::process {
             return std::forward<Self>(self);
         }
 
+#ifdef _WIN32
+        template<meta::Mutable Self>
+        Self &&creationFlags(this Self &&self, const DWORD flags) {
+            self.mCreationFlags = flags;
+            return std::forward<Self>(self);
+        }
+
+        template<meta::Mutable Self>
+        Self &&showWindow(this Self &&self, const WORD show) {
+            self.mShowWindow = show;
+            return std::forward<Self>(self);
+        }
+
+        template<meta::Mutable Self>
+        Self &&rawAttribute(this Self &&self, const DWORD_PTR attribute, const PVOID value, const SIZE_T size) {
+            self.mRawAttributes.emplace_back(attribute, value, size);
+            return std::forward<Self>(self);
+        }
+#endif
+
         [[nodiscard]] std::expected<ChildProcess, std::error_code>
         spawn(const std::array<StdioType, 3> &defaultTypes) const;
 
@@ -288,6 +308,11 @@ namespace zero::os::process {
         std::optional<std::filesystem::path> mCurrentDirectory;
         std::array<std::optional<StdioType>, 3> mStdioTypes;
         std::vector<Resource> mInheritedResources;
+#ifdef _WIN32
+        DWORD mCreationFlags{};
+        std::optional<WORD> mShowWindow;
+        std::vector<std::tuple<DWORD_PTR, PVOID, SIZE_T>> mRawAttributes;
+#endif
 
         friend class PseudoConsole;
     };
