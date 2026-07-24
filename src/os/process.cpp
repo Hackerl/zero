@@ -879,6 +879,7 @@ zero::os::process::Command::spawn(const std::array<Stdio, 3> &defaultStdio) cons
 
         if (pid == 0) {
             const auto writerFD = writer.fd();
+
             const auto guard = [&]<typename T>(std::expected<T, std::error_code> &&result) {
                 if (!result) {
                     assert(result.error().category() == std::system_category());
@@ -894,6 +895,8 @@ zero::os::process::Command::spawn(const std::array<Stdio, 3> &defaultStdio) cons
                 if constexpr (!std::is_void_v<T>)
                     return *std::move(result);
             };
+
+            guard(reader.close());
 
             for (int n{1}; n < 32; ++n) {
                 if (n == SIGKILL || n == SIGSTOP)
