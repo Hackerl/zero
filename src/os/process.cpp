@@ -30,6 +30,7 @@ zero::os::process::ID zero::os::process::currentProcessID() {
 #else
 #include <csignal>
 #include <fcntl.h>
+#include <grp.h>
 #include <spawn.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
@@ -56,7 +57,7 @@ constexpr auto StderrR = 4;
 constexpr auto StderrW = 5;
 
 #ifndef _WIN32
-constexpr auto FDMax = 65535;
+constexpr auto FDScanLimit = 65535;
 #endif
 
 #ifdef _WIN32
@@ -421,203 +422,25 @@ void zero::os::process::PseudoConsole::resize(const short rows, const short colu
 }
 
 std::expected<zero::os::process::ChildProcess, std::error_code>
-zero::os::process::PseudoConsole::spawn(const Command &command) {
-    assert(command.mInheritedResources.empty());
+zero::os::process::PseudoConsole::spawn(Command command) {
     assert(mSlave.fd() > STDERR_FILENO);
 
-    auto [reader, writer] = pipe();
-    writer.setInheritable(false);
-
-    const auto &program = command.mPath.native();
-
-    std::vector arguments{program};
-    arguments.append_range(command.mArguments);
-
-    std::map<std::string, std::string> envs;
-
-    if (command.mInheritEnv)
-        envs = env::list();
-
-    for (const auto &[key, value]: command.mEnviron) {
-        if (!value) {
-            envs.erase(key);
-            continue;
-        }
-
-        envs[key] = *value;
-    }
-
-    std::vector<std::string> environment;
-    std::ranges::transform(
-        envs,
-        std::back_inserter(environment),
-        [](const auto &pair) {
-            return fmt::format("{}={}", pair.first, pair.second);
-        }
-    );
-
-    const auto argv = std::make_unique<char *[]>(arguments.size() + 1);
-    const auto envp = std::make_unique<char *[]>(environment.size() + 1);
-
-    std::ranges::transform(
-        arguments,
-        argv.get(),
-        [](auto &str) {
-            return str.data();
-        }
-    );
-
-    std::ranges::transform(
-        environment,
-        envp.get(),
-        [](auto &str) {
-            return str.data();
-        }
-    );
-
-    const auto pid = error::guard(unix::expected(fork));
-
-    if (pid == 0) {
-        const auto guard = [fd = writer.fd()]<std::invocable F>(F &&f) {
-            static_assert(std::is_integral_v<std::invoke_result_t<F>>);
-
-            while (true) {
-                const auto result = std::invoke(std::forward<F>(f));
-
-                if (result != -1)
-                    return result;
-
-                if (const auto error = errno; error != EINTR) {
-                    const auto n = unix::ensure([&] {
-                        return write(fd, &error, sizeof(error));
-                    });
-                    assert(n);
-                    assert(*n == sizeof(error));
-                    std::abort();
-                }
-            }
-        };
-
-        for (int n{1}; n < 32; ++n) {
-            if (n == SIGKILL || n == SIGSTOP)
-                continue;
-
-            guard([&] {
-                return static_cast<int>(reinterpret_cast<std::intptr_t>(signal(n, SIG_DFL)));
-            });
-        }
-
-        guard([] {
-            return setsid();
-        });
-
-        guard([this] {
-            return ioctl(mSlave.fd(), TIOCSCTTY, nullptr);
-        });
-
-        guard([this] {
-            return dup2(mSlave.fd(), STDIN_FILENO);
-        });
-
-        guard([this] {
-            return dup2(mSlave.fd(), STDOUT_FILENO);
-        });
-
-        guard([this] {
-            return dup2(mSlave.fd(), STDERR_FILENO);
-        });
-
-        errno = 0;
-        auto max = sysconf(_SC_OPEN_MAX);
-
-        if (max == -1) {
-            if (const auto error = errno; error != 0) {
-                const auto n = unix::ensure([&] {
-                    return write(writer.fd(), &error, sizeof(error));
-                });
-                assert(n);
-                assert(*n == sizeof(error));
-                std::abort();
-            }
-
-            max = FDMax;
-        }
-
-        for (int fd{STDERR_FILENO + 1}; fd < std::min(static_cast<int>(max), FDMax); ++fd) {
-            if (fd == writer.fd())
-                continue;
-
-            std::ignore = unix::expected([&] {
-                return close(fd);
-            });
-        }
-
-        if (const auto &directory = command.mCurrentDirectory) {
-            guard([&] {
-                return chdir(directory->string().c_str());
-            });
-        }
-
-        sigset_t set{};
-
-        guard([&] {
-            return sigemptyset(&set);
-        });
-
-        guard([&] {
-            return sigprocmask(SIG_SETMASK, &set, nullptr);
-        });
-
-#ifdef __linux__
-        guard([&] {
-            return execvpe(program.c_str(), argv.get(), envp.get());
-        });
-#else
-        environ = envp.get();
-        guard([&] {
-            return execvp(program.c_str(), argv.get());
-        });
-#endif
-    }
-
-    error::guard(writer.close());
-
-    int error{};
-
-    if (const auto n = error::guard(reader.read({reinterpret_cast<std::byte *>(&error), sizeof(error)})); n != 0) {
-        assert(n == sizeof(int));
-
-        const auto id = error::guard(unix::ensure([&] {
-            return waitpid(pid, nullptr, 0);
-        }));
-        assert(id == pid);
-
-        return std::unexpected{std::error_code{error, std::system_category()}};
-    }
+    auto child = command
+                 .setSID()
+                 .preExec([]() -> std::expected<void, std::error_code> {
+                     Z_EXPECT(unix::expected([] {
+                         return ioctl(STDIN_FILENO, TIOCSCTTY, nullptr);
+                     }));
+                     return {};
+                 })
+                 .stdInput(Command::Stdio::from(mSlave.duplicate(true)))
+                 .stdOutput(Command::Stdio::from(mSlave.duplicate(true)))
+                 .stdError(Command::Stdio::from(mSlave.duplicate(true)))
+                 .spawn();
+    Z_EXPECT(child);
 
     error::guard(mSlave.close());
-
-    auto process = open(pid);
-
-    if (!process) {
-        error::guard(unix::expected([&] {
-            return kill(pid, SIGKILL);
-        }).or_else([](const auto &ec) -> std::expected<int, std::error_code> {
-            if (ec != std::errc::no_such_process)
-                return std::unexpected{ec};
-
-            return {};
-        }));
-
-        const auto id = error::guard(unix::ensure([&] {
-            return waitpid(pid, nullptr, 0);
-        }));
-        assert(id == pid);
-
-        throw error::StacktraceError<std::system_error>{process.error()};
-    }
-
-    return ChildProcess{*std::move(process), {}};
+    return child;
 }
 
 zero::os::process::PseudoConsole::IOResource &zero::os::process::PseudoConsole::master() {
@@ -989,7 +812,7 @@ zero::os::process::Command::spawn(const std::array<Stdio, 3> &defaultStdio) cons
 
     const auto &program = mPath.native();
 
-    std::vector arguments{program};
+    std::vector arguments{mArg0.value_or(program)};
     arguments.append_range(mArguments);
 
     std::map<std::string, std::string> envs;
@@ -1034,142 +857,288 @@ zero::os::process::Command::spawn(const std::array<Stdio, 3> &defaultStdio) cons
         }
     );
 
-    const auto expected = []<std::invocable F>(F &&f) -> std::expected<void, std::error_code> {
-        static_assert(std::is_same_v<std::invoke_result_t<F>, int>);
-        const auto result = std::invoke(std::forward<F>(f));
-
-        if (result != 0)
-            return std::unexpected{std::error_code{result, std::generic_category()}};
-
-        return {};
-    };
-
-    posix_spawn_file_actions_t actions{};
-
-    error::guard(expected([&] {
-        return posix_spawn_file_actions_init(&actions);
-    }));
-
-    Z_DEFER(error::guard(expected([&] {
-        return posix_spawn_file_actions_destroy(&actions);
-    })));
-
-    for (int i{0}; i < 3; ++i) {
-        if (const auto &resource = resources[indexMapping[i]]) {
-            error::guard(expected([&] {
-                return posix_spawn_file_actions_adddup2(&actions, resource->fd(), i);
-            }));
-        }
-#ifdef __APPLE__
-        else {
-            error::guard(expected([&] {
-                return posix_spawn_file_actions_addinherit_np(&actions, i);
-            }));
-        }
-#endif
-    }
-
-    if (mCurrentDirectory) {
-#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
-        static const auto posix_spawn_file_actions_addchdir_np = reinterpret_cast<
-            int (*)(posix_spawn_file_actions_t *, const char *)
-        >(
-            dlsym(RTLD_DEFAULT, "posix_spawn_file_actions_addchdir_np")
-        );
-
-        if (!posix_spawn_file_actions_addchdir_np)
-            throw error::StacktraceError<std::runtime_error>{
-                "posix_spawn_file_actions_addchdir_np is not supported on this system"
-            };
-#endif
-        error::guard(expected([&] {
-            return posix_spawn_file_actions_addchdir_np(&actions, mCurrentDirectory->c_str());
-        }));
-    }
-
-    posix_spawnattr_t attr{};
-
-    error::guard(expected([&] {
-        return posix_spawnattr_init(&attr);
-    }));
-
-    Z_DEFER(error::guard(expected([&] {
-        return posix_spawnattr_destroy(&attr);
-    })));
-
-    {
-        sigset_t set{};
-
-        error::guard(expected([&] {
-            return sigfillset(&set);
-        }));
-
-        error::guard(expected([&] {
-            return posix_spawnattr_setsigdefault(&attr, &set);
-        }));
-    }
-
-    {
-        sigset_t set{};
-
-        error::guard(expected([&] {
-            return sigemptyset(&set);
-        }));
-
-        error::guard(expected([&] {
-            return posix_spawnattr_setsigmask(&attr, &set);
-        }));
-    }
-
-#ifdef __APPLE__
-    error::guard(expected([&] {
-        return posix_spawnattr_setflags(
-            &attr,
-            POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK
-        );
-    }));
-
-    for (const auto &resource: mInheritedResources) {
-        error::guard(expected([&] {
-            return posix_spawn_file_actions_addinherit_np(&actions, *resource);
-        }));
-    }
-#else
-    error::guard(expected([&] {
-        return posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
-    }));
-
     errno = 0;
-    auto max = sysconf(_SC_OPEN_MAX);
+    auto fdLimit = sysconf(_SC_OPEN_MAX);
 
-    if (max == -1) {
+    if (fdLimit == -1) {
         if (errno != 0)
             throw error::StacktraceError<std::system_error>{errno, std::system_category()};
 
-        max = FDMax;
+        fdLimit = FDScanLimit;
     }
 
-    // The program assumes that the file descriptor to be inherited is not set FD_CLOEXEC.
-    for (int fd{STDERR_FILENO + 1}; fd < std::min(static_cast<int>(max), FDMax); ++fd) {
-        if (std::ranges::find_if(
-            mInheritedResources,
-            [=](const auto &resource) {
-                return *resource == fd;
-            }
-        ) != mInheritedResources.end())
-            continue;
-
-        error::guard(expected([&] {
-            return posix_spawn_file_actions_addclose(&actions, fd);
-        }));
-    }
-#endif
+    fdLimit = std::min(static_cast<int>(fdLimit), FDScanLimit);
 
     pid_t pid{};
 
-    Z_EXPECT(expected([&] {
-        return posix_spawnp(&pid, program.c_str(), &actions, &attr, argv.get(), envp.get());
-    }));
+    if (mSetSID || mGroups || mPreExec || mUID || mGID) {
+        auto [reader, writer] = pipe();
+        writer.setInheritable(false);
+
+        pid = error::guard(unix::expected(fork));
+
+        if (pid == 0) {
+            const auto writerFD = writer.fd();
+            const auto guard = [&]<typename T>(std::expected<T, std::error_code> &&result) {
+                if (!result) {
+                    assert(result.error().category() == std::system_category());
+                    const auto error = result.error().value();
+                    const auto n = unix::ensure([&] {
+                        return write(writerFD, &error, sizeof(error));
+                    });
+                    assert(n);
+                    assert(*n == sizeof(error));
+                    std::abort();
+                }
+
+                if constexpr (!std::is_void_v<T>)
+                    return *std::move(result);
+            };
+
+            for (int n{1}; n < 32; ++n) {
+                if (n == SIGKILL || n == SIGSTOP)
+                    continue;
+
+                guard(unix::expected([&] {
+                    return signal(n, SIG_DFL);
+                }));
+            }
+
+            if (mSetSID)
+                guard(unix::expected([&] {
+                    return setsid();
+                }));
+
+            if (mProcessGroup)
+                guard(unix::expected([&] {
+                    return setpgid(0, *mProcessGroup);
+                }));
+
+            if (mGroups)
+                guard(unix::expected([&] {
+                    return setgroups(static_cast<int>(mGroups->size()), mGroups->data());
+                }));
+
+            if (mGID)
+                guard(unix::expected([&] {
+                    return setgid(*mGID);
+                }));
+
+            if (mUID)
+                guard(unix::expected([&] {
+                    return setuid(*mUID);
+                }));
+
+            for (int i{0}; i < 3; ++i) {
+                if (const auto &resource = resources[indexMapping[i]]) {
+                    guard(unix::ensure([&] {
+                        return dup2(resource->fd(), i);
+                    }));
+                }
+            }
+
+            for (int fd{STDERR_FILENO + 1}; fd < fdLimit; ++fd) {
+                if (fd == writerFD)
+                    continue;
+
+                if (std::ranges::find_if(
+                    mInheritedResources,
+                    [=](const auto &resource) {
+                        return *resource == fd;
+                    }
+                ) != mInheritedResources.end())
+                    continue;
+
+                std::ignore = unix::expected([&] {
+                    return close(fd);
+                });
+            }
+
+            if (const auto &directory = mCurrentDirectory)
+                guard(unix::expected([&] {
+                    return chdir(directory->string().c_str());
+                }));
+
+            sigset_t set{};
+            sigemptyset(&set);
+
+            guard(unix::expected([&] {
+                return sigprocmask(SIG_SETMASK, &set, nullptr);
+            }));
+
+            if (mPreExec)
+                guard(mPreExec());
+
+#ifdef __linux__
+            guard(unix::expected([&] {
+                return execvpe(program.c_str(), argv.get(), envp.get());
+            }));
+#else
+            // ReSharper disable once CppDFALocalValueEscapesFunction
+            environ = envp.get();
+            guard(unix::expected([&] {
+                return execvp(program.c_str(), argv.get());
+            }));
+#endif
+        }
+
+        error::guard(writer.close());
+
+        int error{};
+
+        if (const auto n = error::guard(reader.read({reinterpret_cast<std::byte *>(&error), sizeof(error)})); n != 0) {
+            assert(n == sizeof(int));
+
+            const auto id = error::guard(unix::ensure([&] {
+                return waitpid(pid, nullptr, 0);
+            }));
+            assert(id == pid);
+
+            return std::unexpected{std::error_code{error, std::system_category()}};
+        }
+    }
+    else {
+        const auto expected = []<std::invocable F>(F &&f) -> std::expected<void, std::error_code> {
+            static_assert(std::is_same_v<std::invoke_result_t<F>, int>);
+            const auto result = std::invoke(std::forward<F>(f));
+
+            if (result != 0)
+                return std::unexpected{std::error_code{result, std::generic_category()}};
+
+            return {};
+        };
+
+        posix_spawn_file_actions_t actions{};
+
+        error::guard(expected([&] {
+            return posix_spawn_file_actions_init(&actions);
+        }));
+
+        Z_DEFER(error::guard(expected([&] {
+            return posix_spawn_file_actions_destroy(&actions);
+        })));
+
+        for (int i{0}; i < 3; ++i) {
+            if (const auto &resource = resources[indexMapping[i]]) {
+                error::guard(expected([&] {
+                    return posix_spawn_file_actions_adddup2(&actions, resource->fd(), i);
+                }));
+            }
+#ifdef __APPLE__
+            else {
+                error::guard(expected([&] {
+                    return posix_spawn_file_actions_addinherit_np(&actions, i);
+                }));
+            }
+#endif
+        }
+
+        if (mCurrentDirectory) {
+#if (defined(__ANDROID__) && __ANDROID_API__ < 34) || defined(__OHOS__)
+            static const auto posix_spawn_file_actions_addchdir_np = reinterpret_cast<
+                int (*)(posix_spawn_file_actions_t *, const char *)
+            >(
+                dlsym(RTLD_DEFAULT, "posix_spawn_file_actions_addchdir_np")
+            );
+
+            if (!posix_spawn_file_actions_addchdir_np)
+                throw error::StacktraceError<std::runtime_error>{
+                    "posix_spawn_file_actions_addchdir_np is not supported on this system"
+                };
+#endif
+            error::guard(expected([&] {
+                return posix_spawn_file_actions_addchdir_np(&actions, mCurrentDirectory->c_str());
+            }));
+        }
+
+        posix_spawnattr_t attr{};
+
+        error::guard(expected([&] {
+            return posix_spawnattr_init(&attr);
+        }));
+
+        Z_DEFER(error::guard(expected([&] {
+            return posix_spawnattr_destroy(&attr);
+        })));
+
+        {
+            sigset_t set{};
+
+            error::guard(expected([&] {
+                return sigfillset(&set);
+            }));
+
+            error::guard(expected([&] {
+                return posix_spawnattr_setsigdefault(&attr, &set);
+            }));
+        }
+
+        {
+            sigset_t set{};
+
+            error::guard(expected([&] {
+                return sigemptyset(&set);
+            }));
+
+            error::guard(expected([&] {
+                return posix_spawnattr_setsigmask(&attr, &set);
+            }));
+        }
+
+        if (mProcessGroup)
+            error::guard(expected([&] {
+                return posix_spawnattr_setpgroup(&attr, *mProcessGroup);
+            }));
+
+#ifdef __APPLE__
+        {
+            short flags = POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK;
+
+            if (mProcessGroup)
+                flags |= POSIX_SPAWN_SETPGROUP;
+
+            error::guard(expected([&] {
+                return posix_spawnattr_setflags(&attr, flags);
+            }));
+        }
+
+        for (const auto &resource: mInheritedResources) {
+            error::guard(expected([&] {
+                return posix_spawn_file_actions_addinherit_np(&actions, *resource);
+            }));
+        }
+#else
+        {
+            short flags = POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK;
+
+            if (mProcessGroup)
+                flags |= POSIX_SPAWN_SETPGROUP;
+
+            error::guard(expected([&] {
+                return posix_spawnattr_setflags(&attr, flags);
+            }));
+        }
+
+        // The program assumes that the file descriptor to be inherited is not set FD_CLOEXEC.
+        for (int fd{STDERR_FILENO + 1}; fd < fdLimit; ++fd) {
+            if (std::ranges::find_if(
+                mInheritedResources,
+                [=](const auto &resource) {
+                    return *resource == fd;
+                }
+            ) != mInheritedResources.end())
+                continue;
+
+            error::guard(expected([&] {
+                return posix_spawn_file_actions_addclose(&actions, fd);
+            }));
+        }
+#endif
+
+        Z_EXPECT(expected([&] {
+            return posix_spawnp(&pid, program.c_str(), &actions, &attr, argv.get(), envp.get());
+        }));
+    }
 
     auto process = open(pid);
 

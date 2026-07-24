@@ -18,8 +18,10 @@ namespace zero::os::process {
 #elifdef __APPLE__
 #include "resource.h"
 #include "macos/process.h"
+#include <sys/types.h>
 #elifdef __linux__
 #include "linux/process.h"
+#include <sys/types.h>
 #endif
 
 namespace zero::os::process {
@@ -162,7 +164,7 @@ namespace zero::os::process {
         static std::expected<PseudoConsole, std::error_code> make(short rows, short columns);
 
         void resize(short rows, short columns);
-        std::expected<ChildProcess, std::error_code> spawn(const Command &command);
+        std::expected<ChildProcess, std::error_code> spawn(Command command);
 
         IOResource &master();
 
@@ -312,6 +314,48 @@ namespace zero::os::process {
             self.mRawAttributes.emplace_back(attribute, value, size);
             return std::forward<Self>(self);
         }
+#else
+        template<meta::Mutable Self>
+        Self &&setSID(this Self &&self) {
+            self.mSetSID = true;
+            return std::forward<Self>(self);
+        }
+
+        template<meta::Mutable Self>
+        Self &&arg0(this Self &&self, std::string name) {
+            self.mArg0 = std::move(name);
+            return std::forward<Self>(self);
+        }
+
+        template<meta::Mutable Self>
+        Self &&processGroup(this Self &&self, const pid_t pgid) {
+            self.mProcessGroup = pgid;
+            return std::forward<Self>(self);
+        }
+
+        template<meta::Mutable Self>
+        Self &&uid(this Self &&self, const uid_t uid) {
+            self.mUID = uid;
+            return std::forward<Self>(self);
+        }
+
+        template<meta::Mutable Self>
+        Self &&gid(this Self &&self, const gid_t gid) {
+            self.mGID = gid;
+            return std::forward<Self>(self);
+        }
+
+        template<meta::Mutable Self>
+        Self &&groups(this Self &&self, std::vector<gid_t> groups) {
+            self.mGroups = std::move(groups);
+            return std::forward<Self>(self);
+        }
+
+        template<meta::Mutable Self>
+        Self &&preExec(this Self &&self, std::function<std::expected<void, std::error_code>()> f) {
+            self.mPreExec = std::move(f);
+            return std::forward<Self>(self);
+        }
 #endif
 
         [[nodiscard]] std::expected<ChildProcess, std::error_code>
@@ -330,9 +374,17 @@ namespace zero::os::process {
         std::array<std::optional<Stdio>, 3> mStdioTypes;
         std::vector<Resource> mInheritedResources;
 #ifdef _WIN32
-        DWORD mCreationFlags{};
+        DWORD mCreationFlags{0};
         std::optional<WORD> mShowWindow;
         std::vector<std::tuple<DWORD_PTR, PVOID, SIZE_T>> mRawAttributes;
+#else
+        bool mSetSID{false};
+        std::optional<std::string> mArg0;
+        std::optional<pid_t> mProcessGroup;
+        std::optional<uid_t> mUID;
+        std::optional<gid_t> mGID;
+        std::optional<std::vector<gid_t>> mGroups;
+        std::function<std::expected<void, std::error_code>()> mPreExec;
 #endif
 
         friend class PseudoConsole;
