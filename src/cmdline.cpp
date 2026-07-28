@@ -5,7 +5,8 @@
 #include <fmt/std.h>
 #include <fmt/ranges.h>
 
-zero::Cmdline::Cmdline() : mOptionals{{"help", '?', "Print help message", false}} {
+zero::Cmdline::Cmdline()
+    : mOptionals{{.name = "help", .shortName = '?', .desc = "Print help message", .value = false}} {
 }
 
 // ReSharper disable once CppDFALocalValueEscapesFunction

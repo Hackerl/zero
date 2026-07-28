@@ -10,7 +10,6 @@
 #include <array>
 #include <mach-o/dyld.h>
 #include <sys/param.h>
-#include <zero/expect.h>
 #include <zero/os/unix/error.h>
 #endif
 

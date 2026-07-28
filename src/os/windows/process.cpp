@@ -94,7 +94,7 @@ std::expected<DWORD, std::error_code> zero::os::windows::process::Process::ppid(
     }));
 
 #ifdef __MINGW32__
-    return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.InheritedFromUniqueProcessId));
+    return static_cast<DWORD>(info.InheritedFromUniqueProcessId);
 #else
     return static_cast<DWORD>(reinterpret_cast<std::uintptr_t>(info.Reserved3));
 #endif
@@ -289,8 +289,8 @@ std::expected<zero::os::windows::process::CPUTime, std::error_code> zero::os::wi
     }));
 
     return CPUTime{
-        static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
-        static_cast<double>(kernel.dwHighDateTime) * 429.4967296 + static_cast<double>(kernel.dwLowDateTime) * 1e-7,
+        .user = static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
+        .system = static_cast<double>(kernel.dwHighDateTime) * 429.4967296 + static_cast<double>(kernel.dwLowDateTime) * 1e-7,
     };
 }
 
@@ -303,8 +303,8 @@ zero::os::windows::process::Process::memory() const {
     }));
 
     return MemoryStat{
-        counters.WorkingSetSize,
-        counters.PagefileUsage
+        .rss = counters.WorkingSetSize,
+        .vms = counters.PagefileUsage
     };
 }
 
@@ -316,10 +316,10 @@ std::expected<zero::os::windows::process::IOStat, std::error_code> zero::os::win
     }));
 
     return IOStat{
-        counters.ReadOperationCount,
-        counters.ReadTransferCount,
-        counters.WriteOperationCount,
-        counters.WriteTransferCount
+        .readCount = counters.ReadOperationCount,
+        .readBytes = counters.ReadTransferCount,
+        .writeCount = counters.WriteOperationCount,
+        .writeBytes = counters.WriteTransferCount
     };
 }
 

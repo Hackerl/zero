@@ -44,54 +44,54 @@ namespace {
     };
 
     ThreadPool pool{ThreadNumber, ChannelCapacity};
-}
 
-template<typename T, typename E, typename U>
-zero::async::promise::Future<T, E> rejected(U &&error) {
-    auto [promise, future] = zero::async::promise::contract<T, E>(zero::async::promise::InlineExecutor::instance());
+    template<typename T, typename E, typename U>
+    zero::async::promise::Future<T, E> rejected(U &&error) {
+        auto [promise, future] = zero::async::promise::contract<T, E>(zero::async::promise::InlineExecutor::instance());
 
-    pool.post(
-        [
-            promise = std::make_shared<zero::async::promise::Promise<T, E>>(std::move(promise)),
-            error = std::forward<U>(error)
-        ] {
+        pool.post(
+            [
+                promise = std::make_shared<zero::async::promise::Promise<T, E>>(std::move(promise)),
+                error = std::forward<U>(error)
+            ] {
+                std::this_thread::yield();
+                promise->reject(error);
+            }
+        );
+
+        return std::move(future);
+    }
+
+    template<typename T, typename E>
+        requires std::is_void_v<T>
+    zero::async::promise::Future<T, E> resolved() {
+        auto [promise, future] = zero::async::promise::contract<T, E>(zero::async::promise::InlineExecutor::instance());
+
+        pool.post([promise = std::make_shared<zero::async::promise::Promise<T, E>>(std::move(promise))] {
             std::this_thread::yield();
-            promise->reject(error);
-        }
-    );
+            promise->resolve();
+        });
 
-    return std::move(future);
-}
+        return std::move(future);
+    }
 
-template<typename T, typename E>
-    requires std::is_void_v<T>
-zero::async::promise::Future<T, E> resolved() {
-    auto [promise, future] = zero::async::promise::contract<T, E>(zero::async::promise::InlineExecutor::instance());
+    template<typename T, typename E, typename U>
+        requires (!std::is_void_v<T>)
+    zero::async::promise::Future<T, E> resolved(U &&value) {
+        auto [promise, future] = zero::async::promise::contract<T, E>(zero::async::promise::InlineExecutor::instance());
 
-    pool.post([promise = std::make_shared<zero::async::promise::Promise<T, E>>(std::move(promise))] {
-        std::this_thread::yield();
-        promise->resolve();
-    });
+        pool.post(
+            [
+                promise = std::make_shared<zero::async::promise::Promise<T, E>>(std::move(promise)),
+                value = std::make_shared<std::decay_t<U>>(std::forward<U>(value))
+            ] {
+                std::this_thread::yield();
+                promise->resolve(std::move(*value));
+            }
+        );
 
-    return std::move(future);
-}
-
-template<typename T, typename E, typename U>
-    requires (!std::is_void_v<T>)
-zero::async::promise::Future<T, E> resolved(U &&value) {
-    auto [promise, future] = zero::async::promise::contract<T, E>(zero::async::promise::InlineExecutor::instance());
-
-    pool.post(
-        [
-            promise = std::make_shared<zero::async::promise::Promise<T, E>>(std::move(promise)),
-            value = std::make_shared<std::decay_t<U>>(std::forward<U>(value))
-        ] {
-            std::this_thread::yield();
-            promise->resolve(std::move(*value));
-        }
-    );
-
-    return std::move(future);
+        return std::move(future);
+    }
 }
 
 TEST_CASE("promise and future", "[async::promise]") {

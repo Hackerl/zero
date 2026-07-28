@@ -165,19 +165,19 @@ std::expected<std::chrono::system_clock::time_point, std::error_code> zero::os::
 
 std::expected<zero::os::process::CPUTime, std::error_code> zero::os::process::Process::cpu() const {
     return mImpl.cpu().transform([](const auto &cpu) {
-        return CPUTime{cpu.user, cpu.system};
+        return CPUTime{.user = cpu.user, .system = cpu.system};
     });
 }
 
 std::expected<zero::os::process::MemoryStat, std::error_code> zero::os::process::Process::memory() const {
     return mImpl.memory().transform([](const auto &memory) {
-        return MemoryStat{memory.rss, memory.vms};
+        return MemoryStat{.rss = memory.rss, .vms = memory.vms};
     });
 }
 
 std::expected<zero::os::process::IOStat, std::error_code> zero::os::process::Process::io() const {
     return mImpl.io().transform([](const auto &io) {
-        return IOStat{io.readBytes, io.writeBytes};
+        return IOStat{.readBytes = io.readBytes, .writeBytes = io.writeBytes};
     });
 }
 
@@ -331,7 +331,7 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
     HPCON hPC{};
 
     if (const auto result = createPseudoConsole(
-        {columns, rows},
+        {.X = columns, .Y = rows},
         inReader.fd(),
         outWriter.fd(),
         0,
@@ -341,8 +341,8 @@ zero::os::process::PseudoConsole::make(const short rows, const short columns) {
 
     return PseudoConsole{
         hPC,
-        Endpoint{std::move(outReader), std::move(inWriter)},
-        Endpoint{std::move(inReader), std::move(outWriter)}
+        Endpoint{.reader = std::move(outReader), .writer = std::move(inWriter)},
+        Endpoint{.reader = std::move(inReader), .writer = std::move(outWriter)}
     };
 }
 
@@ -353,7 +353,7 @@ void zero::os::process::PseudoConsole::close() {
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 void zero::os::process::PseudoConsole::resize(const short rows, const short columns) {
-    if (const auto result = resizePseudoConsole(mPC, {columns, rows}); result != S_OK)
+    if (const auto result = resizePseudoConsole(mPC, {.X = columns, .Y = rows}); result != S_OK)
         throw error::StacktraceError<std::system_error>{static_cast<windows::ResultHandle>(result)};
 }
 
@@ -1241,9 +1241,9 @@ zero::os::process::Command::output() const {
     }
 
     return Output{
-        child->wait(),
-        *std::move(out),
-        *std::move(err)
+        .status = child->wait(),
+        .out = *std::move(out),
+        .err = *std::move(err)
     };
 }
 

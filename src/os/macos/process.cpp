@@ -240,8 +240,8 @@ std::expected<zero::os::macos::process::CPUTime, std::error_code> zero::os::maco
     const auto scale = static_cast<double>(tb.numer) / static_cast<double>(tb.denom);
 
     return CPUTime{
-        static_cast<double>(info.pti_total_user) * scale / 1e9,
-        static_cast<double>(info.pti_total_system) * scale / 1e9
+        .user = static_cast<double>(info.pti_total_user) * scale / 1e9,
+        .system = static_cast<double>(info.pti_total_system) * scale / 1e9
     };
 }
 
@@ -253,9 +253,9 @@ zero::os::macos::process::Process::memory() const {
         return std::unexpected{std::error_code{errno, std::system_category()}};
 
     return MemoryStat{
-        info.pti_resident_size,
-        info.pti_virtual_size,
-        static_cast<std::uint64_t>(info.pti_pageins)
+        .rss = info.pti_resident_size,
+        .vms = info.pti_virtual_size,
+        .swap = static_cast<std::uint64_t>(info.pti_pageins)
     };
 }
 
@@ -267,8 +267,8 @@ zero::os::macos::process::Process::io() const {
         return std::unexpected{std::error_code{errno, std::system_category()}};
 
     return IOStat{
-        info.ri_diskio_bytesread,
-        info.ri_diskio_byteswritten
+        .readBytes = info.ri_diskio_bytesread,
+        .writeBytes = info.ri_diskio_byteswritten
     };
 }
 

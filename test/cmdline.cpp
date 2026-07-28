@@ -20,7 +20,10 @@ Config zero::scan(const std::string_view input) {
     if (tokens.size() != 2)
         throw std::invalid_argument{"Expected format 'username:password'"};
 
-    return Config{strings::trim(tokens[0]), strings::trim(tokens[1])};
+    return Config{
+        .username = strings::trim(tokens[0]),
+        .password = strings::trim(tokens[1])
+    };
 }
 
 TEST_CASE("positional command line arguments", "[cmdline]") {

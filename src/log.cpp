@@ -353,12 +353,12 @@ void zero::log::Logger::log(
 ) {
     if (const auto result = mChannel.first.send(
         {
-            level,
-            line,
-            filename,
-            std::chrono::system_clock::now(),
-            std::move(content),
-            tag
+            .level = level,
+            .line = line,
+            .filename = filename,
+            .timestamp = std::chrono::system_clock::now(),
+            .content = std::move(content),
+            .tag = tag
         },
         mSendTimeout
     ); !result) {

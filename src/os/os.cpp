@@ -1,5 +1,4 @@
 #include <zero/os/os.h>
-#include <zero/expect.h>
 #include <array>
 
 #ifdef _WIN32

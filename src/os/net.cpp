@@ -138,12 +138,12 @@ std::map<std::string, zero::os::net::Interface> zero::os::net::interfaces() {
         interfaces.emplace(
             name,
             Interface{
-                name,
-                {
+                .name = name,
+                .mac = {
                     reinterpret_cast<const std::byte *>(adapter->PhysicalAddress),
                     reinterpret_cast<const std::byte *>(adapter->PhysicalAddress) + adapter->PhysicalAddressLength
                 },
-                std::move(addresses)
+                .addresses = std::move(addresses)
             }
         );
     }

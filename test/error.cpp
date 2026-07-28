@@ -17,193 +17,217 @@ namespace {
     }
 }
 
-Z_DEFINE_ERROR_CODE(
-    ErrorCode,
-    "ErrorCode",
-    InvalidArgument, "invalid argument",
-    Timeout, "timeout"
-)
-
-Z_DECLARE_ERROR_CODE(ErrorCode)
-
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCode)
-
-Z_DEFINE_ERROR_CONDITION(
-    ErrorCondition,
-    "ErrorCondition",
-    InvalidArgument, "invalid argument",
-    Timeout, "timeout"
-)
-
-Z_DECLARE_ERROR_CONDITION(ErrorCondition)
-
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCondition)
-
-Z_DEFINE_ERROR_CODE_EX(
-    ErrorCodeEx,
-    "ErrorCodeEx",
-    InvalidArgument, "invalid argument", ErrorCondition::InvalidArgument,
-    Timeout, "timeout", ErrorCondition::Timeout
-)
-
-Z_DECLARE_ERROR_CODE(ErrorCodeEx)
-
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeEx)
-
-Z_DEFINE_ERROR_TRANSFORMER(
-    ErrorTransformer,
-    "ErrorTransformer",
-    stringify
-)
-
-Z_DECLARE_ERROR_CODE(ErrorTransformer)
-
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformer)
-
-Z_DEFINE_ERROR_TRANSFORMER_EX(
-    ErrorTransformerEx,
-    "ErrorTransformerEx",
-    stringify,
-    [](const int value) -> std::optional<std::error_condition> {
-        switch (value) {
-        case EINVAL:
-            return ErrorCondition::InvalidArgument;
-
-        case ETIMEDOUT:
-            return ErrorCondition::Timeout;
-
-        default:
-            return std::nullopt;
-        }
-    }
-)
-
-Z_DECLARE_ERROR_CODE(ErrorTransformerEx)
-
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerEx)
-
-Z_DEFINE_ERROR_CONDITION_EX(
-    ErrorConditionEx,
-    "ErrorConditionEx",
-    InvalidArgument,
-    "invalid argument",
-    [](const std::error_code &ec) {
-        return ec == ErrorCode::InvalidArgument ||
-            ec == ErrorCodeEx::InvalidArgument ||
-            ec == static_cast<ErrorTransformer>(EINVAL) ||
-            ec == static_cast<ErrorTransformerEx>(EINVAL);
-    },
-    Timeout,
-    "timeout",
-    [](const std::error_code &ec) {
-        return ec == ErrorCode::Timeout ||
-            ec == ErrorCodeEx::Timeout ||
-            ec == static_cast<ErrorTransformer>(ETIMEDOUT) ||
-            ec == static_cast<ErrorTransformerEx>(ETIMEDOUT);
-    }
-)
-
-Z_DECLARE_ERROR_CONDITION(ErrorConditionEx)
-
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionEx)
-
-struct ErrorCodeWrapper {
-    Z_DEFINE_ERROR_CODE_INNER(
+namespace {
+    Z_DEFINE_ERROR_CODE(
         ErrorCode,
         "ErrorCode",
         InvalidArgument, "invalid argument",
         Timeout, "timeout"
     )
-};
+}
 
-Z_DECLARE_ERROR_CODE(ErrorCodeWrapper::ErrorCode)
+Z_DECLARE_ERROR_CODE(ErrorCode)
 
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeWrapper::ErrorCode)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCode)
 
-struct ErrorConditionWrapper {
-    Z_DEFINE_ERROR_CONDITION_INNER(
+namespace {
+    Z_DEFINE_ERROR_CONDITION(
         ErrorCondition,
         "ErrorCondition",
         InvalidArgument, "invalid argument",
         Timeout, "timeout"
     )
-};
+}
 
-Z_DECLARE_ERROR_CONDITION(ErrorConditionWrapper::ErrorCondition)
+Z_DECLARE_ERROR_CONDITION(ErrorCondition)
 
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionWrapper::ErrorCondition)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCondition)
 
-struct ErrorCodeExWrapper {
-    Z_DEFINE_ERROR_CODE_INNER_EX(
+namespace {
+    Z_DEFINE_ERROR_CODE_EX(
         ErrorCodeEx,
         "ErrorCodeEx",
-        InvalidArgument, "invalid argument", ErrorConditionWrapper::ErrorCondition::InvalidArgument,
-        Timeout, "timeout", ErrorConditionWrapper::ErrorCondition::Timeout
+        InvalidArgument, "invalid argument", ErrorCondition::InvalidArgument,
+        Timeout, "timeout", ErrorCondition::Timeout
     )
-};
+}
 
-Z_DECLARE_ERROR_CODE(ErrorCodeExWrapper::ErrorCodeEx)
+Z_DECLARE_ERROR_CODE(ErrorCodeEx)
 
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeExWrapper::ErrorCodeEx)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeEx)
 
-struct ErrorTransformerWrapper {
-    Z_DEFINE_ERROR_TRANSFORMER_INNER(
+namespace {
+    Z_DEFINE_ERROR_TRANSFORMER(
         ErrorTransformer,
         "ErrorTransformer",
         stringify
     )
-};
+}
 
-Z_DECLARE_ERROR_CODE(ErrorTransformerWrapper::ErrorTransformer)
+Z_DECLARE_ERROR_CODE(ErrorTransformer)
 
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerWrapper::ErrorTransformer)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformer)
 
-struct ErrorTransformerExWrapper {
-    Z_DEFINE_ERROR_TRANSFORMER_INNER_EX(
+namespace {
+    Z_DEFINE_ERROR_TRANSFORMER_EX(
         ErrorTransformerEx,
         "ErrorTransformerEx",
         stringify,
         [](const int value) -> std::optional<std::error_condition> {
             switch (value) {
             case EINVAL:
-                return ErrorConditionWrapper::ErrorCondition::InvalidArgument;
+                return ErrorCondition::InvalidArgument;
 
             case ETIMEDOUT:
-                return ErrorConditionWrapper::ErrorCondition::Timeout;
+                return ErrorCondition::Timeout;
 
             default:
                 return std::nullopt;
             }
         }
     )
-};
+}
 
-Z_DECLARE_ERROR_CODE(ErrorTransformerExWrapper::ErrorTransformerEx)
+Z_DECLARE_ERROR_CODE(ErrorTransformerEx)
 
-Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerExWrapper::ErrorTransformerEx)
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerEx)
 
-struct ErrorConditionExWrapper {
-    Z_DEFINE_ERROR_CONDITION_INNER_EX(
+namespace {
+    Z_DEFINE_ERROR_CONDITION_EX(
         ErrorConditionEx,
         "ErrorConditionEx",
         InvalidArgument,
         "invalid argument",
         [](const std::error_code &ec) {
-            return ec == ErrorCodeWrapper::ErrorCode::InvalidArgument ||
-                ec == ErrorCodeExWrapper::ErrorCodeEx::InvalidArgument ||
-                ec == static_cast<ErrorTransformerWrapper::ErrorTransformer>(EINVAL) ||
-                ec == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(EINVAL);
+            return ec == ErrorCode::InvalidArgument ||
+                ec == ErrorCodeEx::InvalidArgument ||
+                ec == static_cast<ErrorTransformer>(EINVAL) ||
+                ec == static_cast<ErrorTransformerEx>(EINVAL);
         },
         Timeout,
         "timeout",
         [](const std::error_code &ec) {
-            return ec == ErrorCodeWrapper::ErrorCode::Timeout ||
-                ec == ErrorCodeExWrapper::ErrorCodeEx::Timeout ||
-                ec == static_cast<ErrorTransformerWrapper::ErrorTransformer>(ETIMEDOUT) ||
-                ec == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(ETIMEDOUT);
+            return ec == ErrorCode::Timeout ||
+                ec == ErrorCodeEx::Timeout ||
+                ec == static_cast<ErrorTransformer>(ETIMEDOUT) ||
+                ec == static_cast<ErrorTransformerEx>(ETIMEDOUT);
         }
     )
-};
+}
+
+Z_DECLARE_ERROR_CONDITION(ErrorConditionEx)
+
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionEx)
+
+namespace {
+    struct ErrorCodeWrapper {
+        Z_DEFINE_ERROR_CODE_INNER(
+            ErrorCode,
+            "ErrorCode",
+            InvalidArgument, "invalid argument",
+            Timeout, "timeout"
+        )
+    };
+}
+
+Z_DECLARE_ERROR_CODE(ErrorCodeWrapper::ErrorCode)
+
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeWrapper::ErrorCode)
+
+namespace {
+    struct ErrorConditionWrapper {
+        Z_DEFINE_ERROR_CONDITION_INNER(
+            ErrorCondition,
+            "ErrorCondition",
+            InvalidArgument, "invalid argument",
+            Timeout, "timeout"
+        )
+    };
+}
+
+Z_DECLARE_ERROR_CONDITION(ErrorConditionWrapper::ErrorCondition)
+
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorConditionWrapper::ErrorCondition)
+
+namespace {
+    struct ErrorCodeExWrapper {
+        Z_DEFINE_ERROR_CODE_INNER_EX(
+            ErrorCodeEx,
+            "ErrorCodeEx",
+            InvalidArgument, "invalid argument", ErrorConditionWrapper::ErrorCondition::InvalidArgument,
+            Timeout, "timeout", ErrorConditionWrapper::ErrorCondition::Timeout
+        )
+    };
+}
+
+Z_DECLARE_ERROR_CODE(ErrorCodeExWrapper::ErrorCodeEx)
+
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorCodeExWrapper::ErrorCodeEx)
+
+namespace {
+    struct ErrorTransformerWrapper {
+        Z_DEFINE_ERROR_TRANSFORMER_INNER(
+            ErrorTransformer,
+            "ErrorTransformer",
+            stringify
+        )
+    };
+}
+
+Z_DECLARE_ERROR_CODE(ErrorTransformerWrapper::ErrorTransformer)
+
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerWrapper::ErrorTransformer)
+
+namespace {
+    struct ErrorTransformerExWrapper {
+        Z_DEFINE_ERROR_TRANSFORMER_INNER_EX(
+            ErrorTransformerEx,
+            "ErrorTransformerEx",
+            stringify,
+            [](const int value) -> std::optional<std::error_condition> {
+                switch (value) {
+                case EINVAL:
+                    return ErrorConditionWrapper::ErrorCondition::InvalidArgument;
+
+                case ETIMEDOUT:
+                    return ErrorConditionWrapper::ErrorCondition::Timeout;
+
+                default:
+                    return std::nullopt;
+                }
+            }
+        )
+    };
+}
+
+Z_DECLARE_ERROR_CODE(ErrorTransformerExWrapper::ErrorTransformerEx)
+
+Z_DEFINE_ERROR_CATEGORY_INSTANCE(ErrorTransformerExWrapper::ErrorTransformerEx)
+
+namespace {
+    struct ErrorConditionExWrapper {
+        Z_DEFINE_ERROR_CONDITION_INNER_EX(
+            ErrorConditionEx,
+            "ErrorConditionEx",
+            InvalidArgument,
+            "invalid argument",
+            [](const std::error_code &ec) {
+                return ec == ErrorCodeWrapper::ErrorCode::InvalidArgument ||
+                    ec == ErrorCodeExWrapper::ErrorCodeEx::InvalidArgument ||
+                    ec == static_cast<ErrorTransformerWrapper::ErrorTransformer>(EINVAL) ||
+                    ec == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(EINVAL);
+            },
+            Timeout,
+            "timeout",
+            [](const std::error_code &ec) {
+                return ec == ErrorCodeWrapper::ErrorCode::Timeout ||
+                    ec == ErrorCodeExWrapper::ErrorCodeEx::Timeout ||
+                    ec == static_cast<ErrorTransformerWrapper::ErrorTransformer>(ETIMEDOUT) ||
+                    ec == static_cast<ErrorTransformerExWrapper::ErrorTransformerEx>(ETIMEDOUT);
+            }
+        )
+    };
+}
 
 Z_DECLARE_ERROR_CONDITION(ErrorConditionExWrapper::ErrorConditionEx)
 

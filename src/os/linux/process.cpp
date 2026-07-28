@@ -76,8 +76,8 @@ std::expected<zero::os::linux::process::CPUTime, std::error_code> zero::os::linu
     Z_EXPECT(stat);
 
     return CPUTime{
-        static_cast<double>(stat->userTime) / ticks,
-        static_cast<double>(stat->systemTime) / ticks
+        .user = static_cast<double>(stat->userTime) / ticks,
+        .system = static_cast<double>(stat->systemTime) / ticks
     };
 }
 
@@ -90,8 +90,8 @@ std::expected<zero::os::linux::process::MemoryStat, std::error_code> zero::os::l
     Z_EXPECT(statM);
 
     return MemoryStat{
-        statM->residentSetSize * pageSize,
-        statM->totalSize * pageSize
+        .rss = statM->residentSetSize * pageSize,
+        .vms = statM->totalSize * pageSize
     };
 }
 

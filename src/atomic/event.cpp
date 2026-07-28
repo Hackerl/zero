@@ -58,8 +58,8 @@ std::expected<void, std::error_code> zero::atomic::Event::wait(const std::option
 
         if (timeout)
             ts = {
-                static_cast<decltype(timespec::tv_sec)>(timeout->count() / 1000),
-                static_cast<decltype(timespec::tv_nsec)>(timeout->count() % 1000 * 1000000)
+                .tv_sec = static_cast<decltype(timespec::tv_sec)>(timeout->count() / 1000),
+                .tv_nsec = static_cast<decltype(timespec::tv_nsec)>(timeout->count() % 1000 * 1000000)
             };
 
         if (const auto result = os::unix::ensure([&] {

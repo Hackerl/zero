@@ -244,26 +244,26 @@ zero::os::linux::procfs::process::Process::statM() const {
         };
 
     return StatM{
-        error::guard(strings::toNumber<std::uint64_t>(tokens[0])),
-        error::guard(strings::toNumber<std::uint64_t>(tokens[1])),
-        error::guard(strings::toNumber<std::uint64_t>(tokens[2])),
-        error::guard(strings::toNumber<std::uint64_t>(tokens[3])),
-        error::guard(strings::toNumber<std::uint64_t>(tokens[4])),
-        error::guard(strings::toNumber<std::uint64_t>(tokens[5])),
-        error::guard(strings::toNumber<std::uint64_t>(tokens[6]))
+        .totalSize = error::guard(strings::toNumber<std::uint64_t>(tokens[0])),
+        .residentSetSize = error::guard(strings::toNumber<std::uint64_t>(tokens[1])),
+        .sharedPages = error::guard(strings::toNumber<std::uint64_t>(tokens[2])),
+        .textSegmentSize = error::guard(strings::toNumber<std::uint64_t>(tokens[3])),
+        .librarySize = error::guard(strings::toNumber<std::uint64_t>(tokens[4])),
+        .dataAndStackSize = error::guard(strings::toNumber<std::uint64_t>(tokens[5])),
+        .dirtyPages = error::guard(strings::toNumber<std::uint64_t>(tokens[6]))
     };
 }
 
-template<typename T>
-std::vector<T> parseNumbers(const std::string_view str) {
-    return zero::strings::split(str)
-        | std::views::transform([](const auto &token) {
-            return zero::error::guard(zero::strings::toNumber<T>(token));
-        })
-        | std::ranges::to<std::vector>();
-}
-
 namespace {
+    template<typename T>
+    std::vector<T> parseNumbers(const std::string_view str) {
+        return zero::strings::split(str)
+            | std::views::transform([](const auto &token) {
+                return zero::error::guard(zero::strings::toNumber<T>(token));
+            })
+            | std::ranges::to<std::vector>();
+    }
+
     std::vector<std::uint32_t> parseAllowed(const std::string_view str) {
         return zero::strings::split(str, ",")
             | std::views::transform([](const auto &token) {
@@ -271,33 +271,33 @@ namespace {
             })
             | std::ranges::to<std::vector>();
     }
-}
 
-std::vector<std::pair<std::uint32_t, std::uint32_t>>
-parseAllowedList(const std::string_view str) {
-    std::vector<std::pair<std::uint32_t, std::uint32_t>> result;
+    std::vector<std::pair<std::uint32_t, std::uint32_t>>
+    parseAllowedList(const std::string_view str) {
+        std::vector<std::pair<std::uint32_t, std::uint32_t>> result;
 
-    for (const auto &token: zero::strings::split(str, ",")) {
-        if (!token.contains('-')) {
-            const auto n = zero::error::guard(zero::strings::toNumber<std::uint32_t>(token));
-            result.emplace_back(n, n);
-            continue;
+        for (const auto &token: zero::strings::split(str, ",")) {
+            if (!token.contains('-')) {
+                const auto n = zero::error::guard(zero::strings::toNumber<std::uint32_t>(token));
+                result.emplace_back(n, n);
+                continue;
+            }
+
+            const auto tokens = zero::strings::split(token, "-", 1);
+
+            if (tokens.size() != 2)
+                throw zero::error::StacktraceError<std::runtime_error>{
+                    fmt::format("Malformed range in allowed list: '{}'", token)
+                };
+
+            result.emplace_back(
+                zero::error::guard(zero::strings::toNumber<std::uint32_t>(tokens[0])),
+                zero::error::guard(zero::strings::toNumber<std::uint32_t>(tokens[1]))
+            );
         }
 
-        const auto tokens = zero::strings::split(token, "-", 1);
-
-        if (tokens.size() != 2)
-            throw zero::error::StacktraceError<std::runtime_error>{
-                fmt::format("Malformed range in allowed list: '{}'", token)
-            };
-
-        result.emplace_back(
-            zero::error::guard(zero::strings::toNumber<std::uint32_t>(tokens[0])),
-            zero::error::guard(zero::strings::toNumber<std::uint32_t>(tokens[1]))
-        );
+        return result;
     }
-
-    return result;
 }
 
 std::expected<zero::os::linux::procfs::process::Status, std::error_code>

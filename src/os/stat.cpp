@@ -26,9 +26,9 @@ zero::os::stat::CPUTime zero::os::stat::cpu() {
     }));
 
     CPUTime time{
-        static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
-        static_cast<double>(kernel.dwHighDateTime) * 429.4967296 + static_cast<double>(kernel.dwLowDateTime) * 1e-7,
-        static_cast<double>(idle.dwHighDateTime) * 429.4967296 + static_cast<double>(idle.dwLowDateTime) * 1e-7,
+        .user = static_cast<double>(user.dwHighDateTime) * 429.4967296 + static_cast<double>(user.dwLowDateTime) * 1e-7,
+        .system = static_cast<double>(kernel.dwHighDateTime) * 429.4967296 + static_cast<double>(kernel.dwLowDateTime) * 1e-7,
+        .idle = static_cast<double>(idle.dwHighDateTime) * 429.4967296 + static_cast<double>(idle.dwLowDateTime) * 1e-7,
     };
 
     time.system = time.system - time.idle;
@@ -39,10 +39,10 @@ zero::os::stat::CPUTime zero::os::stat::cpu() {
         return sysconf(_SC_CLK_TCK);
     })));
 
-    return {
-        static_cast<double>(stat.total.user) / ticks,
-        static_cast<double>(stat.total.system) / ticks,
-        static_cast<double>(stat.total.idle) / ticks
+    return CPUTime{
+        .user = static_cast<double>(stat.total.user) / ticks,
+        .system = static_cast<double>(stat.total.system) / ticks,
+        .idle = static_cast<double>(stat.total.idle) / ticks
     };
 #elifdef __APPLE__
     host_cpu_load_info_data_t data{};
@@ -60,10 +60,10 @@ zero::os::stat::CPUTime zero::os::stat::cpu() {
         return sysconf(_SC_CLK_TCK);
     })));
 
-    return {
-        data.cpu_ticks[CPU_STATE_USER] / ticks,
-        data.cpu_ticks[CPU_STATE_SYSTEM] / ticks,
-        data.cpu_ticks[CPU_STATE_IDLE] / ticks
+    return CPUTime{
+        .user = data.cpu_ticks[CPU_STATE_USER] / ticks,
+        .system = data.cpu_ticks[CPU_STATE_SYSTEM] / ticks,
+        .idle = data.cpu_ticks[CPU_STATE_IDLE] / ticks
     };
 #endif
 }
@@ -77,12 +77,12 @@ zero::os::stat::MemoryStat zero::os::stat::memory() {
         return GlobalMemoryStatusEx(&status);
     }));
 
-    return {
-        status.ullTotalPhys,
-        status.ullTotalPhys - status.ullAvailPhys,
-        status.ullAvailPhys,
-        status.ullAvailPhys,
-        static_cast<double>(status.dwMemoryLoad)
+    return MemoryStat{
+        .total = status.ullTotalPhys,
+        .used = status.ullTotalPhys - status.ullAvailPhys,
+        .available = status.ullAvailPhys,
+        .free = status.ullAvailPhys,
+        .usedPercent = static_cast<double>(status.dwMemoryLoad)
     };
 #elifdef __linux__
     const auto memory = linux::procfs::memory();
