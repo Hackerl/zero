@@ -17,7 +17,7 @@ TEST_CASE("logger", "[log]") {
     };
 
     const auto level = GENERATE_REF(from_range(levels));
-    const auto line = GENERATE(take(1, random(0u, 102400u)));
+    const auto line = GENERATE(take(1, random(0, 102400)));
     const auto filename = GENERATE("a", "b", "c", "d");
     const auto content = GENERATE(take(1, randomString(1, 102400)));
 

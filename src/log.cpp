@@ -347,7 +347,7 @@ void zero::log::Logger::setFlushInterval(const std::string_view name, const std:
 void zero::log::Logger::log(
     const Level level,
     const std::string_view filename,
-    const unsigned int line,
+    const int line,
     std::string content,
     const std::optional<std::string_view> &tag
 ) {

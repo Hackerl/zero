@@ -23,7 +23,7 @@ namespace zero::log {
 
     struct Record {
         Level level{};
-        unsigned int line{};
+        int line{};
         std::string_view filename;
         std::chrono::system_clock::time_point timestamp;
         std::string content;
@@ -113,7 +113,7 @@ namespace zero::log {
         void log(
             Level level,
             std::string_view filename,
-            unsigned int line,
+            int line,
             std::string content,
             const std::optional<std::string_view> &tag = std::nullopt
         );
