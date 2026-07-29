@@ -28,14 +28,14 @@ zero::encoding::hex::decode(const std::string_view encoded) {
 
     // Waiting for libc++ to implement std::ranges::views::chunk
     for (std::size_t i{0}; i < encoded.size(); i += 2) {
-        const auto n = strings::toNumber<unsigned int>({encoded.data() + i, 2}, 16);
+        const auto n = strings::toNumber<unsigned char>({encoded.data() + i, 2}, 16);
 
         if (!n) {
             assert(n.error() == std::errc::invalid_argument);
             return std::unexpected{DecodeError::InvalidHexCharacter};
         }
 
-        data.push_back(static_cast<std::byte>(*n & 0xff));
+        data.push_back(static_cast<std::byte>(*n));
     }
 
     return data;
