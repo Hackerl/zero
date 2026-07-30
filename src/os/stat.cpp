@@ -1,6 +1,5 @@
 #include <zero/os/stat.h>
 #include <zero/error.h>
-#include <zero/expect.h>
 
 #ifdef _WIN32
 #include <windows.h>

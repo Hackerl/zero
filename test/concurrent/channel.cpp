@@ -1,5 +1,4 @@
 #include <catch_extensions.h>
-#include <zero/expect.h>
 #include <zero/concurrent/channel.h>
 #include <future>
 
