@@ -36,7 +36,7 @@ namespace zero::os::unix {
     template<GeneralSystemAPI F>
     std::expected<std::invoke_result_t<F>, std::error_code> ensure(F &&f) {
         while (true) {
-            const auto result = expected(std::forward<F>(f));
+            const auto result = expected(f);
 
             if (result)
                 return *result;
