@@ -168,13 +168,11 @@ void zero::Cmdline::parse(const std::span<const std::string_view> arguments) {
         }
 
         if (argument.size() == 2) {
-            std::ranges::transform(
-                arguments.subspan(i + 1),
-                std::back_inserter(mRest),
-                [](const auto &arg) {
+            mRest = arguments.subspan(i + 1)
+                | std::views::transform([](const auto &arg) {
                     return std::string{arg};
-                }
-            );
+                })
+                | std::ranges::to<std::vector>();
             break;
         }
 

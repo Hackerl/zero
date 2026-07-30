@@ -829,14 +829,11 @@ zero::os::process::Command::spawn(const std::array<Stdio, 3> &defaultStdio) cons
         envs[key] = *value;
     }
 
-    std::vector<std::string> environment;
-    std::ranges::transform(
-        envs,
-        std::back_inserter(environment),
-        [](const auto &pair) {
+    auto environment = envs
+        | std::views::transform([](const auto &pair) {
             return fmt::format("{}={}", pair.first, pair.second);
-        }
-    );
+        })
+        | std::ranges::to<std::vector>();
 
     const auto argv = std::make_unique<char *[]>(arguments.size() + 1);
     const auto envp = std::make_unique<char *[]>(environment.size() + 1);
@@ -867,7 +864,7 @@ zero::os::process::Command::spawn(const std::array<Stdio, 3> &defaultStdio) cons
         fdLimit = FDScanLimit;
     }
 
-    fdLimit = std::min(static_cast<int>(fdLimit), FDScanLimit);
+    fdLimit = std::min<long>(fdLimit, FDScanLimit);
 
     pid_t pid{};
 
@@ -898,13 +895,19 @@ zero::os::process::Command::spawn(const std::array<Stdio, 3> &defaultStdio) cons
 
             guard(reader.close());
 
-            for (int n{1}; n < 32; ++n) {
+            struct sigaction sa{};
+
+            sa.sa_handler = SIG_DFL;
+            sigemptyset(&sa.sa_mask);
+            sa.sa_flags = 0;
+
+            for (int n{1}; n < NSIG; ++n) {
                 if (n == SIGKILL || n == SIGSTOP)
                     continue;
 
-                guard(unix::expected([&] {
-                    return signal(n, SIG_DFL);
-                }));
+                std::ignore = unix::expected([&] {
+                    return sigaction(n, &sa, nullptr);
+                });
             }
 
             if (mSetSID)
@@ -987,18 +990,20 @@ zero::os::process::Command::spawn(const std::array<Stdio, 3> &defaultStdio) cons
 
         error::guard(writer.close());
 
-        int error{};
+        int value{};
+        const auto result = reader.readExactly({reinterpret_cast<std::byte *>(&value), sizeof(value)});
 
-        if (const auto n = error::guard(reader.read({reinterpret_cast<std::byte *>(&error), sizeof(error)})); n != 0) {
-            assert(n == sizeof(int));
-
+        if (result) {
             const auto id = error::guard(unix::ensure([&] {
                 return waitpid(pid, nullptr, 0);
             }));
             assert(id == pid);
 
-            return std::unexpected{std::error_code{error, std::system_category()}};
+            return std::unexpected{std::error_code{value, std::system_category()}};
         }
+
+        if (const auto &error = result.error(); error != io::Error::UnexpectedEOF)
+            throw error::StacktraceError<std::system_error>{error};
     }
     else {
         const auto expected = []<std::invocable F>(F &&f) -> std::expected<void, std::error_code> {
