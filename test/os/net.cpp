@@ -51,7 +51,7 @@ TEST_CASE("list network interfaces", "[os::net]") {
     const auto result = zero::error::guard(
         zero::strings::decode(
             {reinterpret_cast<const char *>(output.out.data()), output.out.size()},
-            fmt::format("CP{}", GetACP())
+            fmt::format("CP{}", GetOEMCP())
         ).and_then([](const auto &s) {
             return zero::strings::encode(s);
         })
