@@ -116,7 +116,7 @@ TEST_CASE("operating system resource", "[os::resource]") {
     }
 
     SECTION("close") {
-        REQUIRE(resource.close());
+        REQUIRE_NOTHROW(resource.close());
         REQUIRE_FALSE(resource);
     }
 }

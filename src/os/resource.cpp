@@ -32,7 +32,7 @@ zero::os::Resource::~Resource() {
     if (!valid())
         return;
 
-    error::guard(close());
+    close();
 }
 
 zero::os::Resource zero::os::Resource::duplicateFrom(const Native native) {
@@ -136,12 +136,11 @@ zero::os::Resource::Native zero::os::Resource::release() {
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-std::expected<void, std::error_code> zero::os::Resource::close() {
+void zero::os::Resource::close() {
 #ifdef _WIN32
     error::guard(windows::expected([this] {
         return CloseHandle(std::exchange(mNative, INVALID_RESOURCE));
     }));
-    return {};
 #else
     error::guard(unix::expected([this] {
         return ::close(std::exchange(mNative, INVALID_RESOURCE));
@@ -151,8 +150,6 @@ std::expected<void, std::error_code> zero::os::Resource::close() {
 
         return {};
     }));
-
-    return {};
 #endif
 }
 
@@ -251,7 +248,8 @@ zero::os::IOResource::seek(const std::int64_t offset, const Whence whence) {
 }
 
 std::expected<void, std::error_code> zero::os::IOResource::close() {
-    return mResource.close();
+    mResource.close();
+    return {};
 }
 
 void zero::os::IOResource::setInheritable(const bool inheritable) {

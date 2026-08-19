@@ -29,7 +29,7 @@ namespace zero::os {
         void setInheritable(bool inheritable);
 
         [[nodiscard]] Native release();
-        std::expected<void, std::error_code> close();
+        void close();
 
     private:
         Native mNative;
