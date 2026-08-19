@@ -2,7 +2,7 @@
 
 一个跨平台的 C++23 工具库，为系统编程提供基础构建模块：异步/Promise 原语、无锁数据结构、线程安全的 Channel、OS 抽象、I/O 接口、日志、错误处理、编解码等。
 
-**版本：** 1.2.0 | **语言标准：** C++23 | **许可证：** 见 [LICENSE](LICENSE)
+**版本：** 1.3.0 | **语言标准：** C++23 | **许可证：** 见 [LICENSE](LICENSE)
 
 [English Documentation](README.md)
 

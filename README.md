@@ -2,7 +2,7 @@
 
 A cross-platform C++23 utility library providing foundational building blocks for systems programming: async/promise primitives, lock-free data structures, thread-safe channels, OS abstractions, I/O interfaces, logging, error handling, encoding, and more.
 
-**Version:** 1.2.0 | **Language:** C++23 | **License:** See [LICENSE](LICENSE)
+**Version:** 1.3.0 | **Language:** C++23 | **License:** See [LICENSE](LICENSE)
 
 [中文文档](README.zh.md)
 
