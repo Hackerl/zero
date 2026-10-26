@@ -3,12 +3,10 @@
 
 #include <any>
 #include <memory>
-#include <ranges>
 #include <cassert>
 #include <utility>
 #include <optional>
 #include <stdexcept>
-#include <fmt/format.h>
 #include <zero/error.h>
 #include <zero/atomic/event.h>
 #include <zero/meta/concepts.h>

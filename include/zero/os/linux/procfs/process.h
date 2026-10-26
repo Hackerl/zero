@@ -1,7 +1,6 @@
 #ifndef ZERO_OS_LINUX_PROCFS_PROCESS_H
 #define ZERO_OS_LINUX_PROCFS_PROCESS_H
 
-#include <map>
 #include <list>
 #include <array>
 #include <bitset>

@@ -3,7 +3,6 @@
 
 #include <optional>
 #include <windows.h>
-#include <fmt/format.h>
 #include <zero/error.h>
 
 namespace zero::os::windows {

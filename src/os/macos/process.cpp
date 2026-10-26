@@ -3,7 +3,6 @@
 #include <zero/os/unix/error.h>
 #include <zero/strings.h>
 #include <zero/expect.h>
-#include <fmt/format.h>
 #include <mach/mach_time.h>
 #include <sys/sysctl.h>
 #include <libproc.h>

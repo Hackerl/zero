@@ -17,10 +17,8 @@ zero::os::process::ID zero::os::process::currentProcessID() {
 #include <zero/expect.h>
 #include <zero/defer.h>
 #include <zero/env.h>
-#include <fmt/ranges.h>
 #include <algorithm>
 #include <cassert>
-#include <ranges>
 #include <future>
 
 #ifdef _WIN32

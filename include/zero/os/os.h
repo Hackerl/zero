@@ -2,7 +2,6 @@
 #define ZERO_OS_H
 
 #include "resource.h"
-#include <zero/error.h>
 
 namespace zero::os {
     std::string hostname();

@@ -3,8 +3,6 @@
 #include <zero/error.h>
 #include <zero/strings.h>
 #include <zero/filesystem.h>
-#include <fmt/format.h>
-#include <map>
 
 namespace {
     zero::os::linux::procfs::CPUTime parseCPUTime(const std::string_view str) {

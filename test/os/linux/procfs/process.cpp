@@ -3,7 +3,6 @@
 #include <zero/filesystem.h>
 #include <zero/os/unix/error.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
-#include <ranges>
 #include <unistd.h>
 
 TEST_CASE("list process ids - procfs", "[os::linux::procfs::process]") {

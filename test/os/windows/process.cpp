@@ -3,7 +3,6 @@
 #include <zero/os/os.h>
 #include <zero/filesystem.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
-#include <ranges>
 
 TEST_CASE("list process ids - Windows", "[os::windows::process]") {
     REQUIRE_THAT(zero::os::windows::process::all(), Catch::Matchers::Contains(GetCurrentProcessId()));

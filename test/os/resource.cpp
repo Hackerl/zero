@@ -3,7 +3,6 @@
 #include <zero/filesystem.h>
 #include <zero/defer.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
-#include <ranges>
 
 #ifdef _WIN32
 #include <zero/os/windows/error.h>

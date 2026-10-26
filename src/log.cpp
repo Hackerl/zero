@@ -2,7 +2,6 @@
 #include <zero/env.h>
 #include <zero/strings.h>
 #include <zero/filesystem.h>
-#include <ranges>
 #include <algorithm>
 
 constexpr auto LoggerBufferSize = 1024;

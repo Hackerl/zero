@@ -5,7 +5,6 @@
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <unistd.h>
 #include <csignal>
-#include <ranges>
 
 TEST_CASE("list process ids - Linux", "[os::linux::process]") {
     REQUIRE_THAT(zero::os::linux::process::all(), Catch::Matchers::Contains(getpid()));

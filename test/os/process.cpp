@@ -6,7 +6,6 @@
 #include <zero/strings.h>
 #include <zero/filesystem.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
-#include <ranges>
 #include <future>
 
 #ifndef _WIN32

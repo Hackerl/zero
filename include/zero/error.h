@@ -1,18 +1,18 @@
 #ifndef ZERO_ERROR_H
 #define ZERO_ERROR_H
 
+#include <map>
 #include <array>
+#include <ranges>
 #include <utility>
 #include <expected>
 #include <exception>
 #include <functional>
 #include <system_error>
+#include <fmt/ranges.h>
 
 #if __has_include(<stacktrace>)
 #include <stacktrace>
-#if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
-#include <fmt/format.h>
-#endif
 #endif
 
 /*
@@ -656,9 +656,13 @@ namespace zero::error {
 namespace zero::error {
 #if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
     template<std::derived_from<std::exception> T>
-    class StacktraceError final : public T {
+    class StacktraceError : public T {
     public:
         template<typename... Args>
+            requires (
+                std::constructible_from<T, Args...> &&
+                !(sizeof...(Args) == 1 && (std::derived_from<std::remove_cvref_t<Args>, StacktraceError> && ...))
+            )
         explicit StacktraceError(Args &&... args)
             : T{std::forward<Args>(args)...},
               mMessage{fmt::format("{} {}", T::what(), std::to_string(std::stacktrace::current(1)))} {
@@ -676,10 +680,64 @@ namespace zero::error {
     using StacktraceError = T;
 #endif
 
-    template<typename T, std::convertible_to<std::error_code> E>
-    T guard(std::expected<T, E> &&expected) {
-        if (!expected)
-            throw StacktraceError<std::system_error>{expected.error()};
+    template<std::derived_from<std::exception> T>
+    class ErrorWithContext : public T {
+    public:
+        template<typename... Args>
+        explicit ErrorWithContext(Args &&... args)
+            requires (
+                std::constructible_from<T, Args...> &&
+                !(sizeof...(Args) == 1 && (std::derived_from<std::remove_cvref_t<Args>, ErrorWithContext> && ...))
+            )
+            : T{std::forward<Args>(args)...}, mMessage{T::what()} {
+        }
+
+        [[nodiscard]] const char *what() const noexcept override {
+            return mMessage.c_str();
+        }
+
+        template<fmt::formattable V, typename... Rest>
+        ErrorWithContext &with(std::string key, const V &value, Rest &&... rest) {
+            mContext[std::move(key)] = fmt::to_string(value);
+
+            if constexpr (sizeof...(rest) > 0) {
+                with(std::forward<Rest>(rest)...);
+            }
+            else {
+                mMessage = fmt::format(
+                    "{} [{}]",
+                    T::what(),
+                    fmt::join(
+                        mContext | std::views::transform([](const auto &p) {
+                            return fmt::format("{}:{}", p.first, p.second);
+                        }),
+                        ", "
+                    )
+                );
+            }
+
+            return *this;
+        }
+
+        [[nodiscard]] const std::map<std::string, std::string> &context() const {
+            return mContext;
+        }
+
+    private:
+        std::string mMessage;
+        std::map<std::string, std::string> mContext;
+    };
+
+    template<typename T, std::convertible_to<std::error_code> E, typename... Args>
+    T guard(std::expected<T, E> &&expected, Args &&... args) {
+        if (!expected) {
+            if constexpr (sizeof...(args) > 0)
+                throw StacktraceError<ErrorWithContext<std::system_error>>{
+                    ErrorWithContext<std::system_error>{expected.error()}.with(std::forward<Args>(args)...)
+                };
+            else
+                throw StacktraceError<std::system_error>{expected.error()};
+        }
 
         if constexpr (std::is_void_v<T>)
             return;

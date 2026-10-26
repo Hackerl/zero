@@ -4,7 +4,6 @@
 #include <zero/defer.h>
 #include <zero/strings.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
-#include <ranges>
 #include <list>
 
 TEST_CASE("create path from UTF-8 string", "[filesystem]") {

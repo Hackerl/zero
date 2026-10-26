@@ -6,7 +6,6 @@
 #include <zero/atomic/event.h>
 #include <catch2/matchers/catch_matchers_all.hpp>
 #include <fakeit.hpp>
-#include <ranges>
 
 TEST_CASE("logger", "[log]") {
     constexpr std::array levels{

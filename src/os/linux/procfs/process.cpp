@@ -6,8 +6,6 @@
 #include <zero/filesystem.h>
 #include <zero/defer.h>
 #include <zero/expect.h>
-#include <fmt/format.h>
-#include <ranges>
 #include <climits>
 #include <dirent.h>
 #include <fcntl.h>
